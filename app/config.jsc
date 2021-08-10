@@ -5,24 +5,11 @@ import "../tools/cjing_build/config_base.jsc"
     jcs_def :
     {
         cjing_build_dir : "../tools/cjing_build",
-        assets_dir : "../assets",
-    },
-
-    ///////////////////////////////////////////////////////////////////
-    // base
-    base :
-    {
-        // build config
-        build_config : 
-        {
-            build_cmd: "${cjing_build_dir}/cjing_build",
-            dest : "${assets_dir}"
-        },
     },
 
     ///////////////////////////////////////////////////////////////////
     // platform:win32
-    win32(base) :
+    win32 :
     {
         // source assets directory
         jcs_def : 
@@ -48,51 +35,13 @@ import "../tools/cjing_build/config_base.jsc"
             ]
         },  
 
-        // ispc compiler
-        ispc : {
-            type : none,
-        },
-
-        // shader compiler
-        shaders : {
-            type : none,
-            args : [
-                "-shader_platform hlsl",
-                "-shader_version 6_5",
-            ]
-        },
-
-        // dll
-        dlls : {
-            type : copy,
-            files : [
-                ["../3rdparty/shared_libs/win32", "bin/win32/${platforms}/Debug/"],
-                ["../3rdparty/shared_libs/win32", "bin/win32/${platforms}/Release/"],
-            ]
-        },
-
         // premake
         premake : {
             args : [
                 "%{vs_version}",   // To genenrate vs sln, the first param must is "vs_version"
                 "--env_dir=../",
-                "--work_dir=${assets_dir}",
-                "--renderer=dx11",
                 "--platform_dir=win32",
                 "--sdk_version=%{windows_sdk_version}",
-                "--build_app",     // create default app project
-                "--net_lib=asio",
-                "--build_tests",
-                // "--no_editor",  // does not create default editor project
-            ]
-        },
-
-        // copy
-        copy : {
-            type : none,
-            files : [
-                ["${assets_dir}", "bin/win32/${platforms}/Debug/data/"],
-                ["${assets_dir}", "bin/win32/${platforms}/Release/data/"],
             ]
         },
 
@@ -100,12 +49,5 @@ import "../tools/cjing_build/config_base.jsc"
         build : {
             type : none,
         },
-
-        // data dir
-        data_dir : {
-            type : datas,
-            Debug   : "bin/win32/${platforms}/Debug/data/",
-            Release : "bin/win32/${platforms}/Debug/data/",
-        }
     }
 }

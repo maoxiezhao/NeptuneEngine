@@ -1,0 +1,6 @@
+app/bin
+app/build
+
+# 3rdparty
+3rdparty/glfw/build
+3rdparty/glfw/lib

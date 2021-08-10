@@ -198,12 +198,12 @@ def task_run_clean(config, task_name):
     if "directories" in clean_task:
         for directory in clean_task["directories"]:
             print("clean directory:" + directory)
-            shutil.rmtree(clean_task)
+            shutil.rmtree(directory)
 
     if "files" in clean_task:
         for file in clean_task["files"]:
             print("clean file:" + file)
-            os.remove(clean_task)
+            os.remove(file)
 
 def task_run_shaders(config, task_name, args):
     if "shaders" not in config.keys():
@@ -416,11 +416,12 @@ def do_normal(profile_cfg, all_cfg, user_args):
 
     # 优先执行所有clean tasks
     if "-clean" in user_args:
-        for name, task in profile_cfg:
+          for task_name in profile_cfg.keys():
+            task = profile_cfg[task_name]
             if "type" not in task:
                 continue
             if task["type"] == "clean":
-                task_run_clean(profile_cfg, name)
+                task_run_clean(profile_cfg, "clean")
 
     # run tasks
     task_order = general_task_order(profile_cfg, "-all" in user_args)

@@ -1,3 +1,4 @@
+// 3rdparty building config
 {
     ///////////////////////////////////////////////////////////////////
     // common definitions
@@ -12,58 +13,38 @@
     {
         type : tools,
         jsc: "py -3 ${cjing_build_dir}/scripts/jsc.py",
-        premake: "${cjing_build_dir}/premake/premake5.exe",
-    },
-
-    ///////////////////////////////////////////////////////////////////
-    // base
-    base :
-    {
-        print_header : true,
-
-        // build config
-        build_config : {
-            build_cmd: "${cjing_build_dir}/cjing_build",
-        },
+        premake: "${cjing_build_dir}/bin/win32/premake5.exe",
     },
 
     ///////////////////////////////////////////////////////////////////
     // platform:win32
-    win32(base) :
+    //////////////////////////////////////////////////////////////////
+    // glfw
+    glfw-win32 :
     {
-        // source assets directory
-        jcs_def : 
-        {
-            platforms : "x64"
-        },
-
         // clean
         clean : {
             type: clean,
             directories : [
-                "build/win32",
-                "bin/win32"
+                "glfw/build/win32",
+                "glfw/bin/win32"
             ]
         },
 
-        // libs
-        libs : {
-            type : shell,
-            explicit: true,
-            commands : [
-                "cd ..\\3rdparty && .\\build_libs.cmd -win32"
-            ]
-        },  
-
-        // premake
         premake : {
             args : [
                 "%{vs_version}",   // To genenrate vs sln, the first param must is "vs_version"
                 "--env_dir=../",
-                "--work_dir=${assets_dir}",
                 "--platform_dir=win32",
                 "--sdk_version=%{windows_sdk_version}",
+                "--file=glfw/premake5.lua"
             ]
+        },
+        build : {
+            buildtool: "msbuild",
+            files : [
+                "glfw/build/win32/glfw_sln.sln"
+            ]       
         },
     }
 }

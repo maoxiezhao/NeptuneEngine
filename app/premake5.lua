@@ -1,7 +1,7 @@
 dofile("../tools/cjing_build/premake/options.lua")
 dofile("../tools/cjing_build/premake/globals.lua")
 dofile("../tools/cjing_build/premake/plugins.lua")
-dofile("../src/definitions.lua")
+dofile("../tools/cjing_build/premake/example_app.lua")
 
 app_name = "app"
 
@@ -32,5 +32,9 @@ solution ("VulkanTest")
     -- Reset the filter for other settings
     filter { }
     
--- engine lib project
-dofile "../src/project.lua"
+    create_example_app(
+        "app", 
+        "src", 
+        get_current_script_path(), 
+        "ConsoleApp"
+    )
