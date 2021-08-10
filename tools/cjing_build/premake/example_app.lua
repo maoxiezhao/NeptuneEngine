@@ -8,16 +8,6 @@ local function setup_platform()
     end 
 end 
 
-local function setup_third_modules()
-    -- glfw
-    libdirs {  "../3rdparty/glfw/lib/" .. platform_dir,  }
-    filter {"configurations:Debug"}
-        links {"glfw_lib_d"}
-    filter {"configurations:Release"}
-        links {"glfw_lib"}
-    filter {}
-end 
-
 local function link_plugins(plugins, config)
     if plugins == nil then 
         return
@@ -37,7 +27,7 @@ function get_current_script_path()
     return str:match("(.*/)")
 end
 
-function create_example_app(project_name, source_directory, root_directory, app_kind, plugins, extra_dependencies, ext_func)
+function create_example_app(project_name, source_directory, root_directory, app_kind, plugins, ext_func)
     print("[APP]", project_name)
 
     local project_dir = root_directory .. "/build/" .. platform_dir .. "/" .. project_name
@@ -79,9 +69,6 @@ function create_example_app(project_name, source_directory, root_directory, app_
             env_dir .. "assets/shaders", 
         }
 
-        -- 3rd library
-        setup_third_modules()
-
         -- Files
         files 
         { 
@@ -102,7 +89,7 @@ function create_example_app(project_name, source_directory, root_directory, app_
         debugdir (debug_dir)
 
         if ext_func ~= nil then 
-            ext_func()
+            ext_func(source_dir)
         end 
 
         --------------------------------------------------------------

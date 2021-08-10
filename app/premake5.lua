@@ -36,5 +36,44 @@ solution ("VulkanTest")
         "app", 
         "src", 
         get_current_script_path(), 
-        "ConsoleApp"
+        "ConsoleApp",
+        nil,
+        function(SOURCE_DIR)
+            -- vulkan
+            includedirs { "../3rdparty/vulkan/include" }
+            local vulkan_source_dir = "../3rdparty/vulkan/include/vulkan"
+            files 
+            {
+                vulkan_source_dir .. "/**.c",
+                vulkan_source_dir .. "/**.cpp",
+                vulkan_source_dir .. "/**.hpp",
+                vulkan_source_dir .. "/**.h",
+                vulkan_source_dir .. "/**.inl"
+            }
+            vpaths { 
+                [""] =  {
+                    SOURCE_DIR .. "/**.c",
+                    SOURCE_DIR .. "/**.cpp",
+                    SOURCE_DIR .. "/**.hpp",
+                    SOURCE_DIR .. "/**.h",
+                    SOURCE_DIR .. "/**.inl",
+                },
+                ["vulkan"] =  {
+                    vulkan_source_dir .. "/**.c",
+                    vulkan_source_dir .. "/**.cpp",
+                    vulkan_source_dir .. "/**.hpp",
+                    vulkan_source_dir .. "/**.h",
+                    vulkan_source_dir .. "/**.inl"
+                }
+            }
+
+            -- glfw
+            includedirs { "../3rdparty/glfw/include" }
+            libdirs {  "../3rdparty/glfw/lib/" .. platform_dir,  }
+            filter {"configurations:Debug"}
+                links {"glfw_lib_d"}
+            filter {"configurations:Release"}
+                links {"glfw_lib"}
+            filter {}
+        end
     )
