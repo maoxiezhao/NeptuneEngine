@@ -41,14 +41,19 @@ solution ("VulkanTest")
         function(SOURCE_DIR)
             -- vulkan
             includedirs { "../3rdparty/vulkan/include" }
-            local vulkan_source_dir = "../3rdparty/vulkan/include/vulkan"
+            local vulkan_dir = "../3rdparty/vulkan/include/vulkan"
             files 
             {
-                vulkan_source_dir .. "/**.c",
-                vulkan_source_dir .. "/**.cpp",
-                vulkan_source_dir .. "/**.hpp",
-                vulkan_source_dir .. "/**.h",
-                vulkan_source_dir .. "/**.inl"
+                vulkan_dir .. "/**.c",
+                vulkan_dir .. "/**.cpp",
+                vulkan_dir .. "/**.hpp",
+                vulkan_dir .. "/**.h",
+                vulkan_dir .. "/**.inl"
+            }
+            files 
+            {
+                "../3rdparty/volk/volk.h",
+                "../3rdparty/volk/volk.c"
             }
             vpaths { 
                 [""] =  {
@@ -59,11 +64,15 @@ solution ("VulkanTest")
                     SOURCE_DIR .. "/**.inl",
                 },
                 ["vulkan"] =  {
-                    vulkan_source_dir .. "/**.c",
-                    vulkan_source_dir .. "/**.cpp",
-                    vulkan_source_dir .. "/**.hpp",
-                    vulkan_source_dir .. "/**.h",
-                    vulkan_source_dir .. "/**.inl"
+                    vulkan_dir .. "/**.c",
+                    vulkan_dir .. "/**.cpp",
+                    vulkan_dir .. "/**.hpp",
+                    vulkan_dir .. "/**.h",
+                    vulkan_dir .. "/**.inl"
+                },
+                ["volk"] = {
+                    "../3rdparty/volk/volk.h",
+                    "../3rdparty/volk/volk.c"
                 }
             }
 
