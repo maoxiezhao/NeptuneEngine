@@ -20,9 +20,16 @@ class DeviceVulkan
 {
 private:
     VkInstance mVkInstanc;
-    VkDebugUtilsMessengerEXT debugUtilsMessenger = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT mDebugUtilsMessenger = VK_NULL_HANDLE;
     bool mIsDebugUtils = false;
     bool mIsDebugLayer = false;
+
+    VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
+    VkPhysicalDeviceProperties2 mProperties2 = {};
+    VkPhysicalDeviceVulkan11Properties mProperties_1_1 = {};
+    VkPhysicalDeviceVulkan12Properties mProperties_1_2 = {};
+
+    VkPhysicalDeviceFeatures2 mFeatures2 = {};
 
 public:
     DeviceVulkan(bool debugLayer) : mIsDebugLayer(debugLayer)
@@ -33,11 +40,11 @@ public:
         // app info
         VkApplicationInfo appInfo = {};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.pApplicationName = "Cjing3D App";
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.pEngineName = "No Engine";
+        appInfo.pEngineName = "Cjing3D Engine";
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_0;
+        appInfo.apiVersion = VK_API_VERSION_1_2;
 
         // enum available layers
         uint32_t layerCount;
@@ -53,6 +60,8 @@ public:
         res = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableInstanceExtensions.data());
         assert(res == VK_SUCCESS);
 
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
         // enum extension names
         std::vector<const char*> extensionNames;
         for (auto& instanceExtension : availableInstanceExtensions)
@@ -69,6 +78,8 @@ public:
         }
         extensionNames.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
         // enum layout instances
         std::vector<const char*> layoutInstances;
         if (debugLayer)
@@ -77,6 +88,8 @@ public:
             layoutInstances.insert(layoutInstances.end(), optimalValidationLyers.begin(), optimalValidationLyers.end());
         }
 
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
         // inst create info
         VkInstanceCreateInfo instCreateInfo = {};
         instCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -109,15 +122,44 @@ public:
         // create debug utils messager ext
         if (debugLayer && mIsDebugUtils)
         {
-            res = vkCreateDebugUtilsMessengerEXT(mVkInstanc, &debugUtilsCreateInfo, nullptr, &debugUtilsMessenger);
+            res = vkCreateDebugUtilsMessengerEXT(mVkInstanc, &debugUtilsCreateInfo, nullptr, &mDebugUtilsMessenger);
             assert(res == VK_SUCCESS);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // enum physical devices
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(mVkInstanc, &deviceCount, nullptr);
+        if (deviceCount == 0)
+        {
+            std::cout << "Failed to find gpus with vulkan support." << std::endl;
+            return;
+        }
+        std::vector<VkPhysicalDevice> devices(deviceCount);
+        vkEnumeratePhysicalDevices(mVkInstanc, &deviceCount, devices.data());
+
+        bool isBreak = false;
+        for (const auto& device : devices)
+        {
+            if (CheckPhysicalSuitable(device, isBreak))
+            {
+                mPhysicalDevice = device;
+                if (isBreak)
+                    break;
+            }
+        }
+
+        if (mPhysicalDevice == VK_NULL_HANDLE)
+        {
+            std::cout << "Failed to find a suitable GPU" << std::endl;
+            return;
         }
     }
 
     ~DeviceVulkan()
     {
-        if (debugUtilsMessenger != VK_NULL_HANDLE) {
-            vkDestroyDebugUtilsMessengerEXT(mVkInstanc, debugUtilsMessenger, nullptr);
+        if (mDebugUtilsMessenger != VK_NULL_HANDLE) {
+            vkDestroyDebugUtilsMessengerEXT(mVkInstanc, mDebugUtilsMessenger, nullptr);
         }
 
         vkDestroyInstance(mVkInstanc, nullptr);
@@ -131,6 +173,50 @@ private:
         return ret;
     }
 
+    bool CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak)
+    {
+        const std::vector<const char*> requiredDeviceExtensions = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME,
+        };
+
+        // 1. check device support required device extensions
+        uint32_t extensionCount;
+        VkResult res = vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+        assert(res == VK_SUCCESS);
+        std::vector<VkExtensionProperties> availableDeviceExtensions(extensionCount);
+        res = vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableDeviceExtensions.data());
+        assert(res == VK_SUCCESS);
+
+        for (auto& requiredExt : requiredDeviceExtensions)
+        {
+            if (!CheckExtensionSupport(requiredExt, availableDeviceExtensions))
+                return false;
+        }
+
+        // 2. check device properties
+        bool ret = mPhysicalDevice == VK_NULL_HANDLE;
+        vkGetPhysicalDeviceProperties2(device, &mProperties2);
+        if (mProperties2.properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
+            isBreak = true;
+            ret = true;
+        }
+
+        // 3. check device features
+        vkGetPhysicalDeviceFeatures2(mPhysicalDevice, &mFeatures2);
+
+        ret &= mFeatures2.features.imageCubeArray == VK_TRUE;
+        ret &= mFeatures2.features.independentBlend == VK_TRUE;
+        ret &= mFeatures2.features.geometryShader == VK_TRUE;
+        ret &= mFeatures2.features.samplerAnisotropy == VK_TRUE;
+        ret &= mFeatures2.features.shaderClipDistance == VK_TRUE;
+        ret &= mFeatures2.features.textureCompressionBC == VK_TRUE;
+        ret &= mFeatures2.features.occlusionQueryPrecise == VK_TRUE;
+
+        return ret;
+    }
+
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -139,6 +225,18 @@ private:
     {
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         return VK_FALSE;
+    }
+
+    bool CheckExtensionSupport(const char* checkExtension, const std::vector<VkExtensionProperties>& availableExtensions)
+    {
+        for (const auto& x : availableExtensions)
+        {
+            if (strcmp(x.extensionName, checkExtension) == 0)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 };
 
