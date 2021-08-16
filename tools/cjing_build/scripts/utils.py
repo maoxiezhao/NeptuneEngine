@@ -58,7 +58,7 @@ def walk_directory(dir_path):
     files_path_list = []
     for root, dirs, files in os.walk(dir_path):
         for file in files:
-            files_path_list.append(format_file_path(os.path.join(root, dirs)))
+            files_path_list.append(format_file_path(os.path.join(root, file)))
     return files_path_list
 
 def copy_file_or_create_dir(src_file, dst_file):
@@ -73,6 +73,7 @@ def copy_file_or_create_dir(src_file, dst_file):
         src_file = os.path.normpath(src_file)
         dst_file = os.path.normpath(dst_file)
         print("copy " + src_file + " to " + dst_file)
+        shutil.copyfile(src_file, dst_file);
         return True
     except Exception as e:
         print("error: failed to copy" + src_file)

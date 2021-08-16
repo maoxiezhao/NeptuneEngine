@@ -1,5 +1,19 @@
 
+
+// platform win32
+#ifdef CJING3D_PLATFORM_WIN32
+#include <SDKDDKVer.h>
+#include <windows.h>
+#include <tchar.h>
+#include <atlbase.h> // ComPtr
+
+#define CiLoadLibrary(name) LoadLibrary(_T(name))
+#define CiGetProcAddress(handle,name) GetProcAddress(handle, name)
+
 #define VK_USE_PLATFORM_WIN32_KHR
+#endif
+
+// vulkan
 #define VK_NO_PROTOTYPES
 #include "vulkan\vulkan.h"
 #include "volk\volk.h"
@@ -18,6 +32,13 @@ bool debugLayer = true;
 bool debugLayer = false;
 #endif
 
+#include "dxcompiler\inc\d3d12shader.h"
+#include "dxcompiler\inc\dxcapi.h"
+
+namespace {
+    CComPtr<IDxcCompiler3> dxcCompiler;
+}
+
 struct DeviceFeatures
 {
     bool SupportsSurfaceCapabilities2 = false;
@@ -25,12 +46,28 @@ struct DeviceFeatures
 
 struct Swapchain
 {
+    VkDevice& mDevice;
     VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
     VkSurfaceFormatKHR mFormat;
     VkExtent2D mSwapchainExtent;
     std::vector<VkImage> mImages;
+    std::vector<VkImageView> mImageViews;
     std::vector<VkSurfaceFormatKHR> mFormats;
     std::vector<VkPresentModeKHR> mPresentModes;
+
+    Swapchain(VkDevice& device) : mDevice(device)
+    {
+    }
+
+    ~Swapchain()
+    {
+        for (int i = 0; i < mImageViews.size(); i++)
+        {
+            vkDestroyImageView(mDevice, mImageViews[i], nullptr);
+        }
+
+        vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
+    }
 };
 
 class DeviceVulkan
@@ -62,7 +99,7 @@ private:
     VkQueue mCopyQueue = VK_NULL_HANDLE;
 
     VkSurfaceKHR mSurface;
-    Swapchain mSwapchain;
+    Swapchain* mSwapchain = nullptr;
 
 public:
     DeviceVulkan(GLFWwindow* window, bool debugLayer) :
@@ -293,7 +330,9 @@ public:
             vkDestroyDebugUtilsMessengerEXT(mVkInstanc, mDebugUtilsMessenger, nullptr);
         }
 
-        vkDestroySwapchainKHR(mDevice, mSwapchain.mSwapChain, nullptr);
+        if (mSwapchain != nullptr)
+            delete mSwapchain;
+
         vkDestroySurfaceKHR(mVkInstanc, mSurface, nullptr);
         vkDestroyDevice(mDevice, nullptr);
         vkDestroyInstance(mVkInstanc, nullptr);
@@ -304,6 +343,8 @@ private:
     {
         if (mSurface == VK_NULL_HANDLE)
             return false;
+
+        mSwapchain = new Swapchain(mDevice);
 
         // ??????????
         bool useSurfaceInfo = false; // mExtensionFeatures.SupportsSurfaceCapabilities2;
@@ -323,8 +364,8 @@ private:
 
             if (formatCount != 0)
             {
-                mSwapchain.mFormats.resize(formatCount);
-                res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, mSurface, &formatCount, mSwapchain.mFormats.data());
+                mSwapchain->mFormats.resize(formatCount);
+                res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, mSurface, &formatCount, mSwapchain->mFormats.data());
                 assert(res == VK_SUCCESS);
             }
 
@@ -334,14 +375,14 @@ private:
 
             if (presentModeCount != 0) 
             {
-                mSwapchain.mPresentModes.resize(presentModeCount);
-                vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, mSurface, &presentModeCount, mSwapchain.mPresentModes.data());
+                mSwapchain->mPresentModes.resize(presentModeCount);
+                vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, mSurface, &presentModeCount, mSwapchain->mPresentModes.data());
             }
 
             // find suitable surface format
             VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_UNDEFINED };
             VkFormat targetFormat = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
-            for (auto& format : mSwapchain.mFormats)
+            for (auto& format : mSwapchain->mFormats)
             {
                 if (format.format = targetFormat)
                 {
@@ -355,14 +396,14 @@ private:
                 std::cout << "Failed to find suitable surface format." << std::endl;
                 return false;
             }
-            mSwapchain.mFormat = surfaceFormat;
+            mSwapchain->mFormat = surfaceFormat;
 
             // find suitable present mode
             VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // 交换链是个队列，显示的时候从队列头拿一个图像，程序插入渲染的图像到队列尾。
             bool isVsync = true;                                              // 如果队列满了程序就要等待，这差不多像是垂直同步，显示刷新的时刻就是垂直空白
             if (!isVsync)
             {
-                for (auto& presentMode : mSwapchain.mPresentModes)
+                for (auto& presentMode : mSwapchain->mPresentModes)
                 {
                     if (presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
                     {
@@ -373,10 +414,10 @@ private:
             }
            
             // set swapchin extent
-            mSwapchain.mSwapchainExtent = { width, height };
-            mSwapchain.mSwapchainExtent.width = 
+            mSwapchain->mSwapchainExtent = { width, height };
+            mSwapchain->mSwapchainExtent.width = 
                 max(surfaceProperties.minImageExtent.width, min(surfaceProperties.maxImageExtent.width, width));
-            mSwapchain.mSwapchainExtent.height =
+            mSwapchain->mSwapchainExtent.height =
                 max(surfaceProperties.minImageExtent.height, min(surfaceProperties.maxImageExtent.height, height));
 
             // create swapchain
@@ -387,14 +428,14 @@ private:
                 desiredSwapchainImages = surfaceProperties.maxImageCount;
 
 
-            VkSwapchainKHR oldSwapchain = mSwapchain.mSwapChain;;
+            VkSwapchainKHR oldSwapchain = mSwapchain->mSwapChain;;
             VkSwapchainCreateInfoKHR createInfo = {};
             createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
             createInfo.surface = mSurface;
             createInfo.minImageCount = desiredSwapchainImages;
             createInfo.imageFormat = surfaceFormat.format;
             createInfo.imageColorSpace = surfaceFormat.colorSpace;
-            createInfo.imageExtent = mSwapchain.mSwapchainExtent;
+            createInfo.imageExtent = mSwapchain->mSwapchainExtent;
             createInfo.imageArrayLayers = 1;
             createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;            // 一个图像在某个时间点就只能被一个队列族占用，在被另一个队列族使用前，它的占用情况一定要显式地进行转移。该选择提供了最好的性能。
@@ -404,15 +445,44 @@ private:
             createInfo.clipped = VK_TRUE;
             createInfo.oldSwapchain = oldSwapchain;
 
-            res = vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapchain.mSwapChain);
+            res = vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapchain->mSwapChain);
             assert(res == VK_SUCCESS);
 
             uint32_t imageCount = 0;
-            res = vkGetSwapchainImagesKHR(mDevice, mSwapchain.mSwapChain, &imageCount, nullptr);
+            res = vkGetSwapchainImagesKHR(mDevice, mSwapchain->mSwapChain, &imageCount, nullptr);
             assert(res == VK_SUCCESS);
-            mSwapchain.mImages.resize(imageCount);
-            res = vkGetSwapchainImagesKHR(mDevice, mSwapchain.mSwapChain, &imageCount, mSwapchain.mImages.data());
+            mSwapchain->mImages.resize(imageCount);
+            res = vkGetSwapchainImagesKHR(mDevice, mSwapchain->mSwapChain, &imageCount, mSwapchain->mImages.data());
             assert(res == VK_SUCCESS);
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // create default render pass
+
+
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // create image views
+            mSwapchain->mImageViews.resize(mSwapchain->mImages.size());
+            for (int i = 0; i < mSwapchain->mImages.size(); i++)
+            {
+                VkImageViewCreateInfo createInfo = {};
+                createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+                createInfo.image = mSwapchain->mImages[i];
+                createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+                createInfo.format = mSwapchain->mFormat.format;
+                createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+                createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+                createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+                createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+                createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                createInfo.subresourceRange.baseMipLevel = 0;
+                createInfo.subresourceRange.levelCount = 1;
+                createInfo.subresourceRange.baseArrayLayer = 0;
+                createInfo.subresourceRange.layerCount = 1;
+
+                res = vkCreateImageView(mDevice, &createInfo, nullptr, &mSwapchain->mImageViews[i]);
+                assert(res == VK_SUCCESS);
+            }
         }
 
         return true;
@@ -572,6 +642,18 @@ private:
 
 int main()
 {
+    // init dxcompiler
+    HMODULE dxcompiler = CiLoadLibrary("dxcompiler.dll");
+    if (dxcompiler != nullptr)
+    {
+        DxcCreateInstanceProc DxcCreateInstance = (DxcCreateInstanceProc)CiGetProcAddress(dxcompiler, "DxcCreateInstance");
+        if (DxcCreateInstance != nullptr)
+        {
+            HRESULT hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler));
+            assert(SUCCEEDED(hr));
+        }
+    }
+
     // init glfw
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

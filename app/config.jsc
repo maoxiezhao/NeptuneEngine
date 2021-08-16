@@ -14,7 +14,7 @@ import "../tools/cjing_build/config_base.jsc"
         // source assets directory
         jcs_def : 
         {
-            platforms : "x64"
+            platforms : "win32"
         },
 
         // clean
@@ -48,6 +48,14 @@ import "../tools/cjing_build/config_base.jsc"
         // build
         build : {
             type : none,
+        },
+
+        // dll
+        dlls : {
+            type : copy,
+            files : [
+                ["../3rdparty/dxcompiler/bin/x64", "bin/win32"],
+            ]
         },
     }
 }
