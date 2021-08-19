@@ -39,6 +39,135 @@ namespace {
     CComPtr<IDxcCompiler3> dxcCompiler;
 }
 
+struct RenderPass
+{
+    VkRenderPass mRenderPass = VK_NULL_HANDLE;;
+};
+
+struct CommandList
+{
+    VkDevice& mDevice;
+    VkViewport mViewport;
+    VkRect2D mScissor;
+    VkPipeline mCurrentPipeline = VK_NULL_HANDLE;
+    RenderPass* mRenderPass = nullptr;
+    bool mIsDirtyPipeline = true;
+
+    CommandList(VkDevice& device) : mDevice(device)
+    {
+    }
+
+    ~CommandList()
+    {
+        if (mCurrentPipeline != VK_NULL_HANDLE)
+            vkDestroyPipeline(mDevice, mCurrentPipeline, nullptr);
+    }
+
+    bool FlushRenderState()
+    {
+        if (mCurrentPipeline == VK_NULL_HANDLE)
+            mIsDirtyPipeline = true;
+
+        if (mIsDirtyPipeline)
+        {
+            mIsDirtyPipeline = false;
+            VkPipeline oldPipeline = mCurrentPipeline;
+            if (!FlushGraphicsPipeline())
+                return false;
+
+            if (oldPipeline != mCurrentPipeline)
+            {
+                // bind pipeline
+                //vkCmdBindPipeline()
+            }
+        }
+
+        return true;
+    }
+
+    bool FlushGraphicsPipeline()
+    {
+        mCurrentPipeline = BuildGraphicsPipeline();
+        return mCurrentPipeline != VK_NULL_HANDLE;
+    }
+
+    VkPipeline BuildGraphicsPipeline()
+    {
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // view port
+        mViewport.x = 0;
+        mViewport.y = 0;
+        mViewport.width = 65535;
+        mViewport.height = 65535;
+        mViewport.minDepth = 0;
+        mViewport.maxDepth = 1;
+
+        mScissor.extent.width = 65535;
+        mScissor.extent.height = 65535;
+
+        VkPipelineViewportStateCreateInfo viewportState = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
+        viewportState.viewportCount = 1;
+        viewportState.pViewports = &mViewport;
+        viewportState.scissorCount = 1;
+        viewportState.pScissors = &mScissor;
+
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // dynamic state
+
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // blend state
+
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // depth state
+
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // vertex input
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+        std::vector<VkVertexInputBindingDescription> bindings;
+        std::vector<VkVertexInputAttributeDescription> attributes;
+
+        // attributes
+        VkVertexInputAttributeDescription& attr = attributes.emplace_back();
+        attr.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attr.location = 0;
+        attr.offset = 0;
+
+        // bindings
+        VkVertexInputBindingDescription& bind = bindings.emplace_back();
+        bind.binding = 0;
+        bind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        bind.stride = 0;
+
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size());
+        vertexInputInfo.pVertexBindingDescriptions = bindings.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
+        vertexInputInfo.pVertexAttributeDescriptions = attributes.data();
+
+        // input assembly
+        VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+        inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+        inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // raster
+
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // stages
+
+        VkPipeline retPipeline = VK_NULL_HANDLE;
+        VkGraphicsPipelineCreateInfo pipeCreateInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
+            
+
+        VkResult res = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipeCreateInfo, nullptr, &retPipeline);
+        if (res != VK_SUCCESS)
+        {
+            std::cout << "Failed to create graphics pipeline!" << std::endl;
+            return VK_NULL_HANDLE;
+        }
+        return retPipeline;
+    }
+};
+
 struct DeviceFeatures
 {
     bool SupportsSurfaceCapabilities2 = false;
@@ -54,6 +183,9 @@ struct Swapchain
     std::vector<VkImageView> mImageViews;
     std::vector<VkSurfaceFormatKHR> mFormats;
     std::vector<VkPresentModeKHR> mPresentModes;
+    RenderPass mDefaultRenderPass;
+    VkSemaphore mSwapchainAcquireSemaphore = VK_NULL_HANDLE;
+    VkSemaphore mSwapchainReleaseSemaphore = VK_NULL_HANDLE;
 
     Swapchain(VkDevice& device) : mDevice(device)
     {
@@ -66,6 +198,9 @@ struct Swapchain
             vkDestroyImageView(mDevice, mImageViews[i], nullptr);
         }
 
+        vkDestroySemaphore(mDevice, mSwapchainAcquireSemaphore, nullptr);
+        vkDestroySemaphore(mDevice, mSwapchainReleaseSemaphore, nullptr);
+        vkDestroyRenderPass(mDevice, mDefaultRenderPass.mRenderPass, nullptr);
         vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
     }
 };
@@ -457,8 +592,35 @@ private:
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             // create default render pass
+            // 对应于Swapchain image的颜色缓冲附件
+            VkAttachmentDescription colorAttachment = {};
+            colorAttachment.format = mSwapchain->mFormat.format;
+            colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+            VkAttachmentReference colorAttachmentRef = {};
+            colorAttachmentRef.attachment = 0;
+            colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+            VkSubpassDescription subpass = {};
+            subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+            subpass.colorAttachmentCount = 1;
+            subpass.pColorAttachments = &colorAttachmentRef;
+
+            VkRenderPassCreateInfo createRenderPassInfo = {};
+            createRenderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+            createRenderPassInfo.attachmentCount = 1;
+            createRenderPassInfo.pAttachments = &colorAttachment;
+            createRenderPassInfo.subpassCount = 1;
+            createRenderPassInfo.pSubpasses = &subpass;
+
+            res = vkCreateRenderPass(mDevice, &createRenderPassInfo, nullptr, &mSwapchain->mDefaultRenderPass.mRenderPass);
+            assert(res == VK_SUCCESS);
 
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             // create image views
@@ -481,6 +643,23 @@ private:
                 createInfo.subresourceRange.layerCount = 1;
 
                 res = vkCreateImageView(mDevice, &createInfo, nullptr, &mSwapchain->mImageViews[i]);
+                assert(res == VK_SUCCESS);
+            }
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // create semaphore
+            VkSemaphoreCreateInfo semaphoreInfo = {};
+            semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+            
+            if (mSwapchain->mSwapchainAcquireSemaphore == nullptr)
+            {
+                res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mSwapchain->mSwapchainAcquireSemaphore);
+                assert(res == VK_SUCCESS);
+            }
+
+            if (mSwapchain->mSwapchainReleaseSemaphore == nullptr)
+            {
+                res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mSwapchain->mSwapchainReleaseSemaphore);
                 assert(res == VK_SUCCESS);
             }
         }
