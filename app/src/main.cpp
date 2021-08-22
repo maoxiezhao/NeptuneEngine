@@ -35,13 +35,66 @@ bool debugLayer = false;
 #include "dxcompiler\inc\d3d12shader.h"
 #include "dxcompiler\inc\dxcapi.h"
 
+class DeviceVulkan;
+
 namespace {
     CComPtr<IDxcCompiler3> dxcCompiler;
 }
 
+enum class ShaderStage
+{
+    MS = 0,
+    AS,
+    VS,
+    HS,
+    DS,
+    GS,
+    PS,
+    CS,
+    LIB,
+    Count
+};
+
+struct PipelineLayout
+{
+    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+};
+
+struct Shader
+{
+    ShaderStage mShaderStage;
+    VkShaderModule mShaderModule = VK_NULL_HANDLE;
+};
+
+struct ShaderProgram
+{
+public:
+    PipelineLayout* GetPipelineLayout()const
+    {
+        return mPipelineLayout;
+    }
+
+    inline const Shader* GetShader(ShaderStage stage) const
+    {
+        return mShaders[UINT(stage)];
+    }
+
+private:
+    void SetShader(ShaderStage stage, Shader* handle);
+
+    DeviceVulkan* mDevice;
+    PipelineLayout* mPipelineLayout = nullptr;;
+    Shader* mShaders[UINT(ShaderStage::Count)] = {};
+};
+
 struct RenderPass
 {
-    VkRenderPass mRenderPass = VK_NULL_HANDLE;;
+    VkRenderPass mRenderPass = VK_NULL_HANDLE;
+};
+
+struct PipelineStateDesc
+{
+    ShaderProgram mShaderProgram;
 };
 
 struct CommandList
@@ -50,8 +103,12 @@ struct CommandList
     VkViewport mViewport;
     VkRect2D mScissor;
     VkPipeline mCurrentPipeline = VK_NULL_HANDLE;
+    VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;
+
     RenderPass* mRenderPass = nullptr;
     bool mIsDirtyPipeline = true;
+
+    PipelineStateDesc mPipelineStateDesc = {};
 
     CommandList(VkDevice& device) : mDevice(device)
     {
@@ -87,23 +144,23 @@ struct CommandList
 
     bool FlushGraphicsPipeline()
     {
-        mCurrentPipeline = BuildGraphicsPipeline();
+        mCurrentPipeline = BuildGraphicsPipeline(mPipelineStateDesc);
         return mCurrentPipeline != VK_NULL_HANDLE;
     }
 
-    VkPipeline BuildGraphicsPipeline()
+    VkPipeline BuildGraphicsPipeline(const PipelineStateDesc& pipelineStateDesc)
     {
         /////////////////////////////////////////////////////////////////////////////////////////
         // view port
         mViewport.x = 0;
         mViewport.y = 0;
-        mViewport.width = 65535;
-        mViewport.height = 65535;
+        mViewport.width = 800;
+        mViewport.height = 600;
         mViewport.minDepth = 0;
         mViewport.maxDepth = 1;
 
-        mScissor.extent.width = 65535;
-        mScissor.extent.height = 65535;
+        mScissor.extent.width = 800;
+        mScissor.extent.height = 600;
 
         VkPipelineViewportStateCreateInfo viewportState = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
         viewportState.viewportCount = 1;
@@ -113,12 +170,67 @@ struct CommandList
 
         /////////////////////////////////////////////////////////////////////////////////////////
         // dynamic state
+        VkPipelineDynamicStateCreateInfo dynamicState = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
+        dynamicState.dynamicStateCount = 2;
+        VkDynamicState states[7] = {
+            VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT,
+        };
+        dynamicState.pDynamicStates = states;
 
         /////////////////////////////////////////////////////////////////////////////////////////
         // blend state
+        VkPipelineColorBlendAttachmentState blendAttachments[8];
+        int attachmentCount = 1;
+        for (int i = 0; i < attachmentCount; i++)
+        {
+            VkPipelineColorBlendAttachmentState& attachment = blendAttachments[i];
+            attachment.blendEnable = VK_TRUE;
+            attachment.colorWriteMask |= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+            attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            attachment.colorBlendOp = VK_BLEND_OP_MAX;
+            attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+        }
+
+        VkPipelineColorBlendStateCreateInfo colorBlending = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
+        colorBlending.pAttachments = blendAttachments;
+        colorBlending.logicOpEnable = VK_FALSE;
+        colorBlending.logicOp = VK_LOGIC_OP_COPY;
+        colorBlending.attachmentCount = 1;
+        colorBlending.pAttachments = blendAttachments;
+        colorBlending.blendConstants[0] = 1.0f;
+        colorBlending.blendConstants[1] = 1.0f;
+        colorBlending.blendConstants[2] = 1.0f;
+        colorBlending.blendConstants[3] = 1.0f;
 
         /////////////////////////////////////////////////////////////////////////////////////////
         // depth state
+        VkPipelineDepthStencilStateCreateInfo depthstencil = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
+        depthstencil.depthTestEnable = VK_TRUE;
+        depthstencil.depthWriteEnable = VK_TRUE;
+        depthstencil.depthCompareOp = VK_COMPARE_OP_GREATER;
+        depthstencil.stencilTestEnable = VK_TRUE;
+
+        depthstencil.front.compareMask = 0;
+        depthstencil.front.writeMask = 0xFF;
+        depthstencil.front.reference = 0; // runtime supplied
+        depthstencil.front.compareOp = VK_COMPARE_OP_ALWAYS;
+        depthstencil.front.passOp = VK_STENCIL_OP_REPLACE;
+        depthstencil.front.failOp = VK_STENCIL_OP_KEEP;
+        depthstencil.front.depthFailOp = VK_STENCIL_OP_KEEP;
+
+        depthstencil.back.compareMask = 0;
+        depthstencil.back.writeMask = 0xFF;
+        depthstencil.back.reference = 0; // runtime supplied
+        depthstencil.back.compareOp = VK_COMPARE_OP_ALWAYS;
+        depthstencil.back.passOp = VK_STENCIL_OP_REPLACE;
+        depthstencil.back.failOp = VK_STENCIL_OP_KEEP;
+        depthstencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
+
+        depthstencil.depthBoundsTestEnable = VK_FALSE;
+   
 
         /////////////////////////////////////////////////////////////////////////////////////////
         // vertex input
@@ -150,15 +262,95 @@ struct CommandList
 
         /////////////////////////////////////////////////////////////////////////////////////////
         // raster
+        VkPipelineRasterizationStateCreateInfo rasterizer = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
+        rasterizer.depthClampEnable = VK_TRUE;
+        rasterizer.rasterizerDiscardEnable = VK_FALSE;
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizer.lineWidth = 1.0f;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
+        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizer.depthBiasEnable = VK_FALSE;
+        rasterizer.depthBiasConstantFactor = 0.0f;
+        rasterizer.depthBiasClamp = 0.0f;
+        rasterizer.depthBiasSlopeFactor = 0.0f;
+
+        /////////////////////////////////////////////////////////////////////////////////////////
+        // MSAA
+        VkPipelineMultisampleStateCreateInfo multisampling = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
+        multisampling.sampleShadingEnable = VK_FALSE;
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.minSampleShading = 1.0f;
+        multisampling.pSampleMask = nullptr;
+        multisampling.alphaToCoverageEnable = VK_FALSE;
+        multisampling.alphaToOneEnable = VK_FALSE;
+
 
         /////////////////////////////////////////////////////////////////////////////////////////
         // stages
+        VkPipelineShaderStageCreateInfo stages[static_cast<unsigned>(ShaderStage::Count)];
+        int stageCount = 0;
+
+        for (int i = 0; i < static_cast<unsigned>(ShaderStage::Count); i++)
+        {
+            ShaderStage shaderStage = static_cast<ShaderStage>(i);
+            if (pipelineStateDesc.mShaderProgram.GetShader(shaderStage))
+            {
+                VkPipelineShaderStageCreateInfo& stageCreateInfo = stages[stageCount++];
+                stageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+                stageCreateInfo.pName = "main";
+                stageCreateInfo.module = pipelineStateDesc.mShaderProgram.GetShader(shaderStage)->mShaderModule;
+
+                switch (shaderStage)
+                {
+                case ShaderStage::MS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_MESH_BIT_NV;
+                    break;
+                case ShaderStage::AS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_TASK_BIT_NV;
+                    break;
+                case ShaderStage::VS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+                    break;
+                case ShaderStage::HS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+                    break;
+                case ShaderStage::DS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+                    break;
+                case ShaderStage::GS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+                    break;
+                case ShaderStage::PS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+                    break;
+                case ShaderStage::CS:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+                    break;
+                default:
+                    stageCreateInfo.stage = VK_SHADER_STAGE_ALL;
+                    break;
+                }
+            }
+        }
 
         VkPipeline retPipeline = VK_NULL_HANDLE;
-        VkGraphicsPipelineCreateInfo pipeCreateInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-            
+        VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
+        pipelineInfo.layout = pipelineStateDesc.mShaderProgram.GetPipelineLayout()->mPipelineLayout;
+        pipelineInfo.renderPass = nullptr;
+        pipelineInfo.subpass = 0;
 
-        VkResult res = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipeCreateInfo, nullptr, &retPipeline);
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pDynamicState = &dynamicState;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDepthStencilState = &depthstencil;
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pStages = stages;
+        pipelineInfo.stageCount = stageCount;
+            
+        VkResult res = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &retPipeline);
         if (res != VK_SUCCESS)
         {
             std::cout << "Failed to create graphics pipeline!" << std::endl;
@@ -207,7 +399,7 @@ struct Swapchain
 
 class DeviceVulkan
 {
-private:
+public:
     GLFWwindow* mWindow;
     uint32_t mWidth = 0.0f;
     uint32_t mHeight = 0.0f;
@@ -816,8 +1008,17 @@ private:
         }
         return extensions;
     }
+
+ public:
+    bool CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader)
+    {
+        return false;
+    }
 };
 
+/////////////////////////////////////////////////////////////////////////////////////
+
+Shader testVertShader;
 
 int main()
 {
@@ -833,6 +1034,7 @@ int main()
         }
     }
 
+    ///////////////////////////////////////////////////////////////////////////////
     // init glfw
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -844,12 +1046,21 @@ int main()
     // init gpu
     DeviceVulkan* deviceVulkan = new DeviceVulkan(window, debugLayer);
     
+    // init test shader
+    deviceVulkan->CreateShader(ShaderStage::VS, nullptr, 0, &testVertShader);
+
+    //////////////////////////////////////////////////////////////////////////////
     // main loop
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
     }
 
+    //////////////////////////////////////////////////////////////////////////////
     // uninit
+
+    if (testVertShader.mShaderModule != VK_NULL_HANDLE)
+        vkDestroyShaderModule(deviceVulkan->mDevice, testVertShader.mShaderModule, nullptr);
+
     delete deviceVulkan;
 
     glfwDestroyWindow(window);
