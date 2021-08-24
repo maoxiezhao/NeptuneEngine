@@ -2,7 +2,8 @@
 
 #include "gpu.h"
 
-namespace Renderer
+namespace ShaderCompiler
 {
+	void Initialize();
 	bool LoadShader(ShaderStage stage, Shader& shader, const std::string& filePath);
 }

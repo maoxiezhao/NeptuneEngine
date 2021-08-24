@@ -14,16 +14,7 @@ Shader screenPS;
 int main()
 {
     // init dxcompiler
-    HMODULE dxcompiler = CiLoadLibrary("dxcompiler.dll");
-    if (dxcompiler != nullptr)
-    {
-        DxcCreateInstanceProc DxcCreateInstance = (DxcCreateInstanceProc)CiGetProcAddress(dxcompiler, "DxcCreateInstance");
-        if (DxcCreateInstance != nullptr)
-        {
-            HRESULT hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler));
-            assert(SUCCEEDED(hr));
-        }
-    }
+    ShaderCompiler::Initialize();
 
     ///////////////////////////////////////////////////////////////////////////////
     // init glfw
@@ -38,8 +29,8 @@ int main()
     DeviceVulkan* deviceVulkan = new DeviceVulkan(window, debugLayer);
     
     // init test shader
-    Renderer::LoadShader(ShaderStage::VS, screenVS, "screenVS.hlsl");
-    Renderer::LoadShader(ShaderStage::PS, screenPS, "screenPS.hlsl");
+    ShaderCompiler::LoadShader(ShaderStage::VS, screenVS, "screenVS.hlsl");
+    ShaderCompiler::LoadShader(ShaderStage::PS, screenPS, "screenPS.hlsl");
 
     //deviceVulkan->CreateShader(ShaderStage::VS, nullptr, 0, &testVertShader);
 

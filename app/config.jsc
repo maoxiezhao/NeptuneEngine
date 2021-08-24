@@ -5,6 +5,7 @@ import "../tools/cjing_build/config_base.jsc"
     jcs_def :
     {
         cjing_build_dir : "../tools/cjing_build",
+        assets_dir : "../assets",
     },
 
     ///////////////////////////////////////////////////////////////////
@@ -40,6 +41,7 @@ import "../tools/cjing_build/config_base.jsc"
             args : [
                 "%{vs_version}",   // To genenrate vs sln, the first param must is "vs_version"
                 "--env_dir=../",
+                "--work_dir=${assets_dir}",
                 "--platform_dir=win32",
                 "--sdk_version=%{windows_sdk_version}",
             ]
