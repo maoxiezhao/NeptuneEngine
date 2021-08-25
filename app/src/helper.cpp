@@ -11,6 +11,62 @@
 
 namespace Helper
 {
+	void DirectoryCreate(const std::string& path)
+	{
+		std::filesystem::create_directories(path);
+	}
+
+	void MakePathRelative(const std::string& rootdir, std::string& path)
+	{
+		if (rootdir.empty() || path.empty())
+		{
+			return;
+		}
+
+		std::filesystem::path filepath = path;
+		std::filesystem::path rootpath = rootdir;
+		std::filesystem::path relative = std::filesystem::relative(path, rootdir);
+		if (!relative.empty())
+		{
+			path = relative.string();
+		}
+	}
+
+	void MakePathAbsolute(std::string& path)
+	{
+		std::filesystem::path filepath = path;
+		std::filesystem::path absolute = std::filesystem::absolute(path);
+		if (!absolute.empty())
+			path = absolute.string();
+	}
+
+	void SplitPath(const std::string& fullPath, std::string& dir, std::string& fileName)
+	{
+		size_t found;
+		found = fullPath.find_last_of("/\\");
+		dir = fullPath.substr(0, found + 1);
+		fileName = fullPath.substr(found + 1);
+	}
+
+	std::string GetDirectoryFromPath(const std::string& path)
+	{
+		if (path.empty())
+			return path;
+
+		std::string ret, empty;
+		SplitPath(path, ret, empty);
+		return ret;
+	}
+
+	std::string ReplaceExtension(const std::string& filename, const std::string& extension)
+	{
+		size_t idx = filename.rfind('.');
+		if (idx != std::string::npos)
+			return filename.substr(0, idx + 1) + extension;
+
+		return filename;
+	}
+
 	bool FileRead(const std::string& fileName, std::vector<uint8_t>& data)
 	{
 		std::ifstream file(fileName, std::ios::binary | std::ios::ate);

@@ -29,8 +29,8 @@ int main()
     DeviceVulkan* deviceVulkan = new DeviceVulkan(window, debugLayer);
     
     // init test shader
-    ShaderCompiler::LoadShader(ShaderStage::VS, screenVS, "screenVS.hlsl");
-    ShaderCompiler::LoadShader(ShaderStage::PS, screenPS, "screenPS.hlsl");
+    ShaderCompiler::LoadShader(*deviceVulkan, ShaderStage::VS, screenVS, "screenVS.hlsl");
+    ShaderCompiler::LoadShader(*deviceVulkan, ShaderStage::PS, screenPS, "screenPS.hlsl");
 
     //deviceVulkan->CreateShader(ShaderStage::VS, nullptr, 0, &testVertShader);
 

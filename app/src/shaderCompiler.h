@@ -5,5 +5,5 @@
 namespace ShaderCompiler
 {
 	void Initialize();
-	bool LoadShader(ShaderStage stage, Shader& shader, const std::string& filePath);
+	bool LoadShader(DeviceVulkan& device, ShaderStage stage, Shader& shader, const std::string& filePath);
 }

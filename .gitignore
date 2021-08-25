@@ -7,3 +7,5 @@ app/build
 app/config_user.jsc
 tools/cjing_build/scripts/__pycache__/utils.cpython-39.pyc
 tools/cjing_build/scripts/__pycache__/jsc.cpython-39.pyc
+app/config_user.jsc
+tools/cjing_build/scripts/__pycache__/utils.cpython-39.pyc
