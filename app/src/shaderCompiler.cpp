@@ -122,7 +122,12 @@ namespace ShaderCompiler
 
 		bool Compile(const CompilerInput& input, CompilerOutput& output)
 		{
-			return false;
+			if (dxcCompiler == nullptr)
+				return false;
+
+
+
+			return true;
 		}
 	}
     

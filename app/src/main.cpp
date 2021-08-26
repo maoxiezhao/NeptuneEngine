@@ -1,5 +1,5 @@
 
-#include "gpu.h"
+#include "vulkan/gpu.h"
 #include "shaderCompiler.h"
 
 #ifdef DEBUG

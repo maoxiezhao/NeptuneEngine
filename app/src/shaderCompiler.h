@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gpu.h"
+#include "vulkan/gpu.h"
 
 namespace ShaderCompiler
 {

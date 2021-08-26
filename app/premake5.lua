@@ -41,40 +41,26 @@ solution ("VulkanTest")
         function(SOURCE_DIR)
             -- vulkan
             includedirs { "../3rdparty/vulkan/include" }
-            local vulkan_dir = "../3rdparty/vulkan/include/vulkan"
-            files 
-            {
-                vulkan_dir .. "/**.c",
-                vulkan_dir .. "/**.cpp",
-                vulkan_dir .. "/**.hpp",
-                vulkan_dir .. "/**.h",
-                vulkan_dir .. "/**.inl"
-            }
+            -- local vulkan_dir = "../3rdparty/vulkan/include/vulkan"
+            -- files 
+            -- {
+            --     vulkan_dir .. "/**.c",
+            --     vulkan_dir .. "/**.cpp",
+            --     vulkan_dir .. "/**.hpp",
+            --     vulkan_dir .. "/**.h",
+            --     vulkan_dir .. "/**.inl"
+            -- }
             files 
             {
                 "../3rdparty/volk/volk.h",
                 "../3rdparty/volk/volk.c"
             }
-            vpaths { 
-                [""] =  {
-                    SOURCE_DIR .. "/**.c",
-                    SOURCE_DIR .. "/**.cpp",
-                    SOURCE_DIR .. "/**.hpp",
-                    SOURCE_DIR .. "/**.h",
-                    SOURCE_DIR .. "/**.inl",
-                },
-                ["vulkan"] =  {
-                    vulkan_dir .. "/**.c",
-                    vulkan_dir .. "/**.cpp",
-                    vulkan_dir .. "/**.hpp",
-                    vulkan_dir .. "/**.h",
-                    vulkan_dir .. "/**.inl"
-                },
-                ["volk"] = {
-                    "../3rdparty/volk/volk.h",
-                    "../3rdparty/volk/volk.c"
-                }
-            }
+            -- vpaths { 
+            --     ["volk"] = {
+            --         "../3rdparty/volk/volk.h",
+            --         "../3rdparty/volk/volk.c"
+            --     }
+            -- }
 
             -- glfw
             includedirs { "../3rdparty/glfw/include" }
