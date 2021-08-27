@@ -1,5 +1,5 @@
 
-float4 mian(float4 pos : SV_POSITION) : SV_TARGET
+float4 main(float4 pos : SV_POSITION) : SV_TARGET
 {
     return float4(1.0f, 1.0f, 1.0f, 1.0f);
 }

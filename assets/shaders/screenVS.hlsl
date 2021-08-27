@@ -1,7 +1,7 @@
 
 struct Output
 {
-    float pos : SV_POSITION;
+    float4 pos : SV_POSITION;
 };
 
 inline void FullScreenTriangle(in uint vertexID, out float4 pos)

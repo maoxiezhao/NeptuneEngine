@@ -103,4 +103,44 @@ namespace Helper
 	{
 		return std::filesystem::exists(fileName);
 	}
+
+	void StringConvert(const std::string& from, std::wstring& to)
+	{
+#ifdef _WIN32
+		int num = MultiByteToWideChar(CP_UTF8, 0, from.c_str(), -1, NULL, 0);
+		if (num > 0)
+		{
+			to.resize(size_t(num) - 1);
+			MultiByteToWideChar(CP_UTF8, 0, from.c_str(), -1, &to[0], num);
+		}
+#else
+		to = std::wstring(from.begin(), from.end()); // TODO
+#endif // _WIN32
+	}
+
+	void StringConvert(const std::wstring& from, std::string& to)
+	{
+#ifdef _WIN32
+		int num = WideCharToMultiByte(CP_UTF8, 0, from.c_str(), -1, NULL, 0, NULL, NULL);
+		if (num > 0)
+		{
+			to.resize(size_t(num) - 1);
+			WideCharToMultiByte(CP_UTF8, 0, from.c_str(), -1, &to[0], num, NULL, NULL);
+		}
+#else
+		to = std::string(from.begin(), from.end()); // TODO
+#endif // _WIN32
+	}
+
+	std::string GetFileNameFromPath(const std::string& fullPath)
+	{
+		if (fullPath.empty())
+		{
+			return fullPath;
+		}
+
+		std::string ret, empty;
+		SplitPath(fullPath, empty, ret);
+		return ret;
+	}
 }

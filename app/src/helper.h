@@ -13,4 +13,7 @@ namespace Helper
 	bool FileRead(const std::string& fileName, std::vector<uint8_t>& data);
 	bool FileWrite(const std::string& fileName, const uint8_t* data, size_t size);
 	bool FileExists(const std::string& fileName);
+	void StringConvert(const std::string& from, std::wstring& to);
+	void StringConvert(const std::wstring& from, std::string& to);
+	std::string GetFileNameFromPath(const std::string& fullPath);
 }

@@ -5,7 +5,7 @@ app/build
 3rdparty/glfw/build
 3rdparty/glfw/lib
 app/config_user.jsc
-tools/cjing_build/scripts/__pycache__/utils.cpython-39.pyc
-tools/cjing_build/scripts/__pycache__/jsc.cpython-39.pyc
-app/config_user.jsc
-tools/cjing_build/scripts/__pycache__/utils.cpython-39.pyc
+tools/cjing_build/scripts/__pycache__
+
+# assets
+assets/.export
