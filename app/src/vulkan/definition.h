@@ -30,6 +30,15 @@ enum class ShaderStage
     Count
 };
 
+enum QueueIndices
+{
+    QUEUE_INDEX_GRAPHICS,
+    QUEUE_INDEX_COMPUTE,
+    QUEUE_INDEX_TRANSFER,
+    QUEUE_INDEX_VIDEO_DECODE,
+    QUEUE_INDEX_COUNT
+};
+
 class DeviceVulkan;
 
 struct PipelineLayout

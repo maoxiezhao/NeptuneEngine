@@ -1,55 +1,31 @@
 
 #include "vulkan/gpu.h"
 #include "shaderCompiler.h"
+#include "app.h"
 
-#ifdef DEBUG
-static bool debugLayer = true;
-#else
-static bool debugLayer = false;
-#endif
-
-Shader screenVS;
-Shader screenPS;
+#include <memory>
 
 int main()
 {
+    std::unique_ptr<App> app = std::make_unique<App>();
+    if (app == nullptr)
+        return 0;
+
     // init dxcompiler
     ShaderCompiler::Initialize();
 
-    ///////////////////////////////////////////////////////////////////////////////
-    // init glfw
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    
-    // create window
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan Test", nullptr, nullptr);
+    std::unique_ptr<Platform> platform = std::make_unique<Platform>();
+    if (!platform->Init(800, 600))
+        return 0;
 
-    // init gpu
-    DeviceVulkan* deviceVulkan = new DeviceVulkan(window, debugLayer);
-    
-    // init test shader
-    ShaderCompiler::LoadShader(*deviceVulkan, ShaderStage::VS, screenVS, "screenVS.hlsl");
-    ShaderCompiler::LoadShader(*deviceVulkan, ShaderStage::PS, screenPS, "screenPS.hlsl");
+    if (!app->Initialize(std::move(platform)))
+        return 0;
 
-    //deviceVulkan->CreateShader(ShaderStage::VS, nullptr, 0, &testVertShader);
+    while (app->Poll())
+        app->Tick();
 
-    //////////////////////////////////////////////////////////////////////////////
-    // main loop
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-    }
-
-    //////////////////////////////////////////////////////////////////////////////
-    // uninit
-
-    if (screenVS.mShaderModule != VK_NULL_HANDLE)
-        vkDestroyShaderModule(deviceVulkan->mDevice, screenVS.mShaderModule, nullptr);
-
-    delete deviceVulkan;
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    app->Uninitialize();
+    app.reset();
 
     return 0;
 }

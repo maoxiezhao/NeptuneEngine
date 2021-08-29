@@ -61,6 +61,15 @@ namespace
     }
 }
 
+CommandPool::CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex)
+{
+}
+
+CommandPool::~CommandPool()
+{
+}
+
+
 CommandList::CommandList(VkDevice& device) : mDevice(device)
 {
 }
@@ -524,12 +533,8 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
     vkGetDeviceQueue(mDevice, mCopyFamily, 0, &mCopyQueue);
 
     ///////////////////////////////////////////////////////////////////////////////////////////
-    // init swapchian
-    if (!InitSwapchain(mPhysicalDevice, mWidth, mHeight))
-    {
-        std::cout << "Failed to init swapchian." << std::endl;
-        return;
-    }
+    // create frame resources
+
 }
 
 DeviceVulkan::~DeviceVulkan()
@@ -546,7 +551,7 @@ DeviceVulkan::~DeviceVulkan()
     vkDestroyInstance(mVkInstanc, nullptr);
 }
 
-bool DeviceVulkan::InitSwapchain(VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height)
+bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
 {
     if (mSurface == VK_NULL_HANDLE)
         return false;
@@ -561,29 +566,29 @@ bool DeviceVulkan::InitSwapchain(VkPhysicalDevice physicalDevice, uint32_t width
     else
     {
         VkSurfaceCapabilitiesKHR surfaceProperties = {};
-        auto res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, mSurface, &surfaceProperties);
+        auto res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mPhysicalDevice, mSurface, &surfaceProperties);
         assert(res == VK_SUCCESS);
 
         // get surface formats
         uint32_t formatCount;
-        res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, mSurface, &formatCount, nullptr);
+        res = vkGetPhysicalDeviceSurfaceFormatsKHR(mPhysicalDevice, mSurface, &formatCount, nullptr);
         assert(res == VK_SUCCESS);
 
         if (formatCount != 0)
         {
             mSwapchain->mFormats.resize(formatCount);
-            res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, mSurface, &formatCount, mSwapchain->mFormats.data());
+            res = vkGetPhysicalDeviceSurfaceFormatsKHR(mPhysicalDevice, mSurface, &formatCount, mSwapchain->mFormats.data());
             assert(res == VK_SUCCESS);
         }
 
         // get present mode
         uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, mSurface, &presentModeCount, nullptr);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(mPhysicalDevice, mSurface, &presentModeCount, nullptr);
 
         if (presentModeCount != 0)
         {
             mSwapchain->mPresentModes.resize(presentModeCount);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, mSurface, &presentModeCount, mSwapchain->mPresentModes.data());
+            vkGetPhysicalDeviceSurfacePresentModesKHR(mPhysicalDevice, mSurface, &presentModeCount, mSwapchain->mPresentModes.data());
         }
 
         // find suitable surface format
@@ -697,6 +702,7 @@ bool DeviceVulkan::InitSwapchain(VkPhysicalDevice physicalDevice, uint32_t width
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // create image views
         mSwapchain->mImageViews.resize(mSwapchain->mImages.size());
+        mSwapchain->mFrameBuffers.resize(mSwapchain->mImages.size());
         for (int i = 0; i < mSwapchain->mImages.size(); i++)
         {
             VkImageViewCreateInfo createInfo = {};
@@ -715,6 +721,22 @@ bool DeviceVulkan::InitSwapchain(VkPhysicalDevice physicalDevice, uint32_t width
             createInfo.subresourceRange.layerCount = 1;
 
             res = vkCreateImageView(mDevice, &createInfo, nullptr, &mSwapchain->mImageViews[i]);
+            assert(res == VK_SUCCESS);
+
+            VkImageView attachments[] = {
+                mSwapchain->mImageViews[i]
+            };
+
+            VkFramebufferCreateInfo framebufferInfo = {};
+            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebufferInfo.renderPass = mSwapchain->mDefaultRenderPass.mRenderPass;
+            framebufferInfo.attachmentCount = 1;
+            framebufferInfo.pAttachments = attachments;
+            framebufferInfo.width = width;
+            framebufferInfo.height = height;
+            framebufferInfo.layers = 1;
+
+            res = vkCreateFramebuffer(mDevice, &framebufferInfo, nullptr, &mSwapchain->mFrameBuffers[i]);
             assert(res == VK_SUCCESS);
         }
 
@@ -822,5 +844,10 @@ std::vector<const char*> DeviceVulkan::GetRequiredExtensions()
 
 bool DeviceVulkan::CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader)
 {
-    return false;
+    VkShaderModuleCreateInfo moduleInfo = {};
+    moduleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    moduleInfo.codeSize = bytecodeLength;
+    moduleInfo.pCode = (const uint32_t*)pShaderBytecode;
+    VkResult res = vkCreateShaderModule(mDevice, &moduleInfo, nullptr, &shader->mShaderModule);
+    return res == VK_SUCCESS;
 }
