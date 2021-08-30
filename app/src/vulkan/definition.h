@@ -39,6 +39,13 @@ enum QueueIndices
     QUEUE_INDEX_COUNT
 };
 
+enum class QueueType
+{
+    GRAPHICS = QUEUE_INDEX_GRAPHICS,
+    Count
+};
+
+
 class DeviceVulkan;
 
 struct PipelineLayout
@@ -81,4 +88,9 @@ struct RenderPass
 struct PipelineStateDesc
 {
     ShaderProgram mShaderProgram;
+};
+
+struct RenderPassInfo
+{
+
 };

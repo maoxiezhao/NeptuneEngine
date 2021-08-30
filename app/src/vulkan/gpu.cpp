@@ -61,23 +61,73 @@ namespace
     }
 }
 
-CommandPool::CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex)
+CommandPool::CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex) :
+    mDevice(device)
 {
+    VkCommandPoolCreateInfo info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+    info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    info.queueFamilyIndex = queueFamilyIndex;
+
+    if (queueFamilyIndex != VK_QUEUE_FAMILY_IGNORED)
+    {
+        VkResult res = vkCreateCommandPool(device->mDevice, &info, nullptr, &mPool);
+        assert(res == VK_SUCCESS);
+    }
 }
 
 CommandPool::~CommandPool()
 {
+    if (!mBuffers.empty())
+        vkFreeCommandBuffers(mDevice->mDevice, mPool, (uint32_t)mBuffers.size(), mBuffers.data());
+
+    if (mPool != VK_NULL_HANDLE)
+        vkDestroyCommandPool(mDevice->mDevice, mPool, nullptr);
+}
+
+VkCommandBuffer CommandPool::RequestCommandBuffer()
+{
+    if (mUsedIndex < mBuffers.size())
+    {
+        return mBuffers[mUsedIndex++];
+    }
+
+    VkCommandBuffer cmd;
+    VkCommandBufferAllocateInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+    info.commandPool = mPool;
+    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    info.commandBufferCount = 1;
+
+    VkResult res = vkAllocateCommandBuffers(mDevice->mDevice, &info, &cmd);
+    assert(res == VK_SUCCESS);
+
+    mBuffers.push_back(cmd);
+    mUsedIndex++;
+
+    return cmd;
 }
 
 
-CommandList::CommandList(VkDevice& device) : mDevice(device)
+CommandList::CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type) :
+    mDevice(device),
+    mBuffer(buffer),
+    mType(type)
 {
 }
 
 CommandList::~CommandList()
 {
     if (mCurrentPipeline != VK_NULL_HANDLE)
-        vkDestroyPipeline(mDevice, mCurrentPipeline, nullptr);
+        vkDestroyPipeline(mDevice.mDevice, mCurrentPipeline, nullptr);
+}
+
+void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
+{
+    VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+    beginInfo.renderPass = mRenderPass->mRenderPass;
+}
+
+void CommandList::EndRenderPass()
+{
 }
 
 bool CommandList::FlushRenderState()
@@ -310,7 +360,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const PipelineStateDesc& pipelineS
     pipelineInfo.pStages = stages;
     pipelineInfo.stageCount = stageCount;
 
-    VkResult res = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &retPipeline);
+    VkResult res = vkCreateGraphicsPipelines(mDevice.mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &retPipeline);
     if (res != VK_SUCCESS)
     {
         std::cout << "Failed to create graphics pipeline!" << std::endl;
@@ -727,6 +777,7 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
                 mSwapchain->mImageViews[i]
             };
 
+            // 创建frameBuffer与ImageView一一对应
             VkFramebufferCreateInfo framebufferInfo = {};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
             framebufferInfo.renderPass = mSwapchain->mDefaultRenderPass.mRenderPass;
@@ -759,6 +810,27 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
     }
 
     return true;
+}
+
+CommandList* DeviceVulkan::RequestCommandList(QueueType queueType)
+{
+    CommandPool& pool = CurrentFrameResource().cmdPools[(int)queueType];
+    VkCommandBuffer buffer = pool.RequestCommandBuffer();
+    if (buffer == VK_NULL_HANDLE)
+        return nullptr;
+
+    VkCommandBufferBeginInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+    info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkResult res = vkBeginCommandBuffer(buffer, &info);
+    assert(res == VK_SUCCESS);
+
+    // 这里先简单使用ptr, 注意ptr的释放
+    return new CommandList(*this, buffer, queueType);
+}
+
+VkFramebuffer DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassInfo)
+{
+    return VK_NULL_HANDLE;
 }
 
 bool DeviceVulkan::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak)

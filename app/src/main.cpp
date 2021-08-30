@@ -1,9 +1,8 @@
 
+#include "common.h"
 #include "vulkan/gpu.h"
 #include "shaderCompiler.h"
 #include "app.h"
-
-#include <memory>
 
 int main()
 {

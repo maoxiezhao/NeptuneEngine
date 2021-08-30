@@ -1,15 +1,9 @@
 #pragma once
 
 #include "definition.h"
+#include "common.h"
 
-#include <iostream>
-#include <assert.h>
-#include <vector>
 #include <set>
-#include <math.h>
-
-#include "dxcompiler\inc\d3d12shader.h"
-#include "dxcompiler\inc\dxcapi.h"
 
 struct CommandPool
 {
@@ -20,28 +14,41 @@ public:
     CommandPool(const CommandPool& rhs) = delete;
     void operator=(const CommandPool& rhs) = delete;
 
+    VkCommandBuffer RequestCommandBuffer();
+
 private:
+    uint32_t mUsedIndex = 0;
+    DeviceVulkan* mDevice;
     VkCommandPool mPool = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> mBuffers;
 };
 
 struct CommandList
 {
 public:
-    VkDevice& mDevice;
     VkViewport mViewport;
     VkRect2D mScissor;
     VkPipeline mCurrentPipeline = VK_NULL_HANDLE;
     VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;
 
+    VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
     RenderPass* mRenderPass = nullptr;
     bool mIsDirtyPipeline = true;
-
     PipelineStateDesc mPipelineStateDesc = {};
+    
+
+    DeviceVulkan& mDevice;
+    VkCommandBuffer mBuffer;
+    QueueType mType;
 
 public:
-    CommandList(VkDevice& device);
+    CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type);
     ~CommandList();
 
+    void BeginRenderPass(const RenderPassInfo& renderPassInfo);
+    void EndRenderPass();
+
+private:
     bool FlushRenderState();
     bool FlushGraphicsPipeline();
     VkPipeline BuildGraphicsPipeline(const PipelineStateDesc& pipelineStateDesc);
@@ -89,6 +96,7 @@ struct Swapchain
 class DeviceVulkan
 {
 public:
+    // TODO: do it in wsi
     GLFWwindow* mWindow;
     uint32_t mWidth = 0;
     uint32_t mHeight = 0;
@@ -117,11 +125,19 @@ public:
     VkSurfaceKHR mSurface;
     Swapchain* mSwapchain = nullptr;
 
+    // per frame resource
     struct FrameResource
     {
         CommandPool cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
     };
     std::vector<FrameResource> mFrameResources;
+    uint32_t mFrameIndex = 0;
+
+    FrameResource& CurrentFrameResource()
+    {
+        assert(mFrameIndex < mFrameResources.size());
+        return mFrameResources[mFrameIndex];
+    }
 
 public:
     DeviceVulkan(GLFWwindow* window, bool debugLayer);
@@ -129,13 +145,17 @@ public:
 
     bool InitSwapchain(uint32_t width, uint32_t height);
     bool CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader);
+    CommandList* RequestCommandList(QueueType queueType);
+    VkFramebuffer RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
 
 private:
+    // initial methods
     bool CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak);
     bool CheckExtensionSupport(const char* checkExtension, const std::vector<VkExtensionProperties>& availableExtensions);
     VkSurfaceKHR CreateSurface(VkInstance instance, VkPhysicalDevice);
     std::vector<const char*> GetRequiredExtensions();
 
+    // debug callback
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType,

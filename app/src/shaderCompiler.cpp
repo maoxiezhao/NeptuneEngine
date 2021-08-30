@@ -19,6 +19,10 @@
 #include <unordered_set>
 #include <filesystem>
 
+// dxcompiler
+#include "dxcompiler\inc\d3d12shader.h"
+#include "dxcompiler\inc\dxcapi.h"
+
 namespace ShaderCompiler
 {
     namespace
