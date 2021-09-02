@@ -60,6 +60,12 @@ bool App::Poll()
 
 void App::Tick()
 {
-    mWSI.RunFrame();
+    mWSI.BeginFrame();
+    Render();
+    mWSI.EndFrame();
+}
+
+void App::Render()
+{
 }
 

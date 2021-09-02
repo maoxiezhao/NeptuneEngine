@@ -2,6 +2,8 @@
 
 #include "definition.h"
 #include "common.h"
+#include "utils\objectPool.h"
+#include "utils\intrusivePtr.hpp"
 
 #include <set>
 
@@ -23,7 +25,13 @@ private:
     std::vector<VkCommandBuffer> mBuffers;
 };
 
-struct CommandList
+
+class CommandList;
+struct CommandListDeleter
+{
+    void operator()(CommandList* cmd);
+};
+class CommandList : public Util::IntrusivePtrEnabled<CommandList, CommandListDeleter>
 {
 public:
     VkViewport mViewport;
@@ -35,7 +43,6 @@ public:
     RenderPass* mRenderPass = nullptr;
     bool mIsDirtyPipeline = true;
     PipelineStateDesc mPipelineStateDesc = {};
-    
 
     DeviceVulkan& mDevice;
     VkCommandBuffer mBuffer;
@@ -59,61 +66,31 @@ struct DeviceFeatures
     bool SupportsSurfaceCapabilities2 = false;
 };
 
-struct Swapchain
-{
-    VkDevice& mDevice;
-    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
-    VkSurfaceFormatKHR mFormat;
-    VkExtent2D mSwapchainExtent;
-    std::vector<VkImage> mImages;
-    std::vector<VkImageView> mImageViews;
-    std::vector<VkFramebuffer> mFrameBuffers;
-    std::vector<VkSurfaceFormatKHR> mFormats;
-    std::vector<VkPresentModeKHR> mPresentModes;
-    RenderPass mDefaultRenderPass;
-    VkSemaphore mSwapchainAcquireSemaphore = VK_NULL_HANDLE;
-    VkSemaphore mSwapchainReleaseSemaphore = VK_NULL_HANDLE;
-
-    Swapchain(VkDevice& device) : mDevice(device)
-    {
-    }
-
-    ~Swapchain()
-    {
-        for (int i = 0; i < mImageViews.size(); i++)
-        {
-            vkDestroyImageView(mDevice, mImageViews[i], nullptr);
-            vkDestroyFramebuffer(mDevice, mFrameBuffers[i], nullptr);
-        }
-
-        vkDestroySemaphore(mDevice, mSwapchainAcquireSemaphore, nullptr);
-        vkDestroySemaphore(mDevice, mSwapchainReleaseSemaphore, nullptr);
-        vkDestroyRenderPass(mDevice, mDefaultRenderPass.mRenderPass, nullptr);
-        vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
-    }
-};
-
 class DeviceVulkan
 {
 public:
-    // TODO: do it in wsi
+    // base info
     GLFWwindow* mWindow;
     uint32_t mWidth = 0;
     uint32_t mHeight = 0;
-
-    VkDevice mDevice;
-    VkInstance mVkInstanc;
-    VkDebugUtilsMessengerEXT mDebugUtilsMessenger = VK_NULL_HANDLE;
     bool mIsDebugUtils = false;
     bool mIsDebugLayer = false;
 
+    // core 
+    VkDevice mDevice;
     VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
+    VkInstance mVkInstanc;
+    VkDebugUtilsMessengerEXT mDebugUtilsMessenger = VK_NULL_HANDLE;
+    VkSurfaceKHR mSurface;
+    
+    // features
     VkPhysicalDeviceProperties2 mProperties2 = {};
     VkPhysicalDeviceVulkan11Properties mProperties_1_1 = {};
     VkPhysicalDeviceVulkan12Properties mProperties_1_2 = {};
-
     DeviceFeatures mExtensionFeatures = {};
     VkPhysicalDeviceFeatures2 mFeatures2 = {};
+
+    // queue
     std::vector<VkQueueFamilyProperties> mQueueFamilies;
     int mGraphicsFamily = -1;
     int mComputeFamily = -1;
@@ -122,13 +99,12 @@ public:
     VkQueue mComputeQueue = VK_NULL_HANDLE;
     VkQueue mCopyQueue = VK_NULL_HANDLE;
 
-    VkSurfaceKHR mSurface;
-    Swapchain* mSwapchain = nullptr;
-
     // per frame resource
     struct FrameResource
     {
-        CommandPool cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
+        std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
+
+        void Begin();
     };
     std::vector<FrameResource> mFrameResources;
     uint32_t mFrameIndex = 0;
@@ -139,14 +115,22 @@ public:
         return mFrameResources[mFrameIndex];
     }
 
+    // vulkan object pools
+    Util::ObjectPool<CommandList> mCommandListPool;
+
 public:
     DeviceVulkan(GLFWwindow* window, bool debugLayer);
     ~DeviceVulkan();
 
-    bool InitSwapchain(uint32_t width, uint32_t height);
+    bool CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32_t height);
     bool CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader);
-    CommandList* RequestCommandList(QueueType queueType);
+    Util::IntrusivePtr<CommandList> RequestCommandList(QueueType queueType);
+    Util::IntrusivePtr<CommandList> RequestCommandList(int threadIndex, QueueType queueType);
     VkFramebuffer RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
+    RenderPassInfo GetSwapchianRenderPassInfo();
+
+    void BeginFrameContext();
+    void EndFrameContext();
 
 private:
     // initial methods

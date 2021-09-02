@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common.h"
+
 // platform win32
 #ifdef CJING3D_PLATFORM_WIN32
 #include <SDKDDKVer.h>
@@ -93,4 +95,38 @@ struct PipelineStateDesc
 struct RenderPassInfo
 {
 
+};
+
+struct Swapchain
+{
+    VkDevice& mDevice;
+    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
+    VkSurfaceFormatKHR mFormat;
+    VkExtent2D mSwapchainExtent;
+    std::vector<VkImage> mImages;
+    std::vector<VkImageView> mImageViews;
+    std::vector<VkFramebuffer> mFrameBuffers;
+    std::vector<VkSurfaceFormatKHR> mFormats;
+    std::vector<VkPresentModeKHR> mPresentModes;
+    RenderPass mDefaultRenderPass;
+    VkSemaphore mSwapchainAcquireSemaphore = VK_NULL_HANDLE;
+    VkSemaphore mSwapchainReleaseSemaphore = VK_NULL_HANDLE;
+
+    Swapchain(VkDevice& device) : mDevice(device)
+    {
+    }
+
+    ~Swapchain()
+    {
+        for (int i = 0; i < mImageViews.size(); i++)
+        {
+            vkDestroyImageView(mDevice, mImageViews[i], nullptr);
+            vkDestroyFramebuffer(mDevice, mFrameBuffers[i], nullptr);
+        }
+
+        vkDestroySemaphore(mDevice, mSwapchainAcquireSemaphore, nullptr);
+        vkDestroySemaphore(mDevice, mSwapchainReleaseSemaphore, nullptr);
+        vkDestroyRenderPass(mDevice, mDefaultRenderPass.mRenderPass, nullptr);
+        vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
+    }
 };

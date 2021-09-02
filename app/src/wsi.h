@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "vulkan\definition.h"
 
 class Platform;
 
@@ -9,7 +10,8 @@ class WSI
 public:
 	bool Initialize();
 	void Uninitialize();
-	void RunFrame();
+	void BeginFrame();
+	void EndFrame();
 	void SetPlatform(Platform* platform);
 
 private:

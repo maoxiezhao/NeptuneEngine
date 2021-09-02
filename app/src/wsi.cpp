@@ -10,6 +10,7 @@ static bool debugLayer = false;
 #endif
 
 DeviceVulkan* deviceVulkan = nullptr;
+Swapchain* swapchian = nullptr;
 Shader screenVS;
 Shader screenPS;
 
@@ -19,7 +20,7 @@ bool WSI::Initialize()
     deviceVulkan = new DeviceVulkan(mPlatform->GetWindow(), debugLayer);
 
     // init swapchian
-    if (!deviceVulkan->InitSwapchain(mPlatform->GetWidth(), mPlatform->GetHeight()))
+    if (!deviceVulkan->CreateSwapchain(swapchian, mPlatform->GetWidth(), mPlatform->GetHeight()))
     {
         std::cout << "Failed to init swapchian." << std::endl;
         return false;
@@ -34,6 +35,9 @@ bool WSI::Initialize()
 
 void WSI::Uninitialize()
 {
+    if (swapchian != nullptr)
+        delete swapchian;
+
     if (screenVS.mShaderModule != VK_NULL_HANDLE)
         vkDestroyShaderModule(deviceVulkan->mDevice, screenVS.mShaderModule, nullptr);
     if (screenPS.mShaderModule != VK_NULL_HANDLE)
@@ -42,8 +46,14 @@ void WSI::Uninitialize()
     delete deviceVulkan;
 }
 
-void WSI::RunFrame()
+void WSI::BeginFrame()
 {
+    deviceVulkan->BeginFrameContext();
+}
+
+void WSI::EndFrame()
+{
+    deviceVulkan->EndFrameContext();
 }
 
 void WSI::SetPlatform(Platform* platform)

@@ -106,6 +106,11 @@ VkCommandBuffer CommandPool::RequestCommandBuffer()
     return cmd;
 }
 
+void CommandListDeleter::operator()(CommandList* cmd)
+{
+    if (cmd != nullptr)
+        cmd->mDevice.mCommandListPool.free(cmd);
+}
 
 CommandList::CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type) :
     mDevice(device),
@@ -593,20 +598,20 @@ DeviceVulkan::~DeviceVulkan()
         vkDestroyDebugUtilsMessengerEXT(mVkInstanc, mDebugUtilsMessenger, nullptr);
     }
 
-    if (mSwapchain != nullptr)
-        delete mSwapchain;
-
     vkDestroySurfaceKHR(mVkInstanc, mSurface, nullptr);
     vkDestroyDevice(mDevice, nullptr);
     vkDestroyInstance(mVkInstanc, nullptr);
 }
 
-bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
+bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32_t height)
 {
     if (mSurface == VK_NULL_HANDLE)
         return false;
 
-    mSwapchain = new Swapchain(mDevice);
+    if (swapchain != nullptr)
+        delete swapchain;
+
+    swapchain = new Swapchain(mDevice);
 
     // ??????????
     bool useSurfaceInfo = false; // mExtensionFeatures.SupportsSurfaceCapabilities2;
@@ -626,8 +631,8 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
 
         if (formatCount != 0)
         {
-            mSwapchain->mFormats.resize(formatCount);
-            res = vkGetPhysicalDeviceSurfaceFormatsKHR(mPhysicalDevice, mSurface, &formatCount, mSwapchain->mFormats.data());
+            swapchain->mFormats.resize(formatCount);
+            res = vkGetPhysicalDeviceSurfaceFormatsKHR(mPhysicalDevice, mSurface, &formatCount, swapchain->mFormats.data());
             assert(res == VK_SUCCESS);
         }
 
@@ -637,14 +642,14 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
 
         if (presentModeCount != 0)
         {
-            mSwapchain->mPresentModes.resize(presentModeCount);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(mPhysicalDevice, mSurface, &presentModeCount, mSwapchain->mPresentModes.data());
+            swapchain->mPresentModes.resize(presentModeCount);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(mPhysicalDevice, mSurface, &presentModeCount, swapchain->mPresentModes.data());
         }
 
         // find suitable surface format
         VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_UNDEFINED };
         VkFormat targetFormat = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
-        for (auto& format : mSwapchain->mFormats)
+        for (auto& format : swapchain->mFormats)
         {
             if (format.format = targetFormat)
             {
@@ -658,14 +663,14 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
             std::cout << "Failed to find suitable surface format." << std::endl;
             return false;
         }
-        mSwapchain->mFormat = surfaceFormat;
+        swapchain->mFormat = surfaceFormat;
 
         // find suitable present mode
         VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // 交换链是个队列，显示的时候从队列头拿一个图像，程序插入渲染的图像到队列尾。
         bool isVsync = true;                                              // 如果队列满了程序就要等待，这差不多像是垂直同步，显示刷新的时刻就是垂直空白
         if (!isVsync)
         {
-            for (auto& presentMode : mSwapchain->mPresentModes)
+            for (auto& presentMode : swapchain->mPresentModes)
             {
                 if (presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
                 {
@@ -676,10 +681,10 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
         }
 
         // set swapchin extent
-        mSwapchain->mSwapchainExtent = { width, height };
-        mSwapchain->mSwapchainExtent.width =
+        swapchain->mSwapchainExtent = { width, height };
+        swapchain->mSwapchainExtent.width =
             max(surfaceProperties.minImageExtent.width, min(surfaceProperties.maxImageExtent.width, width));
-        mSwapchain->mSwapchainExtent.height =
+        swapchain->mSwapchainExtent.height =
             max(surfaceProperties.minImageExtent.height, min(surfaceProperties.maxImageExtent.height, height));
 
         // create swapchain
@@ -690,14 +695,14 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
             desiredSwapchainImages = surfaceProperties.maxImageCount;
 
 
-        VkSwapchainKHR oldSwapchain = mSwapchain->mSwapChain;;
+        VkSwapchainKHR oldSwapchain = swapchain->mSwapChain;;
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         createInfo.surface = mSurface;
         createInfo.minImageCount = desiredSwapchainImages;
         createInfo.imageFormat = surfaceFormat.format;
         createInfo.imageColorSpace = surfaceFormat.colorSpace;
-        createInfo.imageExtent = mSwapchain->mSwapchainExtent;
+        createInfo.imageExtent = swapchain->mSwapchainExtent;
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;            // 一个图像在某个时间点就只能被一个队列族占用，在被另一个队列族使用前，它的占用情况一定要显式地进行转移。该选择提供了最好的性能。
@@ -707,21 +712,21 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = oldSwapchain;
 
-        res = vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapchain->mSwapChain);
+        res = vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &swapchain->mSwapChain);
         assert(res == VK_SUCCESS);
 
         uint32_t imageCount = 0;
-        res = vkGetSwapchainImagesKHR(mDevice, mSwapchain->mSwapChain, &imageCount, nullptr);
+        res = vkGetSwapchainImagesKHR(mDevice, swapchain->mSwapChain, &imageCount, nullptr);
         assert(res == VK_SUCCESS);
-        mSwapchain->mImages.resize(imageCount);
-        res = vkGetSwapchainImagesKHR(mDevice, mSwapchain->mSwapChain, &imageCount, mSwapchain->mImages.data());
+        swapchain->mImages.resize(imageCount);
+        res = vkGetSwapchainImagesKHR(mDevice, swapchain->mSwapChain, &imageCount, swapchain->mImages.data());
         assert(res == VK_SUCCESS);
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // create default render pass
         // 对应于Swapchain image的颜色缓冲附件
         VkAttachmentDescription colorAttachment = {};
-        colorAttachment.format = mSwapchain->mFormat.format;
+        colorAttachment.format = swapchain->mFormat.format;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -746,20 +751,20 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
         createRenderPassInfo.subpassCount = 1;
         createRenderPassInfo.pSubpasses = &subpass;
 
-        res = vkCreateRenderPass(mDevice, &createRenderPassInfo, nullptr, &mSwapchain->mDefaultRenderPass.mRenderPass);
+        res = vkCreateRenderPass(mDevice, &createRenderPassInfo, nullptr, &swapchain->mDefaultRenderPass.mRenderPass);
         assert(res == VK_SUCCESS);
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // create image views
-        mSwapchain->mImageViews.resize(mSwapchain->mImages.size());
-        mSwapchain->mFrameBuffers.resize(mSwapchain->mImages.size());
-        for (int i = 0; i < mSwapchain->mImages.size(); i++)
+        swapchain->mImageViews.resize(swapchain->mImages.size());
+        swapchain->mFrameBuffers.resize(swapchain->mImages.size());
+        for (int i = 0; i < swapchain->mImages.size(); i++)
         {
             VkImageViewCreateInfo createInfo = {};
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            createInfo.image = mSwapchain->mImages[i];
+            createInfo.image = swapchain->mImages[i];
             createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = mSwapchain->mFormat.format;
+            createInfo.format = swapchain->mFormat.format;
             createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
             createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
             createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -770,24 +775,24 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
             createInfo.subresourceRange.baseArrayLayer = 0;
             createInfo.subresourceRange.layerCount = 1;
 
-            res = vkCreateImageView(mDevice, &createInfo, nullptr, &mSwapchain->mImageViews[i]);
+            res = vkCreateImageView(mDevice, &createInfo, nullptr, &swapchain->mImageViews[i]);
             assert(res == VK_SUCCESS);
 
             VkImageView attachments[] = {
-                mSwapchain->mImageViews[i]
+                swapchain->mImageViews[i]
             };
 
             // 创建frameBuffer与ImageView一一对应
             VkFramebufferCreateInfo framebufferInfo = {};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = mSwapchain->mDefaultRenderPass.mRenderPass;
+            framebufferInfo.renderPass = swapchain->mDefaultRenderPass.mRenderPass;
             framebufferInfo.attachmentCount = 1;
             framebufferInfo.pAttachments = attachments;
             framebufferInfo.width = width;
             framebufferInfo.height = height;
             framebufferInfo.layers = 1;
 
-            res = vkCreateFramebuffer(mDevice, &framebufferInfo, nullptr, &mSwapchain->mFrameBuffers[i]);
+            res = vkCreateFramebuffer(mDevice, &framebufferInfo, nullptr, &swapchain->mFrameBuffers[i]);
             assert(res == VK_SUCCESS);
         }
 
@@ -796,15 +801,15 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-        if (mSwapchain->mSwapchainAcquireSemaphore == nullptr)
+        if (swapchain->mSwapchainAcquireSemaphore == nullptr)
         {
-            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mSwapchain->mSwapchainAcquireSemaphore);
+            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mSwapchainAcquireSemaphore);
             assert(res == VK_SUCCESS);
         }
 
-        if (mSwapchain->mSwapchainReleaseSemaphore == nullptr)
+        if (swapchain->mSwapchainReleaseSemaphore == nullptr)
         {
-            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mSwapchain->mSwapchainReleaseSemaphore);
+            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mSwapchainReleaseSemaphore);
             assert(res == VK_SUCCESS);
         }
     }
@@ -812,12 +817,23 @@ bool DeviceVulkan::InitSwapchain(uint32_t width, uint32_t height)
     return true;
 }
 
-CommandList* DeviceVulkan::RequestCommandList(QueueType queueType)
+Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queueType)
 {
-    CommandPool& pool = CurrentFrameResource().cmdPools[(int)queueType];
+    return RequestCommandList(0, queueType);
+}
+
+Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(int threadIndex, QueueType queueType)
+{
+    // Only support main thread now
+    assert(threadIndex == 0);
+
+    auto& pools = CurrentFrameResource().cmdPools[(int)queueType];
+    assert(threadIndex < pools.size());
+
+    CommandPool& pool = pools[threadIndex];
     VkCommandBuffer buffer = pool.RequestCommandBuffer();
     if (buffer == VK_NULL_HANDLE)
-        return nullptr;
+        return Util::IntrusivePtr<CommandList>();
 
     VkCommandBufferBeginInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
     info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -825,12 +841,35 @@ CommandList* DeviceVulkan::RequestCommandList(QueueType queueType)
     assert(res == VK_SUCCESS);
 
     // 这里先简单使用ptr, 注意ptr的释放
-    return new CommandList(*this, buffer, queueType);
+    return Util::IntrusivePtr<CommandList>(mCommandListPool.allocate(*this, buffer, queueType));
 }
 
 VkFramebuffer DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassInfo)
 {
     return VK_NULL_HANDLE;
+}
+
+RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo()
+{
+    RenderPassInfo info = {};
+
+    return info;
+}
+
+void DeviceVulkan::BeginFrameContext()
+{
+    // submit remain queue
+    EndFrameContext();
+
+    // begin frame resources
+    if (++mFrameIndex >= mFrameResources.size())
+        mFrameIndex = 0;
+
+    CurrentFrameResource().Begin();
+}
+
+void DeviceVulkan::EndFrameContext()
+{
 }
 
 bool DeviceVulkan::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak)
@@ -922,4 +961,8 @@ bool DeviceVulkan::CreateShader(ShaderStage stage, const void* pShaderBytecode, 
     moduleInfo.pCode = (const uint32_t*)pShaderBytecode;
     VkResult res = vkCreateShaderModule(mDevice, &moduleInfo, nullptr, &shader->mShaderModule);
     return res == VK_SUCCESS;
+}
+
+void DeviceVulkan::FrameResource::Begin()
+{
 }

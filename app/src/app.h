@@ -45,6 +45,8 @@ public:
 	bool Poll();
 	void Tick();
 
+	virtual void Render();
+
 private:
 	std::unique_ptr<Platform> mPlatform;
 	WSI mWSI;
