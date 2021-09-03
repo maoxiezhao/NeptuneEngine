@@ -13,6 +13,8 @@ public:
 	void BeginFrame();
 	void EndFrame();
 	void SetPlatform(Platform* platform);
+	
+	DeviceVulkan* GetDevice();
 
 private:
 	Platform* mPlatform = nullptr;

@@ -1,4 +1,5 @@
 #include "gpu.h"
+#include "utils\hash.h"
 
 namespace 
 {
@@ -84,6 +85,33 @@ CommandPool::~CommandPool()
         vkDestroyCommandPool(mDevice->mDevice, mPool, nullptr);
 }
 
+CommandPool::CommandPool(CommandPool&& other) noexcept
+{
+    *this = std::move(other);
+}
+
+CommandPool& CommandPool::operator=(CommandPool&& other) noexcept
+{
+    if (this != &other)
+    {
+        mDevice = other.mDevice;
+        if (!mBuffers.empty())
+            vkFreeCommandBuffers(mDevice->mDevice, mPool, (uint32_t)mBuffers.size(), mBuffers.data());
+        if (mPool != VK_NULL_HANDLE)
+            vkDestroyCommandPool(mDevice->mDevice, mPool, nullptr);
+
+        mPool = VK_NULL_HANDLE;
+        mBuffers.clear();
+        mUsedIndex = 0;
+
+        std::swap(mPool, other.mPool);
+        std::swap(mBuffers, other.mBuffers);
+        std::swap(mUsedIndex, other.mUsedIndex);
+    }
+
+    return *this;
+}
+
 VkCommandBuffer CommandPool::RequestCommandBuffer()
 {
     if (mUsedIndex < mBuffers.size())
@@ -106,6 +134,15 @@ VkCommandBuffer CommandPool::RequestCommandBuffer()
     return cmd;
 }
 
+void CommandPool::BeginFrame()
+{
+    if (mUsedIndex > 0)
+    {
+        mUsedIndex = 0;
+        vkResetCommandPool(mDevice->mDevice, mPool, 0);
+    }
+}
+
 void CommandListDeleter::operator()(CommandList* cmd)
 {
     if (cmd != nullptr)
@@ -114,7 +151,7 @@ void CommandListDeleter::operator()(CommandList* cmd)
 
 CommandList::CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type) :
     mDevice(device),
-    mBuffer(buffer),
+    mCmd(buffer),
     mType(type)
 {
 }
@@ -127,12 +164,34 @@ CommandList::~CommandList()
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 {
+    mFrameBuffer = &mDevice.RequestFrameBuffer(renderPassInfo);
+    mRenderPass = &mDevice.RequestRenderPass(renderPassInfo);
+
     VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     beginInfo.renderPass = mRenderPass->mRenderPass;
+    beginInfo.framebuffer = mFrameBuffer->mFrameBuffer;
+
+    // area
+    VkRect2D scissor = {};
+    beginInfo.renderArea = scissor;
+
+    // clear color
+    VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+    beginInfo.clearValueCount = 1;
+    beginInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(mCmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void CommandList::EndRenderPass()
 {
+    vkCmdEndRenderPass(mCmd);
+}
+
+void CommandList::EndCommandBuffer()
+{
+    VkResult res = vkEndCommandBuffer(mCmd);
+    assert(res == VK_SUCCESS);
 }
 
 bool CommandList::FlushRenderState()
@@ -150,7 +209,7 @@ bool CommandList::FlushRenderState()
         if (oldPipeline != mCurrentPipeline)
         {
             // bind pipeline
-            //vkCmdBindPipeline()
+            vkCmdBindPipeline(mCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mCurrentPipeline);
         }
     }
 
@@ -589,7 +648,19 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // create frame resources
-
+    const int FRAME_COUNT = 2;
+    const int THREAD_COUNT = 1;
+    for (int frameIndex = 0; frameIndex < FRAME_COUNT; frameIndex++)
+    {
+        for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
+        {
+            mFrameResources[frameIndex].cmdPools->reserve(THREAD_COUNT);
+            for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
+            {
+                mFrameResources[frameIndex].cmdPools->emplace_back(this, queueIndex);
+            }
+        }
+    }
 }
 
 DeviceVulkan::~DeviceVulkan()
@@ -825,10 +896,8 @@ Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queue
 Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(int threadIndex, QueueType queueType)
 {
     // Only support main thread now
-    assert(threadIndex == 0);
-
     auto& pools = CurrentFrameResource().cmdPools[(int)queueType];
-    assert(threadIndex < pools.size());
+    assert(threadIndex == 0 && threadIndex < pools.size());
 
     CommandPool& pool = pools[threadIndex];
     VkCommandBuffer buffer = pool.RequestCommandBuffer();
@@ -840,13 +909,7 @@ Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(int threadIndex
     VkResult res = vkBeginCommandBuffer(buffer, &info);
     assert(res == VK_SUCCESS);
 
-    // 这里先简单使用ptr, 注意ptr的释放
     return Util::IntrusivePtr<CommandList>(mCommandListPool.allocate(*this, buffer, queueType));
-}
-
-VkFramebuffer DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassInfo)
-{
-    return VK_NULL_HANDLE;
 }
 
 RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo()
@@ -854,6 +917,31 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo()
     RenderPassInfo info = {};
 
     return info;
+}
+
+RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo)
+{
+    HashCombiner hash;
+
+
+
+    auto findIt = mRenderPasses.find(hash.Get());
+    if (findIt != mRenderPasses.end())
+        return findIt->second;
+
+    return mRenderPasses.emplace(hash.Get(), std::move(RenderPass())).first->second; 
+}
+
+FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassInfo)
+{
+    HashCombiner hash;
+
+    auto findIt = mFrameBuffers.find(hash.Get());
+    if (findIt != mFrameBuffers.end())
+        return findIt->second;
+
+    return mFrameBuffers.emplace(hash.Get(), std::move(FrameBuffer())).first->second;
+
 }
 
 void DeviceVulkan::BeginFrameContext()
@@ -870,6 +958,11 @@ void DeviceVulkan::BeginFrameContext()
 
 void DeviceVulkan::EndFrameContext()
 {
+}
+
+void DeviceVulkan::Submit(CommandListPtr& cmd)
+{
+    cmd->EndCommandBuffer();
 }
 
 bool DeviceVulkan::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak)
@@ -965,4 +1058,9 @@ bool DeviceVulkan::CreateShader(ShaderStage stage, const void* pShaderBytecode, 
 
 void DeviceVulkan::FrameResource::Begin()
 {
+    for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
+    {
+        for (auto& pool : cmdPools[queueIndex])
+            pool.BeginFrame();
+    }
 }

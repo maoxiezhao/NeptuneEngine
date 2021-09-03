@@ -1,6 +1,6 @@
 #include "shaderCompiler.h"
-#include "helper.h"
-#include "archive.h"
+#include "utils\helper.h"
+#include "utils\archive.h"
 
 #define SHADERCOMPILER_ENABLED
 

@@ -97,6 +97,11 @@ struct RenderPassInfo
 
 };
 
+struct FrameBuffer
+{
+    VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
+};
+
 struct Swapchain
 {
     VkDevice& mDevice;

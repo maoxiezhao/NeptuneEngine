@@ -6,6 +6,7 @@
 #include "utils\intrusivePtr.hpp"
 
 #include <set>
+#include <unordered_map>
 
 struct CommandPool
 {
@@ -13,10 +14,14 @@ public:
     CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex);
     ~CommandPool();
 
+    CommandPool(CommandPool&&) noexcept;
+    CommandPool& operator=(CommandPool&&) noexcept;
+
     CommandPool(const CommandPool& rhs) = delete;
     void operator=(const CommandPool& rhs) = delete;
 
     VkCommandBuffer RequestCommandBuffer();
+    void BeginFrame();
 
 private:
     uint32_t mUsedIndex = 0;
@@ -38,15 +43,16 @@ public:
     VkRect2D mScissor;
     VkPipeline mCurrentPipeline = VK_NULL_HANDLE;
     VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;
-
-    VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
-    RenderPass* mRenderPass = nullptr;
     bool mIsDirtyPipeline = true;
     PipelineStateDesc mPipelineStateDesc = {};
 
     DeviceVulkan& mDevice;
-    VkCommandBuffer mBuffer;
+    VkCommandBuffer mCmd;
     QueueType mType;
+
+    // render pass runtime 
+    FrameBuffer* mFrameBuffer = nullptr;
+    RenderPass* mRenderPass = nullptr;
 
 public:
     CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type);
@@ -54,12 +60,14 @@ public:
 
     void BeginRenderPass(const RenderPassInfo& renderPassInfo);
     void EndRenderPass();
+    void EndCommandBuffer();
 
 private:
     bool FlushRenderState();
     bool FlushGraphicsPipeline();
     VkPipeline BuildGraphicsPipeline(const PipelineStateDesc& pipelineStateDesc);
 };
+using CommandListPtr = Util::IntrusivePtr<CommandList>;
 
 struct DeviceFeatures
 {
@@ -103,7 +111,6 @@ public:
     struct FrameResource
     {
         std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
-
         void Begin();
     };
     std::vector<FrameResource> mFrameResources;
@@ -116,6 +123,8 @@ public:
     }
 
     // vulkan object pools
+    std::unordered_map<uint64_t, RenderPass> mRenderPasses;
+    std::unordered_map<uint64_t, FrameBuffer> mFrameBuffers;
     Util::ObjectPool<CommandList> mCommandListPool;
 
 public:
@@ -124,15 +133,20 @@ public:
 
     bool CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32_t height);
     bool CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader);
-    Util::IntrusivePtr<CommandList> RequestCommandList(QueueType queueType);
-    Util::IntrusivePtr<CommandList> RequestCommandList(int threadIndex, QueueType queueType);
-    VkFramebuffer RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
+    
+    CommandListPtr RequestCommandList(QueueType queueType);
+    CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
+    
     RenderPassInfo GetSwapchianRenderPassInfo();
+    RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo);
+    FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
 
     void BeginFrameContext();
     void EndFrameContext();
+    void Submit(CommandListPtr& cmd);
 
 private:
+
     // initial methods
     bool CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak);
     bool CheckExtensionSupport(const char* checkExtension, const std::vector<VkExtensionProperties>& availableExtensions);

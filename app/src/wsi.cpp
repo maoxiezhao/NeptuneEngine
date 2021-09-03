@@ -60,3 +60,8 @@ void WSI::SetPlatform(Platform* platform)
 {
 	mPlatform = platform;
 }
+
+DeviceVulkan* WSI::GetDevice()
+{
+    return deviceVulkan;
+}

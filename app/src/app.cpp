@@ -67,5 +67,14 @@ void App::Tick()
 
 void App::Render()
 {
+    DeviceVulkan* device = mWSI.GetDevice();
+    assert(device != nullptr);
+
+    RenderPassInfo rp = device->GetSwapchianRenderPassInfo();
+    CommandListPtr cmd = device->RequestCommandList(QueueType::GRAPHICS);
+    cmd->BeginRenderPass(rp);
+
+    cmd->EndRenderPass();
+    device->Submit(cmd);
 }
 
