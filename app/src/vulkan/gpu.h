@@ -123,6 +123,8 @@ public:
     void ReleaseImage(VkImage image);
     void ReleaseImageView(VkImageView imageView);
 
+    uint64_t GenerateCookie();
+
 private:
 
     // initial methods

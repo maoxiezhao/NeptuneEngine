@@ -60,6 +60,8 @@ namespace
 
         return {};
     }
+
+    static uint64_t STATIC_COOKIE = 0;
 }
 
 DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
@@ -569,12 +571,23 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
 {
     HashCombiner hash;
 
+    // 需要根据RenderPass以及RT的Hash值获取或者创建FrameBuffer
+    RenderPass& renderPass = RequestRenderPass(renderPassInfo);
+    hash.HashCombine(renderPass.GetHash());
+
+    // Get color attachments hash
+    for (uint32_t i = 0; i < renderPassInfo.mNumColorAttachments; i++)
+        hash.HashCombine(renderPassInfo.mColorAttachments[i]->GetCookie());
+
+    // Get depth stencil hash
+    if (renderPassInfo.mDepthStencil)
+        hash.HashCombine(renderPassInfo.mDepthStencil->GetCookie());
+
     auto findIt = mFrameBuffers.find(hash.Get());
     if (findIt != mFrameBuffers.end())
         return findIt->second;
 
-    return mFrameBuffers.emplace(hash.Get(), std::move(FrameBuffer())).first->second;
-
+    return mFrameBuffers.emplace(hash.Get(), *this).first->second;
 }
 
 void DeviceVulkan::BeginFrameContext()
@@ -610,6 +623,12 @@ void DeviceVulkan::ReleaseImage(VkImage image)
 void DeviceVulkan::ReleaseImageView(VkImageView imageView)
 {
     CurrentFrameResource().mDestroyedImageViews.push_back(imageView);
+}
+
+uint64_t DeviceVulkan::GenerateCookie()
+{
+    STATIC_COOKIE += 16;
+    return STATIC_COOKIE;
 }
 
 bool DeviceVulkan::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak)

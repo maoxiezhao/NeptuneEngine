@@ -4,6 +4,41 @@
 #include "renderPass.h"
 
 class DeviceVulkan;
+class FrameBuffer;
+
+struct FrameBufferDeleter
+{
+    void operator()(FrameBuffer* fb);
+};
+class FrameBuffer : public Util::IntrusivePtrEnabled<FrameBuffer, FrameBufferDeleter>
+{
+public:
+    FrameBuffer(DeviceVulkan& device);
+    ~FrameBuffer();
+
+    void operator=(const FrameBuffer&) = delete;
+
+    uint32_t GetWidth()
+    {
+        return mWidth;
+    }
+
+    uint32_t GetHeight()
+    {
+        return mHeight;
+    }
+
+    VkFramebuffer GetFrameBuffer()
+    {
+        return mFrameBuffer;
+    }
+
+private:
+    DeviceVulkan& mDevice;
+    VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
+    uint32_t mWidth = 0;
+    uint32_t mHeight = 0;
+};
 
 struct CommandPool
 {
@@ -36,8 +71,8 @@ struct CommandListDeleter
 class CommandList : public Util::IntrusivePtrEnabled<CommandList, CommandListDeleter>
 {
 public:
-    VkViewport mViewport;
-    VkRect2D mScissor;
+    VkViewport mViewport = {};
+    VkRect2D mScissor = {};
     VkPipeline mCurrentPipeline = VK_NULL_HANDLE;
     VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;
     bool mIsDirtyPipeline = true;

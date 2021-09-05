@@ -85,6 +85,13 @@ static inline bool IsFormatHasStencil(VkFormat format)
     }
 }
 
+enum class DepthStencilMode
+{
+    None,
+    ReadOnly,
+    ReadWrite
+};
+
 struct PipelineLayout
 {
     VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
@@ -120,11 +127,6 @@ private:
 struct PipelineStateDesc
 {
     ShaderProgram mShaderProgram;
-};
-
-struct FrameBuffer
-{
-    VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
 };
 
 class Image;
@@ -164,4 +166,18 @@ struct ImageCreateInfo
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         return info;
     }
+};
+
+class GraphicsCookie
+{
+public:
+    GraphicsCookie(uint64_t cookie) : mCookie(cookie) {}
+
+    uint64_t GetCookie()const
+    {
+        return mCookie;
+    }
+
+private:
+    uint64_t mCookie;
 };

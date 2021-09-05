@@ -2,6 +2,7 @@
 #include "gpu.h"
 
 ImageView::ImageView(DeviceVulkan& device, VkImageView imageView, const ImageViewCreateInfo& info) :
+	GraphicsCookie(device.GenerateCookie()),
 	mDevice(device),
 	mImageView(imageView),
 	mInfo(info)

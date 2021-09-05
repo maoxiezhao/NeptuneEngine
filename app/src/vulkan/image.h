@@ -10,7 +10,7 @@ struct ImageViewDeleter
 {
     void operator()(ImageView* imageView);
 };
-class ImageView : public Util::IntrusivePtrEnabled<ImageView, ImageViewDeleter>
+class ImageView : public Util::IntrusivePtrEnabled<ImageView, ImageViewDeleter>, public GraphicsCookie
 {
 public:
     ImageView(DeviceVulkan& device, VkImageView imageView, const ImageViewCreateInfo& info);

@@ -107,18 +107,47 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     mRenderPass = &mDevice.RequestRenderPass(renderPassInfo);
 
     // area
-    VkRect2D scissor = {};
+    VkRect2D rect = {};
+    uint32_t fbWidth = mFrameBuffer->GetWidth();
+    uint32_t fbHeight = mFrameBuffer->GetHeight();
+    rect.offset.x = min(fbWidth, uint32_t(rect.offset.x));
+    rect.offset.y = min(fbHeight, uint32_t(rect.offset.y));
+    rect.extent.width = min(fbWidth - rect.offset.x, rect.extent.width);
+    rect.extent.height = min(fbHeight - rect.offset.y, rect.extent.height);
+
+    mViewport = {
+        float(rect.offset.x), float(rect.offset.y),
+        float(rect.extent.width), float(rect.extent.height),
+        0.0f, 1.0f
+    };
+    mScissor = rect;
 
     // clear color
-    VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+    // 遍历所有colorAttachments同时检查clearAttachments mask
+    VkClearValue clearColors[VULKAN_NUM_ATTACHMENTS + 1];
+    uint32_t numClearColor = 0;
+    for (uint32_t i = 0; i < renderPassInfo.mNumColorAttachments; i++)
+    {
+        if (renderPassInfo.mClearAttachments & (1u << i))
+        {
+            clearColors[i].color = {0.0f, 0.0f, 0.0f, 1.0f};
+            numClearColor = i + 1;
+        }
+    }
+    // check is depth stencil and clear depth stencil
+    if (renderPassInfo.mDepthStencil != nullptr)
+    {
+        clearColors[renderPassInfo.mNumColorAttachments].depthStencil = {1.0f, 0};
+        numClearColor = renderPassInfo.mNumColorAttachments + 1;
+    }
 
     // begin rende pass
     VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-    beginInfo.renderArea = scissor;
+    beginInfo.renderArea = mScissor;
     beginInfo.renderPass = mRenderPass->mRenderPass;
-    beginInfo.framebuffer = mFrameBuffer->mFrameBuffer;
-    beginInfo.clearValueCount = 1;
-    beginInfo.pClearValues = &clearColor;
+    beginInfo.framebuffer = mFrameBuffer->GetFrameBuffer();
+    beginInfo.clearValueCount = numClearColor;
+    beginInfo.pClearValues = clearColors;
 
     vkCmdBeginRenderPass(mCmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
@@ -126,6 +155,10 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 void CommandList::EndRenderPass()
 {
     vkCmdEndRenderPass(mCmd);
+
+    // clear runtime resources
+    mFrameBuffer = nullptr;
+    mRenderPass = nullptr;
 }
 
 void CommandList::EndCommandBuffer()
@@ -371,4 +404,13 @@ VkPipeline CommandList::BuildGraphicsPipeline(const PipelineStateDesc& pipelineS
         return VK_NULL_HANDLE;
     }
     return retPipeline;
+}
+
+FrameBuffer::FrameBuffer(DeviceVulkan& device) :
+    mDevice(device)
+{
+}
+
+FrameBuffer::~FrameBuffer()
+{
 }
