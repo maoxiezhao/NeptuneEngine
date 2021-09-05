@@ -1,6 +1,8 @@
 #pragma once
 
 #include "common.h"
+#include "utils\objectPool.h"
+#include "utils\intrusivePtr.hpp"
 
 // platform win32
 #ifdef CJING3D_PLATFORM_WIN32
@@ -17,6 +19,10 @@
 #include "volk\volk.h"
 
 #include "GLFW\glfw3.h"
+
+static const uint32_t VULKAN_NUM_ATTACHMENTS = 8;
+
+class DeviceVulkan;
 
 enum class ShaderStage
 {
@@ -47,8 +53,37 @@ enum class QueueType
     Count
 };
 
+static inline bool IsFormatHasDepth(VkFormat format)
+{
+    switch (format)
+    {
+    case VK_FORMAT_D16_UNORM:
+    case VK_FORMAT_D16_UNORM_S8_UINT:
+    case VK_FORMAT_D24_UNORM_S8_UINT:
+    case VK_FORMAT_D32_SFLOAT:
+    case VK_FORMAT_X8_D24_UNORM_PACK32:
+    case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        return true;
 
-class DeviceVulkan;
+    default:
+        return false;
+    }
+}
+
+static inline bool IsFormatHasStencil(VkFormat format)
+{
+    switch (format)
+    {
+    case VK_FORMAT_D16_UNORM_S8_UINT:
+    case VK_FORMAT_D24_UNORM_S8_UINT:
+    case VK_FORMAT_D32_SFLOAT_S8_UINT:
+    case VK_FORMAT_S8_UINT:
+        return true;
+
+    default:
+        return false;
+    }
+}
 
 struct PipelineLayout
 {
@@ -82,19 +117,9 @@ private:
     Shader* mShaders[UINT(ShaderStage::Count)] = {};
 };
 
-struct RenderPass
-{
-    VkRenderPass mRenderPass = VK_NULL_HANDLE;
-};
-
 struct PipelineStateDesc
 {
     ShaderProgram mShaderProgram;
-};
-
-struct RenderPassInfo
-{
-
 };
 
 struct FrameBuffer
@@ -102,36 +127,41 @@ struct FrameBuffer
     VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
 };
 
-struct Swapchain
+class Image;
+struct ImageViewCreateInfo
 {
-    VkDevice& mDevice;
-    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
-    VkSurfaceFormatKHR mFormat;
-    VkExtent2D mSwapchainExtent;
-    std::vector<VkImage> mImages;
-    std::vector<VkImageView> mImageViews;
-    std::vector<VkFramebuffer> mFrameBuffers;
-    std::vector<VkSurfaceFormatKHR> mFormats;
-    std::vector<VkPresentModeKHR> mPresentModes;
-    RenderPass mDefaultRenderPass;
-    VkSemaphore mSwapchainAcquireSemaphore = VK_NULL_HANDLE;
-    VkSemaphore mSwapchainReleaseSemaphore = VK_NULL_HANDLE;
+    Image* mImage = nullptr;
+    VkFormat mFormat = VK_FORMAT_UNDEFINED;
+};
 
-    Swapchain(VkDevice& device) : mDevice(device)
+struct ImageCreateInfo
+{
+    uint32_t mWidth = 0;
+    uint32_t mHeight = 0;
+    uint32_t mDepth = 1;
+    uint32_t mLevels = 1;
+    VkFormat mFormat = VK_FORMAT_UNDEFINED;
+    VkImageType mType = VK_IMAGE_TYPE_2D;
+    uint32_t mLayers = 1;
+    VkImageUsageFlags mUsage = 0;
+    VkSampleCountFlagBits mSamples = VK_SAMPLE_COUNT_1_BIT;
+    VkImageCreateFlags mFlags = 0;
+    uint32_t mMisc;
+    VkImageLayout mInitialLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    static ImageCreateInfo RenderTarget(uint32_t width, uint32_t height, VkFormat format)
     {
-    }
+        ImageCreateInfo info = {};
+        info.mWidth = width;
+        info.mHeight = height;
+        info.mFormat = format;
+        info.mUsage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    ~Swapchain()
-    {
-        for (int i = 0; i < mImageViews.size(); i++)
-        {
-            vkDestroyImageView(mDevice, mImageViews[i], nullptr);
-            vkDestroyFramebuffer(mDevice, mFrameBuffers[i], nullptr);
-        }
-
-        vkDestroySemaphore(mDevice, mSwapchainAcquireSemaphore, nullptr);
-        vkDestroySemaphore(mDevice, mSwapchainReleaseSemaphore, nullptr);
-        vkDestroyRenderPass(mDevice, mDefaultRenderPass.mRenderPass, nullptr);
-        vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
+        info.mInitialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL :
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        return info;
     }
 };

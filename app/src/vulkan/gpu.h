@@ -2,76 +2,42 @@
 
 #include "definition.h"
 #include "common.h"
-#include "utils\objectPool.h"
-#include "utils\intrusivePtr.hpp"
+#include "commandList.h"
+#include "image.h"
+#include "renderPass.h"
 
 #include <set>
 #include <unordered_map>
 
-struct CommandPool
-{
-public:
-    CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex);
-    ~CommandPool();
-
-    CommandPool(CommandPool&&) noexcept;
-    CommandPool& operator=(CommandPool&&) noexcept;
-
-    CommandPool(const CommandPool& rhs) = delete;
-    void operator=(const CommandPool& rhs) = delete;
-
-    VkCommandBuffer RequestCommandBuffer();
-    void BeginFrame();
-
-private:
-    uint32_t mUsedIndex = 0;
-    DeviceVulkan* mDevice;
-    VkCommandPool mPool = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> mBuffers;
-};
-
-
-class CommandList;
-struct CommandListDeleter
-{
-    void operator()(CommandList* cmd);
-};
-class CommandList : public Util::IntrusivePtrEnabled<CommandList, CommandListDeleter>
-{
-public:
-    VkViewport mViewport;
-    VkRect2D mScissor;
-    VkPipeline mCurrentPipeline = VK_NULL_HANDLE;
-    VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;
-    bool mIsDirtyPipeline = true;
-    PipelineStateDesc mPipelineStateDesc = {};
-
-    DeviceVulkan& mDevice;
-    VkCommandBuffer mCmd;
-    QueueType mType;
-
-    // render pass runtime 
-    FrameBuffer* mFrameBuffer = nullptr;
-    RenderPass* mRenderPass = nullptr;
-
-public:
-    CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type);
-    ~CommandList();
-
-    void BeginRenderPass(const RenderPassInfo& renderPassInfo);
-    void EndRenderPass();
-    void EndCommandBuffer();
-
-private:
-    bool FlushRenderState();
-    bool FlushGraphicsPipeline();
-    VkPipeline BuildGraphicsPipeline(const PipelineStateDesc& pipelineStateDesc);
-};
-using CommandListPtr = Util::IntrusivePtr<CommandList>;
-
 struct DeviceFeatures
 {
     bool SupportsSurfaceCapabilities2 = false;
+};
+
+struct Swapchain
+{
+    VkDevice& mDevice;
+    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
+    VkSurfaceFormatKHR mFormat;
+    VkExtent2D mSwapchainExtent;
+    std::vector<ImagePtr> mImages;
+    std::vector<VkSurfaceFormatKHR> mFormats;
+    std::vector<VkPresentModeKHR> mPresentModes;
+
+    uint32_t mImageIndex = 0;
+    VkSemaphore mSwapchainAcquireSemaphore = VK_NULL_HANDLE;
+    VkSemaphore mSwapchainReleaseSemaphore = VK_NULL_HANDLE;
+
+    Swapchain(VkDevice& device) : mDevice(device)
+    {
+    }
+
+    ~Swapchain()
+    {
+        vkDestroySemaphore(mDevice, mSwapchainAcquireSemaphore, nullptr);
+        vkDestroySemaphore(mDevice, mSwapchainReleaseSemaphore, nullptr);
+        vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
+    }
 };
 
 class DeviceVulkan
@@ -111,7 +77,13 @@ public:
     struct FrameResource
     {
         std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
+
+        // destroyed resoruces
+        std::vector<VkImageView> mDestroyedImageViews;
+        std::vector<VkImage> mDestroyedImages;
+
         void Begin();
+        void ProcessDestroyed(VkDevice device);
     };
     std::vector<FrameResource> mFrameResources;
     uint32_t mFrameIndex = 0;
@@ -125,7 +97,10 @@ public:
     // vulkan object pools
     std::unordered_map<uint64_t, RenderPass> mRenderPasses;
     std::unordered_map<uint64_t, FrameBuffer> mFrameBuffers;
+
     Util::ObjectPool<CommandList> mCommandListPool;
+    Util::ObjectPool<Image> mImagePool;
+    Util::ObjectPool<ImageView> mImageViewPool;
 
 public:
     DeviceVulkan(GLFWwindow* window, bool debugLayer);
@@ -137,13 +112,16 @@ public:
     CommandListPtr RequestCommandList(QueueType queueType);
     CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
     
-    RenderPassInfo GetSwapchianRenderPassInfo();
+    RenderPassInfo GetSwapchianRenderPassInfo(const Swapchain& swapChain);
     RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo);
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
 
     void BeginFrameContext();
     void EndFrameContext();
     void Submit(CommandListPtr& cmd);
+
+    void ReleaseImage(VkImage image);
+    void ReleaseImageView(VkImageView imageView);
 
 private:
 

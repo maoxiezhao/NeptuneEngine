@@ -17,7 +17,7 @@ namespace Util
 			if (vacants.empty())
 			{
 				unsigned num_objects = 64u << memory.size();
-				T* ptr = static_cast<T*>(_aligned_malloc(max(size_t(64), alignof(T)), num_objects * sizeof(T)));
+				T* ptr = static_cast<T*>(_aligned_malloc(std::max(size_t(64), alignof(T)), num_objects * sizeof(T)));
 				if (!ptr)
 					return nullptr;
 

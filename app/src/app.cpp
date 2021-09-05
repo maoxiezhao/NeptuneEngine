@@ -70,7 +70,7 @@ void App::Render()
     DeviceVulkan* device = mWSI.GetDevice();
     assert(device != nullptr);
 
-    RenderPassInfo rp = device->GetSwapchianRenderPassInfo();
+    RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*mWSI.GetSwapChain());
     CommandListPtr cmd = device->RequestCommandList(QueueType::GRAPHICS);
     cmd->BeginRenderPass(rp);
 

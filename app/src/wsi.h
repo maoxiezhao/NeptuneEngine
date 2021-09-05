@@ -4,6 +4,7 @@
 #include "vulkan\definition.h"
 
 class Platform;
+struct Swapchain;
 
 class WSI
 {
@@ -13,6 +14,7 @@ public:
 	void BeginFrame();
 	void EndFrame();
 	void SetPlatform(Platform* platform);
+	Swapchain* GetSwapChain();
 	
 	DeviceVulkan* GetDevice();
 

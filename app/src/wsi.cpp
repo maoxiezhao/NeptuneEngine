@@ -49,6 +49,17 @@ void WSI::Uninitialize()
 void WSI::BeginFrame()
 {
     deviceVulkan->BeginFrameContext();
+
+    // acquire next image index
+    VkResult res = vkAcquireNextImageKHR(
+        deviceVulkan->mDevice,
+        swapchian->mSwapChain,
+        0xFFFFFFFFFFFFFFFF,
+        swapchian->mSwapchainAcquireSemaphore,
+        VK_NULL_HANDLE,
+        &swapchian->mImageIndex
+    );
+    assert(res == VK_SUCCESS);
 }
 
 void WSI::EndFrame()
@@ -59,6 +70,11 @@ void WSI::EndFrame()
 void WSI::SetPlatform(Platform* platform)
 {
 	mPlatform = platform;
+}
+
+Swapchain* WSI::GetSwapChain()
+{
+    return swapchian;
 }
 
 DeviceVulkan* WSI::GetDevice()
