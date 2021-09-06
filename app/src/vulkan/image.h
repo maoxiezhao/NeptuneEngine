@@ -29,7 +29,6 @@ private:
     DeviceVulkan& mDevice;
     VkImageView mImageView;
     ImageViewCreateInfo mInfo;
-
 };
 using ImageViewPtr = Util::IntrusivePtr<ImageView>;
 
@@ -79,6 +78,7 @@ private:
     VkImage mImage;
     ImageViewPtr mImageView;
     ImageCreateInfo mImageInfo;
+    VkImageLayout mImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     bool mIsOwnsImge = true;
 };
 using ImagePtr = Util::IntrusivePtr<Image>;

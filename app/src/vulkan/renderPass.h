@@ -15,10 +15,16 @@ struct RenderPassInfo
     VkRect2D mRenderArea = { { 0, 0 }, { UINT32_MAX, UINT32_MAX } };
 };
 
-struct RenderPass
+class RenderPass
 {
+private:
+    DeviceVulkan& mDevice;
     VkRenderPass mRenderPass = VK_NULL_HANDLE;
     uint64_t mHash;
+
+public:
+    RenderPass(DeviceVulkan& device);
+    ~RenderPass();
 
     void SetHash(uint64_t hash)
     {

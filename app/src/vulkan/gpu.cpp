@@ -557,14 +557,21 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(const Swapchain& swapCha
 RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo)
 {
     HashCombiner hash;
+	// Get color attachments hash
+	for (uint32_t i = 0; i < renderPassInfo.mNumColorAttachments; i++)
+		hash.HashCombine(renderPassInfo.mColorAttachments[i]->GetCookie());
 
-
+	// Get depth stencil hash
+	if (renderPassInfo.mDepthStencil)
+		hash.HashCombine(renderPassInfo.mDepthStencil->GetCookie());
 
     auto findIt = mRenderPasses.find(hash.Get());
     if (findIt != mRenderPasses.end())
         return findIt->second;
 
-    return mRenderPasses.emplace(hash.Get(), std::move(RenderPass())).first->second; 
+    RenderPass& renderPass = mRenderPasses.emplace(hash.Get(), *this).first->second;
+    renderPass.SetHash(hash.Get());
+    return renderPass;
 }
 
 FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassInfo)
