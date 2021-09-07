@@ -18,8 +18,8 @@ struct Swapchain
 {
     VkDevice& mDevice;
     VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
-    VkSurfaceFormatKHR mFormat;
-    VkExtent2D mSwapchainExtent;
+    VkSurfaceFormatKHR mFormat = {};
+    VkExtent2D mSwapchainExtent = {};
     std::vector<ImagePtr> mImages;
     std::vector<VkSurfaceFormatKHR> mFormats;
     std::vector<VkPresentModeKHR> mPresentModes;

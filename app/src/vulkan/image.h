@@ -21,6 +21,26 @@ public:
         return mImageView;
     }
 
+	Image* GetImage()
+	{
+		return mInfo.mImage;
+	}
+
+    const Image* GetImage() const
+    {
+        return mInfo.mImage;
+    }
+
+    VkFormat GetFormat()const
+    {
+        return mInfo.mFormat;
+    }
+
+    const ImageViewCreateInfo& GetInfo()const
+    {
+        return mInfo;
+    }
+
 private:
     friend class DeviceVulkan;
     friend struct ImageViewDeleter;
@@ -66,6 +86,16 @@ public:
         mIsOwnsImge = false;
     }
 
+    VkImageLayout GetSwapchainLayout() const
+    {
+        return mSwapchainLayout;
+    }
+
+    void SetSwapchainLayout(VkImageLayout layout)
+    {
+        mSwapchainLayout = layout;
+    }
+
 private:
     friend class DeviceVulkan;
     friend struct ImageDeleter;
@@ -78,7 +108,7 @@ private:
     VkImage mImage;
     ImageViewPtr mImageView;
     ImageCreateInfo mImageInfo;
-    VkImageLayout mImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageLayout mSwapchainLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     bool mIsOwnsImge = true;
 };
 using ImagePtr = Util::IntrusivePtr<Image>;

@@ -144,7 +144,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     // begin rende pass
     VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     beginInfo.renderArea = mScissor;
-    beginInfo.renderPass = mRenderPass->mRenderPass;
+    beginInfo.renderPass = mRenderPass->GetRenderPass();
     beginInfo.framebuffer = mFrameBuffer->GetFrameBuffer();
     beginInfo.clearValueCount = numClearColor;
     beginInfo.pClearValues = clearColors;

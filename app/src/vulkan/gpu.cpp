@@ -426,38 +426,6 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32
         assert(res == VK_SUCCESS);
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // create default render pass
-        // 对应于Swapchain image的颜色缓冲附件
-        VkAttachmentDescription colorAttachment = {};
-        colorAttachment.format = swapchain->mFormat.format;
-        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-        VkAttachmentReference colorAttachmentRef = {};
-        colorAttachmentRef.attachment = 0;
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        VkSubpassDescription subpass = {};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &colorAttachmentRef;
-
-        VkRenderPassCreateInfo createRenderPassInfo = {};
-        createRenderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        createRenderPassInfo.attachmentCount = 1;
-        createRenderPassInfo.pAttachments = &colorAttachment;
-        createRenderPassInfo.subpassCount = 1;
-        createRenderPassInfo.pSubpasses = &subpass;
-
-        // res = vkCreateRenderPass(mDevice, &createRenderPassInfo, nullptr, &swapchain->mDefaultRenderPass.mRenderPass);
-        // assert(res == VK_SUCCESS);
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // create image views
         ImageCreateInfo imageCreateInfo = ImageCreateInfo::RenderTarget(width, height, swapchain->mFormat.format);
         for (int i = 0; i < images.size(); i++)
@@ -485,6 +453,7 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32
             if (imagePtr)
             {
                 imagePtr->DisownImge(); // image由vkGetSwapchainImagesKHR获取
+                imagePtr->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
                 swapchain->mImages.push_back(imagePtr);
             }
 
@@ -557,19 +526,48 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(const Swapchain& swapCha
 RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo)
 {
     HashCombiner hash;
-	// Get color attachments hash
-	for (uint32_t i = 0; i < renderPassInfo.mNumColorAttachments; i++)
-		hash.HashCombine(renderPassInfo.mColorAttachments[i]->GetCookie());
+    VkFormat colorFormats[VULKAN_NUM_ATTACHMENTS];
+    VkFormat depthStencilFormat = VkFormat::VK_FORMAT_UNDEFINED;
 
-	// Get depth stencil hash
-	if (renderPassInfo.mDepthStencil)
-		hash.HashCombine(renderPassInfo.mDepthStencil->GetCookie());
+    // Color attachments
+    for (uint32_t i = 0; i < renderPassInfo.mNumColorAttachments; i++)
+    {
+        const ImageView& imageView = *renderPassInfo.mColorAttachments[i];
+        colorFormats[i] = imageView.GetInfo().mFormat;
+        hash.HashCombine(imageView.GetImage()->GetSwapchainLayout());
+    }
+
+    // Depth stencil
+    if (renderPassInfo.mDepthStencil)
+        depthStencilFormat = renderPassInfo.mDepthStencil->GetInfo().mFormat;
+
+    // Subpasses
+    hash.HashCombine(renderPassInfo.mNumSubPasses);
+    for (uint32_t i = 0; i < renderPassInfo.mNumSubPasses; i++)
+    {
+        auto& subpassInfo = renderPassInfo.mSubPasses[i];
+        hash.HashCombine(subpassInfo.mNumColorAattachments);
+        hash.HashCombine(subpassInfo.mNumInputAttachments);
+        hash.HashCombine(subpassInfo.mNumResolveAttachments);
+		for (uint32_t j = 0; j < subpassInfo.mNumColorAattachments; j++)
+            hash.HashCombine(subpassInfo.mColorAttachments[j]);
+		for (uint32_t j = 0; j < subpassInfo.mNumInputAttachments; j++)
+            hash.HashCombine(subpassInfo.mInputAttachments[j]);
+		for (uint32_t j = 0; j < subpassInfo.mNumResolveAttachments; j++)
+            hash.HashCombine(subpassInfo.mResolveAttachments[j]);
+    }
+
+    // Calculate hash
+    for (VkFormat format : colorFormats)
+        hash.HashCombine((uint32_t)format);
+    hash.HashCombine(renderPassInfo.mNumColorAttachments);
+    hash.HashCombine((uint32_t)depthStencilFormat);
 
     auto findIt = mRenderPasses.find(hash.Get());
     if (findIt != mRenderPasses.end())
         return findIt->second;
 
-    RenderPass& renderPass = mRenderPasses.emplace(hash.Get(), *this).first->second;
+    RenderPass& renderPass = mRenderPasses.try_emplace(hash.Get(), *this, renderPassInfo).first->second;
     renderPass.SetHash(hash.Get());
     return renderPass;
 }
@@ -594,7 +592,7 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
     if (findIt != mFrameBuffers.end())
         return findIt->second;
 
-    return mFrameBuffers.emplace(hash.Get(), *this).first->second;
+    return mFrameBuffers.try_emplace(hash.Get(), *this).first->second;
 }
 
 void DeviceVulkan::BeginFrameContext()
@@ -610,7 +608,6 @@ void DeviceVulkan::BeginFrameContext()
 
     // clear destroyed resources
     CurrentFrameResource().ProcessDestroyed(mDevice);
-    
 }
 
 void DeviceVulkan::EndFrameContext()
