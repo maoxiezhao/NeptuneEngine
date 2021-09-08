@@ -53,6 +53,13 @@ enum class QueueType
     Count
 };
 
+enum class SwapchainRenderPassType
+{
+    ColorOnly,
+    Depth,
+    DepthStencil
+};
+
 static inline bool IsFormatHasDepth(VkFormat format)
 {
     switch (format)

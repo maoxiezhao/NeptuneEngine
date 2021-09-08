@@ -31,10 +31,10 @@ Image::Image(DeviceVulkan& device, VkImage image, VkImageView imageView, const I
 {
 	if (imageView != VK_NULL_HANDLE)
 	{
-		ImageViewCreateInfo info = {};
-		info.mImage = this;
-		info.mFormat = info.mFormat;
-		mImageView = ImageViewPtr(device.mImageViewPool.allocate(device, imageView, info));
+		ImageViewCreateInfo imageViewInfo = {};
+		imageViewInfo.mImage = this;
+		imageViewInfo.mFormat = info.mFormat;
+		mImageView = ImageViewPtr(device.mImageViewPool.allocate(device, imageView, imageViewInfo));
 	}
 }
 

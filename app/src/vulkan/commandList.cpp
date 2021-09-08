@@ -406,11 +406,29 @@ VkPipeline CommandList::BuildGraphicsPipeline(const PipelineStateDesc& pipelineS
     return retPipeline;
 }
 
-FrameBuffer::FrameBuffer(DeviceVulkan& device) :
+FrameBuffer::FrameBuffer(DeviceVulkan& device, RenderPass& renderPass, const RenderPassInfo& info) :
     mDevice(device)
 {
+    VkImageView imageViews[VULKAN_NUM_ATTACHMENTS + 1];
+    uint32_t numImageViews = 0;
+
+	VkFramebufferCreateInfo framebufferInfo = {};
+	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferInfo.renderPass = swapchain->mDefaultRenderPass.mRenderPass;
+	framebufferInfo.attachmentCount = numImageViews;
+	framebufferInfo.pAttachments = imageViews;
+	framebufferInfo.width = width;
+	framebufferInfo.height = height;
+	framebufferInfo.layers = 1;
+
+	VkResult res = vkCreateFramebuffer(mDevice.mDevice, &framebufferInfo, nullptr, &mFrameBuffer);
+	assert(res == VK_SUCCESS);
 }
 
 FrameBuffer::~FrameBuffer()
 {
+    if (mFrameBuffer != VK_NULL_HANDLE)
+    {
+        mDevice.ReleaseFrameBuffer(mFrameBuffer);
+    }
 }

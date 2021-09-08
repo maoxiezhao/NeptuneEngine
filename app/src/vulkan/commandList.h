@@ -6,16 +6,13 @@
 class DeviceVulkan;
 class FrameBuffer;
 
-struct FrameBufferDeleter
-{
-    void operator()(FrameBuffer* fb);
-};
-class FrameBuffer : public Util::IntrusivePtrEnabled<FrameBuffer, FrameBufferDeleter>
+class FrameBuffer
 {
 public:
-    FrameBuffer(DeviceVulkan& device);
+    FrameBuffer(DeviceVulkan& device, RenderPass& renderPass, const RenderPassInfo& info);
     ~FrameBuffer();
 
+    FrameBuffer(const FrameBuffer&) = delete;
     void operator=(const FrameBuffer&) = delete;
 
     uint32_t GetWidth()
@@ -34,6 +31,8 @@ public:
     }
 
 private:
+    friend struct FrameBufferDeleter;
+
     DeviceVulkan& mDevice;
     VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
     uint32_t mWidth = 0;

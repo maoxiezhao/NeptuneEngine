@@ -283,12 +283,14 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
     const int THREAD_COUNT = 1;
     for (int frameIndex = 0; frameIndex < FRAME_COUNT; frameIndex++)
     {
+
+        auto& frameResource = mFrameResources.emplace_back();
         for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
         {
-            mFrameResources[frameIndex].cmdPools->reserve(THREAD_COUNT);
+            frameResource.cmdPools->reserve(THREAD_COUNT);
             for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
             {
-                mFrameResources[frameIndex].cmdPools->emplace_back(this, queueIndex);
+                frameResource.cmdPools->emplace_back(this, queueIndex);
             }
         }
     }
@@ -421,7 +423,7 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32
         res = vkGetSwapchainImagesKHR(mDevice, swapchain->mSwapChain, &imageCount, nullptr);
         assert(res == VK_SUCCESS);
 
-        std::vector<VkImage> images;
+        std::vector<VkImage> images(imageCount);
         res = vkGetSwapchainImagesKHR(mDevice, swapchain->mSwapChain, &imageCount, images.data());
         assert(res == VK_SUCCESS);
 
@@ -512,7 +514,7 @@ Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(int threadIndex
     return Util::IntrusivePtr<CommandList>(mCommandListPool.allocate(*this, buffer, queueType));
 }
 
-RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(const Swapchain& swapChain)
+RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(const Swapchain& swapChain, SwapchainRenderPassType swapchainRenderPassType)
 {
     RenderPassInfo info = {};
     info.mNumColorAttachments = 1;
@@ -558,8 +560,9 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
     }
 
     // Calculate hash
-    for (VkFormat format : colorFormats)
-        hash.HashCombine((uint32_t)format);
+	for (uint32_t i = 0; i < renderPassInfo.mNumColorAttachments; i++)
+        hash.HashCombine((uint32_t)colorFormats[i]);
+
     hash.HashCombine(renderPassInfo.mNumColorAttachments);
     hash.HashCombine((uint32_t)depthStencilFormat);
 
@@ -592,7 +595,7 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
     if (findIt != mFrameBuffers.end())
         return findIt->second;
 
-    return mFrameBuffers.try_emplace(hash.Get(), *this).first->second;
+    return mFrameBuffers.try_emplace(hash.Get(), *this, renderPass, renderPassInfo).first->second;
 }
 
 void DeviceVulkan::BeginFrameContext()
@@ -617,6 +620,11 @@ void DeviceVulkan::EndFrameContext()
 void DeviceVulkan::Submit(CommandListPtr& cmd)
 {
     cmd->EndCommandBuffer();
+}
+
+void DeviceVulkan::ReleaseFrameBuffer(VkFramebuffer buffer)
+{
+    CurrentFrameResource().mDestroyedFrameBuffers.push_back(buffer);
 }
 
 void DeviceVulkan::ReleaseImage(VkImage image)
@@ -737,11 +745,14 @@ void DeviceVulkan::FrameResource::Begin()
 
 void DeviceVulkan::FrameResource::ProcessDestroyed(VkDevice device)
 {
+	for (auto& buffer : mDestroyedFrameBuffers)
+		vkDestroyFramebuffer(device, buffer, nullptr);
     for (auto& image : mDestroyedImages)
         vkDestroyImage(device, image, nullptr);
-    mDestroyedImages.clear();
-
     for (auto& imageView : mDestroyedImageViews)
-        vkDestroyImageView(device, imageView, nullptr);
-    mDestroyedImageViews.clear();
+		vkDestroyImageView(device, imageView, nullptr);
+
+	mDestroyedFrameBuffers.clear();
+	mDestroyedImages.clear();
+	mDestroyedImageViews.clear();
 }

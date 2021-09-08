@@ -81,6 +81,7 @@ public:
         // destroyed resoruces
         std::vector<VkImageView> mDestroyedImageViews;
         std::vector<VkImage> mDestroyedImages;
+        std::vector<VkFramebuffer> mDestroyedFrameBuffers;
 
         void Begin();
         void ProcessDestroyed(VkDevice device);
@@ -112,7 +113,7 @@ public:
     CommandListPtr RequestCommandList(QueueType queueType);
     CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
     
-    RenderPassInfo GetSwapchianRenderPassInfo(const Swapchain& swapChain);
+    RenderPassInfo GetSwapchianRenderPassInfo(const Swapchain& swapChain, SwapchainRenderPassType swapchainRenderPassType);
     RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo);
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
 
@@ -120,6 +121,7 @@ public:
     void EndFrameContext();
     void Submit(CommandListPtr& cmd);
 
+    void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);
     void ReleaseImageView(VkImageView imageView);
 

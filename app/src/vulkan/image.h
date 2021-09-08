@@ -96,6 +96,11 @@ public:
         mSwapchainLayout = layout;
     }
 
+    bool IsSwapchainImage()const
+    {
+        return mSwapchainLayout != VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
 private:
     friend class DeviceVulkan;
     friend struct ImageDeleter;
