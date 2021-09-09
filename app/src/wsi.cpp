@@ -1,6 +1,6 @@
 #include "wsi.h"
 #include "app.h"
-#include "vulkan\gpu.h"
+#include "vulkan\device.h"
 #include "shaderCompiler.h"
 
 #ifdef DEBUG
@@ -55,7 +55,7 @@ void WSI::BeginFrame()
         deviceVulkan->mDevice,
         swapchian->mSwapChain,
         0xFFFFFFFFFFFFFFFF,
-        swapchian->mSwapchainAcquireSemaphore,
+        swapchian->mAcquireSemaphore,
         VK_NULL_HANDLE,
         &swapchian->mImageIndex
     );
@@ -65,6 +65,18 @@ void WSI::BeginFrame()
 void WSI::EndFrame()
 {
     deviceVulkan->EndFrameContext();
+
+    // present 
+    VkResult result = VK_SUCCESS;
+    VkPresentInfoKHR info = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    info.waitSemaphoreCount = 1;
+    info.pWaitSemaphores = &swapchian->mReleaseSemaphore;
+    info.swapchainCount = 1;
+    info.pSwapchains = &swapchian->mSwapChain;
+    info.pImageIndices = &swapchian->mImageIndex;
+    info.pResults = &result;
+
+    //VkResult overall = vkQueuePresentKHR(deviceVulkan->get_current_present_queue(), &info);
 }
 
 void WSI::SetPlatform(Platform* platform)

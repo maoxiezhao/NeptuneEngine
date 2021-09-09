@@ -1,4 +1,4 @@
-#include "gpu.h"
+#include "device.h"
 #include "utils\hash.h"
 
 namespace 
@@ -294,10 +294,16 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
             }
         }
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+    //init managers
+    mFencePoolManager.Initialize(*this);
 }
 
 DeviceVulkan::~DeviceVulkan()
 {
+    mFencePoolManager.ClearAll();
+
     if (mDebugUtilsMessenger != VK_NULL_HANDLE) {
         vkDestroyDebugUtilsMessengerEXT(mVkInstanc, mDebugUtilsMessenger, nullptr);
     }
@@ -474,15 +480,15 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-        if (swapchain->mSwapchainAcquireSemaphore == nullptr)
+        if (swapchain->mAcquireSemaphore == nullptr)
         {
-            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mSwapchainAcquireSemaphore);
+            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mAcquireSemaphore);
             assert(res == VK_SUCCESS);
         }
 
-        if (swapchain->mSwapchainReleaseSemaphore == nullptr)
+        if (swapchain->mReleaseSemaphore == nullptr)
         {
-            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mSwapchainReleaseSemaphore);
+            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mReleaseSemaphore);
             assert(res == VK_SUCCESS);
         }
     }
@@ -606,6 +612,16 @@ void DeviceVulkan::BeginFrameContext()
     if (++mFrameIndex >= mFrameResources.size())
         mFrameIndex = 0;
 
+    // reset recyle fences
+    auto& recyleFences = CurrentFrameResource().mRecyleFences;
+    if (!recyleFences.empty())
+    {
+        vkResetFences(mDevice, (uint32_t)recyleFences.size(), recyleFences.data());
+        for (auto& fence : recyleFences)
+            mFencePoolManager.Recyle(fence);
+        recyleFences.clear();
+    }
+
     // begin frame resources
     CurrentFrameResource().Begin();
 
@@ -635,6 +651,19 @@ void DeviceVulkan::ReleaseImage(VkImage image)
 void DeviceVulkan::ReleaseImageView(VkImageView imageView)
 {
     CurrentFrameResource().mDestroyedImageViews.push_back(imageView);
+}
+
+void DeviceVulkan::ReleaseFence(VkFence fence, bool isWait)
+{
+    if (isWait)
+    {
+        vkResetFences(mDevice, 1, &fence);
+        mFencePoolManager.Recyle(fence);
+    }
+    else
+    {
+        CurrentFrameResource().mRecyleFences.push_back(fence);
+    }
 }
 
 uint64_t DeviceVulkan::GenerateCookie()
@@ -722,6 +751,10 @@ std::vector<const char*> DeviceVulkan::GetRequiredExtensions()
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
     return extensions;
+}
+
+void DeviceVulkan::SubmitQueue()
+{
 }
 
 bool DeviceVulkan::CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader)

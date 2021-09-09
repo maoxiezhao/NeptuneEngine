@@ -1,6 +1,6 @@
 
 #include "common.h"
-#include "vulkan/gpu.h"
+#include "vulkan/device.h"
 #include "shaderCompiler.h"
 #include "app.h"
 

@@ -14,6 +14,11 @@ ImageView::~ImageView()
 	mDevice.ReleaseImageView(mImageView);
 }
 
+VkImageView ImageView::GetRenderTargetView(uint32_t layer) const
+{
+	return mImageView;
+}
+
 void ImageViewDeleter::operator()(ImageView* imageView)
 {
 	imageView->mDevice.mImageViewPool.free(imageView);

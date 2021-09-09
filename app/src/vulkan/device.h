@@ -5,6 +5,7 @@
 #include "commandList.h"
 #include "image.h"
 #include "renderPass.h"
+#include "fence.h"
 
 #include <set>
 #include <unordered_map>
@@ -25,8 +26,8 @@ struct Swapchain
     std::vector<VkPresentModeKHR> mPresentModes;
 
     uint32_t mImageIndex = 0;
-    VkSemaphore mSwapchainAcquireSemaphore = VK_NULL_HANDLE;
-    VkSemaphore mSwapchainReleaseSemaphore = VK_NULL_HANDLE;
+    VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
+    VkSemaphore mReleaseSemaphore = VK_NULL_HANDLE;
 
     Swapchain(VkDevice& device) : mDevice(device)
     {
@@ -34,8 +35,8 @@ struct Swapchain
 
     ~Swapchain()
     {
-        vkDestroySemaphore(mDevice, mSwapchainAcquireSemaphore, nullptr);
-        vkDestroySemaphore(mDevice, mSwapchainReleaseSemaphore, nullptr);
+        vkDestroySemaphore(mDevice, mAcquireSemaphore, nullptr);
+        vkDestroySemaphore(mDevice, mReleaseSemaphore, nullptr);
         vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
     }
 };
@@ -83,6 +84,9 @@ public:
         std::vector<VkImage> mDestroyedImages;
         std::vector<VkFramebuffer> mDestroyedFrameBuffers;
 
+        // fences
+        std::vector<VkFence> mRecyleFences;
+
         void Begin();
         void ProcessDestroyed(VkDevice device);
     };
@@ -95,13 +99,17 @@ public:
         return mFrameResources[mFrameIndex];
     }
 
-    // vulkan object pools
+    // rhi object pools
     std::unordered_map<uint64_t, RenderPass> mRenderPasses;
     std::unordered_map<uint64_t, FrameBuffer> mFrameBuffers;
 
     Util::ObjectPool<CommandList> mCommandListPool;
     Util::ObjectPool<Image> mImagePool;
     Util::ObjectPool<ImageView> mImageViewPool;
+    Util::ObjectPool<Fence> mFencePool;
+
+    // vulkan object managers
+    FenceManager mFencePoolManager;
 
 public:
     DeviceVulkan(GLFWwindow* window, bool debugLayer);
@@ -124,6 +132,7 @@ public:
     void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);
     void ReleaseImageView(VkImageView imageView);
+    void ReleaseFence(VkFence fence, bool isWait);
 
     uint64_t GenerateCookie();
 
@@ -134,6 +143,9 @@ private:
     bool CheckExtensionSupport(const char* checkExtension, const std::vector<VkExtensionProperties>& availableExtensions);
     VkSurfaceKHR CreateSurface(VkInstance instance, VkPhysicalDevice);
     std::vector<const char*> GetRequiredExtensions();
+
+    void SubmitCmd(CommandListPtr cmd);
+    void SubmitQueue();
 
     // debug callback
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(

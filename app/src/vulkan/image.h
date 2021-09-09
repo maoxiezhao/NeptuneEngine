@@ -41,6 +41,8 @@ public:
         return mInfo;
     }
 
+    VkImageView GetRenderTargetView(uint32_t layer)const;
+
 private:
     friend class DeviceVulkan;
     friend struct ImageViewDeleter;
@@ -99,6 +101,16 @@ public:
     bool IsSwapchainImage()const
     {
         return mSwapchainLayout != VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
+    uint32_t GetWidth() const
+    {
+        return mImageInfo.mWidth;
+    }
+
+    uint32_t GetHeight() const
+    {
+        return mImageInfo.mHeight;
     }
 
 private:

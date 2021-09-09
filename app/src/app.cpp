@@ -1,5 +1,5 @@
 #include "app.h"
-#include "vulkan\gpu.h"
+#include "vulkan\device.h"
 
 Platform::Platform()
 {
