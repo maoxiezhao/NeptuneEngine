@@ -47,10 +47,10 @@ enum QueueIndices
     QUEUE_INDEX_COUNT
 };
 
-enum class QueueType
+enum QueueType
 {
-    GRAPHICS = QUEUE_INDEX_GRAPHICS,
-    Count
+    QUEUE_TYPE_GRAPHICS = QUEUE_INDEX_GRAPHICS,
+    QUEUE_TYPE_COUNT,
 };
 
 enum class SwapchainRenderPassType

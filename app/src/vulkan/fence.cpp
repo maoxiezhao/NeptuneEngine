@@ -1,5 +1,5 @@
 #include "fence.h"
-#include "gpu.h"
+#include "vulkan/device.h"
 
 Fence::Fence(DeviceVulkan& device, VkFence fence) :
 	mDevice(device),

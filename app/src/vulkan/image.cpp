@@ -1,5 +1,5 @@
 #include "image.h"
-#include "gpu.h"
+#include "vulkan/device.h"
 
 ImageView::ImageView(DeviceVulkan& device, VkImageView imageView, const ImageViewCreateInfo& info) :
 	GraphicsCookie(device.GenerateCookie()),

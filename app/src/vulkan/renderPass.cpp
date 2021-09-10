@@ -1,5 +1,5 @@
 #include "renderPass.h"
-#include "gpu.h"
+#include "vulkan/device.h"
 
 namespace {
 	VkAttachmentLoadOp CheckLoadOp(const RenderPassInfo& info, uint32_t i)

@@ -87,6 +87,9 @@ public:
         // fences
         std::vector<VkFence> mRecyleFences;
 
+        // submissions
+        std::vector<CommandListPtr> mSubmissions[QUEUE_INDEX_COUNT];
+
         void Begin();
         void ProcessDestroyed(VkDevice device);
     };
@@ -144,8 +147,8 @@ private:
     VkSurfaceKHR CreateSurface(VkInstance instance, VkPhysicalDevice);
     std::vector<const char*> GetRequiredExtensions();
 
-    void SubmitCmd(CommandListPtr cmd);
-    void SubmitQueue();
+    // submit methods
+    void SubmitQueue(QueueIndices queueIndex, VkFence& fence);
 
     // debug callback
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(

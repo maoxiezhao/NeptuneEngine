@@ -3,6 +3,16 @@
 
 namespace 
 {
+	static const QueueIndices QUEUE_FLUSH_ORDER[] = {
+		QUEUE_INDEX_GRAPHICS,
+		QUEUE_INDEX_COMPUTE
+	};
+
+    QueueIndices ConvertQueueTypeToIndices(QueueType type)
+    {
+        return static_cast<QueueIndices>(type);
+    }
+
     std::vector<const char*> GetOptimalValidationLayers(const std::vector<VkLayerProperties>& layerProperties)
     {
         std::vector<std::vector<const char*>> validationLayerPriorityList =
@@ -631,11 +641,26 @@ void DeviceVulkan::BeginFrameContext()
 
 void DeviceVulkan::EndFrameContext()
 {
+    // flush queue
+    VkFence fence = VK_NULL_HANDLE;
+    auto submissionList = CurrentFrameResource().mSubmissions;
+    for (auto& queueIndex : QUEUE_FLUSH_ORDER)
+    {
+        if (!submissionList[queueIndex].empty())
+        {
+            // submit queue
+            SubmitQueue(queueIndex, fence);
+        }
+    }
 }
 
 void DeviceVulkan::Submit(CommandListPtr& cmd)
 {
     cmd->EndCommandBuffer();
+
+    QueueIndices queueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
+    auto& submissions = CurrentFrameResource().mSubmissions[queueIndex];
+    submissions.push_back(std::move(cmd));
 }
 
 void DeviceVulkan::ReleaseFrameBuffer(VkFramebuffer buffer)
@@ -753,7 +778,7 @@ std::vector<const char*> DeviceVulkan::GetRequiredExtensions()
     return extensions;
 }
 
-void DeviceVulkan::SubmitQueue()
+void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, VkFence& fence)
 {
 }
 
