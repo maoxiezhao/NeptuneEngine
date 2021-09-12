@@ -71,7 +71,7 @@ void App::Render()
     assert(device != nullptr);
 
     RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*mWSI.GetSwapChain(), SwapchainRenderPassType::ColorOnly);
-    CommandListPtr cmd = device->RequestCommandList(QueueType::GRAPHICS);
+    CommandListPtr cmd = device->RequestCommandList(QUEUE_TYPE_GRAPHICS);
     cmd->BeginRenderPass(rp);
 
     cmd->EndRenderPass();

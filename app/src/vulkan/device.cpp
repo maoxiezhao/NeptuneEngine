@@ -229,23 +229,20 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
     mQueueFamilies.resize(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, mQueueFamilies.data());
 
+    for (int i = 0; i < (int)QUEUE_INDEX_COUNT; i++)
+        mQueueIndices[i] = -1;
+
     int familyIndex = 0;
     for (const auto& queueFamily : mQueueFamilies)
     {
-        if (mGraphicsFamily < 0 && queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            mGraphicsFamily = familyIndex;
-        }
+        if (mQueueIndices[QUEUE_INDEX_GRAPHICS] < 0 && queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+            mQueueIndices[QUEUE_INDEX_GRAPHICS] = familyIndex;
 
-        if (mCopyFamily < 0 && queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
-        {
-            mCopyFamily = familyIndex;
-        }
+        if (mQueueIndices[QUEUE_INDEX_TRANSFER] < 0 && queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+            mQueueIndices[QUEUE_INDEX_TRANSFER] = familyIndex;
 
-        if (mComputeFamily < 0 && queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
-        {
-            mComputeFamily = familyIndex;
-        }
+        if (mQueueIndices[QUEUE_INDEX_COMPUTE] < 0 && queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
+            mQueueIndices[QUEUE_INDEX_COMPUTE] = familyIndex;
 
         familyIndex++;
     }
@@ -255,7 +252,11 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
 
     // setup queue create infos
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<int> uniqueQueueFamilies = { mGraphicsFamily, mCopyFamily, mComputeFamily };
+    std::set<int> uniqueQueueFamilies = { 
+        mQueueIndices[QUEUE_INDEX_GRAPHICS], 
+        mQueueIndices[QUEUE_INDEX_COMPUTE], 
+        mQueueIndices[QUEUE_INDEX_GRAPHICS] 
+    };
     float queuePriority = 1.0f;
     for (int queueFamily : uniqueQueueFamilies)
     {
@@ -283,9 +284,14 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
     volkLoadDevice(mDevice);
 
     // get deivce queues
-    vkGetDeviceQueue(mDevice, mGraphicsFamily, 0, &mgGraphicsQueue);
-    vkGetDeviceQueue(mDevice, mComputeFamily, 0, &mComputeQueue);
-    vkGetDeviceQueue(mDevice, mCopyFamily, 0, &mCopyQueue);
+    for (int i = 0; i < QUEUE_INDEX_COUNT; i++)
+    {
+        if (mQueueIndices[i] != -1)
+        {
+            vkGetDeviceQueue(mDevice, mQueueIndices[i], 0, &mQueues[i]);
+        }
+    }
+
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // create frame resources
@@ -308,11 +314,13 @@ DeviceVulkan::DeviceVulkan(GLFWwindow* window, bool debugLayer) :
     ///////////////////////////////////////////////////////////////////////////////////////////
     //init managers
     mFencePoolManager.Initialize(*this);
+    mSemaphoreManager.Initialize(*this);
 }
 
 DeviceVulkan::~DeviceVulkan()
 {
     mFencePoolManager.ClearAll();
+    mSemaphoreManager.ClearAll();
 
     if (mDebugUtilsMessenger != VK_NULL_HANDLE) {
         vkDestroyDebugUtilsMessengerEXT(mVkInstanc, mDebugUtilsMessenger, nullptr);
@@ -484,23 +492,6 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32
             //res = vkCreateFramebuffer(mDevice, &framebufferInfo, nullptr, &swapchain->mFrameBuffers[i]);
             //assert(res == VK_SUCCESS);
         }
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // create semaphore
-        VkSemaphoreCreateInfo semaphoreInfo = {};
-        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-        if (swapchain->mAcquireSemaphore == nullptr)
-        {
-            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mAcquireSemaphore);
-            assert(res == VK_SUCCESS);
-        }
-
-        if (swapchain->mReleaseSemaphore == nullptr)
-        {
-            res = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &swapchain->mReleaseSemaphore);
-            assert(res == VK_SUCCESS);
-        }
     }
 
     return true;
@@ -633,23 +624,36 @@ void DeviceVulkan::BeginFrameContext()
     }
 
     // begin frame resources
-    CurrentFrameResource().Begin();
+    CurrentFrameResource().Begin(mDevice);
 
     // clear destroyed resources
     CurrentFrameResource().ProcessDestroyed(mDevice);
+
+    // reset recyle semaphores
+    auto& recyleSemaphores = CurrentFrameResource().mRecycledSemaphroes;
+    for (auto& semaphore : recyleSemaphores)
+        mSemaphoreManager.Recyle(semaphore);
+    recyleSemaphores.clear();
 }
 
 void DeviceVulkan::EndFrameContext()
 {
     // flush queue
-    VkFence fence = VK_NULL_HANDLE;
-    auto submissionList = CurrentFrameResource().mSubmissions;
+    InternalFence fence;
+    auto& frame = CurrentFrameResource();
+    auto submissionList = frame.mSubmissions;
     for (auto& queueIndex : QUEUE_FLUSH_ORDER)
     {
         if (!submissionList[queueIndex].empty())
         {
-            // submit queue
-            SubmitQueue(queueIndex, fence);
+            SubmitQueue(queueIndex, &fence);
+           
+            // 如果创建了Fence，则添加到waitFences，这会在BeginFrame前等待
+            if (fence.mFence != VK_NULL_HANDLE)
+            {
+                frame.mWaitFences.push_back(fence.mFence);
+                frame.mRecyleFences.push_back(fence.mFence);
+            }
         }
     }
 }
@@ -661,6 +665,19 @@ void DeviceVulkan::Submit(CommandListPtr& cmd)
     QueueIndices queueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
     auto& submissions = CurrentFrameResource().mSubmissions[queueIndex];
     submissions.push_back(std::move(cmd));
+}
+
+void DeviceVulkan::SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire)
+{
+    mWSI.mAcquire = std::move(acquire);
+    mWSI.mIndex = index;
+    mWSI.mConsumed = false;
+}
+
+SemaphorePtr DeviceVulkan::RequestSemaphore()
+{
+    VkSemaphore semaphore = mSemaphoreManager.Requset();
+    return SemaphorePtr(mSemaphorePool.allocate(*this, semaphore, false));
 }
 
 void DeviceVulkan::ReleaseFrameBuffer(VkFramebuffer buffer)
@@ -691,10 +708,35 @@ void DeviceVulkan::ReleaseFence(VkFence fence, bool isWait)
     }
 }
 
+void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore, bool isSignalled)
+{
+    // 已经signalled的semaphore则直接销毁，否则循环使用
+    if (isSignalled)
+    {
+        CurrentFrameResource().mDestroyeSemaphores.push_back(semaphore);
+    }
+    else
+    {
+        CurrentFrameResource().mRecycledSemaphroes.push_back(semaphore);
+    }
+}
+
 uint64_t DeviceVulkan::GenerateCookie()
 {
     STATIC_COOKIE += 16;
     return STATIC_COOKIE;
+}
+
+SemaphorePtr DeviceVulkan::GetAndConsumeReleaseSemaphore()
+{
+    auto ret = std::move(mWSI.mRelease);
+    mWSI.mRelease.reset();
+    return ret;
+}
+
+VkQueue DeviceVulkan::GetPresentQueue() const
+{
+    return mWSI.mPresentQueue;
 }
 
 bool DeviceVulkan::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak)
@@ -778,8 +820,79 @@ std::vector<const char*> DeviceVulkan::GetRequiredExtensions()
     return extensions;
 }
 
-void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, VkFence& fence)
+void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
 {
+    auto& submissions = CurrentFrameResource().mSubmissions[queueIndex];
+
+    // 如果提交队列为空，则直接空提交
+    if (submissions.empty())
+    {
+        if (fence != nullptr)
+            SubmitEmpty(queueIndex, fence);
+        return;
+    }
+
+    VkQueue queue = mQueues[queueIndex];
+    BatchComposer batchComposer;
+    for (int i = 0; i < submissions.size(); i++)
+    {
+        auto& cmd = submissions[i];
+        VkPipelineStageFlags stages = cmd->GetSwapchainStages();  
+
+        // use swapchian in stages
+        if (stages != 0 && !mWSI.mConsumed)
+        {
+            // Acquire semaphore
+            if (mWSI.mAcquire && mWSI.mAcquire->GetSemaphore() != VK_NULL_HANDLE)
+            {
+                batchComposer.AddWaitSemaphore(mWSI.mAcquire, stages);
+                if (mWSI.mAcquire->GetTimeLine() <= 0)
+                {
+                    ReleaseSemaphore(mWSI.mAcquire->GetSemaphore(), mWSI.mAcquire->IsSignalled());
+                }
+
+                mWSI.mAcquire->Release();
+                mWSI.mAcquire.reset();
+            }
+
+            batchComposer.AddCommandBuffer(cmd->GetCommandBuffer());
+
+            // Release semaphore
+            VkSemaphore release = mSemaphoreManager.Requset();
+            mWSI.mRelease = SemaphorePtr(mSemaphorePool.allocate(*this, release, true));
+            batchComposer.AddSignalSemaphore(release);
+
+            mWSI.mPresentQueue = queue;
+            mWSI.mConsumed = true;
+        }
+        else
+        {
+            batchComposer.AddCommandBuffer(cmd->GetCommandBuffer());
+        }
+    }
+
+    VkFence clearedFence = fence ? mFencePoolManager.Requset() : VK_NULL_HANDLE;
+    if (fence)
+        fence->mFence = clearedFence;
+
+    VkResult ret = SubmitBatches(batchComposer, queue, clearedFence);
+    if (ret != VK_SUCCESS)
+    {
+        std::cout << "Submit queue failed: " << int(ret) << std::endl;
+        return;
+    }
+
+    submissions.clear();
+}
+
+void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence)
+{
+}
+
+VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence)
+{
+    auto& submits = composer.Bake();
+    return vkQueueSubmit(queue, submits.size(), submits.data(), fence);
 }
 
 bool DeviceVulkan::CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader)
@@ -792,8 +905,16 @@ bool DeviceVulkan::CreateShader(ShaderStage stage, const void* pShaderBytecode, 
     return res == VK_SUCCESS;
 }
 
-void DeviceVulkan::FrameResource::Begin()
+void DeviceVulkan::FrameResource::Begin(VkDevice device)
 {
+    // wait for submiting
+    if (!mWaitFences.empty())
+    {
+        vkWaitForFences(device, mWaitFences.size(), mWaitFences.data(), VK_TRUE, UINT64_MAX);
+        mWaitFences.clear();
+    }
+
+    // reset command pools
     for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
     {
         for (auto& pool : cmdPools[queueIndex])
@@ -809,8 +930,74 @@ void DeviceVulkan::FrameResource::ProcessDestroyed(VkDevice device)
         vkDestroyImage(device, image, nullptr);
     for (auto& imageView : mDestroyedImageViews)
 		vkDestroyImageView(device, imageView, nullptr);
+    for (auto& semaphore : mDestroyeSemaphores)
+        vkDestroySemaphore(device, semaphore, nullptr);
 
 	mDestroyedFrameBuffers.clear();
 	mDestroyedImages.clear();
 	mDestroyedImageViews.clear();
+    mDestroyeSemaphores.clear();
+}
+
+BatchComposer::BatchComposer()
+{
+    // 默认存在一个Submit
+    mSubmits.emplace_back();
+}
+
+void BatchComposer::BeginBatch()
+{
+    // create a new VkSubmitInfo
+    auto& submitInfo = mSubmitInfos[mSubmitIndex];
+    if (!submitInfo.mCommandLists.empty() || !submitInfo.mWaitSemaphores.empty())
+    {
+        mSubmitIndex = mSubmits.size();
+        mSubmits.emplace_back();
+    }
+}
+
+void BatchComposer::AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages)
+{
+    // 添加wait semaphores时先将之前的cmds batch
+    if (!mSubmitInfos[mSubmitIndex].mCommandLists.empty())
+        BeginBatch();
+
+    mSubmitInfos[mSubmitIndex].mWaitSemaphores.push_back(sem->GetSemaphore());
+    mSubmitInfos[mSubmitIndex].mWaitStages.push_back(stages);
+}
+
+void BatchComposer::AddSignalSemaphore(VkSemaphore sem)
+{
+    mSubmitInfos[mSubmitIndex].mSignalSemaphores.push_back(sem);
+}
+
+void BatchComposer::AddCommandBuffer(VkCommandBuffer buffer)
+{
+    // 如果存在Signal semaphores，先将之前的cmds batch
+    if (!mSubmitInfos[mSubmitIndex].mSignalSemaphores.empty())
+        BeginBatch();
+
+    mSubmitInfos[mSubmitIndex].mCommandLists.push_back(buffer);
+}
+
+std::vector<VkSubmitInfo>& BatchComposer::Bake()
+{
+    // setup VKSubmitInfos
+    for (size_t index = 0; index < mSubmits.size(); index++)
+    {
+        auto& vkSubmitInfo = mSubmits[index];
+        auto& submitInfo = mSubmitInfos[index];
+        vkSubmitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        vkSubmitInfo.commandBufferCount = submitInfo.mCommandLists.size();
+        vkSubmitInfo.pCommandBuffers = submitInfo.mCommandLists.data();
+
+        vkSubmitInfo.waitSemaphoreCount = submitInfo.mWaitSemaphores.size();
+        vkSubmitInfo.pWaitSemaphores = submitInfo.mWaitSemaphores.data();
+        vkSubmitInfo.pWaitDstStageMask = submitInfo.mWaitStages.data();
+
+        vkSubmitInfo.signalSemaphoreCount = submitInfo.mSignalSemaphores.size();
+        vkSubmitInfo.pSignalSemaphores = submitInfo.mSignalSemaphores.data();
+    }
+
+    return mSubmits;
 }

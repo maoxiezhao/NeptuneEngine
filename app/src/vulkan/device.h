@@ -6,6 +6,7 @@
 #include "image.h"
 #include "renderPass.h"
 #include "fence.h"
+#include "semaphore.h"
 
 #include <set>
 #include <unordered_map>
@@ -26,8 +27,6 @@ struct Swapchain
     std::vector<VkPresentModeKHR> mPresentModes;
 
     uint32_t mImageIndex = 0;
-    VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
-    VkSemaphore mReleaseSemaphore = VK_NULL_HANDLE;
 
     Swapchain(VkDevice& device) : mDevice(device)
     {
@@ -35,10 +34,35 @@ struct Swapchain
 
     ~Swapchain()
     {
-        vkDestroySemaphore(mDevice, mAcquireSemaphore, nullptr);
-        vkDestroySemaphore(mDevice, mReleaseSemaphore, nullptr);
         vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
     }
+};
+
+struct BatchComposer
+{
+public:
+    BatchComposer();
+
+    static const uint32_t MAX_SUBMIT_COUNT = 8;
+    uint32_t mSubmitIndex = 0;
+    struct SubmitInfo
+    {
+        std::vector<VkPipelineStageFlags> mWaitStages;
+        std::vector<VkSemaphore> mWaitSemaphores;
+        std::vector<VkSemaphore> mSignalSemaphores;
+        std::vector<VkCommandBuffer> mCommandLists;
+    };
+    SubmitInfo mSubmitInfos[MAX_SUBMIT_COUNT];
+    std::vector<VkSubmitInfo> mSubmits;
+
+private:
+    void BeginBatch();
+
+public:
+    void AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages);
+    void AddSignalSemaphore(VkSemaphore sem);
+    void AddCommandBuffer(VkCommandBuffer buffer);
+    std::vector<VkSubmitInfo>& Bake();
 };
 
 class DeviceVulkan
@@ -67,12 +91,8 @@ public:
 
     // queue
     std::vector<VkQueueFamilyProperties> mQueueFamilies;
-    int mGraphicsFamily = -1;
-    int mComputeFamily = -1;
-    int mCopyFamily = -1;
-    VkQueue mgGraphicsQueue = VK_NULL_HANDLE;
-    VkQueue mComputeQueue = VK_NULL_HANDLE;
-    VkQueue mCopyQueue = VK_NULL_HANDLE;
+    int mQueueIndices[QUEUE_INDEX_COUNT] = {};
+    VkQueue mQueues[QUEUE_INDEX_COUNT] = {};
 
     // per frame resource
     struct FrameResource
@@ -83,14 +103,19 @@ public:
         std::vector<VkImageView> mDestroyedImageViews;
         std::vector<VkImage> mDestroyedImages;
         std::vector<VkFramebuffer> mDestroyedFrameBuffers;
+        std::vector<VkSemaphore> mDestroyeSemaphores;
 
         // fences
         std::vector<VkFence> mRecyleFences;
+        std::vector<VkFence> mWaitFences;
+
+        // semphore
+        std::vector<VkSemaphore> mRecycledSemaphroes;
 
         // submissions
         std::vector<CommandListPtr> mSubmissions[QUEUE_INDEX_COUNT];
 
-        void Begin();
+        void Begin(VkDevice device);
         void ProcessDestroyed(VkDevice device);
     };
     std::vector<FrameResource> mFrameResources;
@@ -110,9 +135,11 @@ public:
     Util::ObjectPool<Image> mImagePool;
     Util::ObjectPool<ImageView> mImageViewPool;
     Util::ObjectPool<Fence> mFencePool;
+    Util::ObjectPool<Semaphore> mSemaphorePool;
 
     // vulkan object managers
     FenceManager mFencePoolManager;
+    SemaphoreManager mSemaphoreManager;
 
 public:
     DeviceVulkan(GLFWwindow* window, bool debugLayer);
@@ -131,13 +158,21 @@ public:
     void BeginFrameContext();
     void EndFrameContext();
     void Submit(CommandListPtr& cmd);
+    void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);
+
+    SemaphorePtr RequestSemaphore();
 
     void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);
     void ReleaseImageView(VkImageView imageView);
     void ReleaseFence(VkFence fence, bool isWait);
+    void ReleaseSemaphore(VkSemaphore semaphore, bool isSignalled);
 
     uint64_t GenerateCookie();
+
+    // 必须在EndFrameContext之后调用,ReleaseSemaphroe仅在EndFrameContext中获取
+    SemaphorePtr GetAndConsumeReleaseSemaphore();
+    VkQueue GetPresentQueue()const;
 
 private:
 
@@ -148,7 +183,13 @@ private:
     std::vector<const char*> GetRequiredExtensions();
 
     // submit methods
-    void SubmitQueue(QueueIndices queueIndex, VkFence& fence);
+    struct InternalFence
+    {
+        VkFence mFence = VK_NULL_HANDLE;
+    };
+    void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr);
+    void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence);
+    VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);
 
     // debug callback
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
@@ -160,4 +201,15 @@ private:
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         return VK_FALSE;
     }
+
+    // internal wsi
+    struct InternalWSI
+    {
+        SemaphorePtr mAcquire;
+        SemaphorePtr mRelease;
+        uint32_t mIndex = 0;
+        VkQueue mPresentQueue;
+        bool mConsumed = false;
+    };
+    InternalWSI mWSI;
 };

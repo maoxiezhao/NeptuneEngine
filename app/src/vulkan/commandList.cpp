@@ -133,6 +133,11 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
             clearColors[i].color = {0.0f, 0.0f, 0.0f, 1.0f};
             numClearColor = i + 1;
         }
+
+        // Check use swapchian in stages
+        if (renderPassInfo.mColorAttachments[i]->GetImage()->IsSwapchainImage())
+            SetSwapchainStages(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);  // 指定混合后管道的阶段，其中从管道输出最终颜色值
+                                                                                // 此阶段还包括子颜色加载和存储操作以及具有颜色格式的帧缓冲附件的多重采样解析操作
     }
     // check is depth stencil and clear depth stencil
     if (renderPassInfo.mDepthStencil != nullptr)

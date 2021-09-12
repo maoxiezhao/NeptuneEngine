@@ -1,5 +1,5 @@
 #pragma once
-
+ 
 #include "definition.h"
 #include "renderPass.h"
 #include "frameBuffer.h"
@@ -50,6 +50,7 @@ private:
     DeviceVulkan& mDevice;
     VkCommandBuffer mCmd;
     QueueType mType;
+    VkPipelineStageFlags mSwapchainStages = 0;
 
     // render pass runtime 
     FrameBuffer* mFrameBuffer = nullptr;
@@ -66,6 +67,21 @@ public:
     QueueType GetQueueType()const
     {
         return mType;
+    }
+
+    VkCommandBuffer GetCommandBuffer()const
+    {
+        return mCmd;
+    }
+
+    VkPipelineStageFlags GetSwapchainStages()const
+    {
+        return mSwapchainStages;
+    }
+
+    void SetSwapchainStages(VkPipelineStageFlags stages)
+    {
+        mSwapchainStages |= stages;
     }
 
 private:
