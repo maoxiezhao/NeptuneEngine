@@ -131,11 +131,6 @@ private:
     Shader* mShaders[UINT(ShaderStage::Count)] = {};
 };
 
-struct PipelineStateDesc
-{
-    ShaderProgram mShaderProgram;
-};
-
 class Image;
 struct ImageViewCreateInfo
 {

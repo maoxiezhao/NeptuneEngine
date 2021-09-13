@@ -6,6 +6,17 @@
 
 class DeviceVulkan;
 
+enum CommandListDirtyBits
+{
+	COMMAND_LIST_DIRTY_PIPELINE_BIT = 1 << 0,
+};
+using CommandListDirtyFlags = uint32_t;
+
+struct CompilePipelineState
+{
+	ShaderProgram mShaderProgram;
+};
+
 struct CommandPool
 {
 public:
@@ -44,8 +55,7 @@ private:
     VkRect2D mScissor = {};
     VkPipeline mCurrentPipeline = VK_NULL_HANDLE;
     VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;
-    bool mIsDirtyPipeline = true;
-    PipelineStateDesc mPipelineStateDesc = {};
+    CompilePipelineState mPipelineState = {};
 
     DeviceVulkan& mDevice;
     VkCommandBuffer mCmd;
@@ -62,7 +72,7 @@ public:
 
     void BeginRenderPass(const RenderPassInfo& renderPassInfo);
     void EndRenderPass();
-    void EndCommandBuffer();
+    void BindPipelineState(const CompilePipelineState& pipelineState);
 
     QueueType GetQueueType()const
     {
@@ -85,9 +95,32 @@ public:
     }
 
 private:
+    friend class DeviceVulkan;
+    void EndCommandBuffer();
+
     bool FlushRenderState();
     bool FlushGraphicsPipeline();
-    VkPipeline BuildGraphicsPipeline(const PipelineStateDesc& pipelineStateDesc);
+
+    VkPipeline BuildGraphicsPipeline(const CompilePipelineState& pipelineState);
+    VkPipeline BuildComputePipeline(const CompilePipelineState& pipelineState);
+
+    CommandListDirtyFlags mDirty = 0;
+    void SetDirty(CommandListDirtyFlags flags)
+    {
+        mDirty |= flags;
+    }
+   
+    bool IsDirty(CommandListDirtyFlags flags)
+    {
+        return (mDirty & flags) != 0;
+    }
+
+    bool IsDirtyAndClear(CommandListDirtyFlags flags)
+    {
+        auto ret = (mDirty & flags) != 0;
+        mDirty &= ~flags;
+        return ret;
+    }
 };
 using CommandListPtr = Util::IntrusivePtr<CommandList>;
 

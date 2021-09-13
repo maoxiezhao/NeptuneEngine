@@ -172,14 +172,19 @@ void CommandList::EndCommandBuffer()
     assert(res == VK_SUCCESS);
 }
 
+void CommandList::BindPipelineState(const CompilePipelineState& pipelineState)
+{
+    mPipelineState = pipelineState;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
 bool CommandList::FlushRenderState()
 {
     if (mCurrentPipeline == VK_NULL_HANDLE)
-        mIsDirtyPipeline = true;
+        SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 
-    if (mIsDirtyPipeline)
+    if (IsDirtyAndClear(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT))
     {
-        mIsDirtyPipeline = false;
         VkPipeline oldPipeline = mCurrentPipeline;
         if (!FlushGraphicsPipeline())
             return false;
@@ -196,11 +201,11 @@ bool CommandList::FlushRenderState()
 
 bool CommandList::FlushGraphicsPipeline()
 {
-    mCurrentPipeline = BuildGraphicsPipeline(mPipelineStateDesc);
+    mCurrentPipeline = BuildGraphicsPipeline(mPipelineState);
     return mCurrentPipeline != VK_NULL_HANDLE;
 }
 
-VkPipeline CommandList::BuildGraphicsPipeline(const PipelineStateDesc& pipelineStateDesc)
+VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipelineState)
 {
     /////////////////////////////////////////////////////////////////////////////////////////
     // view port
@@ -345,12 +350,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const PipelineStateDesc& pipelineS
     for (int i = 0; i < static_cast<unsigned>(ShaderStage::Count); i++)
     {
         ShaderStage shaderStage = static_cast<ShaderStage>(i);
-        if (pipelineStateDesc.mShaderProgram.GetShader(shaderStage))
+        if (pipelineState.mShaderProgram.GetShader(shaderStage))
         {
             VkPipelineShaderStageCreateInfo& stageCreateInfo = stages[stageCount++];
             stageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
             stageCreateInfo.pName = "main";
-            stageCreateInfo.module = pipelineStateDesc.mShaderProgram.GetShader(shaderStage)->mShaderModule;
+            stageCreateInfo.module = pipelineState.mShaderProgram.GetShader(shaderStage)->mShaderModule;
 
             switch (shaderStage)
             {
@@ -387,7 +392,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const PipelineStateDesc& pipelineS
 
     VkPipeline retPipeline = VK_NULL_HANDLE;
     VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-    pipelineInfo.layout = pipelineStateDesc.mShaderProgram.GetPipelineLayout()->mPipelineLayout;
+    pipelineInfo.layout = pipelineState.mShaderProgram.GetPipelineLayout()->mPipelineLayout;
     pipelineInfo.renderPass = nullptr;
     pipelineInfo.subpass = 0;
 
@@ -409,4 +414,9 @@ VkPipeline CommandList::BuildGraphicsPipeline(const PipelineStateDesc& pipelineS
         return VK_NULL_HANDLE;
     }
     return retPipeline;
+}
+
+VkPipeline CommandList::BuildComputePipeline(const CompilePipelineState& pipelineState)
+{
+    return VkPipeline();
 }
