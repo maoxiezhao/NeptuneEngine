@@ -820,6 +820,10 @@ std::vector<const char*> DeviceVulkan::GetRequiredExtensions()
     return extensions;
 }
 
+void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
+{
+}
+
 void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
 {
     auto& submissions = CurrentFrameResource().mSubmissions[queueIndex];
@@ -892,7 +896,7 @@ void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence)
 VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence)
 {
     auto& submits = composer.Bake();
-    return vkQueueSubmit(queue, submits.size(), submits.data(), fence);
+    return vkQueueSubmit(queue, (uint32_t)submits.size(), submits.data(), fence);
 }
 
 bool DeviceVulkan::CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader)
@@ -910,7 +914,7 @@ void DeviceVulkan::FrameResource::Begin(VkDevice device)
     // wait for submiting
     if (!mWaitFences.empty())
     {
-        vkWaitForFences(device, mWaitFences.size(), mWaitFences.data(), VK_TRUE, UINT64_MAX);
+        vkWaitForFences(device, (uint32_t)mWaitFences.size(), mWaitFences.data(), VK_TRUE, UINT64_MAX);
         mWaitFences.clear();
     }
 
@@ -951,7 +955,7 @@ void BatchComposer::BeginBatch()
     auto& submitInfo = mSubmitInfos[mSubmitIndex];
     if (!submitInfo.mCommandLists.empty() || !submitInfo.mWaitSemaphores.empty())
     {
-        mSubmitIndex = mSubmits.size();
+        mSubmitIndex = (uint32_t)mSubmits.size();
         mSubmits.emplace_back();
     }
 }
@@ -988,14 +992,14 @@ std::vector<VkSubmitInfo>& BatchComposer::Bake()
         auto& vkSubmitInfo = mSubmits[index];
         auto& submitInfo = mSubmitInfos[index];
         vkSubmitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-        vkSubmitInfo.commandBufferCount = submitInfo.mCommandLists.size();
+        vkSubmitInfo.commandBufferCount = (uint32_t)submitInfo.mCommandLists.size();
         vkSubmitInfo.pCommandBuffers = submitInfo.mCommandLists.data();
 
-        vkSubmitInfo.waitSemaphoreCount = submitInfo.mWaitSemaphores.size();
+        vkSubmitInfo.waitSemaphoreCount = (uint32_t)submitInfo.mWaitSemaphores.size();
         vkSubmitInfo.pWaitSemaphores = submitInfo.mWaitSemaphores.data();
         vkSubmitInfo.pWaitDstStageMask = submitInfo.mWaitStages.data();
 
-        vkSubmitInfo.signalSemaphoreCount = submitInfo.mSignalSemaphores.size();
+        vkSubmitInfo.signalSemaphoreCount = (uint32_t)submitInfo.mSignalSemaphores.size();
         vkSubmitInfo.pSignalSemaphores = submitInfo.mSignalSemaphores.data();
     }
 

@@ -45,11 +45,14 @@ bool App::Initialize(std::unique_ptr<Platform> platform)
     if (!mWSI.Initialize())
         return false;
 
+    InitializeImpl();
+
     return true;
 }
 
 void App::Uninitialize()
 {
+    UninitializeImpl();
     mWSI.Uninitialize();
 }
 
@@ -65,16 +68,15 @@ void App::Tick()
     mWSI.EndFrame();
 }
 
+void App::InitializeImpl()
+{
+}
+
 void App::Render()
 {
-    DeviceVulkan* device = mWSI.GetDevice();
-    assert(device != nullptr);
+}
 
-    RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*mWSI.GetSwapChain(), SwapchainRenderPassType::ColorOnly);
-    CommandListPtr cmd = device->RequestCommandList(QUEUE_TYPE_GRAPHICS);
-    cmd->BeginRenderPass(rp);
-
-    cmd->EndRenderPass();
-    device->Submit(cmd);
+void App::UninitializeImpl()
+{
 }
 

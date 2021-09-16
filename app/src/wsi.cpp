@@ -11,8 +11,6 @@ static bool debugLayer = false;
 
 DeviceVulkan* deviceVulkan = nullptr;
 Swapchain* swapchian = nullptr;
-Shader screenVS;
-Shader screenPS;
 
 bool WSI::Initialize()
 {
@@ -26,10 +24,6 @@ bool WSI::Initialize()
         return false;
     }
 
-    // init test shader
-    ShaderCompiler::LoadShader(*deviceVulkan, ShaderStage::VS, screenVS, "screenVS.hlsl");
-    ShaderCompiler::LoadShader(*deviceVulkan, ShaderStage::PS, screenPS, "screenPS.hlsl");
-
 	return true;
 }
 
@@ -37,11 +31,6 @@ void WSI::Uninitialize()
 {
     if (swapchian != nullptr)
         delete swapchian;
-
-    if (screenVS.mShaderModule != VK_NULL_HANDLE)
-        vkDestroyShaderModule(deviceVulkan->mDevice, screenVS.mShaderModule, nullptr);
-    if (screenPS.mShaderModule != VK_NULL_HANDLE)
-        vkDestroyShaderModule(deviceVulkan->mDevice, screenPS.mShaderModule, nullptr);
 
     delete deviceVulkan;
 }
@@ -69,6 +58,7 @@ void WSI::BeginFrame()
     );
     assert(res == VK_SUCCESS);
 
+    // acquire image to render
     acquire->Signal();
 
     // set swapchain acquire semaphore
@@ -79,7 +69,7 @@ void WSI::EndFrame()
 {
     deviceVulkan->EndFrameContext();
 
-    // release在EndFrameContext中设置
+    // release在EndFrameContext中设置,确保image已经释放
     SemaphorePtr release = deviceVulkan->GetAndConsumeReleaseSemaphore();
     assert(release->IsSignalled());
 

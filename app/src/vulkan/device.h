@@ -7,6 +7,7 @@
 #include "renderPass.h"
 #include "fence.h"
 #include "semaphore.h"
+#include "shader.h"
 
 #include <set>
 #include <unordered_map>
@@ -147,7 +148,8 @@ public:
 
     bool CreateSwapchain(Swapchain*& swapchain, uint32_t width, uint32_t height);
     bool CreateShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, Shader* shader);
-    
+    void BakeShaderProgram(ShaderProgram& program);
+
     CommandListPtr RequestCommandList(QueueType queueType);
     CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
     

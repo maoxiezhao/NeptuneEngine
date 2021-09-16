@@ -105,6 +105,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 {
     mFrameBuffer = &mDevice.RequestFrameBuffer(renderPassInfo);
     mRenderPass = &mDevice.RequestRenderPass(renderPassInfo);
+    mCompatibleRenderPass = mRenderPass;
 
     // area
     VkRect2D rect = {};
@@ -146,7 +147,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
         numClearColor = renderPassInfo.mNumColorAttachments + 1;
     }
 
-    // begin rende pass
+    // begin render pass
     VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     beginInfo.renderArea = mScissor;
     beginInfo.renderPass = mRenderPass->GetRenderPass();
@@ -155,6 +156,9 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     beginInfo.pClearValues = clearColors;
 
     vkCmdBeginRenderPass(mCmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // begin graphics contexxt
+    BeginGraphicsContext();
 }
 
 void CommandList::EndRenderPass()
@@ -166,6 +170,81 @@ void CommandList::EndRenderPass()
     mRenderPass = nullptr;
 }
 
+// 清除除Program意以外的管线状态
+void CommandList::ClearPipelineState()
+{
+	mPipelineState.mBlendState = {};
+    mPipelineState.mRasterizerState = {};
+    mPipelineState.mDepthStencilState = {};
+    mPipelineState.mTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+}
+
+void CommandList::SetDefaultOpaqueState()
+{
+    ClearPipelineState();
+
+    // blend
+    BlendState& bd = mPipelineState.mBlendState;
+	bd.RenderTarget[0].BlendEnable = false;
+	bd.RenderTarget[0].SrcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+	bd.RenderTarget[0].DestBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	bd.RenderTarget[0].BlendOp = VK_BLEND_OP_MAX;
+	bd.RenderTarget[0].SrcBlendAlpha = VK_BLEND_FACTOR_ONE;
+	bd.RenderTarget[0].DestBlendAlpha = VK_BLEND_FACTOR_ZERO    ;
+	bd.RenderTarget[0].BlendOpAlpha = VK_BLEND_OP_ADD;
+	bd.RenderTarget[0].RenderTargetWriteMask = COLOR_WRITE_ENABLE_ALL;
+	bd.AlphaToCoverageEnable = false;
+	bd.IndependentBlendEnable = false;
+
+    // depth
+	DepthStencilState& dsd = mPipelineState.mDepthStencilState;
+	dsd.DepthEnable = true;
+	dsd.DepthWriteMask = DEPTH_WRITE_MASK_ALL;
+	dsd.DepthFunc = VK_COMPARE_OP_GREATER;
+	dsd.StencilEnable = false;
+
+    // rasterizerState
+    RasterizerState& rs = mPipelineState.mRasterizerState;
+	rs.FillMode = FILL_SOLID;
+	rs.CullMode = VK_CULL_MODE_BACK_BIT;
+	rs.FrontCounterClockwise = true;
+	rs.DepthBias = 0;
+	rs.DepthBiasClamp = 0;
+	rs.SlopeScaledDepthBias = 0;
+	rs.DepthClipEnable = true;
+	rs.MultisampleEnable = false;
+	rs.AntialiasedLineEnable = false;
+	rs.ConservativeRasterizationEnable = false;
+
+    // topology
+    mPipelineState.mTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
+void CommandList::SetProgram(ShaderProgram* program)
+{
+    if (mPipelineState.mShaderProgram == program)
+        return;
+
+    mPipelineState.mShaderProgram = program;
+    SetDirty(COMMAND_LIST_DIRTY_PIPELINE_BIT);
+    mCurrentPipeline = VK_NULL_HANDLE;
+
+    if (program == nullptr)
+        return;
+
+
+}
+
+void CommandList::BeginGraphicsContext()
+{
+    mDirty = ~0u;  // set all things are dirty
+    mPipelineState.mShaderProgram = nullptr;
+    mCurrentPipeline = VK_NULL_HANDLE;
+    mCurrentPipelineLayout = VK_NULL_HANDLE;
+}
+
 void CommandList::EndCommandBuffer()
 {
     VkResult res = vkEndCommandBuffer(mCmd);
@@ -174,12 +253,33 @@ void CommandList::EndCommandBuffer()
 
 void CommandList::BindPipelineState(const CompilePipelineState& pipelineState)
 {
+    SetProgram(pipelineState.mShaderProgram);
     mPipelineState = pipelineState;
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
+void CommandList::BindVertexBuffers()
+{
+}
+
+void CommandList::BindIndexBuffers()
+{
+}
+
+void CommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t vertexOffset)
+{
+    if (FlushRenderState())
+    {
+        vkCmdDrawIndexed(mCmd, indexCount, 1, firstIndex, vertexOffset, 0);
+    }
+}
+
 bool CommandList::FlushRenderState()
 {
+    if (mPipelineState.mShaderProgram == nullptr || 
+        mPipelineState.mShaderProgram->IsEmpty())
+        return false;
+
     if (mCurrentPipeline == VK_NULL_HANDLE)
         SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 
@@ -195,6 +295,9 @@ bool CommandList::FlushRenderState()
             vkCmdBindPipeline(mCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mCurrentPipeline);
         }
     }
+
+    if (mCurrentPipeline == VK_NULL_HANDLE)
+        return false;
 
     return true;
 }
@@ -225,7 +328,6 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     viewportState.scissorCount = 1;
     viewportState.pScissors = &mScissor;
 
-    /////////////////////////////////////////////////////////////////////////////////////////
     // dynamic state
     VkPipelineDynamicStateCreateInfo dynamicState = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
     dynamicState.dynamicStateCount = 2;
@@ -234,8 +336,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     };
     dynamicState.pDynamicStates = states;
 
-    /////////////////////////////////////////////////////////////////////////////////////////
-    // blend state
+     // blend state
     VkPipelineColorBlendAttachmentState blendAttachments[8];
     int attachmentCount = 1;
     for (int i = 0; i < attachmentCount; i++)
@@ -262,34 +363,27 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     colorBlending.blendConstants[2] = 1.0f;
     colorBlending.blendConstants[3] = 1.0f;
 
-    /////////////////////////////////////////////////////////////////////////////////////////
     // depth state
     VkPipelineDepthStencilStateCreateInfo depthstencil = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
-    depthstencil.depthTestEnable = VK_TRUE;
-    depthstencil.depthWriteEnable = VK_TRUE;
-    depthstencil.depthCompareOp = VK_COMPARE_OP_GREATER;
-    depthstencil.stencilTestEnable = VK_TRUE;
-
-    depthstencil.front.compareMask = 0;
-    depthstencil.front.writeMask = 0xFF;
-    depthstencil.front.reference = 0; // runtime supplied
-    depthstencil.front.compareOp = VK_COMPARE_OP_ALWAYS;
-    depthstencil.front.passOp = VK_STENCIL_OP_REPLACE;
-    depthstencil.front.failOp = VK_STENCIL_OP_KEEP;
-    depthstencil.front.depthFailOp = VK_STENCIL_OP_KEEP;
-
-    depthstencil.back.compareMask = 0;
-    depthstencil.back.writeMask = 0xFF;
-    depthstencil.back.reference = 0; // runtime supplied
-    depthstencil.back.compareOp = VK_COMPARE_OP_ALWAYS;
-    depthstencil.back.passOp = VK_STENCIL_OP_REPLACE;
-    depthstencil.back.failOp = VK_STENCIL_OP_KEEP;
-    depthstencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
-
+    depthstencil.depthTestEnable = pipelineState.mDepthStencilState.DepthEnable ? VK_TRUE : VK_FALSE;
+    depthstencil.depthWriteEnable = pipelineState.mDepthStencilState.DepthWriteMask != DEPTH_WRITE_MASK_ZERO ? VK_TRUE : VK_FALSE;
+    depthstencil.depthCompareOp = pipelineState.mDepthStencilState.DepthFunc;
+    depthstencil.stencilTestEnable = pipelineState.mDepthStencilState.StencilEnable ? VK_TRUE : VK_FALSE;
     depthstencil.depthBoundsTestEnable = VK_FALSE;
 
+    if (depthstencil.stencilTestEnable)
+    {
+		depthstencil.front.compareOp = VK_COMPARE_OP_ALWAYS;
+		depthstencil.front.passOp = VK_STENCIL_OP_REPLACE;
+		depthstencil.front.failOp = VK_STENCIL_OP_KEEP;
+		depthstencil.front.depthFailOp = VK_STENCIL_OP_KEEP;
 
-    /////////////////////////////////////////////////////////////////////////////////////////
+		depthstencil.back.compareOp = VK_COMPARE_OP_ALWAYS;
+		depthstencil.back.passOp = VK_STENCIL_OP_REPLACE;
+		depthstencil.back.failOp = VK_STENCIL_OP_KEEP;
+		depthstencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
+    }
+
     // vertex input
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
     std::vector<VkVertexInputBindingDescription> bindings;
@@ -315,23 +409,21 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     // input assembly
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
     inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
-    inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssemblyInfo.topology = pipelineState.mTopology;
 
-    /////////////////////////////////////////////////////////////////////////////////////////
     // raster
     VkPipelineRasterizationStateCreateInfo rasterizer = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
     rasterizer.depthClampEnable = VK_TRUE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.polygonMode = pipelineState.mRasterizerState.FillMode == FILL_SOLID ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_NONE;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.cullMode = pipelineState.mRasterizerState.CullMode;
+    rasterizer.frontFace = pipelineState.mRasterizerState.FrontCounterClockwise ?  VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp = 0.0f;
     rasterizer.depthBiasSlopeFactor = 0.0f;
 
-    /////////////////////////////////////////////////////////////////////////////////////////
     // MSAA
     VkPipelineMultisampleStateCreateInfo multisampling = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
     multisampling.sampleShadingEnable = VK_FALSE;
@@ -341,8 +433,6 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     multisampling.alphaToCoverageEnable = VK_FALSE;
     multisampling.alphaToOneEnable = VK_FALSE;
 
-
-    /////////////////////////////////////////////////////////////////////////////////////////
     // stages
     VkPipelineShaderStageCreateInfo stages[static_cast<unsigned>(ShaderStage::Count)];
     int stageCount = 0;
@@ -350,12 +440,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     for (int i = 0; i < static_cast<unsigned>(ShaderStage::Count); i++)
     {
         ShaderStage shaderStage = static_cast<ShaderStage>(i);
-        if (pipelineState.mShaderProgram.GetShader(shaderStage))
+        if (pipelineState.mShaderProgram->GetShader(shaderStage))
         {
             VkPipelineShaderStageCreateInfo& stageCreateInfo = stages[stageCount++];
             stageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
             stageCreateInfo.pName = "main";
-            stageCreateInfo.module = pipelineState.mShaderProgram.GetShader(shaderStage)->mShaderModule;
+            stageCreateInfo.module = pipelineState.mShaderProgram->GetShader(shaderStage)->mShaderModule;
 
             switch (shaderStage)
             {
@@ -390,11 +480,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
         }
     }
 
+    // Create pipeline
     VkPipeline retPipeline = VK_NULL_HANDLE;
     VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-    pipelineInfo.layout = pipelineState.mShaderProgram.GetPipelineLayout()->mPipelineLayout;
-    pipelineInfo.renderPass = nullptr;
-    pipelineInfo.subpass = 0;
+    pipelineInfo.layout = pipelineState.mShaderProgram->GetPipelineLayout()->mPipelineLayout;
+    pipelineInfo.renderPass = mCompatibleRenderPass->GetRenderPass();
+    pipelineInfo.subpass = pipelineState.mSubpassIndex;
 
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pDynamicState = &dynamicState;
@@ -407,7 +498,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     pipelineInfo.pStages = stages;
     pipelineInfo.stageCount = stageCount;
 
-    VkResult res = vkCreateGraphicsPipelines(mDevice.mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &retPipeline);
+    VkResult res = vkCreateGraphicsPipelines(mDevice.mDevice, pipelineState.mCache, 1, &pipelineInfo, nullptr, &retPipeline);
     if (res != VK_SUCCESS)
     {
         std::cout << "Failed to create graphics pipeline!" << std::endl;

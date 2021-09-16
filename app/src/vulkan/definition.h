@@ -21,6 +21,8 @@
 #include "GLFW\glfw3.h"
 
 static const uint32_t VULKAN_NUM_ATTACHMENTS = 8;
+constexpr unsigned VULKAN_NUM_VERTEX_ATTRIBS = 16;
+constexpr unsigned VULKAN_NUM_VERTEX_BUFFERS = 8;
 
 class DeviceVulkan;
 
@@ -58,6 +60,16 @@ enum class SwapchainRenderPassType
     ColorOnly,
     Depth,
     DepthStencil
+};
+
+enum ColorWriteMask
+{
+    COLOR_WRITE_DISABLE = 0,
+    COLOR_WRITE_ENABLE_RED = 1 << 0,
+    COLOR_WRITE_ENABLE_GREEN = 1 << 1,
+    COLOR_WRITE_ENABLE_BLUE = 1 << 2,
+    COLOR_WRITE_ENABLE_ALPHA = 1 << 3,
+    COLOR_WRITE_ENABLE_ALL = ~0,
 };
 
 static inline bool IsFormatHasDepth(VkFormat format)
@@ -99,36 +111,16 @@ enum class DepthStencilMode
     ReadWrite
 };
 
-struct PipelineLayout
+enum FillMode
 {
-    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+    FILL_WIREFRAME,
+    FILL_SOLID,
 };
 
-struct Shader
+enum DepthWriteMask
 {
-    ShaderStage mShaderStage;
-    VkShaderModule mShaderModule = VK_NULL_HANDLE;
-};
-
-struct ShaderProgram
-{
-public:
-    PipelineLayout* GetPipelineLayout()const
-    {
-        return mPipelineLayout;
-    }
-
-    inline const Shader* GetShader(ShaderStage stage) const
-    {
-        return mShaders[UINT(stage)];
-    }
-
-private:
-    void SetShader(ShaderStage stage, Shader* handle);
-
-    DeviceVulkan* mDevice;
-    PipelineLayout* mPipelineLayout = nullptr;;
-    Shader* mShaders[UINT(ShaderStage::Count)] = {};
+    DEPTH_WRITE_MASK_ZERO,
+    DEPTH_WRITE_MASK_ALL,
 };
 
 class Image;
@@ -182,4 +174,66 @@ public:
 
 private:
     uint64_t mCookie;
+};
+
+struct VertexAttribState
+{
+    uint32_t binding;
+    VkFormat format;
+    uint32_t offset;
+};
+
+struct BlendState
+{
+    bool AlphaToCoverageEnable = false;
+    bool IndependentBlendEnable = false;
+    uint8_t NumRenderTarget = 1;
+
+    struct RenderTargetBlendState
+    {
+        bool BlendEnable = false;
+        VkBlendFactor SrcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+        VkBlendFactor DestBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        VkBlendOp BlendOp = VK_BLEND_OP_ADD;
+        VkBlendFactor SrcBlendAlpha = VK_BLEND_FACTOR_ONE;
+        VkBlendFactor DestBlendAlpha = VK_BLEND_FACTOR_ONE;
+        VkBlendOp BlendOpAlpha = VK_BLEND_OP_ADD;
+        uint8_t RenderTargetWriteMask = (uint8_t)COLOR_WRITE_ENABLE_ALL;
+    };
+    RenderTargetBlendState RenderTarget[8];
+};
+
+struct RasterizerState
+{
+    FillMode FillMode = FILL_SOLID;
+    VkCullModeFlags CullMode = VK_CULL_MODE_BACK_BIT;
+    bool FrontCounterClockwise = false;
+    int32_t DepthBias = 0;
+    float DepthBiasClamp = 0.0f;
+    float SlopeScaledDepthBias = 0.0f;
+    bool DepthClipEnable = false;
+    bool MultisampleEnable = false;
+    bool AntialiasedLineEnable = false;
+    bool ConservativeRasterizationEnable = false;
+    uint32_t ForcedSampleCount = 0;
+};
+
+struct DepthStencilState
+{
+    bool DepthEnable = false;
+    DepthWriteMask DepthWriteMask = DEPTH_WRITE_MASK_ZERO;
+    VkCompareOp DepthFunc = VK_COMPARE_OP_NEVER;
+    bool StencilEnable = false;
+    uint8_t StencilReadMask = 0xff;
+    uint8_t StencilWriteMask = 0xff;
+
+    struct DepthStencilOp
+    {
+        VkStencilOp StencilFailOp = VK_STENCIL_OP_KEEP;
+        VkStencilOp StencilDepthFailOp = VK_STENCIL_OP_KEEP;
+        VkStencilOp StencilPassOp = VK_STENCIL_OP_KEEP;
+        VkCompareOp StencilFunc = VK_COMPARE_OP_NEVER;
+    };
+    DepthStencilOp FrontFace;
+    DepthStencilOp BackFace;
 };

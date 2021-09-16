@@ -45,9 +45,12 @@ public:
 	bool Poll();
 	void Tick();
 
-	virtual void Render();
-
 private:
+	virtual void InitializeImpl();
+	virtual void Render();
+	virtual void UninitializeImpl();
+
+protected:
 	std::unique_ptr<Platform> mPlatform;
 	WSI mWSI;
 };

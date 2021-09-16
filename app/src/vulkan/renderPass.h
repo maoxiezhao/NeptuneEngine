@@ -35,6 +35,8 @@ class Subpass
 	VkAttachmentReference inputAttachments[VULKAN_NUM_ATTACHMENTS];
 	unsigned numInputAttachments;
 	VkAttachmentReference depthStencilAttachment;
+
+    uint32_t mSamples;
 };
 
 class RenderPass
