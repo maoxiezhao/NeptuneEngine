@@ -5,62 +5,62 @@
 class PipelineLayout : public HashedObject<PipelineLayout>
 {
 public:
-    PipelineLayout(DeviceVulkan& device);
+    PipelineLayout(DeviceVulkan& device_);
     ~PipelineLayout();
 
     VkPipelineLayout GetLayout()const
     {
-        return mPipelineLayout;
+        return pipelineLayout;
     }
 
 private:
-    DeviceVulkan& mDevice;
-    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+    DeviceVulkan& device;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 };
 
 class Shader : public HashedObject<Shader>
 {
 public:
-    Shader(DeviceVulkan& device, ShaderStage shaderStage, VkShaderModule shaderModule);
-    Shader(DeviceVulkan& device, ShaderStage shaderStage, const void* pShaderBytecode, size_t bytecodeLength);
+    Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_);
+    Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pShaderBytecode, size_t bytecodeLength);
     ~Shader();
 
     VkShaderModule GetModule()const
     {
-        return mShaderModule;
+        return shaderModule;
     }
 
 private:
-    DeviceVulkan& mDevice;
-	ShaderStage mShaderStage;
-	VkShaderModule mShaderModule = VK_NULL_HANDLE;
+    DeviceVulkan& device;
+	ShaderStage shaderStage;
+	VkShaderModule shaderModule = VK_NULL_HANDLE;
 };
 
 struct ShaderProgramInfo
 {
-    Shader* VS = nullptr;
-    Shader* PS = nullptr;
+    Shader* vs = nullptr;
+    Shader* ps = nullptr;
 };
 
 struct ShaderProgram
 {
 public:
-    ShaderProgram(DeviceVulkan* device, const ShaderProgramInfo& info);
+    ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info);
     ~ShaderProgram();
 
     PipelineLayout* GetPipelineLayout()const
     {
-        return mPipelineLayout;
+        return pipelineLayout;
     }
 
     inline const Shader* GetShader(ShaderStage stage) const
     {
-        return mShaders[UINT(stage)];
+        return shaders[UINT(stage)];
     }
 
     bool IsEmpty()const
     {
-        return mShaderCount > 0;
+        return shaderCount > 0;
     }
 
     void AddPipeline(HashValue hash, VkPipeline pipeline);
@@ -69,9 +69,9 @@ public:
 private:
     void SetShader(ShaderStage stage, Shader* shader);
 
-    DeviceVulkan* mDevice;
-    PipelineLayout* mPipelineLayout = nullptr;
-    Shader* mShaders[UINT(ShaderStage::Count)] = {};
-    uint32_t mShaderCount = 0;
-    std::unordered_map<HashValue, VkPipeline> mPipelines;
+    DeviceVulkan* device;
+    PipelineLayout* pipelineLayout = nullptr;
+    Shader* shaders[UINT(ShaderStage::Count)] = {};
+    uint32_t shaderCount = 0;
+    std::unordered_map<HashValue, VkPipeline> pipelines;
 };

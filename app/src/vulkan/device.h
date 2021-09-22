@@ -16,23 +16,23 @@
 
 struct Swapchain
 {
-    VkDevice& mDevice;
-    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
-    VkSurfaceFormatKHR mFormat = {};
-    VkExtent2D mSwapchainExtent = {};
-    std::vector<ImagePtr> mImages;
-    std::vector<VkSurfaceFormatKHR> mFormats;
-    std::vector<VkPresentModeKHR> mPresentModes;
+    VkDevice& device;
+    VkSwapchainKHR swapChain = VK_NULL_HANDLE;
+    VkSurfaceFormatKHR format = {};
+    VkExtent2D swapchainExtent = {};
+    std::vector<ImagePtr> images;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
 
     uint32_t mImageIndex = 0;
 
-    Swapchain(VkDevice& device) : mDevice(device)
+    Swapchain(VkDevice& device_) : device(device_)
     {
     }
 
     ~Swapchain()
     {
-        vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
+        vkDestroySwapchainKHR(device, swapChain, nullptr);
     }
 };
 
@@ -42,16 +42,16 @@ public:
     BatchComposer();
 
     static const uint32_t MAX_SUBMIT_COUNT = 8;
-    uint32_t mSubmitIndex = 0;
+    uint32_t submitIndex = 0;
     struct SubmitInfo
     {
-        std::vector<VkPipelineStageFlags> mWaitStages;
-        std::vector<VkSemaphore> mWaitSemaphores;
-        std::vector<VkSemaphore> mSignalSemaphores;
-        std::vector<VkCommandBuffer> mCommandLists;
+        std::vector<VkPipelineStageFlags> waitStages;
+        std::vector<VkSemaphore> waitSemaphores;
+        std::vector<VkSemaphore> signalSemaphores;
+        std::vector<VkCommandBuffer> commandLists;
     };
-    SubmitInfo mSubmitInfos[MAX_SUBMIT_COUNT];
-    std::vector<VkSubmitInfo> mSubmits;
+    SubmitInfo submitInfos[MAX_SUBMIT_COUNT];
+    std::vector<VkSubmitInfo> submits;
 
 private:
     void BeginBatch();
@@ -66,10 +66,10 @@ public:
 class DeviceVulkan
 {
 public:
-    VkDevice mDevice;
-    VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-    VkInstance mInstance;
-    QueueInfo mQueueInfo;
+    VkDevice device;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkInstance instance;
+    QueueInfo queueInfo;
 
     // per frame resource
     struct FrameResource
@@ -77,49 +77,49 @@ public:
         std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
 
         // destroyed resoruces
-        std::vector<VkImageView> mDestroyedImageViews;
-        std::vector<VkImage> mDestroyedImages;
-        std::vector<VkFramebuffer> mDestroyedFrameBuffers;
-        std::vector<VkSemaphore> mDestroyeSemaphores;
-        std::vector<VkPipeline> mDestroyedPipelines;
+        std::vector<VkImageView> destroyedImageViews;
+        std::vector<VkImage> destroyedImages;
+        std::vector<VkFramebuffer> destroyedFrameBuffers;
+        std::vector<VkSemaphore> destroyeSemaphores;
+        std::vector<VkPipeline> destroyedPipelines;
 
         // fences
-        std::vector<VkFence> mRecyleFences;
-        std::vector<VkFence> mWaitFences;
+        std::vector<VkFence> recyleFences;
+        std::vector<VkFence> waitFences;
 
         // semphore
-        std::vector<VkSemaphore> mRecycledSemaphroes;
+        std::vector<VkSemaphore> recycledSemaphroes;
 
         // submissions
-        std::vector<CommandListPtr> mSubmissions[QUEUE_INDEX_COUNT];
+        std::vector<CommandListPtr> submissions[QUEUE_INDEX_COUNT];
 
         void Begin(VkDevice device);
         void ProcessDestroyed(VkDevice device);
     };
-    std::vector<FrameResource> mFrameResources;
-    uint32_t mFrameIndex = 0;
+    std::vector<FrameResource> frameResources;
+    uint32_t frameIndex = 0;
 
     FrameResource& CurrentFrameResource()
     {
-        assert(mFrameIndex < mFrameResources.size());
-        return mFrameResources[mFrameIndex];
+        assert(frameIndex < frameResources.size());
+        return frameResources[frameIndex];
     }
 
     // rhi object pools
-    VulkanCache<Shader> mShaders;
-    VulkanCache<RenderPass> mRenderPasses;
-    VulkanCache<FrameBuffer> mFrameBuffers;
-    VulkanCache<PipelineLayout> mPipelineLayouts;
+    VulkanCache<Shader> shaders;
+    VulkanCache<RenderPass> renderPasses;
+    VulkanCache<FrameBuffer> frameBuffers;
+    VulkanCache<PipelineLayout> pipelineLayouts;
 
-    Util::ObjectPool<CommandList> mCommandListPool;
-    Util::ObjectPool<Image> mImagePool;
-    Util::ObjectPool<ImageView> mImageViewPool;
-    Util::ObjectPool<Fence> mFencePool;
-    Util::ObjectPool<Semaphore> mSemaphorePool;
+    Util::ObjectPool<CommandList> commandListPool;
+    Util::ObjectPool<Image> imagePool;
+    Util::ObjectPool<ImageView> imageViewPool;
+    Util::ObjectPool<Fence> fencePool;
+    Util::ObjectPool<Semaphore> semaphorePool;
 
     // vulkan object managers
-    FenceManager mFencePoolManager;
-    SemaphoreManager mSemaphoreManager;
+    FenceManager fencePoolManager;
+    SemaphoreManager semaphoreManager;
 
 public:
     DeviceVulkan();
@@ -169,7 +169,7 @@ private:
     // submit methods
     struct InternalFence
     {
-        VkFence mFence = VK_NULL_HANDLE;
+        VkFence fence = VK_NULL_HANDLE;
     };
     void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr);
     void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence);
@@ -178,14 +178,14 @@ private:
     // internal wsi
     struct InternalWSI
     {
-        SemaphorePtr mAcquire;
-        SemaphorePtr mRelease;
-        uint32_t mIndex = 0;
-        VkQueue mPresentQueue = VK_NULL_HANDLE;
-        bool mConsumed = false;
+        SemaphorePtr acquire;
+        SemaphorePtr release;
+        uint32_t index = 0;
+        VkQueue presentQueue = VK_NULL_HANDLE;
+        bool consumed = false;
     };
-    InternalWSI mWSI;
+    InternalWSI wsi;
 
     // shaders
-    ShaderManager mShaderManager;
+    ShaderManager shaderManager;
 };

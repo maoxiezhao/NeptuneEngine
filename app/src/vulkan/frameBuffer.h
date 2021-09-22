@@ -8,7 +8,7 @@ class FrameBuffer;
 class FrameBuffer : public HashedObject<FrameBuffer>
 {
 public:
-	FrameBuffer(DeviceVulkan& device, RenderPass& renderPass, const RenderPassInfo& info);
+	FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass_, const RenderPassInfo& info_);
 	~FrameBuffer();
 
 	FrameBuffer(const FrameBuffer&) = delete;
@@ -16,30 +16,30 @@ public:
 
 	uint32_t GetWidth()
 	{
-		return mWidth;
+		return width;
 	}
 
 	uint32_t GetHeight()
 	{
-		return mHeight;
+		return height;
 	}
 
 	VkFramebuffer GetFrameBuffer()
 	{
-		return mFrameBuffer;
+		return frameBuffer;
 	}
 
 	const RenderPass& GetRenderPass()const
 	{
-		return mRenderPass;
+		return renderPass;
 	}
 
 private:
 	friend struct FrameBufferDeleter;
 
-	DeviceVulkan& mDevice;
-	VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
-	uint32_t mWidth = 0;
-	uint32_t mHeight = 0;
-	const RenderPass& mRenderPass;
+	DeviceVulkan& device;
+	VkFramebuffer frameBuffer = VK_NULL_HANDLE;
+	uint32_t width = 0;
+	uint32_t height = 0;
+	const RenderPass& renderPass;
 };

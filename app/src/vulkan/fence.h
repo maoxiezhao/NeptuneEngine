@@ -12,12 +12,12 @@ struct FenceDeleter
 class Fence : public Util::IntrusivePtrEnabled<Fence, FenceDeleter>
 {
 public:
-    Fence(DeviceVulkan& device, VkFence fence);
+    Fence(DeviceVulkan& device_, VkFence fence_);
     ~Fence();
 
     VkFence GetFence()const
     {
-        return mFence;
+        return fence;
     }
 
     void Wait();
@@ -27,8 +27,8 @@ private:
     friend struct FenceDeleter;
     friend class Util::ObjectPool<Fence>;
 
-    DeviceVulkan& mDevice;
-    VkFence mFence;
+    DeviceVulkan& device;
+    VkFence fence;
     bool isWait = false;
 };
 using FencePtr = Util::IntrusivePtr<Fence>;
@@ -39,12 +39,12 @@ public:
     FenceManager();
     ~FenceManager();
 
-    void Initialize(DeviceVulkan& device);
+    void Initialize(DeviceVulkan& device_);
     VkFence Requset();
     void Recyle(VkFence fence);
     void ClearAll();
 
 private:
-    DeviceVulkan* mDevice = nullptr;
-    std::vector<VkFence> mFences;
+    DeviceVulkan* device = nullptr;
+    std::vector<VkFence> fences;
 };

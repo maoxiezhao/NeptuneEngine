@@ -69,14 +69,14 @@ namespace {
 				}
 			}
 		}
-#endif // SHADERCOMPILER_ENABLED
+#endif // RUNTIME_SHADERCOMPILER_ENABLED
 
 		return false;
 	}
 
 	bool SaveShaderAndMetadata(const std::string& shaderfilename, const CompilerOutput& output)
 	{
-#ifdef SHADERCOMPILER_ENABLED
+#ifdef RUNTIME_SHADERCOMPILER_ENABLED
 		Helper::DirectoryCreate(Helper::GetDirectoryFromPath(shaderfilename));
 
 		Archive dependencyLibrary(Helper::ReplaceExtension(shaderfilename, "shadermeta"), false);
@@ -95,16 +95,16 @@ namespace {
 		{
 			return true;
 		}
-#endif // SHADERCOMPILER_ENABLED
+#endif // RUNTIME_SHADERCOMPILER_ENABLED
 
 		return false;
 	}
 }
 
-ShaderTemplate::ShaderTemplate(DeviceVulkan& device, const std::string& path, HashValue pathHash) :
-	mDevice(device),
-	mPath(path),
-	mPathHash(pathHash)
+ShaderTemplate::ShaderTemplate(DeviceVulkan& device_, const std::string& path_, HashValue pathHash_) :
+	device(device_),
+	path(path_),
+	pathHash(pathHash_)
 {
 }
 
@@ -120,8 +120,8 @@ bool ShaderTemplate::Initialize()
 	return true;
 }
 
-ShaderTemplateProgram::ShaderTemplateProgram(DeviceVulkan& device, ShaderStage stage, ShaderTemplate* shaderTemplate) :
-	mDevice(device)
+ShaderTemplateProgram::ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage stage, ShaderTemplate* shaderTemplate) :
+	device(device_)
 {
 	SetShader(stage, shaderTemplate);
 }
@@ -166,7 +166,7 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 
 void ShaderTemplateProgram::SetShader(ShaderStage stage, ShaderTemplate* shader)
 {
-	mShaderTemplates[static_cast<U32>(stage)] = shader;
+	shaderTemplates[static_cast<U32>(stage)] = shader;
 }
 
 Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
@@ -175,8 +175,8 @@ Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
 }
 
 
-ShaderManager::ShaderManager(DeviceVulkan& device) :
-	mDevice(device)
+ShaderManager::ShaderManager(DeviceVulkan& device_) :
+	device(device_)
 {
 	// init dxcompiler
 	ShaderCompiler::Initialize();
@@ -207,30 +207,30 @@ ShaderTemplateProgram* ShaderManager::RegisterShader(ShaderStage stage, const st
 
 	HashCombiner hasher;
 	hasher.HashCombine(templ->GetPathHash());
-	auto it = mPrograms.find(hasher.Get());
-	if (it != mPrograms.end())
+	auto it = programs.find(hasher.Get());
+	if (it != programs.end())
 		return it->second;
 
-	return mPrograms.emplace(hasher.Get(), mDevice, stage, templ);
+	return programs.emplace(hasher.Get(), device, stage, templ);
 }
 
 ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string filePath)
 {
 	HashValue hash = GetPathHash(stage, filePath);
-	auto it = mShaders.find(hash);
-	if (it != mShaders.end())
+	auto it = shaders.find(hash);
+	if (it != shaders.end())
 	{
 		return it->second;
 	}
 
-	ShaderTemplate* ret = mShaders.allocate(mDevice, filePath, hash);
+	ShaderTemplate* ret = shaders.allocate(device, filePath, hash);
 	if (ret == nullptr || !ret->Initialize())
 	{
-		mShaders.free(ret);
+		shaders.free(ret);
 		return nullptr;
 	}
 
 	ret->SetHash(hash);
-	mShaders.insert(hash, ret);
+	shaders.insert(hash, ret);
 	return ret;
 }

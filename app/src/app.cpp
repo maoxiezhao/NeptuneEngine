@@ -7,25 +7,25 @@ Platform::Platform()
 
 Platform::~Platform()
 {
-    if (mWindow != nullptr)
+    if (window != nullptr)
     {
-        glfwDestroyWindow(mWindow);
+        glfwDestroyWindow(window);
         glfwTerminate();
     }
 }
 
-bool Platform::Init(int width, int height)
+bool Platform::Init(int width_, int height_)
 {
-    mWidth = width;
-    mHeight = height;
+    width = width_;
+    height = height_;
 
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     // create window
-    mWindow = glfwCreateWindow(width, height, "Vulkan Test", nullptr, nullptr);
-    if (mWindow == nullptr)
+    window = glfwCreateWindow(width, height, "Vulkan Test", nullptr, nullptr);
+    if (window == nullptr)
         return false;
 
     return true;
@@ -34,15 +34,15 @@ bool Platform::Init(int width, int height)
 bool Platform::Poll()
 {
     glfwPollEvents();
-    return !glfwWindowShouldClose(mWindow);
+    return !glfwWindowShouldClose(window);
 }
 
-bool App::Initialize(std::unique_ptr<Platform> platform)
+bool App::Initialize(std::unique_ptr<Platform> platform_)
 {
-	mPlatform = std::move(platform);
-    mWSI.SetPlatform(mPlatform.get());
+	platform = std::move(platform_);
+    wsi.SetPlatform(platform.get());
     
-    if (!mWSI.Initialize())
+    if (!wsi.Initialize())
         return false;
 
     InitializeImpl();
@@ -53,19 +53,19 @@ bool App::Initialize(std::unique_ptr<Platform> platform)
 void App::Uninitialize()
 {
     UninitializeImpl();
-    mWSI.Uninitialize();
+    wsi.Uninitialize();
 }
 
 bool App::Poll()
 {
-    return mPlatform->Poll();
+    return platform->Poll();
 }
 
 void App::Tick()
 {
-    mWSI.BeginFrame();
+    wsi.BeginFrame();
     Render();
-    mWSI.EndFrame();
+    wsi.EndFrame();
 }
 
 void App::InitializeImpl()

@@ -1,16 +1,16 @@
 #include "fence.h"
 #include "vulkan/device.h"
 
-Fence::Fence(DeviceVulkan& device, VkFence fence) :
-	mDevice(device),
-	mFence(fence)
+Fence::Fence(DeviceVulkan& device_, VkFence fence) :
+	device(device_),
+	fence(fence)
 {
 }
 
 Fence::~Fence()
 {
-	if (mFence != VK_NULL_HANDLE)
-		mDevice.ReleaseFence(mFence, isWait);
+	if (fence != VK_NULL_HANDLE)
+		device.ReleaseFence(fence, isWait);
 }
 
 void Fence::Wait()
@@ -18,14 +18,14 @@ void Fence::Wait()
 	if (isWait)
 		return;
 
-	VkResult res = vkWaitForFences(mDevice.mDevice, 1, &mFence, VK_TRUE, UINT64_MAX);
+	VkResult res = vkWaitForFences(device.device, 1, &fence, VK_TRUE, UINT64_MAX);
 	assert(res == VK_SUCCESS);
 	isWait = true;
 }
 
 void FenceDeleter::operator()(Fence* fence)
 {
-	fence->mDevice.mFencePool.free(fence);
+	fence->device.fencePool.free(fence);
 }
 
 FenceManager::FenceManager() 
@@ -36,33 +36,33 @@ FenceManager::~FenceManager()
 {
 }
 
-void FenceManager::Initialize(DeviceVulkan& device)
+void FenceManager::Initialize(DeviceVulkan& device_)
 {
-	mDevice = &device;
+	device = &device_;
 }
 
 VkFence FenceManager::Requset()
 {
-	if (!mFences.empty())
+	if (!fences.empty())
 	{
-		auto ret = mFences.back();
-		mFences.pop_back();
+		auto ret = fences.back();
+		fences.pop_back();
 		return ret;
 	}
 
 	VkFence ret;
 	VkFenceCreateInfo info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-	vkCreateFence(mDevice->mDevice, &info, nullptr, &ret);
+	vkCreateFence(device->device, &info, nullptr, &ret);
 	return ret;
 }
 
 void FenceManager::Recyle(VkFence fence)
 {
-	mFences.push_back(fence);
+	fences.push_back(fence);
 }
 
 void FenceManager::ClearAll()
 {
-	for (auto& fence : mFences)
-		vkDestroyFence(mDevice->mDevice, fence, nullptr);
+	for (auto& fence : fences)
+		vkDestroyFence(device->device, fence, nullptr);
 }

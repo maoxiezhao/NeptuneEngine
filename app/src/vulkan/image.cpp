@@ -1,53 +1,53 @@
 #include "image.h"
 #include "vulkan/device.h"
 
-ImageView::ImageView(DeviceVulkan& device, VkImageView imageView, const ImageViewCreateInfo& info) :
+ImageView::ImageView(DeviceVulkan& device_, VkImageView imageView, const ImageViewCreateInfo& info) :
 	GraphicsCookie(device.GenerateCookie()),
-	mDevice(device),
-	mImageView(imageView),
-	mInfo(info)
+	device(device_),
+	imageView(imageView),
+	info(info)
 {
 }
 
 ImageView::~ImageView()
 {
-	mDevice.ReleaseImageView(mImageView);
+	device.ReleaseImageView(imageView);
 }
 
 VkImageView ImageView::GetRenderTargetView(uint32_t layer) const
 {
-	return mImageView;
+	return imageView;
 }
 
 void ImageViewDeleter::operator()(ImageView* imageView)
 {
-	imageView->mDevice.mImageViewPool.free(imageView);
+	imageView->device.imageViewPool.free(imageView);
 }
 
 void ImageDeleter::operator()(Image* image)
 {
-	image->mDevice.mImagePool.free(image);
+	image->device.imagePool.free(image);
 }
 
-Image::Image(DeviceVulkan& device, VkImage image, VkImageView imageView, const ImageCreateInfo& info):
-	mDevice(device),
-	mImage(image),
-	mImageInfo(info)
+Image::Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const ImageCreateInfo& info):
+	device(device_),
+	image(image),
+	imageInfo(info)
 {
-	if (imageView != VK_NULL_HANDLE)
+	if (imageView_ != VK_NULL_HANDLE)
 	{
 		ImageViewCreateInfo imageViewInfo = {};
-		imageViewInfo.mImage = this;
-		imageViewInfo.mFormat = info.mFormat;
-		mImageView = ImageViewPtr(device.mImageViewPool.allocate(device, imageView, imageViewInfo));
+		imageViewInfo.image = this;
+		imageViewInfo.format = info.format;
+		imageView = ImageViewPtr(device.imageViewPool.allocate(device_, imageView_, imageViewInfo));
 	}
 }
 
 Image::~Image()
 {
 	// 如果是自身持有image，需要在析构时释放VkImage
-	if (mIsOwnsImge)
+	if (isOwnsImge)
 	{
-		mDevice.ReleaseImage(mImage);
+		device.ReleaseImage(image);
 	}
 }

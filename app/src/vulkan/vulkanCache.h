@@ -20,27 +20,27 @@ public:
 
 	void Clear()
 	{
-		for (auto& kvp : mHashMap)
+		for (auto& kvp : hashmap)
 		{
-			mPool.free(kvp.second);
+			pool.free(kvp.second);
 		}
-		mHashMap.clear();	
+		hashmap.clear();	
 	}
 
 	HashMapIterator find(HashValue hash)
 	{
-		return mHashMap.find(hash);
+		return hashmap.find(hash);
 	}
 
 	HashMapConstIterator find(HashValue hash)const
 	{
-		return mHashMap.find(hash);
+		return hashmap.find(hash);
 	}
 
 	T& operator[](HashValue hash)
 	{
 		auto it = find(hash);
-		if (it != mHashMap.end())
+		if (it != hashmap.end())
 		{
 			return *it->second;
 		}
@@ -50,12 +50,12 @@ public:
 
 	void erase(T* value)
 	{
-		for (auto& kvp : mHashMap)
+		for (auto& kvp : hashmap)
 		{
 			if (kvp.second == value)
 			{
-				mHashMap.erase(kvp.first);
-				mPool.free(value);
+				hashmap.erase(kvp.first);
+				pool.free(value);
 				break;
 			}
 		}
@@ -64,16 +64,16 @@ public:
 	void erase(HashValue hash)
 	{
 		auto it = find(hash);
-		if (it != mHashMap.end())
+		if (it != hashmap.end())
 		{
-			mPool.free(it->second);
-			mHashMap.erase(it);
+			pool.free(it->second);
+			hashmap.erase(it);
 		}
 	}
 
 	void free(T* value)
 	{
-		mPool.free(value);
+		pool.free(value);
 	}
 
 	template <typename... Args>
@@ -86,31 +86,31 @@ public:
 	template <typename... Args>
 	T* allocate(Args&&... args)
 	{
-		return mPool.allocate(std::forward<Args>(args)...);
+		return pool.allocate(std::forward<Args>(args)...);
 	}
 
 	T* insert(HashValue hash, T* value)
 	{
-		auto it = mHashMap.find(hash);
-		if (it != mHashMap.end())
+		auto it = hashmap.find(hash);
+		if (it != hashmap.end())
 		{
-			mPool.free(it->second);
+			pool.free(it->second);
 		}
-		mHashMap.insert(std::make_pair(hash, value));
+		hashmap.insert(std::make_pair(hash, value));
 		return value;
 	}
 
 	HashMapIterator begin()
 	{
-		return mHashMap.begin();
+		return hashmap.begin();
 	}
 
 	HashMapIterator end()
 	{
-		return mHashMap.end();
+		return hashmap.end();
 	}
 
 private:
-	HashMap mHashMap;
-	Util::ObjectPool<T> mPool;
+	HashMap hashmap;
+	Util::ObjectPool<T> pool;
 };

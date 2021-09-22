@@ -12,7 +12,7 @@ void TestApp::InitializeImpl()
 {
     Logger::RegisterSink(mStdoutLoggerSink);
 
-    auto device = mWSI.GetDevice();
+    auto device = wsi.GetDevice();
     //// init test shader
     //screenVS = device->GetShaderManager();
     //ShaderCompiler::LoadShader(*device, ShaderStage::VS, screenVS, "screenVS.hlsl");
@@ -28,19 +28,19 @@ void TestApp::UninitializeImpl()
 {
     delete shaderProgram;
 
-    auto device = mWSI.GetDevice();
+    auto device = wsi.GetDevice();
     //if (screenVS.mShaderModule != VK_NULL_HANDLE)
-    //    vkDestroyShaderModule(device->mDevice, screenVS.mShaderModule, nullptr);
+    //    vkDestroyShaderModule(device->device, screenVS.mShaderModule, nullptr);
     //if (screenPS.mShaderModule != VK_NULL_HANDLE)
-    //    vkDestroyShaderModule(device->mDevice, screenPS.mShaderModule, nullptr);
+    //    vkDestroyShaderModule(device->device, screenPS.mShaderModule, nullptr);
 }
 
 void TestApp::Render()
 {
-    DeviceVulkan* device = mWSI.GetDevice();
+    DeviceVulkan* device = wsi.GetDevice();
     assert(device != nullptr);
 
-    RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*mWSI.GetSwapChain(), SwapchainRenderPassType::ColorOnly);
+    RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*wsi.GetSwapChain(), SwapchainRenderPassType::ColorOnly);
     CommandListPtr cmd = device->RequestCommandList(QUEUE_TYPE_GRAPHICS);
     cmd->BeginRenderPass(rp);
     cmd->SetDefaultOpaqueState();

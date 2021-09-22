@@ -1,23 +1,23 @@
 #include "shader.h"
 #include "device.h"
 
-Shader::Shader(DeviceVulkan& device, ShaderStage shaderStage, VkShaderModule shaderModule) :
-	mDevice(device),
-	mShaderStage(shaderStage),
-	mShaderModule(shaderModule)
+Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_) :
+	device(device_),
+	shaderStage(shaderStage_),
+	shaderModule(shaderModule_)
 {
 }
 
-Shader::Shader(DeviceVulkan& device, ShaderStage shaderStage, const void* pShaderBytecode, size_t bytecodeLength):
-	mDevice(device),
-	mShaderStage(shaderStage)
+Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pShaderBytecode, size_t bytecodeLength):
+	device(device_),
+	shaderStage(shaderStage_)
 {
 	VkShaderModuleCreateInfo moduleInfo = {};
 	moduleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	moduleInfo.codeSize = bytecodeLength;
 	moduleInfo.pCode = (const uint32_t*)pShaderBytecode;
 
-	if (vkCreateShaderModule(mDevice.mDevice, &moduleInfo, nullptr, &mShaderModule) != VK_SUCCESS)
+	if (vkCreateShaderModule(device.device, &moduleInfo, nullptr, &shaderModule) != VK_SUCCESS)
 	{
 		Logger::Error("Failed to create shader.");
 		return;
@@ -26,45 +26,45 @@ Shader::Shader(DeviceVulkan& device, ShaderStage shaderStage, const void* pShade
 
 Shader::~Shader()
 {
-	if (mShaderModule != VK_NULL_HANDLE)
-		vkDestroyShaderModule(mDevice.mDevice, mShaderModule, nullptr);
+	if (shaderModule != VK_NULL_HANDLE)
+		vkDestroyShaderModule(device.device, shaderModule, nullptr);
 }
 
-ShaderProgram::ShaderProgram(DeviceVulkan* device, const ShaderProgramInfo& info) :
-	mDevice(device)
+ShaderProgram::ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info) :
+	device(device_)
 {
-	if (info.VS != nullptr)
-		SetShader(ShaderStage::VS, info.VS);
-	if (info.PS != nullptr)
-		SetShader(ShaderStage::PS, info.PS);
+	if (info.vs != nullptr)
+		SetShader(ShaderStage::VS, info.vs);
+	if (info.ps != nullptr)
+		SetShader(ShaderStage::PS, info.ps);
 
 	device->BakeShaderProgram(*this);
 }
 
 ShaderProgram::~ShaderProgram()
 {
-	for (auto& kvp : mPipelines)
-		mDevice->ReleasePipeline(kvp.second);
+	for (auto& kvp : pipelines)
+		device->ReleasePipeline(kvp.second);
 }
 
 void ShaderProgram::AddPipeline(HashValue hash, VkPipeline pipeline)
 {
-	mPipelines.try_emplace(hash, pipeline);
+	pipelines.try_emplace(hash, pipeline);
 }
 
 VkPipeline ShaderProgram::GetPipeline(HashValue hash)
 {
-	auto it = mPipelines.find(hash);
-	return it != mPipelines.end() ? it->second : VK_NULL_HANDLE;
+	auto it = pipelines.find(hash);
+	return it != pipelines.end() ? it->second : VK_NULL_HANDLE;
 }
 
 void ShaderProgram::SetShader(ShaderStage stage, Shader* shader)
 {
-	mShaders[(int)stage] = shader;
+	shaders[(int)stage] = shader;
 }
 
-PipelineLayout::PipelineLayout(DeviceVulkan& device) :
-	mDevice(device)
+PipelineLayout::PipelineLayout(DeviceVulkan& device_) :
+	device(device_)
 {
 }
 

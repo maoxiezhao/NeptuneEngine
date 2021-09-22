@@ -19,5 +19,5 @@ public:
 	DeviceVulkan* GetDevice();
 
 private:
-	Platform* mPlatform = nullptr;
+	Platform* platform = nullptr;
 };

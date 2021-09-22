@@ -25,12 +25,12 @@ public:
 
     VkDevice GetDevice()const
     {
-        return mDevice;
+        return device;
     }
 
     VkInstance GetInstance()const
     {
-        return mInstance;
+        return instance;
     }
 
 private:
@@ -51,15 +51,15 @@ private:
     friend class DeviceVulkan;
 
     // base info
-    uint32_t mWidth = 0;
-    uint32_t mHeight = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
     bool mIsDebugUtils = false;
     bool mIsDebugLayer = false;
 
     // core 
-    VkDevice mDevice;
-    VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-    VkInstance mInstance;
+    VkDevice device;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkInstance instance;
     VkDebugUtilsMessengerEXT mDebugUtilsMessenger = VK_NULL_HANDLE;
 
     // features
@@ -71,5 +71,5 @@ private:
 
     // queue
     std::vector<VkQueueFamilyProperties> mQueueFamilies;
-    QueueInfo mQueueInfo = {};
+    QueueInfo queueInfo = {};
 };

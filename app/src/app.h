@@ -11,33 +11,33 @@ public:
 	Platform();
 	~Platform();
 
-	bool Init(int width, int height);
+	bool Init(int width_, int height_);
 	bool Poll();
 
 	uint32_t GetWidth()
 	{
-		return mWidth;
+		return width;
 	}
 
 	uint32_t GetHeight()
 	{
-		return mHeight;
+		return height;
 	}
 
 	GLFWwindow* GetWindow() {
-		return mWindow;
+		return window;
 	}
 
 	void SetSize(uint32_t w, uint32_t h)
 	{
-		mWidth = w;
-		mHeight = h;
+		width = w;
+		height = h;
 	}
 
 private:
-	uint32_t mWidth = 0;
-	uint32_t mHeight = 0;
-	GLFWwindow* mWindow = nullptr;
+	uint32_t width = 0;
+	uint32_t height = 0;
+	GLFWwindow* window = nullptr;
 };
 
 class App
@@ -46,7 +46,7 @@ public:
 	App() = default;
 	~App() = default;
 
-	bool Initialize(std::unique_ptr<Platform> platform);
+	bool Initialize(std::unique_ptr<Platform> platform_);
 	void Uninitialize();
 	bool Poll();
 	void Tick();
@@ -57,6 +57,6 @@ private:
 	virtual void UninitializeImpl();
 
 protected:
-	std::unique_ptr<Platform> mPlatform;
-	WSI mWSI;
+	std::unique_ptr<Platform> platform;
+	WSI wsi;
 };

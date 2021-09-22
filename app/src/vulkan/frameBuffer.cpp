@@ -1,28 +1,28 @@
 #include "frameBuffer.h"
 #include "device.h"
 
-FrameBuffer::FrameBuffer(DeviceVulkan& device, RenderPass& renderPass, const RenderPassInfo& info) :
-	mDevice(device),
-	mRenderPass(renderPass)
+FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass, const RenderPassInfo& info) :
+	device(device_),
+	renderPass(renderPass)
 {
 	VkImageView imageViews[VULKAN_NUM_ATTACHMENTS + 1];
 	uint32_t numImageViews = 0;
-	mWidth = UINT32_MAX;
-	mHeight = UINT32_MAX;
+	width = UINT32_MAX;
+	height = UINT32_MAX;
 
 	// 遍历所有ColorAttachments，获取imageView，获取最小的size(w, h)
-	for (auto& view : info.mColorAttachments)
+	for (auto& view : info.colorAttachments)
 	{
 		imageViews[numImageViews++] = view->GetRenderTargetView(0);
-		mWidth = min(mWidth, view->GetImage()->GetWidth());
-		mHeight = min(mHeight, view->GetImage()->GetHeight());
+		width = min(width, view->GetImage()->GetWidth());
+		height = min(height, view->GetImage()->GetHeight());
 	}
 
-	if (info.mDepthStencil != nullptr)
+	if (info.depthStencil != nullptr)
 	{
-		imageViews[numImageViews++] = info.mDepthStencil->GetRenderTargetView(0);
-		mWidth = min(mWidth, info.mDepthStencil->GetImage()->GetWidth());
-		mHeight = min(mHeight, info.mDepthStencil->GetImage()->GetHeight());
+		imageViews[numImageViews++] = info.depthStencil->GetRenderTargetView(0);
+		width = min(width, info.depthStencil->GetImage()->GetWidth());
+		height = min(height, info.depthStencil->GetImage()->GetHeight());
 	}
 
 	VkFramebufferCreateInfo framebufferInfo = {};
@@ -30,18 +30,18 @@ FrameBuffer::FrameBuffer(DeviceVulkan& device, RenderPass& renderPass, const Ren
 	framebufferInfo.renderPass = renderPass.GetRenderPass();
 	framebufferInfo.attachmentCount = numImageViews;
 	framebufferInfo.pAttachments = imageViews;
-	framebufferInfo.width = mWidth;
-	framebufferInfo.height = mHeight;
+	framebufferInfo.width = width;
+	framebufferInfo.height = height;
 	framebufferInfo.layers = 1;
 
-	VkResult res = vkCreateFramebuffer(mDevice.mDevice, &framebufferInfo, nullptr, &mFrameBuffer);
+	VkResult res = vkCreateFramebuffer(device.device, &framebufferInfo, nullptr, &frameBuffer);
 	assert(res == VK_SUCCESS);
 }
 
 FrameBuffer::~FrameBuffer()
 {
-	if (mFrameBuffer != VK_NULL_HANDLE)
+	if (frameBuffer != VK_NULL_HANDLE)
 	{
-		mDevice.ReleaseFrameBuffer(mFrameBuffer);
+		device.ReleaseFrameBuffer(frameBuffer);
 	}
 }

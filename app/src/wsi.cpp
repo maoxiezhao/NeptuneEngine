@@ -58,12 +58,12 @@ bool WSI::Initialize()
     deviceVulkan->SetContext(*vulkanContext);
 
     // init surface
-    surface = CreateSurface(vulkanContext->GetInstance(), *mPlatform);
+    surface = CreateSurface(vulkanContext->GetInstance(), *platform);
     if (surface == VK_NULL_HANDLE)
         return false;
   
     // init swapchian
-    if (!deviceVulkan->CreateSwapchain(swapchian, surface, mPlatform->GetWidth(), mPlatform->GetHeight()))
+    if (!deviceVulkan->CreateSwapchain(swapchian, surface, platform->GetWidth(), platform->GetHeight()))
     {
         Logger::Error("Failed to init swapchian.");
         return false;
@@ -88,7 +88,7 @@ void WSI::BeginFrame()
 {
     deviceVulkan->BeginFrameContext();
 
-    if (swapchian->mSwapChain == VK_NULL_HANDLE)
+    if (swapchian->swapChain == VK_NULL_HANDLE)
     {
         std::cout << "Lost swapchain." << std::endl;
         return;
@@ -98,8 +98,8 @@ void WSI::BeginFrame()
 
     // acquire next image index
     VkResult res = vkAcquireNextImageKHR(
-        deviceVulkan->mDevice,
-        swapchian->mSwapChain,
+        deviceVulkan->device,
+        swapchian->swapChain,
         0xFFFFFFFFFFFFFFFF,
         acquire->GetSemaphore(),
         VK_NULL_HANDLE,
@@ -128,7 +128,7 @@ void WSI::EndFrame()
     info.waitSemaphoreCount = 1;
     info.pWaitSemaphores = &release->GetSemaphore();
     info.swapchainCount = 1;
-    info.pSwapchains = &swapchian->mSwapChain;
+    info.pSwapchains = &swapchian->swapChain;
     info.pImageIndices = &swapchian->mImageIndex;
     info.pResults = &result;
 
@@ -141,7 +141,7 @@ void WSI::EndFrame()
 
 void WSI::SetPlatform(Platform* platform)
 {
-	mPlatform = platform;
+	platform = platform;
 }
 
 Swapchain* WSI::GetSwapChain()

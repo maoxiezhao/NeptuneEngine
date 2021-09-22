@@ -13,32 +13,32 @@ struct ImageViewDeleter
 class ImageView : public Util::IntrusivePtrEnabled<ImageView, ImageViewDeleter>, public GraphicsCookie
 {
 public:
-    ImageView(DeviceVulkan& device, VkImageView imageView, const ImageViewCreateInfo& info);
+    ImageView(DeviceVulkan& device_, VkImageView imageView_, const ImageViewCreateInfo& info_);
     ~ImageView();
 
     VkImageView GetImageView()
     {
-        return mImageView;
+        return imageView;
     }
 
 	Image* GetImage()
 	{
-		return mInfo.mImage;
+		return info.image;
 	}
 
     const Image* GetImage() const
     {
-        return mInfo.mImage;
+        return info.image;
     }
 
     VkFormat GetFormat()const
     {
-        return mInfo.mFormat;
+        return info.format;
     }
 
     const ImageViewCreateInfo& GetInfo()const
     {
-        return mInfo;
+        return info;
     }
 
     VkImageView GetRenderTargetView(uint32_t layer)const;
@@ -48,9 +48,9 @@ private:
     friend struct ImageViewDeleter;
     friend class Util::ObjectPool<ImageView>;
     
-    DeviceVulkan& mDevice;
-    VkImageView mImageView;
-    ImageViewCreateInfo mInfo;
+    DeviceVulkan& device;
+    VkImageView imageView;
+    ImageViewCreateInfo info;
 };
 using ImageViewPtr = Util::IntrusivePtr<ImageView>;
 
@@ -65,52 +65,52 @@ public:
 
     VkImage GetImage()
     {
-        return mImage;
+        return image;
     }
 
     ImageViewPtr GetImageViewPtr()
     {
-        return mImageView;
+        return imageView;
     }
 
     ImageView& GetImageView()
     {
-        return *mImageView;
+        return *imageView;
     }
 
     const ImageView& GetImageView()const
     {
-        return *mImageView;
+        return *imageView;
     }
 
     void DisownImge()
     {
-        mIsOwnsImge = false;
+        isOwnsImge = false;
     }
 
     VkImageLayout GetSwapchainLayout() const
     {
-        return mSwapchainLayout;
+        return swapchainLayout;
     }
 
     void SetSwapchainLayout(VkImageLayout layout)
     {
-        mSwapchainLayout = layout;
+        swapchainLayout = layout;
     }
 
     bool IsSwapchainImage()const
     {
-        return mSwapchainLayout != VK_IMAGE_LAYOUT_UNDEFINED;
+        return swapchainLayout != VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
     uint32_t GetWidth() const
     {
-        return mImageInfo.mWidth;
+        return imageInfo.width;
     }
 
     uint32_t GetHeight() const
     {
-        return mImageInfo.mHeight;
+        return imageInfo.height;
     }
 
 private:
@@ -118,14 +118,14 @@ private:
     friend struct ImageDeleter;
     friend class Util::ObjectPool<Image>;
 
-    Image(DeviceVulkan& device, VkImage image, VkImageView imageView, const ImageCreateInfo& info);
+    Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const ImageCreateInfo& info_);
 
 private:
-    DeviceVulkan& mDevice;
-    VkImage mImage;
-    ImageViewPtr mImageView;
-    ImageCreateInfo mImageInfo;
-    VkImageLayout mSwapchainLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    bool mIsOwnsImge = true;
+    DeviceVulkan& device;
+    VkImage image;
+    ImageViewPtr imageView;
+    ImageCreateInfo imageInfo;
+    VkImageLayout swapchainLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    bool isOwnsImge = true;
 };
 using ImagePtr = Util::IntrusivePtr<Image>;

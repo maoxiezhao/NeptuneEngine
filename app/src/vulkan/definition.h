@@ -129,36 +129,36 @@ enum DepthWriteMask
 class Image;
 struct ImageViewCreateInfo
 {
-    Image* mImage = nullptr;
-    VkFormat mFormat = VK_FORMAT_UNDEFINED;
+    Image* image = nullptr;
+    VkFormat format = VK_FORMAT_UNDEFINED;
 };
 
 struct ImageCreateInfo
 {
-    uint32_t mWidth = 0;
-    uint32_t mHeight = 0;
-    uint32_t mDepth = 1;
-    uint32_t mLevels = 1;
-    VkFormat mFormat = VK_FORMAT_UNDEFINED;
-    VkImageType mType = VK_IMAGE_TYPE_2D;
-    uint32_t mLayers = 1;
-    VkImageUsageFlags mUsage = 0;
-    VkSampleCountFlagBits mSamples = VK_SAMPLE_COUNT_1_BIT;
-    VkImageCreateFlags mFlags = 0;
-    uint32_t mMisc;
-    VkImageLayout mInitialLayout = VK_IMAGE_LAYOUT_GENERAL;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t depth = 1;
+    uint32_t levels = 1;
+    VkFormat format = VK_FORMAT_UNDEFINED;
+    VkImageType type = VK_IMAGE_TYPE_2D;
+    uint32_t layers = 1;
+    VkImageUsageFlags usage = 0;
+    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+    VkImageCreateFlags flags = 0;
+    uint32_t misc;
+    VkImageLayout initialLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-    static ImageCreateInfo RenderTarget(uint32_t width, uint32_t height, VkFormat format)
+    static ImageCreateInfo renderTarget(uint32_t width, uint32_t height, VkFormat format)
     {
         ImageCreateInfo info = {};
-        info.mWidth = width;
-        info.mHeight = height;
-        info.mFormat = format;
-        info.mUsage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
+        info.width = width;
+        info.height = height;
+        info.format = format;
+        info.usage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
             VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        info.mInitialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
+        info.initialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL :
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         return info;
@@ -168,15 +168,15 @@ struct ImageCreateInfo
 class GraphicsCookie
 {
 public:
-    GraphicsCookie(uint64_t cookie) : mCookie(cookie) {}
+    GraphicsCookie(uint64_t cookie) : cookie(cookie) {}
 
     uint64_t GetCookie()const
     {
-        return mCookie;
+        return cookie;
     }
 
 private:
-    uint64_t mCookie;
+    uint64_t cookie;
 };
 
 struct VertexAttribState
@@ -188,55 +188,55 @@ struct VertexAttribState
 
 struct BlendState
 {
-    bool AlphaToCoverageEnable = false;
-    bool IndependentBlendEnable = false;
-    uint8_t NumRenderTarget = 1;
+    bool alphaToCoverageEnable = false;
+    bool independentBlendEnable = false;
+    uint8_t numRenderTarget = 1;
 
     struct RenderTargetBlendState
     {
-        bool BlendEnable = false;
-        VkBlendFactor SrcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
-        VkBlendFactor DestBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        VkBlendOp BlendOp = VK_BLEND_OP_ADD;
-        VkBlendFactor SrcBlendAlpha = VK_BLEND_FACTOR_ONE;
-        VkBlendFactor DestBlendAlpha = VK_BLEND_FACTOR_ONE;
-        VkBlendOp BlendOpAlpha = VK_BLEND_OP_ADD;
-        uint8_t RenderTargetWriteMask = (uint8_t)COLOR_WRITE_ENABLE_ALL;
+        bool blendEnable = false;
+        VkBlendFactor srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+        VkBlendFactor destBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        VkBlendOp blendOp = VK_BLEND_OP_ADD;
+        VkBlendFactor srcBlendAlpha = VK_BLEND_FACTOR_ONE;
+        VkBlendFactor destBlendAlpha = VK_BLEND_FACTOR_ONE;
+        VkBlendOp blendOpAlpha = VK_BLEND_OP_ADD;
+        uint8_t renderTargetWriteMask = (uint8_t)COLOR_WRITE_ENABLE_ALL;
     };
-    RenderTargetBlendState RenderTarget[8];
+    RenderTargetBlendState renderTarget[8];
 };
 
 struct RasterizerState
 {
-    FillMode FillMode = FILL_SOLID;
-    VkCullModeFlags CullMode = VK_CULL_MODE_BACK_BIT;
-    bool FrontCounterClockwise = false;
-    int32_t DepthBias = 0;
-    float DepthBiasClamp = 0.0f;
-    float SlopeScaledDepthBias = 0.0f;
-    bool DepthClipEnable = false;
-    bool MultisampleEnable = false;
-    bool AntialiasedLineEnable = false;
-    bool ConservativeRasterizationEnable = false;
-    uint32_t ForcedSampleCount = 0;
+    FillMode fillMode = FILL_SOLID;
+    VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+    bool frontCounterClockwise = false;
+    int32_t depthBias = 0;
+    float depthBiasClamp = 0.0f;
+    float slopeScaledDepthBias = 0.0f;
+    bool depthClipEnable = false;
+    bool multisampleEnable = false;
+    bool antialiasedLineEnable = false;
+    bool conservativeRasterizationEnable = false;
+    uint32_t forcedSampleCount = 0;
 };
 
 struct DepthStencilState
 {
-    bool DepthEnable = false;
-    DepthWriteMask DepthWriteMask = DEPTH_WRITE_MASK_ZERO;
-    VkCompareOp DepthFunc = VK_COMPARE_OP_NEVER;
-    bool StencilEnable = false;
-    uint8_t StencilReadMask = 0xff;
-    uint8_t StencilWriteMask = 0xff;
+    bool depthEnable = false;
+    DepthWriteMask depthWriteMask = DEPTH_WRITE_MASK_ZERO;
+    VkCompareOp depthFunc = VK_COMPARE_OP_NEVER;
+    bool stencilEnable = false;
+    uint8_t stencilReadMask = 0xff;
+    uint8_t stencilWriteMask = 0xff;
 
     struct DepthStencilOp
     {
-        VkStencilOp StencilFailOp = VK_STENCIL_OP_KEEP;
-        VkStencilOp StencilDepthFailOp = VK_STENCIL_OP_KEEP;
-        VkStencilOp StencilPassOp = VK_STENCIL_OP_KEEP;
-        VkCompareOp StencilFunc = VK_COMPARE_OP_NEVER;
+        VkStencilOp stencilFailOp = VK_STENCIL_OP_KEEP;
+        VkStencilOp stencilDepthFailOp = VK_STENCIL_OP_KEEP;
+        VkStencilOp stencilPassOp = VK_STENCIL_OP_KEEP;
+        VkCompareOp stencilFunc = VK_COMPARE_OP_NEVER;
     };
-    DepthStencilOp FrontFace;
-    DepthStencilOp BackFace;
+    DepthStencilOp frontFace;
+    DepthStencilOp backFace;
 };

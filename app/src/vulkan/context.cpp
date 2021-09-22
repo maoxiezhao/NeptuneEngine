@@ -79,11 +79,11 @@ namespace
 VulkanContext::~VulkanContext()
 {
     if (mDebugUtilsMessenger != VK_NULL_HANDLE) {
-        vkDestroyDebugUtilsMessengerEXT(mInstance, mDebugUtilsMessenger, nullptr);
+        vkDestroyDebugUtilsMessengerEXT(instance, mDebugUtilsMessenger, nullptr);
     }
 
-    vkDestroyDevice(mDevice, nullptr);
-    vkDestroyInstance(mInstance, nullptr);
+    vkDestroyDevice(device, nullptr);
+    vkDestroyInstance(instance, nullptr);
 }
 
 bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugLayer)
@@ -159,7 +159,7 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     }
 
     // create instance
-    VkResult ret = vkCreateInstance(&instCreateInfo, nullptr, &mInstance);
+    VkResult ret = vkCreateInstance(&instCreateInfo, nullptr, &instance);
     if (ret != VK_SUCCESS)
     {
         Logger::Error("Failed to create vkInstance.");
@@ -167,12 +167,12 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     }
 
     // volk load instance
-    volkLoadInstanceOnly(mInstance);
+    volkLoadInstanceOnly(instance);
 
     // create debug utils messager ext
     if (debugLayer && mIsDebugUtils)
     {
-        res = vkCreateDebugUtilsMessengerEXT(mInstance, &debugUtilsCreateInfo, nullptr, &mDebugUtilsMessenger);
+        res = vkCreateDebugUtilsMessengerEXT(instance, &debugUtilsCreateInfo, nullptr, &mDebugUtilsMessenger);
         assert(res == VK_SUCCESS);
     }
 
@@ -185,14 +185,14 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     std::vector<const char*> enabledDeviceExtensions;
 
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
     if (deviceCount == 0)
     {
         Logger::Error("Failed to find gpus with vulkan support.");
         return false;
     }
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
     bool isBreak = false;
     for (const auto& device : devices)
@@ -201,13 +201,13 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
         {
             enabledDeviceExtensions = requiredDeviceExtensions;
 
-            mPhysicalDevice = device;
+            physicalDevice = device;
             if (isBreak)
                 break;
         }
     }
 
-    if (mPhysicalDevice == VK_NULL_HANDLE)
+    if (physicalDevice == VK_NULL_HANDLE)
     {
         Logger::Error("Failed to find a suitable GPU");
         return false;
@@ -216,15 +216,15 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     ///////////////////////////////////////////////////////////////////////////////////////////
     // find queue families(Graphics, CopyFamily, Compute)
     uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
 
     mQueueFamilies.resize(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, mQueueFamilies.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, mQueueFamilies.data());
 
     for (int i = 0; i < (int)QUEUE_INDEX_COUNT; i++)
-        mQueueInfo.mQueueIndices[i] = VK_QUEUE_FAMILY_IGNORED;
+        queueInfo.mQueueIndices[i] = VK_QUEUE_FAMILY_IGNORED;
 
-    auto& queueIndices = mQueueInfo.mQueueIndices;
+    auto& queueIndices = queueInfo.mQueueIndices;
     int familyIndex = 0;
     for (const auto& queueFamily : mQueueFamilies)
     {
@@ -271,13 +271,13 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     createDeviceInfo.enabledExtensionCount = (uint32_t)enabledDeviceExtensions.size();
     createDeviceInfo.ppEnabledExtensionNames = enabledDeviceExtensions.data();
 
-    res = vkCreateDevice(mPhysicalDevice, &createDeviceInfo, nullptr, &mDevice);
+    res = vkCreateDevice(physicalDevice, &createDeviceInfo, nullptr, &device);
     assert(res == VK_SUCCESS);
 
-    volkLoadDevice(mDevice);
+    volkLoadDevice(device);
 
     for (int i = 0; i < QUEUE_INDEX_COUNT; i++)
-        vkGetDeviceQueue(mDevice, queueIndices[i], 0, &mQueueInfo.mQueues[i]);
+        vkGetDeviceQueue(device, queueIndices[i], 0, &queueInfo.mQueues[i]);
 
     return true;
 }
@@ -304,7 +304,7 @@ bool VulkanContext::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool i
     }
 
     // 2. check device properties
-    bool ret = mPhysicalDevice == VK_NULL_HANDLE;
+    bool ret = physicalDevice == VK_NULL_HANDLE;
     vkGetPhysicalDeviceProperties2(device, &mProperties2);
     if (mProperties2.properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
     {

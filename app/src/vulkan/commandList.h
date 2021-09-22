@@ -27,26 +27,26 @@ using CommandListDirtyFlags = uint32_t;
 
 struct CompilePipelineState
 {
-	ShaderProgram* mShaderProgram = nullptr;
-    BlendState mBlendState = {};
-    RasterizerState mRasterizerState = {};
-    DepthStencilState mDepthStencilState = {};
-    VkPrimitiveTopology mTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	ShaderProgram* shaderProgram = nullptr;
+    BlendState blendState = {};
+    RasterizerState rasterizerState = {};
+    DepthStencilState depthStencilState = {};
+    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     VertexAttribState attribs[VULKAN_NUM_VERTEX_ATTRIBS];
     VkDeviceSize strides[VULKAN_NUM_VERTEX_BUFFERS];
     VkVertexInputRate inputRates[VULKAN_NUM_VERTEX_BUFFERS];
 
-    uint32_t mSubpassIndex = 0;
-    uint64_t mHash = 0;
-    VkPipelineCache mCache;
-    bool mIsOwnedByCommandList = true;
+    uint32_t subpassIndex = 0;
+    uint64_t hash = 0;
+    VkPipelineCache cache;
+    bool isOwnedByCommandList = true;
 };
 
 struct CommandPool
 {
 public:
-    CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex);
+    CommandPool(DeviceVulkan* device_, uint32_t queueFamilyIndex);
     ~CommandPool();
 
     CommandPool(CommandPool&&) noexcept;
@@ -59,10 +59,10 @@ public:
     void BeginFrame();
 
 private:
-    uint32_t mUsedIndex = 0;
-    DeviceVulkan* mDevice;
-    VkCommandPool mPool = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> mBuffers;
+    uint32_t usedIndex = 0;
+    DeviceVulkan* device;
+    VkCommandPool pool = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> buffers;
 };
 
 class CommandList;
@@ -77,30 +77,30 @@ private:
     friend struct CommandListDeleter;
     friend class Util::ObjectPool<CommandList>;
 
-    VkViewport mViewport = {};
-    VkRect2D mScissor = {};
-    VkPipeline mCurrentPipeline = VK_NULL_HANDLE;               // 管线实例
-    VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;   // 管线资源分布
+    VkViewport viewport = {};
+    VkRect2D scissor = {};
+    VkPipeline currentPipeline = VK_NULL_HANDLE;               // 管线实例
+    VkPipelineLayout currentPipelineLayout = VK_NULL_HANDLE;   // 管线资源分布
 
-    DeviceVulkan& mDevice;
-    VkCommandBuffer mCmd;
-    QueueType mType;
-    VkPipelineStageFlags mSwapchainStages = 0;
+    DeviceVulkan& device;
+    VkCommandBuffer cmd;
+    QueueType type;
+    VkPipelineStageFlags swapchainStages = 0;
 
     // render pass runtime 
-    FrameBuffer* mFrameBuffer = nullptr;
-    RenderPass* mRenderPass = nullptr;
-    const RenderPass* mCompatibleRenderPass = nullptr;
-    CompilePipelineState mPipelineState = {};
-    PipelineLayout* mCurrentLayout = nullptr;
+    FrameBuffer* frameBuffer = nullptr;
+    RenderPass* renderPass = nullptr;
+    const RenderPass* compatibleRenderPass = nullptr;
+    CompilePipelineState pipelineState = {};
+    PipelineLayout* currentLayout = nullptr;
 
 public:
-    CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type);
+    CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
     ~CommandList();
 
     void BeginRenderPass(const RenderPassInfo& renderPassInfo);
     void EndRenderPass();
-    void BindPipelineState(const CompilePipelineState& pipelineState);
+    void BindPipelineState(const CompilePipelineState& pipelineState_);
     void BindVertexBuffers();
     void BindIndexBuffers();
 
@@ -108,22 +108,22 @@ public:
 
     QueueType GetQueueType()const
     {
-        return mType;
+        return type;
     }
 
     VkCommandBuffer GetCommandBuffer()const
     {
-        return mCmd;
+        return cmd;
     }
 
     VkPipelineStageFlags GetSwapchainStages()const
     {
-        return mSwapchainStages;
+        return swapchainStages;
     }
 
     void SetSwapchainStages(VkPipelineStageFlags stages)
     {
-        mSwapchainStages |= stages;
+        swapchainStages |= stages;
     }
 
 public:
@@ -143,21 +143,21 @@ private:
     VkPipeline BuildGraphicsPipeline(const CompilePipelineState& pipelineState);
     VkPipeline BuildComputePipeline(const CompilePipelineState& pipelineState);
 
-    CommandListDirtyFlags mDirty = 0;
+    CommandListDirtyFlags dirty = 0;
     void SetDirty(CommandListDirtyFlags flags)
     {
-        mDirty |= flags;
+        dirty |= flags;
     }
    
     bool IsDirty(CommandListDirtyFlags flags)
     {
-        return (mDirty & flags) != 0;
+        return (dirty & flags) != 0;
     }
 
     bool IsDirtyAndClear(CommandListDirtyFlags flags)
     {
-        auto ret = (mDirty & flags) != 0;
-        mDirty &= ~flags;
+        auto ret = (dirty & flags) != 0;
+        dirty &= ~flags;
         return ret;
     }
 };

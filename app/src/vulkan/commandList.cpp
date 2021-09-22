@@ -1,8 +1,8 @@
 #include "commandList.h"
 #include "vulkan/device.h"
 
-CommandPool::CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex) :
-    mDevice(device)
+CommandPool::CommandPool(DeviceVulkan* device_, uint32_t queueFamilyIndex) :
+    device(device_)
 {
     VkCommandPoolCreateInfo info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
     info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
@@ -10,18 +10,18 @@ CommandPool::CommandPool(DeviceVulkan* device, uint32_t queueFamilyIndex) :
 
     if (queueFamilyIndex != VK_QUEUE_FAMILY_IGNORED)
     {
-        VkResult res = vkCreateCommandPool(device->mDevice, &info, nullptr, &mPool);
+        VkResult res = vkCreateCommandPool(device->device, &info, nullptr, &pool);
         assert(res == VK_SUCCESS);
     }
 }
 
 CommandPool::~CommandPool()
 {
-    if (!mBuffers.empty())
-        vkFreeCommandBuffers(mDevice->mDevice, mPool, (uint32_t)mBuffers.size(), mBuffers.data());
+    if (!buffers.empty())
+        vkFreeCommandBuffers(device->device, pool, (uint32_t)buffers.size(), buffers.data());
 
-    if (mPool != VK_NULL_HANDLE)
-        vkDestroyCommandPool(mDevice->mDevice, mPool, nullptr);
+    if (pool != VK_NULL_HANDLE)
+        vkDestroyCommandPool(device->device, pool, nullptr);
 }
 
 CommandPool::CommandPool(CommandPool&& other) noexcept
@@ -33,19 +33,19 @@ CommandPool& CommandPool::operator=(CommandPool&& other) noexcept
 {
     if (this != &other)
     {
-        mDevice = other.mDevice;
-        if (!mBuffers.empty())
-            vkFreeCommandBuffers(mDevice->mDevice, mPool, (uint32_t)mBuffers.size(), mBuffers.data());
-        if (mPool != VK_NULL_HANDLE)
-            vkDestroyCommandPool(mDevice->mDevice, mPool, nullptr);
+        device = other.device;
+        if (!buffers.empty())
+            vkFreeCommandBuffers(device->device, pool, (uint32_t)buffers.size(), buffers.data());
+        if (pool != VK_NULL_HANDLE)
+            vkDestroyCommandPool(device->device, pool, nullptr);
 
-        mPool = VK_NULL_HANDLE;
-        mBuffers.clear();
-        mUsedIndex = 0;
+        pool = VK_NULL_HANDLE;
+        buffers.clear();
+        usedIndex = 0;
 
-        std::swap(mPool, other.mPool);
-        std::swap(mBuffers, other.mBuffers);
-        std::swap(mUsedIndex, other.mUsedIndex);
+        std::swap(pool, other.pool);
+        std::swap(buffers, other.buffers);
+        std::swap(usedIndex, other.usedIndex);
     }
 
     return *this;
@@ -53,45 +53,45 @@ CommandPool& CommandPool::operator=(CommandPool&& other) noexcept
 
 VkCommandBuffer CommandPool::RequestCommandBuffer()
 {
-    if (mUsedIndex < mBuffers.size())
+    if (usedIndex < buffers.size())
     {
-        return mBuffers[mUsedIndex++];
+        return buffers[usedIndex++];
     }
 
     VkCommandBuffer cmd;
     VkCommandBufferAllocateInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-    info.commandPool = mPool;
+    info.commandPool = pool;
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     info.commandBufferCount = 1;
 
-    VkResult res = vkAllocateCommandBuffers(mDevice->mDevice, &info, &cmd);
+    VkResult res = vkAllocateCommandBuffers(device->device, &info, &cmd);
     assert(res == VK_SUCCESS);
 
-    mBuffers.push_back(cmd);
-    mUsedIndex++;
+    buffers.push_back(cmd);
+    usedIndex++;
 
     return cmd;
 }
 
 void CommandPool::BeginFrame()
 {
-    if (mUsedIndex > 0)
+    if (usedIndex > 0)
     {
-        mUsedIndex = 0;
-        vkResetCommandPool(mDevice->mDevice, mPool, 0);
+        usedIndex = 0;
+        vkResetCommandPool(device->device, pool, 0);
     }
 }
 
 void CommandListDeleter::operator()(CommandList* cmd)
 {
     if (cmd != nullptr)
-        cmd->mDevice.mCommandListPool.free(cmd);
+        cmd->device.commandListPool.free(cmd);
 }
 
-CommandList::CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type) :
-    mDevice(device),
-    mCmd(buffer),
-    mType(type)
+CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer, QueueType type) :
+    device(device_),
+    cmd(buffer),
+    type(type)
 {
 }
 
@@ -101,59 +101,59 @@ CommandList::~CommandList()
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 {
-    mFrameBuffer = &mDevice.RequestFrameBuffer(renderPassInfo);
-    mCompatibleRenderPass = &mFrameBuffer->GetRenderPass();
-    mRenderPass = &mDevice.RequestRenderPass(renderPassInfo);
+    frameBuffer = &device.RequestFrameBuffer(renderPassInfo);
+    compatibleRenderPass = &frameBuffer->GetRenderPass();
+    renderPass = &device.RequestRenderPass(renderPassInfo);
 
     // area
     VkRect2D rect = {};
-    uint32_t fbWidth = mFrameBuffer->GetWidth();
-    uint32_t fbHeight = mFrameBuffer->GetHeight();
+    uint32_t fbWidth = frameBuffer->GetWidth();
+    uint32_t fbHeight = frameBuffer->GetHeight();
     rect.offset.x = min(fbWidth, uint32_t(rect.offset.x));
     rect.offset.y = min(fbHeight, uint32_t(rect.offset.y));
     rect.extent.width = min(fbWidth - rect.offset.x, rect.extent.width);
     rect.extent.height = min(fbHeight - rect.offset.y, rect.extent.height);
 
-    mViewport = {
+    viewport = {
         float(rect.offset.x), float(rect.offset.y),
         float(rect.extent.width), float(rect.extent.height),
         0.0f, 1.0f
     };
-    mScissor = rect;
+    scissor = rect;
 
     // clear color
     // 遍历所有colorAttachments同时检查clearAttachments mask
     VkClearValue clearColors[VULKAN_NUM_ATTACHMENTS + 1];
     uint32_t numClearColor = 0;
-    for (uint32_t i = 0; i < renderPassInfo.mNumColorAttachments; i++)
+    for (uint32_t i = 0; i < renderPassInfo.numColorAttachments; i++)
     {
-        if (renderPassInfo.mClearAttachments & (1u << i))
+        if (renderPassInfo.clearAttachments & (1u << i))
         {
             clearColors[i].color = {0.0f, 0.0f, 0.0f, 1.0f};
             numClearColor = i + 1;
         }
 
         // Check use swapchian in stages
-        if (renderPassInfo.mColorAttachments[i]->GetImage()->IsSwapchainImage())
+        if (renderPassInfo.colorAttachments[i]->GetImage()->IsSwapchainImage())
             SetSwapchainStages(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);  // 指定混合后管道的阶段，其中从管道输出最终颜色值
                                                                                 // 此阶段还包括子颜色加载和存储操作以及具有颜色格式的帧缓冲附件的多重采样解析操作
     }
     // check is depth stencil and clear depth stencil
-    if (renderPassInfo.mDepthStencil != nullptr)
+    if (renderPassInfo.depthStencil != nullptr)
     {
-        clearColors[renderPassInfo.mNumColorAttachments].depthStencil = {1.0f, 0};
-        numClearColor = renderPassInfo.mNumColorAttachments + 1;
+        clearColors[renderPassInfo.numColorAttachments].depthStencil = {1.0f, 0};
+        numClearColor = renderPassInfo.numColorAttachments + 1;
     }
 
     // begin render pass
     VkRenderPassBeginInfo beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-    beginInfo.renderArea = mScissor;
-    beginInfo.renderPass = mRenderPass->GetRenderPass();
-    beginInfo.framebuffer = mFrameBuffer->GetFrameBuffer();
+    beginInfo.renderArea = scissor;
+    beginInfo.renderPass = renderPass->GetRenderPass();
+    beginInfo.framebuffer = frameBuffer->GetFrameBuffer();
     beginInfo.clearValueCount = numClearColor;
     beginInfo.pClearValues = clearColors;
 
-    vkCmdBeginRenderPass(mCmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // begin graphics contexxt
     BeginGraphicsContext();
@@ -161,20 +161,20 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 
 void CommandList::EndRenderPass()
 {
-    vkCmdEndRenderPass(mCmd);
+    vkCmdEndRenderPass(cmd);
 
     // clear runtime resources
-    mFrameBuffer = nullptr;
-    mRenderPass = nullptr;
+    frameBuffer = nullptr;
+    renderPass = nullptr;
 }
 
 // 清除除Program意以外的管线状态
 void CommandList::ClearPipelineState()
 {
-	mPipelineState.mBlendState = {};
-    mPipelineState.mRasterizerState = {};
-    mPipelineState.mDepthStencilState = {};
-    mPipelineState.mTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	pipelineState.blendState = {};
+    pipelineState.rasterizerState = {};
+    pipelineState.depthStencilState = {};
+    pipelineState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 }
 
 void CommandList::SetDefaultOpaqueState()
@@ -182,87 +182,87 @@ void CommandList::SetDefaultOpaqueState()
     ClearPipelineState();
 
     // blend
-    BlendState& bd = mPipelineState.mBlendState;
-	bd.RenderTarget[0].BlendEnable = false;
-	bd.RenderTarget[0].SrcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
-	bd.RenderTarget[0].DestBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	bd.RenderTarget[0].BlendOp = VK_BLEND_OP_MAX;
-	bd.RenderTarget[0].SrcBlendAlpha = VK_BLEND_FACTOR_ONE;
-	bd.RenderTarget[0].DestBlendAlpha = VK_BLEND_FACTOR_ZERO    ;
-	bd.RenderTarget[0].BlendOpAlpha = VK_BLEND_OP_ADD;
-	bd.RenderTarget[0].RenderTargetWriteMask = COLOR_WRITE_ENABLE_ALL;
-	bd.AlphaToCoverageEnable = false;
-	bd.IndependentBlendEnable = false;
+    BlendState& bd = pipelineState.blendState;
+	bd.renderTarget[0].blendEnable = false;
+	bd.renderTarget[0].srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+	bd.renderTarget[0].destBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	bd.renderTarget[0].blendOp = VK_BLEND_OP_MAX;
+	bd.renderTarget[0].srcBlendAlpha = VK_BLEND_FACTOR_ONE;
+	bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_ZERO    ;
+	bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
+	bd.renderTarget[0].renderTargetWriteMask = COLOR_WRITE_ENABLE_ALL;
+	bd.alphaToCoverageEnable = false;
+	bd.independentBlendEnable = false;
 
     // depth
-	DepthStencilState& dsd = mPipelineState.mDepthStencilState;
-	dsd.DepthEnable = true;
-	dsd.DepthWriteMask = DEPTH_WRITE_MASK_ALL;
-	dsd.DepthFunc = VK_COMPARE_OP_GREATER;
-	dsd.StencilEnable = false;
+	DepthStencilState& dsd = pipelineState.depthStencilState;
+	dsd.depthEnable = true;
+	dsd.depthWriteMask = DEPTH_WRITE_MASK_ALL;
+	dsd.depthFunc = VK_COMPARE_OP_GREATER;
+	dsd.stencilEnable = false;
 
     // rasterizerState
-    RasterizerState& rs = mPipelineState.mRasterizerState;
-	rs.FillMode = FILL_SOLID;
-	rs.CullMode = VK_CULL_MODE_BACK_BIT;
-	rs.FrontCounterClockwise = true;
-	rs.DepthBias = 0;
-	rs.DepthBiasClamp = 0;
-	rs.SlopeScaledDepthBias = 0;
-	rs.DepthClipEnable = true;
-	rs.MultisampleEnable = false;
-	rs.AntialiasedLineEnable = false;
-	rs.ConservativeRasterizationEnable = false;
+    RasterizerState& rs = pipelineState.rasterizerState;
+	rs.fillMode = FILL_SOLID;
+	rs.cullMode = VK_CULL_MODE_BACK_BIT;
+	rs.frontCounterClockwise = true;
+	rs.depthBias = 0;
+	rs.depthBiasClamp = 0;
+	rs.slopeScaledDepthBias = 0;
+	rs.depthClipEnable = true;
+	rs.multisampleEnable = false;
+	rs.antialiasedLineEnable = false;
+	rs.conservativeRasterizationEnable = false;
 
     // topology
-    mPipelineState.mTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    pipelineState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
 void CommandList::SetProgram(ShaderProgram* program)
 {
-    if (mPipelineState.mShaderProgram == program)
+    if (pipelineState.shaderProgram == program)
         return;
 
-    mPipelineState.mShaderProgram = program;
+    pipelineState.shaderProgram = program;
     SetDirty(COMMAND_LIST_DIRTY_PIPELINE_BIT | COMMAND_LIST_DIRTY_DYNAMIC_BITS);
-    mCurrentPipeline = VK_NULL_HANDLE;
+    currentPipeline = VK_NULL_HANDLE;
 
     if (program == nullptr)
         return;
 
-    if (mCurrentLayout == nullptr)
+    if (currentLayout == nullptr)
     {
-        mCurrentLayout = program->GetPipelineLayout();
-        mCurrentPipelineLayout = mCurrentLayout->GetLayout();
+        currentLayout = program->GetPipelineLayout();
+        currentPipelineLayout = currentLayout->GetLayout();
     }
-    else if (program->GetPipelineLayout()->GetHash() != mCurrentLayout->GetHash())
+    else if (program->GetPipelineLayout()->GetHash() != currentLayout->GetHash())
     {
-        mCurrentLayout = program->GetPipelineLayout();
-        mCurrentPipelineLayout = mCurrentLayout->GetLayout();
+        currentLayout = program->GetPipelineLayout();
+        currentPipelineLayout = currentLayout->GetLayout();
     }
 }
 
 void CommandList::BeginGraphicsContext()
 {
-    mDirty = ~0u;  // set all things are dirty
-    mPipelineState.mShaderProgram = nullptr;
-    mCurrentPipeline = VK_NULL_HANDLE;
-    mCurrentPipelineLayout = VK_NULL_HANDLE;
-    mCurrentLayout = nullptr;
+    dirty = ~0u;  // set all things are dirty
+    pipelineState.shaderProgram = nullptr;
+    currentPipeline = VK_NULL_HANDLE;
+    currentPipelineLayout = VK_NULL_HANDLE;
+    currentLayout = nullptr;
 }
 
 void CommandList::EndCommandBuffer()
 {
-    VkResult res = vkEndCommandBuffer(mCmd);
+    VkResult res = vkEndCommandBuffer(cmd);
     assert(res == VK_SUCCESS);
 }
 
-void CommandList::BindPipelineState(const CompilePipelineState& pipelineState)
+void CommandList::BindPipelineState(const CompilePipelineState& pipelineState_)
 {
-    SetProgram(pipelineState.mShaderProgram);
-    mPipelineState = pipelineState;
+    SetProgram(pipelineState_.shaderProgram);
+    pipelineState = pipelineState_;
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
@@ -278,44 +278,44 @@ void CommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t
 {
     if (FlushRenderState())
     {
-        vkCmdDrawIndexed(mCmd, indexCount, 1, firstIndex, vertexOffset, 0);
+        vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);
     }
 }
 
 bool CommandList::FlushRenderState()
 {
-    if (mPipelineState.mShaderProgram == nullptr || 
-        mPipelineState.mShaderProgram->IsEmpty())
+    if (pipelineState.shaderProgram == nullptr || 
+        pipelineState.shaderProgram->IsEmpty())
         return false;
 
-    if (mCurrentPipeline == VK_NULL_HANDLE)
+    if (currentPipeline == VK_NULL_HANDLE)
         SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 
     if (IsDirtyAndClear(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT))
     {
-        VkPipeline oldPipeline = mCurrentPipeline;
+        VkPipeline oldPipeline = currentPipeline;
         if (!FlushGraphicsPipeline())
             return false;
 
-        if (oldPipeline != mCurrentPipeline)
+        if (oldPipeline != currentPipeline)
         {
             // bind pipeline
-            vkCmdBindPipeline(mCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mCurrentPipeline);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, currentPipeline);
             SetDirty(COMMAND_LIST_DIRTY_DYNAMIC_BITS);
         }
     }
 
-    if (mCurrentPipeline == VK_NULL_HANDLE)
+    if (currentPipeline == VK_NULL_HANDLE)
         return false;
 
     if (IsDirtyAndClear(COMMAND_LIST_DIRTY_VIEWPORT_BIT))
     {
-        vkCmdSetViewport(mCmd, 0, 1, &mViewport);
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
     }
 
     if (IsDirtyAndClear(COMMAND_LIST_DIRTY_VIEWPORT_BIT))
     {
-        vkCmdSetScissor(mCmd, 0, 1, &mScissor);
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
     }
 
     return true;
@@ -323,24 +323,24 @@ bool CommandList::FlushRenderState()
 
 bool CommandList::FlushGraphicsPipeline()
 {
-    if (mPipelineState.mShaderProgram == nullptr)
+    if (pipelineState.shaderProgram == nullptr)
         return false;
 
-    if (mPipelineState.mIsOwnedByCommandList)
+    if (pipelineState.isOwnedByCommandList)
     {
-        mDevice.UpdateGraphicsPipelineHash(mPipelineState);
-        mCurrentPipeline = mPipelineState.mShaderProgram->GetPipeline(mPipelineState.mHash);
+        device.UpdateGraphicsPipelineHash(pipelineState);
+        currentPipeline = pipelineState.shaderProgram->GetPipeline(pipelineState.hash);
     }
 
-    if (mCurrentPipeline == VK_NULL_HANDLE)
-        mCurrentPipeline = BuildGraphicsPipeline(mPipelineState);
+    if (currentPipeline == VK_NULL_HANDLE)
+        currentPipeline = BuildGraphicsPipeline(pipelineState);
 
-    return mCurrentPipeline != VK_NULL_HANDLE;
+    return currentPipeline != VK_NULL_HANDLE;
 }
 
 VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipelineState)
 {
-    U32 subpassIndex = pipelineState.mSubpassIndex;
+    U32 subpassIndex = pipelineState.subpassIndex;
 
     VkPipelineViewportStateCreateInfo viewportState = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
     viewportState.viewportCount = 1;
@@ -357,27 +357,27 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 
      // blend state
     VkPipelineColorBlendAttachmentState blendAttachments[VULKAN_NUM_ATTACHMENTS];
-    int attachmentCount = mCompatibleRenderPass->GetNumColorAttachments(subpassIndex);
+    int attachmentCount = compatibleRenderPass->GetNumColorAttachments(subpassIndex);
     for (int i = 0; i < attachmentCount; i++)
     {
         VkPipelineColorBlendAttachmentState& attachment = blendAttachments[i];
         attachment = {};
 
-        if (mCompatibleRenderPass->GetColorAttachment(subpassIndex, i).attachment == VK_ATTACHMENT_UNUSED)
+        if (compatibleRenderPass->GetColorAttachment(subpassIndex, i).attachment == VK_ATTACHMENT_UNUSED)
             continue;
       
-        const auto& desc = pipelineState.mBlendState.RenderTarget[i];
+        const auto& desc = pipelineState.blendState.renderTarget[i];
         attachment.colorWriteMask = 0;
-        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_RED)
+        if (desc.renderTargetWriteMask & COLOR_WRITE_ENABLE_RED)
             attachment.colorWriteMask |= VK_COLOR_COMPONENT_R_BIT;
-        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_GREEN)
+        if (desc.renderTargetWriteMask & COLOR_WRITE_ENABLE_GREEN)
             attachment.colorWriteMask |= VK_COLOR_COMPONENT_G_BIT;
-        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_BLUE)
+        if (desc.renderTargetWriteMask & COLOR_WRITE_ENABLE_BLUE)
             attachment.colorWriteMask |= VK_COLOR_COMPONENT_B_BIT;
-        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_ALPHA)
+        if (desc.renderTargetWriteMask & COLOR_WRITE_ENABLE_ALPHA)
             attachment.colorWriteMask |= VK_COLOR_COMPONENT_A_BIT;
         
-        attachment.blendEnable = desc.BlendEnable ? VK_TRUE : VK_FALSE;
+        attachment.blendEnable = desc.blendEnable ? VK_TRUE : VK_FALSE;
         if (attachment.blendEnable)
         {
             attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -402,12 +402,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 
     // depth state
     VkPipelineDepthStencilStateCreateInfo depthstencil = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
-    depthstencil.depthTestEnable = mCompatibleRenderPass->HasDepth(subpassIndex) && pipelineState.mDepthStencilState.DepthEnable ? VK_TRUE : VK_FALSE;
-    depthstencil.depthWriteEnable = mCompatibleRenderPass->HasDepth(subpassIndex) && pipelineState.mDepthStencilState.DepthWriteMask != DEPTH_WRITE_MASK_ZERO ? VK_TRUE : VK_FALSE;
-    depthstencil.stencilTestEnable = mCompatibleRenderPass->HasStencil(subpassIndex) && pipelineState.mDepthStencilState.StencilEnable ? VK_TRUE : VK_FALSE;
+    depthstencil.depthTestEnable = compatibleRenderPass->HasDepth(subpassIndex) && pipelineState.depthStencilState.depthEnable ? VK_TRUE : VK_FALSE;
+    depthstencil.depthWriteEnable = compatibleRenderPass->HasDepth(subpassIndex) && pipelineState.depthStencilState.depthWriteMask != DEPTH_WRITE_MASK_ZERO ? VK_TRUE : VK_FALSE;
+    depthstencil.stencilTestEnable = compatibleRenderPass->HasStencil(subpassIndex) && pipelineState.depthStencilState.stencilEnable ? VK_TRUE : VK_FALSE;
 
     if (depthstencil.depthTestEnable)
-        depthstencil.depthCompareOp = pipelineState.mDepthStencilState.DepthFunc;
+        depthstencil.depthCompareOp = pipelineState.depthStencilState.depthFunc;
 
     if (depthstencil.stencilTestEnable)
     {
@@ -448,16 +448,16 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     // input assembly
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
     inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
-    inputAssemblyInfo.topology = pipelineState.mTopology;
+    inputAssemblyInfo.topology = pipelineState.topology;
 
     // raster
     VkPipelineRasterizationStateCreateInfo rasterizer = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
     rasterizer.depthClampEnable = VK_TRUE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = pipelineState.mRasterizerState.FillMode == FILL_SOLID ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE;
+    rasterizer.polygonMode = pipelineState.rasterizerState.fillMode == FILL_SOLID ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = pipelineState.mRasterizerState.CullMode;
-    rasterizer.frontFace = pipelineState.mRasterizerState.FrontCounterClockwise ?  VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.cullMode = pipelineState.rasterizerState.cullMode;
+    rasterizer.frontFace = pipelineState.rasterizerState.frontCounterClockwise ?  VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp = 0.0f;
@@ -479,12 +479,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     for (int i = 0; i < static_cast<unsigned>(ShaderStage::Count); i++)
     {
         ShaderStage shaderStage = static_cast<ShaderStage>(i);
-        if (pipelineState.mShaderProgram->GetShader(shaderStage))
+        if (pipelineState.shaderProgram->GetShader(shaderStage))
         {
             VkPipelineShaderStageCreateInfo& stageCreateInfo = stages[stageCount++];
             stageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
             stageCreateInfo.pName = "main";
-            stageCreateInfo.module = pipelineState.mShaderProgram->GetShader(shaderStage)->GetModule();
+            stageCreateInfo.module = pipelineState.shaderProgram->GetShader(shaderStage)->GetModule();
 
             switch (shaderStage)
             {
@@ -522,9 +522,9 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     // Create pipeline
     VkPipeline retPipeline = VK_NULL_HANDLE;
     VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-    pipelineInfo.layout = pipelineState.mShaderProgram->GetPipelineLayout()->GetLayout();
-    pipelineInfo.renderPass = mCompatibleRenderPass->GetRenderPass();
-    pipelineInfo.subpass = pipelineState.mSubpassIndex;
+    pipelineInfo.layout = pipelineState.shaderProgram->GetPipelineLayout()->GetLayout();
+    pipelineInfo.renderPass = compatibleRenderPass->GetRenderPass();
+    pipelineInfo.subpass = pipelineState.subpassIndex;
 
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pDynamicState = &dynamicState;
@@ -537,7 +537,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     pipelineInfo.pStages = stages;
     pipelineInfo.stageCount = stageCount;
 
-    VkResult res = vkCreateGraphicsPipelines(mDevice.mDevice, pipelineState.mCache, 1, &pipelineInfo, nullptr, &retPipeline);
+    VkResult res = vkCreateGraphicsPipelines(device.device, pipelineState.cache, 1, &pipelineInfo, nullptr, &retPipeline);
     if (res != VK_SUCCESS)
     {
         Logger::Error("Failed to create graphics pipeline!");
