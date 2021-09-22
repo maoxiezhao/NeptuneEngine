@@ -2,7 +2,8 @@
 #include "device.h"
 
 FrameBuffer::FrameBuffer(DeviceVulkan& device, RenderPass& renderPass, const RenderPassInfo& info) :
-	mDevice(device)
+	mDevice(device),
+	mRenderPass(renderPass)
 {
 	VkImageView imageViews[VULKAN_NUM_ATTACHMENTS + 1];
 	uint32_t numImageViews = 0;

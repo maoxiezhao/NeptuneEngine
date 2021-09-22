@@ -1,21 +1,26 @@
 #include "test.h"
-#include "shaderCompiler.h"
 #include "vulkan\device.h"
+#include "utils\log.h"
 
-Shader screenVS;
-Shader screenPS;
+static StdoutLoggerSink mStdoutLoggerSink;
+
+Shader* screenVS;
+//Shader screenPS;
 ShaderProgram* shaderProgram = nullptr;
 
 void TestApp::InitializeImpl()
 {
+    Logger::RegisterSink(mStdoutLoggerSink);
+
     auto device = mWSI.GetDevice();
-    // init test shader
-    ShaderCompiler::LoadShader(*device, ShaderStage::VS, screenVS, "screenVS.hlsl");
-    ShaderCompiler::LoadShader(*device, ShaderStage::PS, screenPS, "screenPS.hlsl");
+    //// init test shader
+    //screenVS = device->GetShaderManager();
+    //ShaderCompiler::LoadShader(*device, ShaderStage::VS, screenVS, "screenVS.hlsl");
+    //ShaderCompiler::LoadShader(*device, ShaderStage::PS, screenPS, "screenPS.hlsl");
 
     ShaderProgramInfo info = {};
-    info.VS = &screenVS;
-    info.PS = &screenPS;
+    //info.VS = &screenVS;
+    //info.PS = &screenPS;
     shaderProgram = new ShaderProgram(device, info);
 }
 
@@ -24,10 +29,10 @@ void TestApp::UninitializeImpl()
     delete shaderProgram;
 
     auto device = mWSI.GetDevice();
-    if (screenVS.mShaderModule != VK_NULL_HANDLE)
-        vkDestroyShaderModule(device->mDevice, screenVS.mShaderModule, nullptr);
-    if (screenPS.mShaderModule != VK_NULL_HANDLE)
-        vkDestroyShaderModule(device->mDevice, screenPS.mShaderModule, nullptr);
+    //if (screenVS.mShaderModule != VK_NULL_HANDLE)
+    //    vkDestroyShaderModule(device->mDevice, screenVS.mShaderModule, nullptr);
+    //if (screenPS.mShaderModule != VK_NULL_HANDLE)
+    //    vkDestroyShaderModule(device->mDevice, screenPS.mShaderModule, nullptr);
 }
 
 void TestApp::Render()

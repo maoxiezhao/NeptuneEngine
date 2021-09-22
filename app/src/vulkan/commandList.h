@@ -17,6 +17,11 @@ class DeviceVulkan;
 enum CommandListDirtyBits
 {
 	COMMAND_LIST_DIRTY_PIPELINE_BIT = 1 << 0,
+
+    COMMAND_LIST_DIRTY_VIEWPORT_BIT = 1 << 1,
+    COMMAND_LIST_DIRTY_SCISSOR_BIT = 1 << 2,
+
+    COMMAND_LIST_DIRTY_DYNAMIC_BITS = COMMAND_LIST_DIRTY_VIEWPORT_BIT | COMMAND_LIST_DIRTY_SCISSOR_BIT
 };
 using CommandListDirtyFlags = uint32_t;
 
@@ -32,9 +37,10 @@ struct CompilePipelineState
     VkDeviceSize strides[VULKAN_NUM_VERTEX_BUFFERS];
     VkVertexInputRate inputRates[VULKAN_NUM_VERTEX_BUFFERS];
 
-    uint32_t mSubpassIndex;
-    uint64_t mHash;
+    uint32_t mSubpassIndex = 0;
+    uint64_t mHash = 0;
     VkPipelineCache mCache;
+    bool mIsOwnedByCommandList = true;
 };
 
 struct CommandPool
@@ -75,7 +81,6 @@ private:
     VkRect2D mScissor = {};
     VkPipeline mCurrentPipeline = VK_NULL_HANDLE;               // 管线实例
     VkPipelineLayout mCurrentPipelineLayout = VK_NULL_HANDLE;   // 管线资源分布
-    CompilePipelineState mPipelineState = {};
 
     DeviceVulkan& mDevice;
     VkCommandBuffer mCmd;
@@ -85,7 +90,9 @@ private:
     // render pass runtime 
     FrameBuffer* mFrameBuffer = nullptr;
     RenderPass* mRenderPass = nullptr;
-    RenderPass* mCompatibleRenderPass = nullptr;
+    const RenderPass* mCompatibleRenderPass = nullptr;
+    CompilePipelineState mPipelineState = {};
+    PipelineLayout* mCurrentLayout = nullptr;
 
 public:
     CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType type);

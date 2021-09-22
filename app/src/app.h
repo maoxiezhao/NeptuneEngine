@@ -28,6 +28,12 @@ public:
 		return mWindow;
 	}
 
+	void SetSize(uint32_t w, uint32_t h)
+	{
+		mWidth = w;
+		mHeight = h;
+	}
+
 private:
 	uint32_t mWidth = 0;
 	uint32_t mHeight = 0;

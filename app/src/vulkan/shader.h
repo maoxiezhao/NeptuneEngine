@@ -2,13 +2,36 @@
 
 #include "definition.h"
 
-struct PipelineLayout
+class PipelineLayout : public HashedObject<PipelineLayout>
 {
-	VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+public:
+    PipelineLayout(DeviceVulkan& device);
+    ~PipelineLayout();
+
+    VkPipelineLayout GetLayout()const
+    {
+        return mPipelineLayout;
+    }
+
+private:
+    DeviceVulkan& mDevice;
+    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 };
 
-struct Shader
+class Shader : public HashedObject<Shader>
 {
+public:
+    Shader(DeviceVulkan& device, ShaderStage shaderStage, VkShaderModule shaderModule);
+    Shader(DeviceVulkan& device, ShaderStage shaderStage, const void* pShaderBytecode, size_t bytecodeLength);
+    ~Shader();
+
+    VkShaderModule GetModule()const
+    {
+        return mShaderModule;
+    }
+
+private:
+    DeviceVulkan& mDevice;
 	ShaderStage mShaderStage;
 	VkShaderModule mShaderModule = VK_NULL_HANDLE;
 };
@@ -40,6 +63,9 @@ public:
         return mShaderCount > 0;
     }
 
+    void AddPipeline(HashValue hash, VkPipeline pipeline);
+    VkPipeline GetPipeline(HashValue hash);
+
 private:
     void SetShader(ShaderStage stage, Shader* shader);
 
@@ -47,4 +73,5 @@ private:
     PipelineLayout* mPipelineLayout = nullptr;
     Shader* mShaders[UINT(ShaderStage::Count)] = {};
     uint32_t mShaderCount = 0;
+    std::unordered_map<HashValue, VkPipeline> mPipelines;
 };

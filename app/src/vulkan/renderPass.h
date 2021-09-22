@@ -28,7 +28,7 @@ struct RenderPassInfo
     unsigned mNumSubPasses = 0;
 };
 
-class Subpass
+struct Subpass
 {
 	VkAttachmentReference colorAttachments[VULKAN_NUM_ATTACHMENTS];
 	unsigned numColorAttachments;
@@ -39,7 +39,7 @@ class Subpass
     uint32_t mSamples;
 };
 
-class RenderPass
+class RenderPass : public HashedObject<RenderPass>
 {
 private:
     DeviceVulkan& mDevice;
@@ -56,17 +56,33 @@ public:
     RenderPass(const RenderPass&) = delete;
 	void operator=(const RenderPass&) = delete;
 
-    void SetHash(uint64_t hash)
-    {
-        mHash = hash;
-    }
-    uint64_t GetHash()
-    {
-        return mHash;
-    }
-
-    VkRenderPass GetRenderPass()
+    const VkRenderPass GetRenderPass() const
     {
         return mRenderPass;
+    }
+
+    U32 GetNumColorAttachments(U32 subpass)const
+    {
+        ASSERT(subpass < mSubpasses.size());
+        return mSubpasses[subpass].numColorAttachments;
+    }
+
+    VkAttachmentReference GetColorAttachment(U32 subpass, U32 colorIndex)const
+    {
+        ASSERT(subpass < mSubpasses.size());
+        ASSERT(colorIndex < mSubpasses[subpass].numColorAttachments);
+        return mSubpasses[subpass].colorAttachments[colorIndex];
+    }
+
+    bool HasDepth(U32 subpass) const
+    {
+        ASSERT(subpass < mSubpasses.size());
+        return mSubpasses[subpass].depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED && IsFormatHasDepth(mDepthStencil);
+    }
+
+    bool HasStencil(U32 subpass) const
+    {
+        ASSERT(subpass < mSubpasses.size());
+        return mSubpasses[subpass].depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED && IsFormatHasStencil(mDepthStencil);
     }
 };

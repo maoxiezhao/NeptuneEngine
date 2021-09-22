@@ -97,15 +97,13 @@ CommandList::CommandList(DeviceVulkan& device, VkCommandBuffer buffer, QueueType
 
 CommandList::~CommandList()
 {
-    if (mCurrentPipeline != VK_NULL_HANDLE)
-        vkDestroyPipeline(mDevice.mDevice, mCurrentPipeline, nullptr);
 }
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 {
     mFrameBuffer = &mDevice.RequestFrameBuffer(renderPassInfo);
+    mCompatibleRenderPass = &mFrameBuffer->GetRenderPass();
     mRenderPass = &mDevice.RequestRenderPass(renderPassInfo);
-    mCompatibleRenderPass = mRenderPass;
 
     // area
     VkRect2D rect = {};
@@ -228,13 +226,22 @@ void CommandList::SetProgram(ShaderProgram* program)
         return;
 
     mPipelineState.mShaderProgram = program;
-    SetDirty(COMMAND_LIST_DIRTY_PIPELINE_BIT);
+    SetDirty(COMMAND_LIST_DIRTY_PIPELINE_BIT | COMMAND_LIST_DIRTY_DYNAMIC_BITS);
     mCurrentPipeline = VK_NULL_HANDLE;
 
     if (program == nullptr)
         return;
 
-
+    if (mCurrentLayout == nullptr)
+    {
+        mCurrentLayout = program->GetPipelineLayout();
+        mCurrentPipelineLayout = mCurrentLayout->GetLayout();
+    }
+    else if (program->GetPipelineLayout()->GetHash() != mCurrentLayout->GetHash())
+    {
+        mCurrentLayout = program->GetPipelineLayout();
+        mCurrentPipelineLayout = mCurrentLayout->GetLayout();
+    }
 }
 
 void CommandList::BeginGraphicsContext()
@@ -243,6 +250,7 @@ void CommandList::BeginGraphicsContext()
     mPipelineState.mShaderProgram = nullptr;
     mCurrentPipeline = VK_NULL_HANDLE;
     mCurrentPipelineLayout = VK_NULL_HANDLE;
+    mCurrentLayout = nullptr;
 }
 
 void CommandList::EndCommandBuffer()
@@ -293,63 +301,92 @@ bool CommandList::FlushRenderState()
         {
             // bind pipeline
             vkCmdBindPipeline(mCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mCurrentPipeline);
+            SetDirty(COMMAND_LIST_DIRTY_DYNAMIC_BITS);
         }
     }
 
     if (mCurrentPipeline == VK_NULL_HANDLE)
         return false;
 
+    if (IsDirtyAndClear(COMMAND_LIST_DIRTY_VIEWPORT_BIT))
+    {
+        vkCmdSetViewport(mCmd, 0, 1, &mViewport);
+    }
+
+    if (IsDirtyAndClear(COMMAND_LIST_DIRTY_VIEWPORT_BIT))
+    {
+        vkCmdSetScissor(mCmd, 0, 1, &mScissor);
+    }
+
     return true;
 }
 
 bool CommandList::FlushGraphicsPipeline()
 {
-    mCurrentPipeline = BuildGraphicsPipeline(mPipelineState);
+    if (mPipelineState.mShaderProgram == nullptr)
+        return false;
+
+    if (mPipelineState.mIsOwnedByCommandList)
+    {
+        mDevice.UpdateGraphicsPipelineHash(mPipelineState);
+        mCurrentPipeline = mPipelineState.mShaderProgram->GetPipeline(mPipelineState.mHash);
+    }
+
+    if (mCurrentPipeline == VK_NULL_HANDLE)
+        mCurrentPipeline = BuildGraphicsPipeline(mPipelineState);
+
     return mCurrentPipeline != VK_NULL_HANDLE;
 }
 
 VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipelineState)
 {
-    /////////////////////////////////////////////////////////////////////////////////////////
-    // view port
-    mViewport.x = 0;
-    mViewport.y = 0;
-    mViewport.width = 800;
-    mViewport.height = 600;
-    mViewport.minDepth = 0;
-    mViewport.maxDepth = 1;
-
-    mScissor.extent.width = 800;
-    mScissor.extent.height = 600;
+    U32 subpassIndex = pipelineState.mSubpassIndex;
 
     VkPipelineViewportStateCreateInfo viewportState = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
     viewportState.viewportCount = 1;
-    viewportState.pViewports = &mViewport;
     viewportState.scissorCount = 1;
-    viewportState.pScissors = &mScissor;
 
     // dynamic state
     VkPipelineDynamicStateCreateInfo dynamicState = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
     dynamicState.dynamicStateCount = 2;
     VkDynamicState states[7] = {
-        VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR, 
+        VK_DYNAMIC_STATE_VIEWPORT,
     };
     dynamicState.pDynamicStates = states;
 
      // blend state
-    VkPipelineColorBlendAttachmentState blendAttachments[8];
-    int attachmentCount = 1;
+    VkPipelineColorBlendAttachmentState blendAttachments[VULKAN_NUM_ATTACHMENTS];
+    int attachmentCount = mCompatibleRenderPass->GetNumColorAttachments(subpassIndex);
     for (int i = 0; i < attachmentCount; i++)
     {
         VkPipelineColorBlendAttachmentState& attachment = blendAttachments[i];
-        attachment.blendEnable = VK_TRUE;
-        attachment.colorWriteMask |= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        attachment.colorBlendOp = VK_BLEND_OP_MAX;
-        attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+        attachment = {};
+
+        if (mCompatibleRenderPass->GetColorAttachment(subpassIndex, i).attachment == VK_ATTACHMENT_UNUSED)
+            continue;
+      
+        const auto& desc = pipelineState.mBlendState.RenderTarget[i];
+        attachment.colorWriteMask = 0;
+        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_RED)
+            attachment.colorWriteMask |= VK_COLOR_COMPONENT_R_BIT;
+        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_GREEN)
+            attachment.colorWriteMask |= VK_COLOR_COMPONENT_G_BIT;
+        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_BLUE)
+            attachment.colorWriteMask |= VK_COLOR_COMPONENT_B_BIT;
+        if (desc.RenderTargetWriteMask & COLOR_WRITE_ENABLE_ALPHA)
+            attachment.colorWriteMask |= VK_COLOR_COMPONENT_A_BIT;
+        
+        attachment.blendEnable = desc.BlendEnable ? VK_TRUE : VK_FALSE;
+        if (attachment.blendEnable)
+        {
+            attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            attachment.colorBlendOp = VK_BLEND_OP_MAX;
+            attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+        }
     }
 
     VkPipelineColorBlendStateCreateInfo colorBlending = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
@@ -365,11 +402,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 
     // depth state
     VkPipelineDepthStencilStateCreateInfo depthstencil = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
-    depthstencil.depthTestEnable = pipelineState.mDepthStencilState.DepthEnable ? VK_TRUE : VK_FALSE;
-    depthstencil.depthWriteEnable = pipelineState.mDepthStencilState.DepthWriteMask != DEPTH_WRITE_MASK_ZERO ? VK_TRUE : VK_FALSE;
-    depthstencil.depthCompareOp = pipelineState.mDepthStencilState.DepthFunc;
-    depthstencil.stencilTestEnable = pipelineState.mDepthStencilState.StencilEnable ? VK_TRUE : VK_FALSE;
-    depthstencil.depthBoundsTestEnable = VK_FALSE;
+    depthstencil.depthTestEnable = mCompatibleRenderPass->HasDepth(subpassIndex) && pipelineState.mDepthStencilState.DepthEnable ? VK_TRUE : VK_FALSE;
+    depthstencil.depthWriteEnable = mCompatibleRenderPass->HasDepth(subpassIndex) && pipelineState.mDepthStencilState.DepthWriteMask != DEPTH_WRITE_MASK_ZERO ? VK_TRUE : VK_FALSE;
+    depthstencil.stencilTestEnable = mCompatibleRenderPass->HasStencil(subpassIndex) && pipelineState.mDepthStencilState.StencilEnable ? VK_TRUE : VK_FALSE;
+
+    if (depthstencil.depthTestEnable)
+        depthstencil.depthCompareOp = pipelineState.mDepthStencilState.DepthFunc;
 
     if (depthstencil.stencilTestEnable)
     {
@@ -383,6 +421,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 		depthstencil.back.failOp = VK_STENCIL_OP_KEEP;
 		depthstencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
     }
+    depthstencil.depthBoundsTestEnable = VK_FALSE;
 
     // vertex input
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -445,7 +484,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
             VkPipelineShaderStageCreateInfo& stageCreateInfo = stages[stageCount++];
             stageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
             stageCreateInfo.pName = "main";
-            stageCreateInfo.module = pipelineState.mShaderProgram->GetShader(shaderStage)->mShaderModule;
+            stageCreateInfo.module = pipelineState.mShaderProgram->GetShader(shaderStage)->GetModule();
 
             switch (shaderStage)
             {
@@ -483,7 +522,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     // Create pipeline
     VkPipeline retPipeline = VK_NULL_HANDLE;
     VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-    pipelineInfo.layout = pipelineState.mShaderProgram->GetPipelineLayout()->mPipelineLayout;
+    pipelineInfo.layout = pipelineState.mShaderProgram->GetPipelineLayout()->GetLayout();
     pipelineInfo.renderPass = mCompatibleRenderPass->GetRenderPass();
     pipelineInfo.subpass = pipelineState.mSubpassIndex;
 
@@ -501,7 +540,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     VkResult res = vkCreateGraphicsPipelines(mDevice.mDevice, pipelineState.mCache, 1, &pipelineInfo, nullptr, &retPipeline);
     if (res != VK_SUCCESS)
     {
-        std::cout << "Failed to create graphics pipeline!" << std::endl;
+        Logger::Error("Failed to create graphics pipeline!");
         return VK_NULL_HANDLE;
     }
     return retPipeline;

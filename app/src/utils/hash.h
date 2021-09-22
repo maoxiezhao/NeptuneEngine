@@ -84,8 +84,40 @@ public:
 	}
 
 	template<typename T>
-	void HashCombine(T v)
+	inline void HashCombine(T v)
 	{
 		mHashValue = HashFunc(mHashValue, v);
 	}
+
+	template <typename T>
+	inline void HashCombine(const T* data_, size_t size)
+	{
+		size /= sizeof(*data_);
+		for (size_t i = 0; i < size; i++)
+			HashCombine<T>(data_[i]);
+	}
+};
+
+template <typename T>
+class HashedObject
+{
+public:
+	HashedObject() = default;
+	HashedObject(HashValue hash)
+		: mHashValue(hash)
+	{
+	}
+
+	void SetHash(HashValue hash)
+	{
+		mHashValue = hash;
+	}
+
+	HashValue GetHash() const
+	{
+		return mHashValue;
+	}
+
+private:
+	HashValue mHashValue = 0;
 };

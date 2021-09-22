@@ -5,7 +5,7 @@
 
 class FrameBuffer;
 
-class FrameBuffer
+class FrameBuffer : public HashedObject<FrameBuffer>
 {
 public:
 	FrameBuffer(DeviceVulkan& device, RenderPass& renderPass, const RenderPassInfo& info);
@@ -29,6 +29,11 @@ public:
 		return mFrameBuffer;
 	}
 
+	const RenderPass& GetRenderPass()const
+	{
+		return mRenderPass;
+	}
+
 private:
 	friend struct FrameBufferDeleter;
 
@@ -36,4 +41,5 @@ private:
 	VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
 	uint32_t mWidth = 0;
 	uint32_t mHeight = 0;
+	const RenderPass& mRenderPass;
 };

@@ -3,6 +3,9 @@
 #include "common.h"
 #include "utils\objectPool.h"
 #include "utils\intrusivePtr.hpp"
+#include "utils\log.h"
+#include "utils\hash.h"
+#include "vulkanCache.h"
 
 // platform win32
 #ifdef CJING3D_PLATFORM_WIN32

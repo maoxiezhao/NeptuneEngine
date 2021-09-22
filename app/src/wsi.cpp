@@ -1,26 +1,71 @@
 #include "wsi.h"
 #include "app.h"
 #include "vulkan\device.h"
-#include "shaderCompiler.h"
+#include "vulkan\context.h"
 
+namespace {
 #ifdef DEBUG
-static bool debugLayer = true;
+    static bool debugLayer = true;
 #else
-static bool debugLayer = false;
+    static bool debugLayer = false;
 #endif
 
-DeviceVulkan* deviceVulkan = nullptr;
-Swapchain* swapchian = nullptr;
+    VulkanContext* vulkanContext = nullptr;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    DeviceVulkan* deviceVulkan = nullptr;
+    Swapchain* swapchian = nullptr;
+
+    std::vector<const char*> GetRequiredExtensions(bool debugUtils)
+    {
+        uint32_t glfwExtensionCount = 0;
+        const char** glfwExtensions;
+        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+        std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+        if (debugUtils) {
+            extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+        return extensions;
+    }
+
+    VkSurfaceKHR CreateSurface(VkInstance instance, Platform& platform)
+    {
+        VkSurfaceKHR surface = VK_NULL_HANDLE;
+        if (glfwCreateWindowSurface(instance, platform.GetWindow(), nullptr, &surface) != VK_SUCCESS)
+            return VK_NULL_HANDLE;
+
+        int actual_width, actual_height;
+        glfwGetFramebufferSize(platform.GetWindow(), &actual_width, &actual_height);
+        platform.SetSize(
+            unsigned(actual_width),
+            unsigned(actual_height)
+        );
+        return surface;
+    }
+}
 
 bool WSI::Initialize()
 {
-    // init gpu
-    deviceVulkan = new DeviceVulkan(mPlatform->GetWindow(), debugLayer);
+    // init vulkan context
+    vulkanContext = new VulkanContext();
 
+    auto instanceExt = GetRequiredExtensions(true);
+    if (!vulkanContext->Initialize(instanceExt, true))
+        return false;
+
+    // init gpu
+    deviceVulkan = new DeviceVulkan();
+    deviceVulkan->SetContext(*vulkanContext);
+
+    // init surface
+    surface = CreateSurface(vulkanContext->GetInstance(), *mPlatform);
+    if (surface == VK_NULL_HANDLE)
+        return false;
+  
     // init swapchian
-    if (!deviceVulkan->CreateSwapchain(swapchian, mPlatform->GetWidth(), mPlatform->GetHeight()))
+    if (!deviceVulkan->CreateSwapchain(swapchian, surface, mPlatform->GetWidth(), mPlatform->GetHeight()))
     {
-        std::cout << "Failed to init swapchian." << std::endl;
+        Logger::Error("Failed to init swapchian.");
         return false;
     }
 
@@ -29,10 +74,14 @@ bool WSI::Initialize()
 
 void WSI::Uninitialize()
 {
+    if (surface != VK_NULL_HANDLE)
+        vkDestroySurfaceKHR(vulkanContext->GetInstance(), surface, nullptr);
+
     if (swapchian != nullptr)
         delete swapchian;
 
     delete deviceVulkan;
+    delete vulkanContext;
 }
 
 void WSI::BeginFrame()
