@@ -144,9 +144,18 @@ namespace ShaderCompiler
 			return false;
 		}
 
-		// include directories
 		std::vector<std::wstring> wstrings;
-		wstrings.reserve(input.includeDirectories.size()); // keep ptr
+		wstrings.reserve(input.defines.size() + input.includeDirectories.size()); // keep ptr
+
+		// defines
+		for (auto& x : input.defines)
+		{
+			std::wstring& wstr = wstrings.emplace_back();
+			Helper::StringConvert(x, wstr);
+			args.push_back(L"-D");
+			args.push_back(wstr.c_str());
+		}
+		// include directories
 
 		for (auto& x : input.includeDirectories)
 		{

@@ -11,12 +11,17 @@ using namespace ShaderCompiler;
 
 #define RUNTIME_SHADERCOMPILER_ENABLED
 
+// Shader flow:
+// ShaderManager -> ShaderTemplateProgram -> ShaderTemplateProgramVariant 
+// -> ShaderTemplate -> Variant -> Shader
+
 namespace {
 
 	const std::string EXPORT_SHADER_PATH = ".export/shaders/";
 	const std::string SOURCE_SHADER_PATH = "shaders/";
 
 	std::unordered_set<std::string> registeredShaders;
+	std::unordered_map<HashValue, HashValue> shaderCache;
 
 	HashValue GetPathHash(ShaderStage stage, const std::string& path)
 	{
@@ -101,8 +106,9 @@ namespace {
 	}
 }
 
-ShaderTemplate::ShaderTemplate(DeviceVulkan& device_, const std::string& path_, HashValue pathHash_) :
+ShaderTemplate::ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, const std::string& path_, HashValue pathHash_) :
 	device(device_),
+	stage(stage_),
 	path(path_),
 	pathHash(pathHash_)
 {
@@ -114,10 +120,76 @@ ShaderTemplate::~ShaderTemplate()
 
 bool ShaderTemplate::Initialize()
 {
+#ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	if (!ShaderCompiler::Preprocess())
 		return false;
-	
+#endif
+
 	return true;
+}
+
+ShaderTemplate::Variant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& defines)
+{
+	HashCombiner hasher;
+	for (auto& define : defines)
+		hasher.HashCombine(define.c_str());
+
+	HashValue hash = hasher.Get();
+	auto it = variants.find(hash);
+	if (it != variants.end())
+	{
+		return it->second;
+	}
+
+	Variant* ret = variants.allocate();
+	if (ret == nullptr)
+	{
+		variants.free(ret);
+		return nullptr;
+	}
+	ret->hash = hash;
+
+#ifdef RUNTIME_SHADERCOMPILER_ENABLED
+	std::string exportShaderPath = EXPORT_SHADER_PATH + path;
+	RegisterShader(exportShaderPath);
+
+	if (IsShaderOutdated(exportShaderPath))
+	{
+		std::string sourcedir = SOURCE_SHADER_PATH;
+		Helper::MakePathAbsolute(sourcedir);
+
+		CompilerInput input;
+		input.stage = stage;
+		input.includeDirectories.push_back(sourcedir);
+		input.defines = defines;
+		input.shadersourcefilename = Helper::ReplaceExtension(sourcedir + path, "hlsl");
+
+		CompilerOutput output;
+		if (Compile(input, output))
+		{
+			Logger::Error("Compile shader successfully:%d", path.c_str());
+			SaveShaderAndMetadata(exportShaderPath, output);
+			if (!output.errorMessage.empty())
+				Logger::Error(output.errorMessage.c_str());
+
+			ret->spirv.resize(output.shadersize);
+			memcpy(ret->spirv.data(), output.shaderdata, output.shadersize);
+		}
+		else
+		{
+			Logger::Error("Compile shader fail:%d", path.c_str());
+			if (!output.errorMessage.empty())
+				Logger::Error(output.errorMessage.c_str());
+
+			variants.free(ret);
+			return nullptr;
+		}
+	}
+#endif
+
+	ret->SetHash(hash);
+	variants.insert(hash, ret);
+	return ret;
 }
 
 ShaderTemplateProgram::ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage stage, ShaderTemplate* shaderTemplate) :
@@ -128,40 +200,34 @@ ShaderTemplateProgram::ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage 
 
 ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const ShaderVariantMap& defines)
 {
-	//std::string exportShaderPath = EXPORT_SHADER_PATH + filePath;
-	//RegisterShader(exportShaderPath);
+	HashCombiner hasher;
+	for (auto& define : defines)
+		hasher.HashCombine(define.c_str());
 
-	//if (IsShaderOutdated(exportShaderPath))
-	//{
-	//	std::string sourcedir = SOURCE_SHADER_PATH;
-	//	Helper::MakePathAbsolute(sourcedir);
+	HashValue hash = hasher.Get();
+	auto it = variantCache.find(hash);
+	if (it != variantCache.end())
+	{
+		return it->second;
+	}
 
-	//	CompilerInput input;
-	//	input.stage = stage;
-	//	input.includeDirectories.push_back(sourcedir);
-	//	input.shadersourcefilename = Helper::ReplaceExtension(sourcedir + filePath, "hlsl");
+	ShaderTemplateProgramVariant* ret = variantCache.allocate(device);
+	if (ret == nullptr)
+	{
+		variantCache.free(ret);
+		return nullptr;
+	}
 
-	//	CompilerOutput output;
-	//	if (Compile(input, output))
-	//	{
-	//		std::cout << "Compile shader successfully:" + filePath << std::endl;
-	//		SaveShaderAndMetadata(exportShaderPath, output);
-	//		if (!output.errorMessage.empty())
-	//			Logger::Error(output.errorMessage.c_str());
+	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	{
+		if (shaderTemplates[i] != nullptr)
+			ret->shaderVariants[i] = shaderTemplates[i]->RegisterVariant(defines);
+	}
 
+	ret->SetHash(hash);
+	variantCache.insert(hash, ret);
 
-	//		return false;
-	//		//return device.CreateShader(stage, output.shaderdata, output.shadersize, &shader);
-	//	}
-	//	else
-	//	{
-	//		std::cout << "Failed to compile shader:" + filePath << std::endl;
-	//		if (!output.errorMessage.empty())
-	//			Logger::Error(output.errorMessage.c_str());
-	//	}
-	//}
-
-	return nullptr;
+	return ret;
 }
 
 void ShaderTemplateProgram::SetShader(ShaderStage stage, ShaderTemplate* shader)
@@ -169,16 +235,56 @@ void ShaderTemplateProgram::SetShader(ShaderStage stage, ShaderTemplate* shader)
 	shaderTemplates[static_cast<U32>(stage)] = shader;
 }
 
+ShaderTemplateProgramVariant::ShaderTemplateProgramVariant(DeviceVulkan& device_) :
+	device(device_)
+{
+	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	{
+		shaderInstances[i] = 0;
+		shaders[i] = nullptr;
+	}
+}
+
+ShaderTemplateProgramVariant::~ShaderTemplateProgramVariant()
+{
+}
+
 Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
+{
+	U32 stageIndex = static_cast<U32>(stage);
+	auto variant = shaderVariants[stageIndex];
+	if (variant == nullptr || variant->spirv.empty())
+		return nullptr;
+
+	Shader* ret = nullptr;
+	if (shaderInstances[stageIndex] != variant->instance)
+	{
+		Shader* newShader = nullptr;
+		if (!variant->spirv.empty())
+			newShader = &device.RequestShader(stage, variant->spirv.data(), variant->spirv.size());
+
+		if (newShader == nullptr)
+			return nullptr;
+
+		shaders[stageIndex] = newShader;
+		ret = newShader;
+		shaderInstances[stageIndex] = variant->instance;
+	}
+	else
+	{
+		ret = shaders[stageIndex];
+	}	
+	return ret;
+}
+
+ShaderProgram* ShaderTemplateProgramVariant::GetProgram()
 {
 	return nullptr;
 }
 
-
 ShaderManager::ShaderManager(DeviceVulkan& device_) :
 	device(device_)
 {
-	// init dxcompiler
 	ShaderCompiler::Initialize();
 }
 
@@ -223,7 +329,7 @@ ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string 
 		return it->second;
 	}
 
-	ShaderTemplate* ret = shaders.allocate(device, filePath, hash);
+	ShaderTemplate* ret = shaders.allocate(device, stage, filePath, hash);
 	if (ret == nullptr || !ret->Initialize())
 	{
 		shaders.free(ret);

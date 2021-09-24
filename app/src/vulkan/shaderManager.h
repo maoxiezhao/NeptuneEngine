@@ -5,12 +5,12 @@
 
 class DeviceVulkan;
 
-using ShaderVariantMap = std::vector<std::pair<std::string, int>>;
+using ShaderVariantMap = std::vector<std::string>;
 
 class ShaderTemplate : public HashedObject<ShaderTemplate>
 {
 public:
-	ShaderTemplate(DeviceVulkan& device_, const std::string& path_, HashValue pathHash_);
+	ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, const std::string& path_, HashValue pathHash_);
 	~ShaderTemplate();
 
 	bool Initialize();
@@ -20,28 +20,43 @@ public:
 		return pathHash;
 	}
 
-private:
-	friend class ShaderTemplateProgram;
-
-	struct Variant
+	struct Variant : public HashedObject<Variant>
 	{
-		 
+		HashValue hash = 0;
+		HashValue spirvHash = 0;
+		std::vector<uint8_t> spirv;
+		ShaderVariantMap defines;
+		U32 instance = 0;
 	};
 	Variant* RegisterVariant(const ShaderVariantMap& defines);
 
 private:
+	friend class ShaderTemplateProgram;
+
 	DeviceVulkan& device;
 	std::string path;
 	HashValue pathHash;
+	VulkanCache<Variant> variants;
+	ShaderStage stage;
 };
 
-class ShaderTemplateProgramVariant
+class ShaderTemplateProgramVariant : public HashedObject<ShaderTemplateProgramVariant>
 {
 public:
+	ShaderTemplateProgramVariant(DeviceVulkan& device_);
+	~ShaderTemplateProgramVariant();
+
 	Shader* GetShader(ShaderStage stage);
+	ShaderProgram* GetProgram();
 
 private:
+	friend class ShaderTemplateProgram;
+
 	DeviceVulkan& device;
+	const ShaderTemplate::Variant* shaderVariants[static_cast<U32>(ShaderStage::Count)] = {};
+	ShaderProgram* program = nullptr;
+	U32 shaderInstances[static_cast<U32>(ShaderStage::Count)] = {};
+	Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
 };
 
 class ShaderTemplateProgram
@@ -55,6 +70,8 @@ public:
 private:
 	DeviceVulkan& device;
 	ShaderTemplate* shaderTemplates[static_cast<U32>(ShaderStage::Count)] = {};
+	VulkanCache<ShaderTemplateProgramVariant> variantCache;
+	ShaderProgram* shaderProgram = nullptr;
 };
 
 class ShaderManager
