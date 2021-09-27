@@ -391,6 +391,31 @@ Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderByteco
     return shader;
 }
 
+ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)])
+{
+    HashCombiner hasher;
+    for (int i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
+    {
+        if (shaders[i] != nullptr)
+            hasher.HashCombine(shaders[i]->GetHash());
+    }
+
+    auto findIt = programs.find(hasher.Get());
+    if (findIt != programs.end())
+        return findIt->second;
+
+    ShaderProgramInfo info = {};
+    for (int i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
+    {
+        if (shaders[i] != nullptr)
+            info.shaders[i] = shaders[i];
+    }
+
+    ShaderProgram* program = programs.emplace(hasher.Get(), this, info);
+    program->SetHash(hasher.Get());
+    return program;
+}
+
 void DeviceVulkan::BeginFrameContext()
 {
     // submit remain queue

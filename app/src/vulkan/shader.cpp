@@ -33,10 +33,11 @@ Shader::~Shader()
 ShaderProgram::ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info) :
 	device(device_)
 {
-	if (info.vs != nullptr)
-		SetShader(ShaderStage::VS, info.vs);
-	if (info.ps != nullptr)
-		SetShader(ShaderStage::PS, info.ps);
+	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	{
+		if (info.shaders[i] != nullptr)
+			SetShader(static_cast<ShaderStage>(i), info.shaders[i]);
+	}
 
 	device->BakeShaderProgram(*this);
 }

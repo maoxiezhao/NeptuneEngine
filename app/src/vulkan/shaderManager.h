@@ -52,6 +52,10 @@ public:
 private:
 	friend class ShaderTemplateProgram;
 
+	ShaderProgram* GetProgramGraphics();
+	ShaderProgram* GetProgramCompute();
+
+private:
 	DeviceVulkan& device;
 	const ShaderTemplate::Variant* shaderVariants[static_cast<U32>(ShaderStage::Count)] = {};
 	ShaderProgram* program = nullptr;
@@ -65,9 +69,10 @@ public:
 	ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage stage, ShaderTemplate* shaderTemplate);
 
 	ShaderTemplateProgramVariant* RegisterVariant(const ShaderVariantMap& defines);
-	void SetShader(ShaderStage stage, ShaderTemplate* shader);
 
 private:
+	void SetShader(ShaderStage stage, ShaderTemplate* shader);
+
 	DeviceVulkan& device;
 	ShaderTemplate* shaderTemplates[static_cast<U32>(ShaderStage::Count)] = {};
 	VulkanCache<ShaderTemplateProgramVariant> variantCache;

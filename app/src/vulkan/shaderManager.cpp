@@ -279,6 +279,91 @@ Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
 
 ShaderProgram* ShaderTemplateProgramVariant::GetProgram()
 {
+	if (shaderVariants[static_cast<U32>(ShaderStage::CS)])
+	{
+		return GetProgramCompute();
+	}
+	else
+	{
+		bool hasShader = false;
+		for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+		{
+			if (i == static_cast<int>(ShaderStage::CS))
+				continue;
+
+			if (shaderVariants[i] != nullptr)
+			{
+				hasShader = true;
+				break;
+			}
+		}
+
+		if (hasShader)
+			return GetProgramGraphics();
+	}
+	return nullptr;
+}
+
+ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
+{
+	bool isProgramDirty = false;
+	ShaderProgram* ret = nullptr;
+	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	{
+		if (shaderVariants[i] != nullptr)
+		{
+			if (shaderVariants[i]->instance != shaderInstances[i])
+			{
+				isProgramDirty = true;
+				break;
+			}
+		}
+	}
+
+	if (program == nullptr)
+		isProgramDirty = true;
+
+	if (isProgramDirty == false)
+		return program;
+
+	// Request shaders
+	Shader* shaders[static_cast<int>(ShaderStage::Count)] = {};
+	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	{
+		shaders[i] = nullptr;
+
+		if (shaderVariants[i] != nullptr)
+		{
+			Shader* newShader = nullptr;
+			if (!shaderVariants[i]->spirv.empty())
+				newShader = &device.RequestShader(static_cast<ShaderStage>(i), shaderVariants[i]->spirv.data(), shaderVariants[i]->spirv.size());
+
+			if (newShader == nullptr)
+				return nullptr;
+
+			shaders[i] = newShader;
+		}
+	}
+
+	// Request program
+	ShaderProgram* newProgram = device.RequestProgram(shaders);
+	if (newProgram == nullptr)
+		return nullptr;
+
+	program = newProgram;
+
+	// Set shader instances
+	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	{
+		if (shaderVariants[i] != nullptr)
+			shaderInstances[i] = shaderVariants[i]->instance;
+	}
+
+	return newProgram;
+}
+
+ShaderProgram* ShaderTemplateProgramVariant::GetProgramCompute()
+{
 	return nullptr;
 }
 

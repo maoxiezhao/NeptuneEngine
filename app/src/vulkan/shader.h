@@ -38,11 +38,10 @@ private:
 
 struct ShaderProgramInfo
 {
-    Shader* vs = nullptr;
-    Shader* ps = nullptr;
+    Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
 };
 
-struct ShaderProgram
+struct ShaderProgram : public HashedObject<Shader>
 {
 public:
     ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info);

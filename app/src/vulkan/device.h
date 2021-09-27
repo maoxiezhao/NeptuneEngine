@@ -107,6 +107,7 @@ public:
 
     // rhi object pools
     VulkanCache<Shader> shaders;
+    VulkanCache<ShaderProgram> programs;
     VulkanCache<RenderPass> renderPasses;
     VulkanCache<FrameBuffer> frameBuffers;
     VulkanCache<PipelineLayout> pipelineLayouts;
@@ -139,6 +140,7 @@ public:
     PipelineLayout& RequestPipelineLayout();
     SemaphorePtr RequestSemaphore();
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength);
+    ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
 
     void BeginFrameContext();
     void EndFrameContext();
