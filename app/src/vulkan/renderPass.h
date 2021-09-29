@@ -2,6 +2,9 @@
 
 #include "image.h"
 
+namespace GPU
+{
+
 class DeviceVulkan;
 
 struct SubPassInfo
@@ -86,3 +89,5 @@ public:
         return subpasses[subpass].depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED && IsFormatHasStencil(depthStencil);
     }
 };
+
+}

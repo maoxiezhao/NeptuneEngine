@@ -2,6 +2,9 @@
 
 #include "definition.h"
 
+namespace GPU
+{
+
 namespace ShaderCompiler
 {
 	bool Preprocess();
@@ -27,4 +30,6 @@ namespace ShaderCompiler
 
 	void Initialize();
 	bool Compile(const CompilerInput& input, CompilerOutput& output);
+}
+
 }

@@ -1,6 +1,9 @@
 #include "device.h"
 #include "utils\hash.h"
 
+namespace GPU
+{
+
 namespace 
 {
 	static const QueueIndices QUEUE_FLUSH_ORDER[] = {
@@ -416,11 +419,29 @@ ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(Sha
     return program;
 }
 
+DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator()
+{
+	HashCombiner hasher;
+	
+	auto findIt = descriptorSetAllocators.find(hasher.Get());
+	if (findIt != descriptorSetAllocators.end())
+		return *findIt->second;
+
+    DescriptorSetAllocator* allocator = descriptorSetAllocators.emplace(hasher.Get(), this);
+    allocator->SetHash(hasher.Get());
+	return *allocator;
+}
+
 void DeviceVulkan::BeginFrameContext()
 {
     // submit remain queue
     EndFrameContext();
 
+    // descriptor set begin
+    for (auto& kvp : descriptorSetAllocators)
+        kvp.second->BeginFrame();
+
+    // update frameIndex
     if (++frameIndex >= frameResources.size())
         frameIndex = 0;
 
@@ -564,6 +585,8 @@ void DeviceVulkan::UpdateGraphicsPipelineHash(CompilePipelineState pipeline)
 
 void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 {
+    // create pipeline layout
+
 }
 
 void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
@@ -739,4 +762,6 @@ std::vector<VkSubmitInfo>& BatchComposer::Bake()
     }
 
     return submits;
+}
+
 }

@@ -1,6 +1,9 @@
 #include "shader.h"
 #include "device.h"
 
+namespace GPU
+{
+
 Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_) :
 	device(device_),
 	shaderStage(shaderStage_),
@@ -67,8 +70,29 @@ void ShaderProgram::SetShader(ShaderStage stage, Shader* shader)
 PipelineLayout::PipelineLayout(DeviceVulkan& device_) :
 	device(device_)
 {
+	U32 numSets = 0;
+	VkDescriptorSetLayout layouts[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+	for (U32 i = 0; i < VULKAN_NUM_DESCRIPTOR_SETS; i++)
+	{
+
+	}
+
+	VkPipelineLayoutCreateInfo info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	if (numSets > 0)
+	{
+		info.setLayoutCount = numSets;
+		info.pSetLayouts = layouts;
+	}
+
+	if (vkCreatePipelineLayout(device.device, &info, nullptr, &pipelineLayout) != VK_SUCCESS)
+	{
+		Logger::Error("Failed to create pipeline layout.");
+		return;
+	}
 }
 
 PipelineLayout::~PipelineLayout()
 {
+}
+
 }

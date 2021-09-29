@@ -1,6 +1,9 @@
 #include "commandList.h"
 #include "vulkan/device.h"
 
+namespace GPU
+{
+
 CommandPool::CommandPool(DeviceVulkan* device_, uint32_t queueFamilyIndex) :
     device(device_)
 {
@@ -129,7 +132,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     {
         if (renderPassInfo.clearAttachments & (1u << i))
         {
-            clearColors[i].color = {0.0f, 0.0f, 0.0f, 1.0f};
+            clearColors[i].color = { 0.0f, 0.0f, 0.0f, 1.0f };
             numClearColor = i + 1;
         }
 
@@ -141,7 +144,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     // check is depth stencil and clear depth stencil
     if (renderPassInfo.depthStencil != nullptr)
     {
-        clearColors[renderPassInfo.numColorAttachments].depthStencil = {1.0f, 0};
+        clearColors[renderPassInfo.numColorAttachments].depthStencil = { 1.0f, 0 };
         numClearColor = renderPassInfo.numColorAttachments + 1;
     }
 
@@ -171,7 +174,7 @@ void CommandList::EndRenderPass()
 // 清除除Program意以外的管线状态
 void CommandList::ClearPipelineState()
 {
-	pipelineState.blendState = {};
+    pipelineState.blendState = {};
     pipelineState.rasterizerState = {};
     pipelineState.depthStencilState = {};
     pipelineState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -183,36 +186,36 @@ void CommandList::SetDefaultOpaqueState()
 
     // blend
     BlendState& bd = pipelineState.blendState;
-	bd.renderTarget[0].blendEnable = false;
-	bd.renderTarget[0].srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
-	bd.renderTarget[0].destBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	bd.renderTarget[0].blendOp = VK_BLEND_OP_MAX;
-	bd.renderTarget[0].srcBlendAlpha = VK_BLEND_FACTOR_ONE;
-	bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_ZERO    ;
-	bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
-	bd.renderTarget[0].renderTargetWriteMask = COLOR_WRITE_ENABLE_ALL;
-	bd.alphaToCoverageEnable = false;
-	bd.independentBlendEnable = false;
+    bd.renderTarget[0].blendEnable = false;
+    bd.renderTarget[0].srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+    bd.renderTarget[0].destBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    bd.renderTarget[0].blendOp = VK_BLEND_OP_MAX;
+    bd.renderTarget[0].srcBlendAlpha = VK_BLEND_FACTOR_ONE;
+    bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_ZERO;
+    bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
+    bd.renderTarget[0].renderTargetWriteMask = COLOR_WRITE_ENABLE_ALL;
+    bd.alphaToCoverageEnable = false;
+    bd.independentBlendEnable = false;
 
     // depth
-	DepthStencilState& dsd = pipelineState.depthStencilState;
-	dsd.depthEnable = true;
-	dsd.depthWriteMask = DEPTH_WRITE_MASK_ALL;
-	dsd.depthFunc = VK_COMPARE_OP_GREATER;
-	dsd.stencilEnable = false;
+    DepthStencilState& dsd = pipelineState.depthStencilState;
+    dsd.depthEnable = true;
+    dsd.depthWriteMask = DEPTH_WRITE_MASK_ALL;
+    dsd.depthFunc = VK_COMPARE_OP_GREATER;
+    dsd.stencilEnable = false;
 
     // rasterizerState
     RasterizerState& rs = pipelineState.rasterizerState;
-	rs.fillMode = FILL_SOLID;
-	rs.cullMode = VK_CULL_MODE_BACK_BIT;
-	rs.frontCounterClockwise = true;
-	rs.depthBias = 0;
-	rs.depthBiasClamp = 0;
-	rs.slopeScaledDepthBias = 0;
-	rs.depthClipEnable = true;
-	rs.multisampleEnable = false;
-	rs.antialiasedLineEnable = false;
-	rs.conservativeRasterizationEnable = false;
+    rs.fillMode = FILL_SOLID;
+    rs.cullMode = VK_CULL_MODE_BACK_BIT;
+    rs.frontCounterClockwise = true;
+    rs.depthBias = 0;
+    rs.depthBiasClamp = 0;
+    rs.slopeScaledDepthBias = 0;
+    rs.depthClipEnable = true;
+    rs.multisampleEnable = false;
+    rs.antialiasedLineEnable = false;
+    rs.conservativeRasterizationEnable = false;
 
     // topology
     pipelineState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -284,7 +287,7 @@ void CommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t
 
 bool CommandList::FlushRenderState()
 {
-    if (pipelineState.shaderProgram == nullptr || 
+    if (pipelineState.shaderProgram == nullptr ||
         pipelineState.shaderProgram->IsEmpty())
         return false;
 
@@ -350,12 +353,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     VkPipelineDynamicStateCreateInfo dynamicState = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
     dynamicState.dynamicStateCount = 2;
     VkDynamicState states[7] = {
-        VK_DYNAMIC_STATE_SCISSOR, 
+        VK_DYNAMIC_STATE_SCISSOR,
         VK_DYNAMIC_STATE_VIEWPORT,
     };
     dynamicState.pDynamicStates = states;
 
-     // blend state
+    // blend state
     VkPipelineColorBlendAttachmentState blendAttachments[VULKAN_NUM_ATTACHMENTS];
     int attachmentCount = compatibleRenderPass->GetNumColorAttachments(subpassIndex);
     for (int i = 0; i < attachmentCount; i++)
@@ -365,7 +368,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 
         if (compatibleRenderPass->GetColorAttachment(subpassIndex, i).attachment == VK_ATTACHMENT_UNUSED)
             continue;
-      
+
         const auto& desc = pipelineState.blendState.renderTarget[i];
         attachment.colorWriteMask = 0;
         if (desc.renderTargetWriteMask & COLOR_WRITE_ENABLE_RED)
@@ -376,7 +379,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
             attachment.colorWriteMask |= VK_COLOR_COMPONENT_B_BIT;
         if (desc.renderTargetWriteMask & COLOR_WRITE_ENABLE_ALPHA)
             attachment.colorWriteMask |= VK_COLOR_COMPONENT_A_BIT;
-        
+
         attachment.blendEnable = desc.blendEnable ? VK_TRUE : VK_FALSE;
         if (attachment.blendEnable)
         {
@@ -411,15 +414,15 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 
     if (depthstencil.stencilTestEnable)
     {
-		depthstencil.front.compareOp = VK_COMPARE_OP_ALWAYS;
-		depthstencil.front.passOp = VK_STENCIL_OP_REPLACE;
-		depthstencil.front.failOp = VK_STENCIL_OP_KEEP;
-		depthstencil.front.depthFailOp = VK_STENCIL_OP_KEEP;
+        depthstencil.front.compareOp = VK_COMPARE_OP_ALWAYS;
+        depthstencil.front.passOp = VK_STENCIL_OP_REPLACE;
+        depthstencil.front.failOp = VK_STENCIL_OP_KEEP;
+        depthstencil.front.depthFailOp = VK_STENCIL_OP_KEEP;
 
-		depthstencil.back.compareOp = VK_COMPARE_OP_ALWAYS;
-		depthstencil.back.passOp = VK_STENCIL_OP_REPLACE;
-		depthstencil.back.failOp = VK_STENCIL_OP_KEEP;
-		depthstencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
+        depthstencil.back.compareOp = VK_COMPARE_OP_ALWAYS;
+        depthstencil.back.passOp = VK_STENCIL_OP_REPLACE;
+        depthstencil.back.failOp = VK_STENCIL_OP_KEEP;
+        depthstencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
     }
     depthstencil.depthBoundsTestEnable = VK_FALSE;
 
@@ -457,7 +460,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     rasterizer.polygonMode = pipelineState.rasterizerState.fillMode == FILL_SOLID ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = pipelineState.rasterizerState.cullMode;
-    rasterizer.frontFace = pipelineState.rasterizerState.frontCounterClockwise ?  VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.frontFace = pipelineState.rasterizerState.frontCounterClockwise ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp = 0.0f;
@@ -549,4 +552,6 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 VkPipeline CommandList::BuildComputePipeline(const CompilePipelineState& pipelineState)
 {
     return VkPipeline();
+}
+
 }

@@ -1,6 +1,9 @@
 #include "semaphore.h"
 #include "vulkan/device.h"
 
+namespace GPU
+{
+
 void SemaphoreDeleter::operator()(Semaphore* semaphore)
 {
 	semaphore->device.semaphorePool.free(semaphore);
@@ -54,4 +57,6 @@ void SemaphoreManager::ClearAll()
 {
 	for (auto& semaphore : seamphores)
 		vkDestroySemaphore(device->device, semaphore, nullptr);
+}
+
 }

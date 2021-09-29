@@ -7,6 +7,9 @@
 #include <unordered_set>
 #include <filesystem>
 
+namespace GPU
+{
+
 using namespace ShaderCompiler;
 
 #define RUNTIME_SHADERCOMPILER_ENABLED
@@ -424,4 +427,6 @@ ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string 
 	ret->SetHash(hash);
 	shaders.insert(hash, ret);
 	return ret;
+}
+
 }

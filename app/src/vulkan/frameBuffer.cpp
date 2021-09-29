@@ -1,6 +1,9 @@
 #include "frameBuffer.h"
 #include "device.h"
 
+namespace GPU
+{
+
 FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass, const RenderPassInfo& info) :
 	device(device_),
 	renderPass(renderPass)
@@ -44,4 +47,6 @@ FrameBuffer::~FrameBuffer()
 	{
 		device.ReleaseFrameBuffer(frameBuffer);
 	}
+}
+
 }

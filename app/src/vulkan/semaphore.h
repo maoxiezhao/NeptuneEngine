@@ -2,6 +2,9 @@
 
 #include "definition.h"
 
+namespace GPU
+{
+
 class DeviceVulkan;
 class Semaphore;
 
@@ -70,3 +73,5 @@ private:
     DeviceVulkan* device = nullptr;
     std::vector<VkSemaphore> seamphores;
 };
+
+}

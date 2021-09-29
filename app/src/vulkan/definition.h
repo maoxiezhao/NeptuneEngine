@@ -23,9 +23,13 @@
 
 #include "GLFW\glfw3.h"
 
-static const uint32_t VULKAN_NUM_ATTACHMENTS = 8;
-constexpr unsigned VULKAN_NUM_VERTEX_ATTRIBS = 16;
-constexpr unsigned VULKAN_NUM_VERTEX_BUFFERS = 8;
+namespace GPU
+{
+
+static const U32 VULKAN_NUM_ATTACHMENTS = 8;
+static const U32 VULKAN_NUM_DESCRIPTOR_SETS = 4;
+static const U32 VULKAN_NUM_VERTEX_ATTRIBS = 16;
+static const U32 VULKAN_NUM_VERTEX_BUFFERS = 8;
 
 class DeviceVulkan;
 
@@ -240,3 +244,5 @@ struct DepthStencilState
     DepthStencilOp frontFace;
     DepthStencilOp backFace;
 };
+
+}

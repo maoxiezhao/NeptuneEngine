@@ -10,10 +10,10 @@ namespace {
     static bool debugLayer = false;
 #endif
 
-    VulkanContext* vulkanContext = nullptr;
+    GPU::VulkanContext* vulkanContext = nullptr;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    DeviceVulkan* deviceVulkan = nullptr;
-    Swapchain* swapchian = nullptr;
+    GPU::DeviceVulkan* deviceVulkan = nullptr;
+    GPU::Swapchain* swapchian = nullptr;
 
     std::vector<const char*> GetRequiredExtensions(bool debugUtils)
     {
@@ -47,14 +47,14 @@ namespace {
 bool WSI::Initialize()
 {
     // init vulkan context
-    vulkanContext = new VulkanContext();
+    vulkanContext = new GPU::VulkanContext();
 
     auto instanceExt = GetRequiredExtensions(true);
     if (!vulkanContext->Initialize(instanceExt, true))
         return false;
 
     // init gpu
-    deviceVulkan = new DeviceVulkan();
+    deviceVulkan = new GPU::DeviceVulkan();
     deviceVulkan->SetContext(*vulkanContext);
 
     // init surface
@@ -94,7 +94,7 @@ void WSI::BeginFrame()
         return;
     }
 
-    SemaphorePtr acquire = deviceVulkan->RequestSemaphore();
+    GPU::SemaphorePtr acquire = deviceVulkan->RequestSemaphore();
 
     // acquire next image index
     VkResult res = vkAcquireNextImageKHR(
@@ -119,7 +119,7 @@ void WSI::EndFrame()
     deviceVulkan->EndFrameContext();
 
     // release在EndFrameContext中设置,确保image已经释放
-    SemaphorePtr release = deviceVulkan->GetAndConsumeReleaseSemaphore();
+    GPU::SemaphorePtr release = deviceVulkan->GetAndConsumeReleaseSemaphore();
     assert(release->IsSignalled());
 
     // present 
@@ -144,12 +144,12 @@ void WSI::SetPlatform(Platform* platform)
 	platform = platform;
 }
 
-Swapchain* WSI::GetSwapChain()
+GPU::Swapchain* WSI::GetSwapChain()
 {
     return swapchian;
 }
 
-DeviceVulkan* WSI::GetDevice()
+GPU::DeviceVulkan* WSI::GetDevice()
 {
     return deviceVulkan;
 }

@@ -5,112 +5,116 @@
 
 #include <unordered_map>
 
-template<typename T>
-class VulkanCache
+namespace GPU
 {
-public:
-	using HashMap = typename std::unordered_map<HashValue, T*>;
-	using HashMapIterator = typename HashMap::iterator;
-	using HashMapConstIterator = typename HashMap::const_iterator;
-
-	~VulkanCache()
+	template<typename T>
+	class VulkanCache
 	{
-		Clear();
-	}
+	public:
+		using HashMap = typename std::unordered_map<HashValue, T*>;
+		using HashMapIterator = typename HashMap::iterator;
+		using HashMapConstIterator = typename HashMap::const_iterator;
 
-	void Clear()
-	{
-		for (auto& kvp : hashmap)
+		~VulkanCache()
 		{
-			pool.free(kvp.second);
+			Clear();
 		}
-		hashmap.clear();	
-	}
 
-	HashMapIterator find(HashValue hash)
-	{
-		return hashmap.find(hash);
-	}
-
-	HashMapConstIterator find(HashValue hash)const
-	{
-		return hashmap.find(hash);
-	}
-
-	T& operator[](HashValue hash)
-	{
-		auto it = find(hash);
-		if (it != hashmap.end())
+		void Clear()
 		{
-			return *it->second;
-		}
-			
-		return *(emplace(hash));
-	}
-
-	void erase(T* value)
-	{
-		for (auto& kvp : hashmap)
-		{
-			if (kvp.second == value)
+			for (auto& kvp : hashmap)
 			{
-				hashmap.erase(kvp.first);
-				pool.free(value);
-				break;
+				pool.free(kvp.second);
+			}
+			hashmap.clear();
+		}
+
+		HashMapIterator find(HashValue hash)
+		{
+			return hashmap.find(hash);
+		}
+
+		HashMapConstIterator find(HashValue hash)const
+		{
+			return hashmap.find(hash);
+		}
+
+		T& operator[](HashValue hash)
+		{
+			auto it = find(hash);
+			if (it != hashmap.end())
+			{
+				return *it->second;
+			}
+
+			return *(emplace(hash));
+		}
+
+		void erase(T* value)
+		{
+			for (auto& kvp : hashmap)
+			{
+				if (kvp.second == value)
+				{
+					hashmap.erase(kvp.first);
+					pool.free(value);
+					break;
+				}
 			}
 		}
-	}
 
-	void erase(HashValue hash)
-	{
-		auto it = find(hash);
-		if (it != hashmap.end())
+		void erase(HashValue hash)
 		{
-			pool.free(it->second);
-			hashmap.erase(it);
+			auto it = find(hash);
+			if (it != hashmap.end())
+			{
+				pool.free(it->second);
+				hashmap.erase(it);
+			}
 		}
-	}
 
-	void free(T* value)
-	{
-		pool.free(value);
-	}
-
-	template <typename... Args>
-	T* emplace(HashValue hash, Args&&... args)
-	{
-		T* t = allocate(std::forward<Args>(args)...);
-		return insert(hash, t);
-	}
-
-	template <typename... Args>
-	T* allocate(Args&&... args)
-	{
-		return pool.allocate(std::forward<Args>(args)...);
-	}
-
-	T* insert(HashValue hash, T* value)
-	{
-		auto it = hashmap.find(hash);
-		if (it != hashmap.end())
+		void free(T* value)
 		{
-			pool.free(it->second);
+			pool.free(value);
 		}
-		hashmap.insert(std::make_pair(hash, value));
-		return value;
-	}
 
-	HashMapIterator begin()
-	{
-		return hashmap.begin();
-	}
+		template <typename... Args>
+		T* emplace(HashValue hash, Args&&... args)
+		{
+			T* t = allocate(std::forward<Args>(args)...);
+			return insert(hash, t);
+		}
 
-	HashMapIterator end()
-	{
-		return hashmap.end();
-	}
+		template <typename... Args>
+		T* allocate(Args&&... args)
+		{
+			return pool.allocate(std::forward<Args>(args)...);
+		}
 
-private:
-	HashMap hashmap;
-	Util::ObjectPool<T> pool;
-};
+		T* insert(HashValue hash, T* value)
+		{
+			auto it = hashmap.find(hash);
+			if (it != hashmap.end())
+			{
+				pool.free(it->second);
+			}
+			hashmap.insert(std::make_pair(hash, value));
+			return value;
+		}
+
+		HashMapIterator begin()
+		{
+			return hashmap.begin();
+		}
+
+		HashMapIterator end()
+		{
+			return hashmap.end();
+		}
+
+	private:
+		HashMap hashmap;
+		Util::ObjectPool<T> pool;
+	};
+
+}

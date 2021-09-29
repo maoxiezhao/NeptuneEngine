@@ -3,6 +3,9 @@
 #include "definition.h"
 #include "shader.h"
 
+namespace GPU
+{
+
 class DeviceVulkan;
 
 using ShaderVariantMap = std::vector<std::string>;
@@ -110,3 +113,5 @@ private:
 	VulkanCache<ShaderTemplateProgram> programs;
 	DeviceVulkan& device;
 };
+
+}

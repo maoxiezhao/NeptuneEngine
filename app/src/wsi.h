@@ -1,10 +1,9 @@
 #pragma once
 
 #include "common.h"
-#include "vulkan\definition.h"
+#include "vulkan\device.h"
 
 class Platform;
-struct Swapchain;
 
 class WSI
 {
@@ -14,9 +13,9 @@ public:
 	void BeginFrame();
 	void EndFrame();
 	void SetPlatform(Platform* platform);
-	Swapchain* GetSwapChain();
-	
-	DeviceVulkan* GetDevice();
+
+	GPU::Swapchain* GetSwapChain();
+	GPU::DeviceVulkan* GetDevice();
 
 private:
 	Platform* platform = nullptr;

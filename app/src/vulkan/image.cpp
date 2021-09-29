@@ -1,6 +1,9 @@
 #include "image.h"
 #include "vulkan/device.h"
 
+namespace GPU
+{
+
 ImageView::ImageView(DeviceVulkan& device_, VkImageView imageView, const ImageViewCreateInfo& info) :
 	GraphicsCookie(device.GenerateCookie()),
 	device(device_),
@@ -50,4 +53,6 @@ Image::~Image()
 	{
 		device.ReleaseImage(image);
 	}
+}
+
 }

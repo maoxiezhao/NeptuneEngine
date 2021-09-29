@@ -10,9 +10,13 @@
 #include "semaphore.h"
 #include "shader.h"
 #include "shaderManager.h"
+#include "descriptorSet.h"
 
 #include <set>
 #include <unordered_map>
+
+namespace GPU
+{
 
 struct Swapchain
 {
@@ -105,13 +109,16 @@ public:
         return frameResources[frameIndex];
     }
 
-    // rhi object pools
+    // vulkan object cache
+    // TODO: use vk_mem_alloc to replace vulkanCache
     VulkanCache<Shader> shaders;
     VulkanCache<ShaderProgram> programs;
     VulkanCache<RenderPass> renderPasses;
     VulkanCache<FrameBuffer> frameBuffers;
     VulkanCache<PipelineLayout> pipelineLayouts;
+    VulkanCache<DescriptorSetAllocator> descriptorSetAllocators;
 
+    // vulkan object pool (release perframe)
     Util::ObjectPool<CommandList> commandListPool;
     Util::ObjectPool<Image> imagePool;
     Util::ObjectPool<ImageView> imageViewPool;
@@ -141,6 +148,7 @@ public:
     SemaphorePtr RequestSemaphore();
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
+    DescriptorSetAllocator& RequestDescriptorSetAllocator();
 
     void BeginFrameContext();
     void EndFrameContext();
@@ -191,3 +199,6 @@ private:
     // shaders
     ShaderManager shaderManager;
 };
+
+
+}

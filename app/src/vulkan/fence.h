@@ -2,6 +2,9 @@
 
 #include "definition.h"
 
+namespace GPU
+{
+
 class DeviceVulkan;
 class Fence;
 
@@ -48,3 +51,5 @@ private:
     DeviceVulkan* device = nullptr;
     std::vector<VkFence> fences;
 };
+
+}

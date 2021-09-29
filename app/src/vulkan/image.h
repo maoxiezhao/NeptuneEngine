@@ -2,6 +2,9 @@
 
 #include "definition.h"
 
+namespace GPU
+{
+
 class DeviceVulkan;
 class ImageView;
 class Image;
@@ -129,3 +132,5 @@ private:
     bool isOwnsImge = true;
 };
 using ImagePtr = Util::IntrusivePtr<Image>;
+
+}

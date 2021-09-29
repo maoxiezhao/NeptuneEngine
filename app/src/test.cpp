@@ -4,9 +4,9 @@
 
 static StdoutLoggerSink mStdoutLoggerSink;
 
-Shader* screenVS;
+GPU::Shader* screenVS;
 //Shader screenPS;
-ShaderProgram* shaderProgram = nullptr;
+GPU::ShaderProgram* shaderProgram = nullptr;
 
 void TestApp::InitializeImpl()
 {
@@ -18,10 +18,10 @@ void TestApp::InitializeImpl()
     //ShaderCompiler::LoadShader(*device, ShaderStage::VS, screenVS, "screenVS.hlsl");
     //ShaderCompiler::LoadShader(*device, ShaderStage::PS, screenPS, "screenPS.hlsl");
 
-    ShaderProgramInfo info = {};
+    GPU::ShaderProgramInfo info = {};
     //info.VS = &screenVS;
     //info.PS = &screenPS;
-    shaderProgram = new ShaderProgram(device, info);
+    shaderProgram = new GPU::ShaderProgram(device, info);
 }
 
 void TestApp::UninitializeImpl()
@@ -37,11 +37,11 @@ void TestApp::UninitializeImpl()
 
 void TestApp::Render()
 {
-    DeviceVulkan* device = wsi.GetDevice();
+    GPU::DeviceVulkan* device = wsi.GetDevice();
     assert(device != nullptr);
 
-    RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*wsi.GetSwapChain(), SwapchainRenderPassType::ColorOnly);
-    CommandListPtr cmd = device->RequestCommandList(QUEUE_TYPE_GRAPHICS);
+    GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*wsi.GetSwapChain(), GPU::SwapchainRenderPassType::ColorOnly);
+    GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
     cmd->BeginRenderPass(rp);
     cmd->SetDefaultOpaqueState();
     cmd->SetProgram(shaderProgram);

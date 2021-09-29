@@ -2,6 +2,9 @@
 
 #include "definition.h"
 
+namespace GPU
+{
+
 class PipelineLayout : public HashedObject<PipelineLayout>
 {
 public:
@@ -74,3 +77,5 @@ private:
     uint32_t shaderCount = 0;
     std::unordered_map<HashValue, VkPipeline> pipelines;
 };
+
+}

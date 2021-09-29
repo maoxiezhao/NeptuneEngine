@@ -2,6 +2,9 @@
 
 #include <set>
 
+namespace GPU
+{
+
 namespace
 {
     bool CheckExtensionSupport(const char* checkExtension, const std::vector<VkExtensionProperties>& availableExtensions)
@@ -325,4 +328,6 @@ bool VulkanContext::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool i
     ret &= mFeatures2.features.occlusionQueryPrecise == VK_TRUE;
 
     return ret;
+}
+
 }

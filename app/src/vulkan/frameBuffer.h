@@ -3,6 +3,9 @@
 #include "definition.h"
 #include "renderPass.h"
 
+namespace GPU
+{
+
 class FrameBuffer;
 
 class FrameBuffer : public HashedObject<FrameBuffer>
@@ -43,3 +46,5 @@ private:
 	uint32_t height = 0;
 	const RenderPass& renderPass;
 };
+
+}

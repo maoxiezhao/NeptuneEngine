@@ -1,6 +1,9 @@
 #include "renderPass.h"
 #include "vulkan/device.h"
 
+namespace GPU
+{
+
 namespace {
 	VkAttachmentLoadOp CheckLoadOp(const RenderPassInfo& info, uint32_t i)
 	{
@@ -105,4 +108,6 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 RenderPass::~RenderPass()
 {
 	vkDestroyRenderPass(device.device, renderPass, nullptr);
+}
+
 }

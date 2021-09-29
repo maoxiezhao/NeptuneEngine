@@ -2,6 +2,9 @@
 
 #include "definition.h"
 
+namespace GPU
+{
+
 struct DeviceFeatures
 {
     bool SupportsSurfaceCapabilities2 = false;
@@ -73,3 +76,5 @@ private:
     std::vector<VkQueueFamilyProperties> mQueueFamilies;
     QueueInfo queueInfo = {};
 };
+
+}

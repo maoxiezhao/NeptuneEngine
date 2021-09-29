@@ -1,6 +1,9 @@
 #include "fence.h"
 #include "vulkan/device.h"
 
+namespace GPU
+{
+
 Fence::Fence(DeviceVulkan& device_, VkFence fence) :
 	device(device_),
 	fence(fence)
@@ -65,4 +68,6 @@ void FenceManager::ClearAll()
 {
 	for (auto& fence : fences)
 		vkDestroyFence(device->device, fence, nullptr);
+}
+
 }

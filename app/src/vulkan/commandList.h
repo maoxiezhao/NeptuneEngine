@@ -5,6 +5,9 @@
 #include "frameBuffer.h"
 #include "shader.h"
 
+namespace GPU
+{
+
 class DeviceVulkan;
 
 #define COMPARE_OP_BITS 3
@@ -163,3 +166,4 @@ private:
 };
 using CommandListPtr = Util::IntrusivePtr<CommandList>;
 
+}
