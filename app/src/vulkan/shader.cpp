@@ -67,14 +67,22 @@ void ShaderProgram::SetShader(ShaderStage stage, Shader* shader)
 	shaders[(int)stage] = shader;
 }
 
-PipelineLayout::PipelineLayout(DeviceVulkan& device_) :
+PipelineLayout::PipelineLayout(DeviceVulkan& device_, ResourceLayout resLayout) :
 	device(device_)
 {
+	// PipelineLayout = DescriptorSetLayouts + PushConstants
+
 	U32 numSets = 0;
 	VkDescriptorSetLayout layouts[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 	for (U32 i = 0; i < VULKAN_NUM_DESCRIPTOR_SETS; i++)
 	{
-
+		if (resLayout.descriptorSetMask & (1 << i))
+		{
+			auto allocator = &device.RequestDescriptorSetAllocator();
+			descriptorSetAllocators[i] = allocator;
+			descriptorLayouts[i] = allocator->GetSetLayout();
+			numSets++;
+		}
 	}
 
 	VkPipelineLayoutCreateInfo info = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -82,6 +90,12 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_) :
 	{
 		info.setLayoutCount = numSets;
 		info.pSetLayouts = layouts;
+	}
+
+	if (resLayout.pushConstantRange.stageFlags != 0)
+	{
+		info.pushConstantRangeCount = 1;
+		info.pPushConstantRanges = &resLayout.pushConstantRange;
 	}
 
 	if (vkCreatePipelineLayout(device.device, &info, nullptr, &pipelineLayout) != VK_SUCCESS)
@@ -93,6 +107,8 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_) :
 
 PipelineLayout::~PipelineLayout()
 {
+	if (pipelineLayout != VK_NULL_HANDLE)
+		vkDestroyPipelineLayout(device.device, pipelineLayout, nullptr);
 }
 
 }

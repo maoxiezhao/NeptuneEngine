@@ -10,7 +10,13 @@ namespace GPU
 	DescriptorSetAllocator::~DescriptorSetAllocator()
 	{
 	}
+
 	void DescriptorSetAllocator::BeginFrame()
 	{
+	}
+
+	std::pair<VkDescriptorSet, bool> DescriptorSetAllocator::FindSet(HashValue hash)
+	{
+		return std::pair<VkDescriptorSet, bool>();
 	}
 }

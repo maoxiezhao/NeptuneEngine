@@ -361,7 +361,7 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
     return frameBuffer;
 }
 
-PipelineLayout& DeviceVulkan::RequestPipelineLayout()
+PipelineLayout& DeviceVulkan::RequestPipelineLayout(const ResourceLayout& resLayout)
 {
     HashCombiner hash;
 
@@ -369,7 +369,7 @@ PipelineLayout& DeviceVulkan::RequestPipelineLayout()
     if (findIt != pipelineLayouts.end())
         return *findIt->second;
 
-    PipelineLayout& pipelineLayout = *pipelineLayouts.emplace(hash.Get(), *this);
+    PipelineLayout& pipelineLayout = *pipelineLayouts.emplace(hash.Get(), *this, resLayout);
     pipelineLayout.SetHash(hash.Get());
     return pipelineLayout;
 }
@@ -427,7 +427,7 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator()
 	if (findIt != descriptorSetAllocators.end())
 		return *findIt->second;
 
-    DescriptorSetAllocator* allocator = descriptorSetAllocators.emplace(hasher.Get(), this);
+    DescriptorSetAllocator* allocator = descriptorSetAllocators.emplace(hasher.Get(), *this);
     allocator->SetHash(hasher.Get());
 	return *allocator;
 }

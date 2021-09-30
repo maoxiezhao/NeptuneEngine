@@ -142,6 +142,7 @@ private:
 
     bool FlushRenderState();
     bool FlushGraphicsPipeline();
+    void FlushDescriptorSet();
 
     VkPipeline BuildGraphicsPipeline(const CompilePipelineState& pipelineState);
     VkPipeline BuildComputePipeline(const CompilePipelineState& pipelineState);

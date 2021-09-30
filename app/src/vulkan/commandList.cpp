@@ -341,6 +341,15 @@ bool CommandList::FlushGraphicsPipeline()
     return currentPipeline != VK_NULL_HANDLE;
 }
 
+void CommandList::FlushDescriptorSet()
+{
+    VkDescriptorSet allocated = VK_NULL_HANDLE;
+    
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        currentPipelineLayout, 0, 1, &allocated, 0, nullptr);
+}
+
 VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipelineState)
 {
     U32 subpassIndex = pipelineState.subpassIndex;
@@ -391,7 +400,6 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
             attachment.alphaBlendOp = VK_BLEND_OP_ADD;
         }
     }
-
     VkPipelineColorBlendStateCreateInfo colorBlending = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
     colorBlending.pAttachments = blendAttachments;
     colorBlending.logicOpEnable = VK_FALSE;

@@ -12,8 +12,18 @@ namespace GPU
 
 		void BeginFrame();
 
+		VkDescriptorSetLayout GetSetLayout()
+		{
+			return setLayout;
+		}
+
+		std::pair<VkDescriptorSet, bool> FindSet(HashValue hash);
+
 	private:
 		DeviceVulkan& device;
 		VkDescriptorSetLayout setLayout;
+		std::vector<VkDescriptorPool> pools;
+		std::vector<VkDescriptorPoolSize> poolSize;
+		bool isBindLess = false;
 	};
 }
