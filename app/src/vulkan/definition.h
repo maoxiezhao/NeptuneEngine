@@ -30,6 +30,7 @@ static const U32 VULKAN_NUM_ATTACHMENTS = 8;
 static const U32 VULKAN_NUM_DESCRIPTOR_SETS = 4;
 static const U32 VULKAN_NUM_VERTEX_ATTRIBS = 16;
 static const U32 VULKAN_NUM_VERTEX_BUFFERS = 8;
+static const U32 VULKAN_NUM_BINDINGS = 32;
 
 class DeviceVulkan;
 

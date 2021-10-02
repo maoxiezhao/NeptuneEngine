@@ -144,7 +144,7 @@ public:
     CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
     RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isComatible = false);
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
-    PipelineLayout& RequestPipelineLayout(const ResourceLayout& resLayout);
+    PipelineLayout& RequestPipelineLayout(const CombinedResourceLayout& resLayout);
     SemaphorePtr RequestSemaphore();
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);

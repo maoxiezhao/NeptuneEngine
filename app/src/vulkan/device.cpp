@@ -361,7 +361,7 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
     return frameBuffer;
 }
 
-PipelineLayout& DeviceVulkan::RequestPipelineLayout(const ResourceLayout& resLayout)
+PipelineLayout& DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout& resLayout)
 {
     HashCombiner hash;
 
@@ -586,7 +586,58 @@ void DeviceVulkan::UpdateGraphicsPipelineHash(CompilePipelineState pipeline)
 void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 {
     // create pipeline layout
+    CombinedResourceLayout resLayout;
+    for (U32 i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
+    {
+        auto shader = program.GetShader(static_cast<ShaderStage>(i));
+        if (shader == nullptr)
+            continue;
 
+        U32 stageMask = 1u << i;
+        auto& shaderResLayout = shader->GetLayout();
+
+        // descriptor sets
+        for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
+        {
+            U32 activeBinds = false;
+            for (U32 maskbit = 0; i < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
+            {
+                resLayout.sets[set].masks[maskbit] |= shaderResLayout.sets[set].masks[maskbit];
+                activeBinds |= (resLayout.sets[set].masks[maskbit] != 0);
+            }
+
+            if (activeBinds != 0)
+                resLayout.stagesForSets[set] |= stageMask;
+
+            ForEachBit(activeBinds, [&](uint32_t bit) 
+            {
+                resLayout.stagesForBindings[set][bit] |= stageMask;
+
+                auto& combinedSize = resLayout.sets[set].arraySize[bit];
+                auto& shaderSize = shaderResLayout.sets[set].arraySize[bit];
+                if (combinedSize && combinedSize != shaderSize)
+                    Logger::Error("Mismatch between array sizes in different shaders.\n");
+                else
+                    combinedSize = shaderSize;
+             });
+        }
+
+        // constants
+        if (shaderResLayout.pushConstantSize > 0)
+        {
+            resLayout.pushConstantRange.stageFlags |= stageMask;
+            resLayout.pushConstantRange.size = max(resLayout.pushConstantRange.size, shaderResLayout.pushConstantSize);
+        }
+    }
+
+    // Create pipeline layout
+    HashCombiner hasher;
+    hasher.HashCombine(resLayout.pushConstantRange.stageFlags);
+    hasher.HashCombine(resLayout.pushConstantRange.size);
+    resLayout.pushConstantHash = hasher.Get();
+    
+    auto piplineLayout = RequestPipelineLayout(resLayout);
+   
 }
 
 void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)

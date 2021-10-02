@@ -43,3 +43,23 @@ using F64 = double;
 #else
 #define ASSERT(x) ((void)0)
 #endif
+
+static inline uint32_t trailingZeroes(uint32_t x)
+{
+	unsigned long result;
+	if (_BitScanForward(&result, x))
+		return result;
+	else
+		return 32;
+}
+
+template <typename T>
+inline void ForEachBit(uint32_t value, const T & func)
+{
+	while (value)
+	{
+		uint32_t bit = trailingZeroes(value);
+		func(bit);
+		value &= ~(1u << bit);
+	}
+}
