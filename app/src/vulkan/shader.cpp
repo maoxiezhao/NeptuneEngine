@@ -67,8 +67,9 @@ void ShaderProgram::SetShader(ShaderStage stage, Shader* shader)
 	shaders[(int)stage] = shader;
 }
 
-PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout resLayout) :
-	device(device_)
+PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout resLayout_) :
+	device(device_),
+	resLayout(resLayout_)
 {
 	// PipelineLayout = DescriptorSetLayouts + PushConstants
 

@@ -3,6 +3,56 @@
 
 namespace GPU
 {
+namespace 
+{
+    static void UpdateDescriptorSet(DeviceVulkan &device, 
+                                    VkDescriptorSet descSet,
+                                    const DescriptorSetLayout &setLayout, 
+                                    const ResourceBinding *bindings)
+    {
+        // update descriptor sets according setLayout masks
+        U32 writeCount = 0;
+        VkWriteDescriptorSet writes[VULKAN_NUM_BINDINGS];
+
+        // storage image
+        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::STORAGE_IMAGE)], 
+            [&](U32 binding) {
+                U32 arraySize = setLayout.arraySize[binding];
+                for(U32 i = 0; i < arraySize; i++)
+                {
+                    auto& write = writes[writeCount++];
+                    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    write.pNext = nullptr;
+                    write.descriptorCount = 1;
+                    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                    write.dstArrayElement = i;
+                    write.dstBinding = binding;
+                    write.dstSet = descSet;
+                    write.pImageInfo = &bindings[binding + i].image;
+                }
+            });
+
+        // input attachment
+        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::INPUT_ATTACHMENT)], 
+            [&](U32 binding) {
+                U32 arraySize = setLayout.arraySize[binding];
+                for(U32 i = 0; i < arraySize; i++)
+                {
+                    auto& write = writes[writeCount++];
+                    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    write.pNext = nullptr;
+                    write.descriptorCount = 1;
+                    write.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+                    write.dstArrayElement = i;
+                    write.dstBinding = binding;
+                    write.dstSet = descSet;
+                    write.pImageInfo = &bindings[binding + i].image;
+                }
+            });
+
+        vkUpdateDescriptorSets(device.device, writeCount, writes, 0, nullptr);
+    }
+}
 
 CommandPool::CommandPool(DeviceVulkan* device_, uint32_t queueFamilyIndex) :
     device(device_)
@@ -125,7 +175,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     scissor = rect;
 
     // clear color
-    // ±éÀúËùÓÐcolorAttachmentsÍ¬Ê±¼ì²éclearAttachments mask
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½colorAttachmentsÍ¬Ê±ï¿½ï¿½ï¿½clearAttachments mask
     VkClearValue clearColors[VULKAN_NUM_ATTACHMENTS + 1];
     uint32_t numClearColor = 0;
     for (uint32_t i = 0; i < renderPassInfo.numColorAttachments; i++)
@@ -138,8 +188,8 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 
         // Check use swapchian in stages
         if (renderPassInfo.colorAttachments[i]->GetImage()->IsSwapchainImage())
-            SetSwapchainStages(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);  // Ö¸¶¨»ìºÏºó¹ÜµÀµÄ½×¶Î£¬ÆäÖÐ´Ó¹ÜµÀÊä³ö×îÖÕÑÕÉ«Öµ
-                                                                                // ´Ë½×¶Î»¹°üÀ¨×ÓÑÕÉ«¼ÓÔØºÍ´æ´¢²Ù×÷ÒÔ¼°¾ßÓÐÑÕÉ«¸ñÊ½µÄÖ¡»º³å¸½¼þµÄ¶àÖØ²ÉÑù½âÎö²Ù×÷
+            SetSwapchainStages(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);  // Ö¸ï¿½ï¿½ï¿½ï¿½Ïºï¿½Üµï¿½ï¿½Ä½×¶Î£ï¿½ï¿½ï¿½ï¿½Ð´Ó¹Üµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«Öµ
+                                                                                // ï¿½Ë½×¶Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ØºÍ´æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½Ê½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½å¸½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     }
     // check is depth stencil and clear depth stencil
     if (renderPassInfo.depthStencil != nullptr)
@@ -171,7 +221,7 @@ void CommandList::EndRenderPass()
     renderPass = nullptr;
 }
 
-// Çå³ý³ýProgramÒâÒÔÍâµÄ¹ÜÏß×´Ì¬
+// ï¿½ï¿½ï¿½ï¿½ï¿½Programï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¹ï¿½ï¿½ï¿½×´Ì¬
 void CommandList::ClearPipelineState()
 {
     pipelineState.blendState = {};
@@ -229,19 +279,45 @@ void CommandList::SetProgram(ShaderProgram* program)
         return;
 
     pipelineState.shaderProgram = program;
-    SetDirty(COMMAND_LIST_DIRTY_PIPELINE_BIT | COMMAND_LIST_DIRTY_DYNAMIC_BITS);
     currentPipeline = VK_NULL_HANDLE;
+    SetDirty(COMMAND_LIST_DIRTY_PIPELINE_BIT | COMMAND_LIST_DIRTY_DYNAMIC_BITS);
 
     if (program == nullptr)
         return;
 
     if (currentLayout == nullptr)
     {
+        dirtySets = ~0u;
+        SetDirty(COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT);
+
         currentLayout = program->GetPipelineLayout();
         currentPipelineLayout = currentLayout->GetLayout();
     }
     else if (program->GetPipelineLayout()->GetHash() != currentLayout->GetHash())
     {
+        // check layout is changed
+        auto& newResLayout = program->GetPipelineLayout()->GetResLayout();
+        auto& oldResLayout = currentLayout->GetResLayout();
+        if (newResLayout.pushConstantHash != oldResLayout.pushConstantHash)
+        {
+            dirtySets = ~0u;
+            SetDirty(COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT);
+        }
+        else
+        {
+            // find first diferrent descriptor set
+            auto newPipelineLayout = program->GetPipelineLayout();
+            for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
+            {
+                if (newPipelineLayout->GetAllocator(set) != 
+                   currentLayout->GetAllocator(set))
+                {
+                    dirtySets |= ~((1u << set) - 1);
+                    break;
+                }
+            }
+        }        
+
         currentLayout = program->GetPipelineLayout();
         currentPipelineLayout = currentLayout->GetLayout();
     }
@@ -294,6 +370,7 @@ bool CommandList::FlushRenderState()
     if (currentPipeline == VK_NULL_HANDLE)
         SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 
+    // flush pipeline
     if (IsDirtyAndClear(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT))
     {
         VkPipeline oldPipeline = currentPipeline;
@@ -311,12 +388,28 @@ bool CommandList::FlushRenderState()
     if (currentPipeline == VK_NULL_HANDLE)
         return false;
 
+    // descriptor sets
+    FlushDescriptorSets();
+
+    // push constants
+    if (IsDirtyAndClear(COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT))
+    {
+        auto& range = currentLayout->GetResLayout().pushConstantRange;
+        if (range.stageFlags != 0)
+        {
+            vkCmdPushConstants(cmd, currentPipelineLayout, 
+                range.stageFlags, 0, range.size, bindings.pushConstantData);
+        }
+    }
+
+    // viewport
     if (IsDirtyAndClear(COMMAND_LIST_DIRTY_VIEWPORT_BIT))
     {
         vkCmdSetViewport(cmd, 0, 1, &viewport);
     }
 
-    if (IsDirtyAndClear(COMMAND_LIST_DIRTY_VIEWPORT_BIT))
+    // scissor
+    if (IsDirtyAndClear(COMMAND_LIST_DIRTY_SCISSOR_BIT))
     {
         vkCmdSetScissor(cmd, 0, 1, &scissor);
     }
@@ -341,13 +434,46 @@ bool CommandList::FlushGraphicsPipeline()
     return currentPipeline != VK_NULL_HANDLE;
 }
 
-void CommandList::FlushDescriptorSet()
+void CommandList::FlushDescriptorSets()
 {
-    VkDescriptorSet allocated = VK_NULL_HANDLE;
+    auto& resLayout = currentLayout->GetResLayout();
+
+    // find all set need to update
+    U32 setUpdate = resLayout.descriptorSetMask & dirtySets;
+    ForEachBit(setUpdate, [&](U32 set) {
+        FlushDescriptorSet(set);
+    });
+    dirtySets &= ~setUpdate;
+
+}
+
+void CommandList::FlushDescriptorSet(U32 set)
+{
+    auto& resLayout = currentLayout->GetResLayout();
+    // check is bindless descriptor set
+    if (false)
+    {
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+            currentPipelineLayout, set, 1, &bindlessSets[set], 0, nullptr);
+        return;
+    }
+
+    // allocator new descriptor set
+    auto allocator = currentLayout->GetAllocator(set);
+    if (allocator == nullptr)
+        return;
     
+    HashCombiner hasher;
+    auto allocated = allocator->GetOrAllocate(hasher.Get());
+    // The descriptor set was not successfully cached, rebuild.
+	if (!allocated.second)
+	{
+        UpdateDescriptorSet(device, allocated.first, resLayout.sets[set], bindings.bindings[set]);
+    }
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-        currentPipelineLayout, 0, 1, &allocated, 0, nullptr);
+        currentPipelineLayout, 0, 1, &allocated.first, 0, nullptr);
+    allocatedSets[set] = allocated.first;
 }
 
 VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipelineState)

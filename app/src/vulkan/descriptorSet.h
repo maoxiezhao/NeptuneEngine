@@ -10,7 +10,7 @@ namespace GPU
 		{
 			SAMPLED_IMAGE,
 			STORAGE_IMAGE,
-			uniform_buffer,
+			UNIFORM_BUFFER,
 			STORAGE_BUFFER,
 			SAMPLED_BUFFER,
 			INPUT_ATTACHMENT,
@@ -43,13 +43,14 @@ namespace GPU
 			return setLayout;
 		}
 
-		std::pair<VkDescriptorSet, bool> FindSet(HashValue hash);
+		std::pair<VkDescriptorSet, bool> GetOrAllocate(HashValue hash);
 
 	private:
 		DeviceVulkan& device;
 		VkDescriptorSetLayout setLayout;
 		std::vector<VkDescriptorPool> pools;
 		std::vector<VkDescriptorPoolSize> poolSize;
+		std::unordered_map<HashValue, VkDescriptorSet> setMap;
 		bool isBindLess = false;
 	};
 }

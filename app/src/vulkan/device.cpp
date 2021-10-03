@@ -148,8 +148,8 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
         swapchain->format = surfaceFormat;
 
         // find suitable present mode
-        VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // ½»»»Á´ÊÇ¸ö¶ÓÁÐ£¬ÏÔÊ¾µÄÊ±ºò´Ó¶ÓÁÐÍ·ÄÃÒ»¸öÍ¼Ïñ£¬³ÌÐò²åÈëäÖÈ¾µÄÍ¼Ïñµ½¶ÓÁÐÎ²¡£
-        bool isVsync = true;                                              // Èç¹û¶ÓÁÐÂúÁË³ÌÐò¾ÍÒªµÈ´ý£¬Õâ²î²»¶àÏñÊÇ´¹Ö±Í¬²½£¬ÏÔÊ¾Ë¢ÐÂµÄÊ±¿Ì¾ÍÊÇ´¹Ö±¿Õ°×
+        VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¸ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ê±ï¿½ï¿½Ó¶ï¿½ï¿½ï¿½Í·ï¿½ï¿½Ò»ï¿½ï¿½Í¼ï¿½ñ£¬³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½Í¼ï¿½ñµ½¶ï¿½ï¿½ï¿½Î²ï¿½ï¿½
+        bool isVsync = true;                                              // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½Òªï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½î²»ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ï¿½Ö±Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ë¢ï¿½Âµï¿½Ê±ï¿½Ì¾ï¿½ï¿½Ç´ï¿½Ö±ï¿½Õ°ï¿½
         if (!isVsync)
         {
             for (auto& presentMode : swapchain->presentModes)
@@ -187,9 +187,9 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
         createInfo.imageExtent = swapchain->swapchainExtent;
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;            // Ò»¸öÍ¼ÏñÔÚÄ³¸öÊ±¼äµã¾ÍÖ»ÄÜ±»Ò»¸ö¶ÓÁÐ×åÕ¼ÓÃ£¬ÔÚ±»ÁíÒ»¸ö¶ÓÁÐ×åÊ¹ÓÃÇ°£¬ËüµÄÕ¼ÓÃÇé¿öÒ»¶¨ÒªÏÔÊ½µØ½øÐÐ×ªÒÆ¡£¸ÃÑ¡ÔñÌá¹©ÁË×îºÃµÄÐÔÄÜ¡£
+        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;            // Ò»ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ö»ï¿½Ü±ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Ã£ï¿½ï¿½Ú±ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Òªï¿½ï¿½Ê½ï¿½Ø½ï¿½ï¿½ï¿½×ªï¿½Æ¡ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½á¹©ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½Ü¡ï¿½
         createInfo.preTransform = surfaceProperties.currentTransform;
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;      // ¸ÃalphaÍ¨µÀÊÇ·ñÓ¦¸ÃºÍ´°¿ÚÏµÍ³ÖÐµÄÆäËû´°¿Ú½øÐÐ»ìºÏ, Ä¬ÈÏ²»»ìºÏ
+        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;      // ï¿½ï¿½alphaÍ¨ï¿½ï¿½ï¿½Ç·ï¿½Ó¦ï¿½ÃºÍ´ï¿½ï¿½ï¿½ÏµÍ³ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½Ð»ï¿½ï¿½, Ä¬ï¿½Ï²ï¿½ï¿½ï¿½ï¿½
         createInfo.presentMode = swapchainPresentMode;
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = oldSwapchain;
@@ -232,16 +232,16 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
             ImagePtr imagePtr = ImagePtr(imagePool.allocate(*this, images[i], imageView, imageCreateInfo));
             if (imagePtr)
             {
-                imagePtr->DisownImge(); // imageÓÉvkGetSwapchainImagesKHR»ñÈ¡
+                imagePtr->DisownImge(); // imageï¿½ï¿½vkGetSwapchainImagesKHRï¿½ï¿½È¡
                 imagePtr->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
                 swapchain->images.push_back(imagePtr);
             }
 
-            // ÔÚGetSwapchainRenderPassInfoÖÐ¸ù¾ÝHash»ñÈ¡
+            // ï¿½ï¿½GetSwapchainRenderPassInfoï¿½Ð¸ï¿½ï¿½ï¿½Hashï¿½ï¿½È¡
             //VkImageView attachments[] = {
             //    swapchain->mImageViews[i]
             //};
-            //// ´´½¨frameBufferÓëImageViewÒ»Ò»¶ÔÓ¦
+            //// ï¿½ï¿½ï¿½ï¿½frameBufferï¿½ï¿½ImageViewÒ»Ò»ï¿½ï¿½Ó¦
             //VkFramebufferCreateInfo framebufferInfo = {};
             //res = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapchain->frameBuffers[i]);
             //assert(res == VK_SUCCESS);
@@ -340,7 +340,7 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
 {
     HashCombiner hash;
 
-    // ÐèÒª¸ù¾ÝRenderPassÒÔ¼°RTµÄHashÖµ»ñÈ¡»òÕß´´½¨FrameBuffer
+    // ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½RenderPassï¿½Ô¼ï¿½RTï¿½ï¿½HashÖµï¿½ï¿½È¡ï¿½ï¿½ï¿½ß´ï¿½ï¿½ï¿½FrameBuffer
     RenderPass& renderPass = RequestRenderPass(renderPassInfo, true);
     hash.HashCombine(renderPass.GetHash());
 
@@ -480,7 +480,7 @@ void DeviceVulkan::EndFrameContext()
         {
             SubmitQueue(queueIndex, &fence);
            
-            // Èç¹û´´½¨ÁËFence£¬ÔòÌí¼Óµ½waitFences£¬Õâ»áÔÚBeginFrameÇ°µÈ´ý
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Fenceï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½waitFencesï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½BeginFrameÇ°ï¿½È´ï¿½
             if (fence.fence != VK_NULL_HANDLE)
             {
                 frame.waitFences.push_back(fence.fence);
@@ -536,7 +536,7 @@ void DeviceVulkan::ReleaseFence(VkFence fence, bool isWait)
 
 void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore, bool isSignalled)
 {
-    // ÒÑ¾­signalledµÄsemaphoreÔòÖ±½ÓÏú»Ù£¬·ñÔòÑ­»·Ê¹ÓÃ
+    // ï¿½Ñ¾ï¿½signalledï¿½ï¿½semaphoreï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Ù£ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½Ê¹ï¿½ï¿½
     if (isSignalled)
     {
         CurrentFrameResource().destroyeSemaphores.push_back(semaphore);
@@ -587,6 +587,9 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 {
     // create pipeline layout
     CombinedResourceLayout resLayout;
+    resLayout.descriptorSetMask = 0;
+    
+    // loop shaders
     for (U32 i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
     {
         auto shader = program.GetShader(static_cast<ShaderStage>(i));
@@ -622,11 +625,35 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
              });
         }
 
-        // constants
+        // push constants
         if (shaderResLayout.pushConstantSize > 0)
         {
             resLayout.pushConstantRange.stageFlags |= stageMask;
             resLayout.pushConstantRange.size = max(resLayout.pushConstantRange.size, shaderResLayout.pushConstantSize);
+        }
+    }
+
+    // bindings and check array size
+    for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
+    {
+        if (resLayout.stagesForSets[set] != 0)
+        {
+            resLayout.descriptorSetMask |= 1u << set;
+
+            for(U32 binding = 0; binding < VULKAN_NUM_BINDINGS; binding++)
+            {
+                uint8_t& arraySize = resLayout.sets[set].arraySize[binding];
+                if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY)
+                {
+					// Allows us to have one unified descriptor set layout for bindless.
+					resLayout.stagesForBindings[set][binding] = VK_SHADER_STAGE_ALL;
+                }
+                else if (arraySize == 0)
+                {
+                    // just keep one array size
+                    arraySize = 1;
+                }
+            }
         }
     }
 
@@ -637,14 +664,14 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
     resLayout.pushConstantHash = hasher.Get();
     
     auto piplineLayout = RequestPipelineLayout(resLayout);
-   
+    program.SetPipelineLayout(&piplineLayout);
 }
 
 void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
 {
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
 
-    // Èç¹ûÌá½»¶ÓÁÐÎª¿Õ£¬ÔòÖ±½Ó¿ÕÌá½»
+    // ï¿½ï¿½ï¿½ï¿½á½»ï¿½ï¿½ï¿½ï¿½Îªï¿½Õ£ï¿½ï¿½ï¿½Ö±ï¿½Ó¿ï¿½ï¿½á½»
     if (submissions.empty())
     {
         if (fence != nullptr)
@@ -754,7 +781,7 @@ void DeviceVulkan::FrameResource::ProcessDestroyed(VkDevice device)
 
 BatchComposer::BatchComposer()
 {
-    // Ä¬ÈÏ´æÔÚÒ»¸öSubmit
+    // Ä¬ï¿½Ï´ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Submit
     submits.emplace_back();
 }
 
@@ -771,7 +798,7 @@ void BatchComposer::BeginBatch()
 
 void BatchComposer::AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages)
 {
-    // Ìí¼Ówait semaphoresÊ±ÏÈ½«Ö®Ç°µÄcmds batch
+    // ï¿½ï¿½ï¿½ï¿½wait semaphoresÊ±ï¿½È½ï¿½Ö®Ç°ï¿½ï¿½cmds batch
     if (!submitInfos[submitIndex].commandLists.empty())
         BeginBatch();
 
@@ -786,7 +813,7 @@ void BatchComposer::AddSignalSemaphore(VkSemaphore sem)
 
 void BatchComposer::AddCommandBuffer(VkCommandBuffer buffer)
 {
-    // Èç¹û´æÔÚSignal semaphores£¬ÏÈ½«Ö®Ç°µÄcmds batch
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Signal semaphoresï¿½ï¿½ï¿½È½ï¿½Ö®Ç°ï¿½ï¿½cmds batch
     if (!submitInfos[submitIndex].signalSemaphores.empty())
         BeginBatch();
 

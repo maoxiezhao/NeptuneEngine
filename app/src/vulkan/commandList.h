@@ -24,6 +24,8 @@ enum CommandListDirtyBits
     COMMAND_LIST_DIRTY_VIEWPORT_BIT = 1 << 1,
     COMMAND_LIST_DIRTY_SCISSOR_BIT = 1 << 2,
 
+    COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT = 1 << 3,
+
     COMMAND_LIST_DIRTY_DYNAMIC_BITS = COMMAND_LIST_DIRTY_VIEWPORT_BIT | COMMAND_LIST_DIRTY_SCISSOR_BIT
 };
 using CommandListDirtyFlags = uint32_t;
@@ -82,13 +84,14 @@ private:
 
     VkViewport viewport = {};
     VkRect2D scissor = {};
-    VkPipeline currentPipeline = VK_NULL_HANDLE;               // ¹ÜÏßÊµÀý
-    VkPipelineLayout currentPipelineLayout = VK_NULL_HANDLE;   // ¹ÜÏß×ÊÔ´·Ö²¼
+    VkPipeline currentPipeline = VK_NULL_HANDLE;               // ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
+    VkPipelineLayout currentPipelineLayout = VK_NULL_HANDLE;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½Ö²ï¿½
 
     DeviceVulkan& device;
     VkCommandBuffer cmd;
     QueueType type;
     VkPipelineStageFlags swapchainStages = 0;
+    U32 dirtySets = 0;
 
     // render pass runtime 
     FrameBuffer* frameBuffer = nullptr;
@@ -96,6 +99,10 @@ private:
     const RenderPass* compatibleRenderPass = nullptr;
     CompilePipelineState pipelineState = {};
     PipelineLayout* currentLayout = nullptr;
+    ResourceBindings bindings;
+    VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+    VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+
 
 public:
     CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
@@ -142,7 +149,8 @@ private:
 
     bool FlushRenderState();
     bool FlushGraphicsPipeline();
-    void FlushDescriptorSet();
+    void FlushDescriptorSets();
+    void FlushDescriptorSet(U32 set);
 
     VkPipeline BuildGraphicsPipeline(const CompilePipelineState& pipelineState);
     VkPipeline BuildComputePipeline(const CompilePipelineState& pipelineState);

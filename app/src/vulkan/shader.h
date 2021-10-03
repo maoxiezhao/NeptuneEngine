@@ -21,10 +21,25 @@ namespace GPU
 		HashValue pushConstantHash = 0;
 	};
 
+	struct ResourceBinding
+	{
+		union
+		{
+			VkDescriptorBufferInfo buffer;
+			VkDescriptorImageInfo image;
+		}
+	};
+
+	struct ResourceBindings
+	{
+		ResourceBinding bindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
+		uint8_t pushConstantData[VULKAN_PUSH_CONSTANT_SIZE];
+	};
+
 	class PipelineLayout : public HashedObject<PipelineLayout>
 	{
 	public:
-		PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout resourceLayout);
+		PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout resLayout_);
 		~PipelineLayout();
 
 		VkPipelineLayout GetLayout()const
@@ -32,8 +47,19 @@ namespace GPU
 			return pipelineLayout;
 		}
 
+		const CombinedResourceLayout& GetResLayout()const
+		{
+			return resLayout;
+		}
+
+		DescriptorSetAllocator* GetAllocator(U32 set)const
+		{
+			return descriptorSetAllocators[set];
+		}
+
 	private:
 		DeviceVulkan& device;
+		CombinedResourceLayout resLayout;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkDescriptorSetLayout descriptorLayouts[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 		DescriptorSetAllocator* descriptorSetAllocators[VULKAN_NUM_DESCRIPTOR_SETS] = {};
