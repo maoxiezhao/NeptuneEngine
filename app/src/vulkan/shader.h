@@ -68,8 +68,8 @@ namespace GPU
 	class Shader : public HashedObject<Shader>
 	{
 	public:
-		Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_);
-		Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pShaderBytecode, size_t bytecodeLength);
+		Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_, const ShaderResourceLayout* layout_ = nullptr);
+		Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout_ = nullptr);
 		~Shader();
 
 		VkShaderModule GetModule()const

@@ -146,9 +146,9 @@ public:
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
     PipelineLayout& RequestPipelineLayout(const CombinedResourceLayout& resLayout);
     SemaphorePtr RequestSemaphore();
-    Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength);
+    Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
-    DescriptorSetAllocator& RequestDescriptorSetAllocator();
+    DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
 
     void BeginFrameContext();
     void EndFrameContext();
@@ -164,12 +164,11 @@ public:
 
     uint64_t GenerateCookie();
     ShaderManager& GetShaderManager();
-
-    // 必须在EndFrameContext之后调用,ReleaseSemaphroe仅在EndFrameContext中获取
     SemaphorePtr GetAndConsumeReleaseSemaphore();
     VkQueue GetPresentQueue()const;
 
     RenderPassInfo GetSwapchianRenderPassInfo(const Swapchain& swapChain, SwapchainRenderPassType swapchainRenderPassType);
+    bool ReflectShader(ShaderResourceLayout& layout, const U32 *spirvData, size_t spirvSize);
 
 private:
     friend class CommandList;

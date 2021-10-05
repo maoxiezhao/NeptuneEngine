@@ -264,7 +264,11 @@ Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
 	{
 		Shader* newShader = nullptr;
 		if (!variant->spirv.empty())
-			newShader = &device.RequestShader(stage, variant->spirv.data(), variant->spirv.size());
+			newShader = &device.RequestShader(
+				stage,
+				variant->spirv.data(), 
+				variant->spirv.size(),
+				nullptr);
 
 		if (newShader == nullptr)
 			return nullptr;
@@ -311,6 +315,8 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 {
 	bool isProgramDirty = false;
 	ShaderProgram* ret = nullptr;
+
+	// check shader program is dirty
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 	{
 		if (shaderVariants[i] != nullptr)
@@ -339,7 +345,11 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 		{
 			Shader* newShader = nullptr;
 			if (!shaderVariants[i]->spirv.empty())
-				newShader = &device.RequestShader(static_cast<ShaderStage>(i), shaderVariants[i]->spirv.data(), shaderVariants[i]->spirv.size());
+				newShader = &device.RequestShader(
+					static_cast<ShaderStage>(i), 
+					shaderVariants[i]->spirv.data(), 
+					shaderVariants[i]->spirv.size(),
+					nullptr);
 
 			if (newShader == nullptr)
 				return nullptr;
@@ -428,5 +438,4 @@ ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string 
 	shaders.insert(hash, ret);
 	return ret;
 }
-
 }

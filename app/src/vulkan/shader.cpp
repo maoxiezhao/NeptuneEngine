@@ -3,15 +3,14 @@
 
 namespace GPU
 {
-
-Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_) :
+Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_, const ShaderResourceLayout* layout_) :
 	device(device_),
 	shaderStage(shaderStage_),
 	shaderModule(shaderModule_)
 {
 }
 
-Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pShaderBytecode, size_t bytecodeLength):
+Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout_):
 	device(device_),
 	shaderStage(shaderStage_)
 {
@@ -23,6 +22,16 @@ Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pSha
 	if (vkCreateShaderModule(device.device, &moduleInfo, nullptr, &shaderModule) != VK_SUCCESS)
 	{
 		Logger::Error("Failed to create shader.");
+		return;
+	}
+
+	if (layout_ != nullptr)
+	{
+		layout = *layout_;
+	}
+	else if (!device.ReflectShader(layout, pShaderBytecode, bytecodeLength))
+	{
+		Logger::Error("Failed to reflect shader resource layout.");
 		return;
 	}
 }
@@ -79,10 +88,10 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout res
 	{
 		if (resLayout.descriptorSetMask & (1 << i))
 		{
-			auto allocator = &device.RequestDescriptorSetAllocator();
+			auto allocator = &device.RequestDescriptorSetAllocator(resLayout_.sets[i], resLayout_.stagesForBindings[i]);
 			descriptorSetAllocators[i] = allocator;
 			descriptorLayouts[i] = allocator->GetSetLayout();
-			numSets++;
+			numSets = i + 1;
 		}
 	}
 

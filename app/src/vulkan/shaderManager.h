@@ -89,22 +89,22 @@ public:
 	~ShaderManager();
 
 	/**
-	 * ´ÓÖ¸¶¨Â·¾¶¼ÓÔØÒ»¸öShader,Õâ°üº¬ÁËRegisterShaderµÄ¹ı³Ì.
+	 * ä»æŒ‡å®šè·¯å¾„åŠ è½½ä¸€ä¸ªShader,è¿™åŒ…å«äº†RegisterShaderçš„è¿‡ç¨‹.
 	 * @param stage shader stage
-	 * @param filePath shaderµÄÄ¿±êÂ·¾¶
-	 * @param defines shaderÉèÖÃµÄºê¶¨Òå
-	 * @return Shader ·µ»ØÒ»¸öcompiled shaderÊµÀı
+	 * @param filePath shaderçš„ç›®æ ‡è·¯å¾„
+	 * @param defines shaderè®¾ç½®çš„å®å®šä¹‰
+	 * @return Shader è¿”å›ä¸€ä¸ªcompiled shaderå®ä¾‹
 	 */
 	Shader* LoadShader(ShaderStage stage, const std::string& filePath, const ShaderVariantMap& defines);
 	
 	/**
-	 * ´ÓÖ¸¶¨Â·¾¶×¢²áÒ»¸öShader£¬Õâ½«´´½¨Ò»¸öÎ´±àÒëµÄshader template.
+	 * ä»æŒ‡å®šè·¯å¾„æ³¨å†Œä¸€ä¸ªShaderï¼Œè¿™å°†åˆ›å»ºä¸€ä¸ªæœªç¼–è¯‘çš„shader template.
 	 * @param stage shader stage
-	 * @param filePath shaderµÄÄ¿±êÂ·¾¶
-	 * @return ShaderTemplateProgram ·µ»ØÎ´±àÒëµÄshaderTemplate
+	 * @param filePath shaderçš„ç›®æ ‡è·¯å¾„
+	 * @return ShaderTemplateProgram è¿”å›æœªç¼–è¯‘çš„shaderTemplate
 	 */
 	ShaderTemplateProgram* RegisterShader(ShaderStage stage, const std::string& filePath);
-	
+
 private:
 	ShaderTemplate* GetTemplate(ShaderStage stage, const std::string filePath);
 

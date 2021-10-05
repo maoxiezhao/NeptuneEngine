@@ -1,6 +1,8 @@
 #include "device.h"
 #include "utils\hash.h"
 
+#include "spirv_reflect\spirv_reflect.h"
+
 namespace GPU
 {
 
@@ -380,7 +382,7 @@ SemaphorePtr DeviceVulkan::RequestSemaphore()
     return SemaphorePtr(semaphorePool.allocate(*this, semaphore, false));
 }
 
-Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength)
+Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout)
 {
     HashCombiner hash;
     hash.HashCombine(static_cast<const uint32_t*>(pShaderBytecode), bytecodeLength);
@@ -389,7 +391,7 @@ Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderByteco
     if (findIt != shaders.end())
         return *findIt->second;
 
-    Shader& shader = *shaders.emplace(hash.Get(), *this, stage, pShaderBytecode, bytecodeLength);
+    Shader& shader = *shaders.emplace(hash.Get(), *this, stage, pShaderBytecode, bytecodeLength, layout);
     shader.SetHash(hash.Get());
     return shader;
 }
@@ -419,7 +421,7 @@ ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(Sha
     return program;
 }
 
-DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator()
+DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds)
 {
 	HashCombiner hasher;
 	
@@ -427,7 +429,7 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator()
 	if (findIt != descriptorSetAllocators.end())
 		return *findIt->second;
 
-    DescriptorSetAllocator* allocator = descriptorSetAllocators.emplace(hasher.Get(), *this);
+    DescriptorSetAllocator* allocator = descriptorSetAllocators.emplace(hasher.Get(), *this, layout, stageForBinds);
     allocator->SetHash(hasher.Get());
 	return *allocator;
 }
@@ -585,11 +587,15 @@ void DeviceVulkan::UpdateGraphicsPipelineHash(CompilePipelineState pipeline)
 
 void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 {
+    // CombinedResourceLayout
+    // * descriptorSetMask;
+	// * stagesForSets[VULKAN_NUM_DESCRIPTOR_SETS];
+	// * stagesForBindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
+
     // create pipeline layout
     CombinedResourceLayout resLayout;
     resLayout.descriptorSetMask = 0;
     
-    // loop shaders
     for (U32 i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
     {
         auto shader = program.GetShader(static_cast<ShaderStage>(i));
@@ -598,31 +604,35 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 
         U32 stageMask = 1u << i;
         auto& shaderResLayout = shader->GetLayout();
-
-        // descriptor sets
         for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
         {
             U32 activeBinds = false;
+
+            // descriptor type masks
             for (U32 maskbit = 0; i < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
             {
                 resLayout.sets[set].masks[maskbit] |= shaderResLayout.sets[set].masks[maskbit];
                 activeBinds |= (resLayout.sets[set].masks[maskbit] != 0);
             }
 
+            // activate current stage
             if (activeBinds != 0)
+            {
                 resLayout.stagesForSets[set] |= stageMask;
 
-            ForEachBit(activeBinds, [&](uint32_t bit) 
-            {
-                resLayout.stagesForBindings[set][bit] |= stageMask;
+                // activate current bindings
+                ForEachBit(activeBinds, [&](uint32_t bit) 
+                {
+                    resLayout.stagesForBindings[set][bit] |= stageMask; // set->binding->stages
 
-                auto& combinedSize = resLayout.sets[set].arraySize[bit];
-                auto& shaderSize = shaderResLayout.sets[set].arraySize[bit];
-                if (combinedSize && combinedSize != shaderSize)
-                    Logger::Error("Mismatch between array sizes in different shaders.\n");
-                else
-                    combinedSize = shaderSize;
-             });
+                    auto& combinedSize = resLayout.sets[set].arraySize[bit];
+                    auto& shaderSize = shaderResLayout.sets[set].arraySize[bit];
+                    if (combinedSize && combinedSize != shaderSize)
+                        Logger::Error("Mismatch between array sizes in different shaders.\n");
+                    else
+                        combinedSize = shaderSize;
+                });
+            }
         }
 
         // push constants
@@ -840,6 +850,74 @@ std::vector<VkSubmitInfo>& BatchComposer::Bake()
     }
 
     return submits;
+}
+
+namespace {
+    static void UpdateShaderArrayInfo(ShaderResourceLayout& layout, U32 set, U32 binding)
+    {
+        
+    }
+}
+
+bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvData, size_t spirvSize);
+{
+	SpvReflectShaderModule module;
+	if (spvReflectCreateShaderModule(spirvSize, spirvData, &module != SPV_REFLECT_RESULT_SUCCESS)
+	{
+		Logger::Error("Failed to create reflect shader module.");
+		return false;
+	}
+
+	// get bindings info
+	U32 bindingCount = 0;
+	if (spvReflectEnumerateDescriptorBindings(module, &bindingCount, nullptr)
+	{
+		Logger::Error("Failed to reflect bindings.");
+		return false;
+	}
+	std::vector<SpvReflectDescriptorBinding*> bindings(bindingCount);
+	if (spvReflectEnumerateDescriptorBindings(module, &bindingCount, bindings.data())
+	{
+		Logger::Error("Failed to reflect bindings.");
+		return false;
+	}
+
+	// get push constants info
+	U32 pushCount = 0;
+	if (spvReflectEnumeratePushConstantBlocks(module, &pushCount, nullptr)
+	{
+		Logger::Error("Failed to reflect push constant blocks.");
+		return false;
+	}
+	std::vector<SpvReflectBlockVariable*> pushConstants(pushCount);
+	if (spvReflectEnumeratePushConstantBlocks(module, &pushCount, pushConstants.data())
+	{
+		Logger::Error("Failed to reflect push constant blocks.");
+		return false;
+	}
+
+    // parse push constant buffers
+    if (!pushConstants.empty())
+    {
+        // 这里仅仅获取第一个constant的大小
+        // At least on older validation layers, it did not do a static analysis to determine similar information
+        layout.pushConstantSize = pushConstants.front()->offset + pushConstants.front()->size;
+    }
+
+    // parse bindings
+    for (auto& x : bindings)
+    {
+        auto descriptorType = x->descriptor_type;
+        U32 set = x->set;
+        U32 binding = x->binding;
+        if (descriptorType == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+        {
+            layout.sets[set][static_cast<U32>(DescriptorSetLayout::STORAGE_IMAGE)] |= 1u << binding;
+            UpdateShaderArrayInfo(layout, set, binding);
+        }
+    }
+
+	return true;
 }
 
 }

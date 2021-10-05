@@ -114,6 +114,8 @@ public:
     void BindVertexBuffers();
     void BindIndexBuffers();
 
+    void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
+
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, uint32_t vertexOffset = 0);
 
     QueueType GetQueueType()const

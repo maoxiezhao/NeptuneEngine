@@ -15,9 +15,6 @@ namespace GPU
 			SAMPLED_BUFFER,
 			INPUT_ATTACHMENT,
 			SAMPLER,
-			SEPARATE_IMAGE,
-			FP,
-			IMMUTABLE_SAMPLER,
 			COUNT,
 		};
 		U32 masks[static_cast<U32>(SetMask::COUNT)] = {};
@@ -33,10 +30,11 @@ namespace GPU
 	class DescriptorSetAllocator : public HashedObject<DescriptorSetAllocator>
 	{
 	public:
-		DescriptorSetAllocator(DeviceVulkan& device_);
+		DescriptorSetAllocator(DeviceVulkan& device_, const DescriptorSetLayout& layout, const U32* stageForBinds);
 		~DescriptorSetAllocator();
 
 		void BeginFrame();
+		void Clear();
 
 		VkDescriptorSetLayout GetSetLayout()
 		{
@@ -50,7 +48,12 @@ namespace GPU
 		VkDescriptorSetLayout setLayout;
 		std::vector<VkDescriptorPool> pools;
 		std::vector<VkDescriptorPoolSize> poolSize;
+
 		std::unordered_map<HashValue, VkDescriptorSet> setMap;
-		bool isBindLess = false;
+		std::vector<VkDescriptorSet> setVacants;
+		VkDescriptorSet RequestVacant(HashValue hash);
+
+		bool shouldBegin = false;
+		bool isBindless = false;
 	};
 }

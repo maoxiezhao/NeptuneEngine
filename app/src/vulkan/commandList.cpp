@@ -353,6 +353,13 @@ void CommandList::BindIndexBuffers()
 {
 }
 
+void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range)
+{
+    assert(offset + range <= VULKAN_PUSH_CONSTANT_SIZE);
+    memcpy(bindings.pushConstantData + offset, data, range);
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT);
+}
+
 void CommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t vertexOffset)
 {
     if (FlushRenderState())
