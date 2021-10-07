@@ -70,7 +70,7 @@ public:
 class DeviceVulkan
 {
 public:
-    VkDevice device;
+    VkDevice device = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkInstance instance;
     QueueInfo queueInfo;

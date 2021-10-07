@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "definition.h"
 #include "shader.h"
@@ -70,6 +70,7 @@ class ShaderTemplateProgram
 {
 public:
 	ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage stage, ShaderTemplate* shaderTemplate);
+	ShaderTemplateProgram(DeviceVulkan& device_, const std::vector<std::pair<ShaderStage, ShaderTemplate*>>& templates);
 
 	ShaderTemplateProgramVariant* RegisterVariant(const ShaderVariantMap& defines);
 
@@ -104,6 +105,11 @@ public:
 	 * @return ShaderTemplateProgram 返回未编译的shaderTemplate
 	 */
 	ShaderTemplateProgram* RegisterShader(ShaderStage stage, const std::string& filePath);
+
+	/**
+	 * 注册一个Program
+	 */
+	ShaderTemplateProgram* RegisterGraphics(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines);
 
 private:
 	ShaderTemplate* GetTemplate(ShaderStage stage, const std::string filePath);

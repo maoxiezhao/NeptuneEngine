@@ -1,7 +1,7 @@
-#include "device.h"
+﻿#include "device.h"
 #include "utils\hash.h"
 
-#include "spirv_reflect\spirv_reflect.h"
+#include "spriv_reflect\spirv_reflect.h"
 
 namespace GPU
 {
@@ -156,7 +156,7 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
         {
             for (auto& presentMode : swapchain->presentModes)
             {
-                if (presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
+                if (presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
                 {
                     swapchainPresentMode = presentMode;
                     break;
@@ -608,6 +608,7 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
         {
             U32 activeBinds = false;
 
+
             // descriptor type masks
             for (U32 maskbit = 0; i < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
             {
@@ -859,10 +860,10 @@ namespace {
     }
 }
 
-bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvData, size_t spirvSize);
+bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvData, size_t spirvSize)
 {
 	SpvReflectShaderModule module;
-	if (spvReflectCreateShaderModule(spirvSize, spirvData, &module != SPV_REFLECT_RESULT_SUCCESS)
+	if (spvReflectCreateShaderModule(spirvSize, spirvData, &module) != SPV_REFLECT_RESULT_SUCCESS)
 	{
 		Logger::Error("Failed to create reflect shader module.");
 		return false;
@@ -870,13 +871,13 @@ bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvD
 
 	// get bindings info
 	U32 bindingCount = 0;
-	if (spvReflectEnumerateDescriptorBindings(module, &bindingCount, nullptr)
+	if (spvReflectEnumerateDescriptorBindings(&module, &bindingCount, nullptr))
 	{
 		Logger::Error("Failed to reflect bindings.");
 		return false;
 	}
 	std::vector<SpvReflectDescriptorBinding*> bindings(bindingCount);
-	if (spvReflectEnumerateDescriptorBindings(module, &bindingCount, bindings.data())
+	if (spvReflectEnumerateDescriptorBindings(&module, &bindingCount, bindings.data()))
 	{
 		Logger::Error("Failed to reflect bindings.");
 		return false;
@@ -884,13 +885,13 @@ bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvD
 
 	// get push constants info
 	U32 pushCount = 0;
-	if (spvReflectEnumeratePushConstantBlocks(module, &pushCount, nullptr)
+	if (spvReflectEnumeratePushConstantBlocks(&module, &pushCount, nullptr))
 	{
 		Logger::Error("Failed to reflect push constant blocks.");
 		return false;
 	}
 	std::vector<SpvReflectBlockVariable*> pushConstants(pushCount);
-	if (spvReflectEnumeratePushConstantBlocks(module, &pushCount, pushConstants.data())
+	if (spvReflectEnumeratePushConstantBlocks(&module, &pushCount, pushConstants.data()))
 	{
 		Logger::Error("Failed to reflect push constant blocks.");
 		return false;
@@ -912,7 +913,7 @@ bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvD
         U32 binding = x->binding;
         if (descriptorType == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE)
         {
-            layout.sets[set][static_cast<U32>(DescriptorSetLayout::STORAGE_IMAGE)] |= 1u << binding;
+            layout.sets[set].masks[static_cast<U32>(DescriptorSetLayout::STORAGE_IMAGE)] |= 1u << binding;
             UpdateShaderArrayInfo(layout, set, binding);
         }
     }

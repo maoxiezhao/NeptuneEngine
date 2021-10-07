@@ -1,26 +1,27 @@
 #include "descriptorSet.h"
+#include "device.h"
 
 namespace GPU
 {
 	static const unsigned VULKAN_NUM_SETS_PER_POOL = 16;
 
-	static VkDescriptorType GetTypeBySetMask(SetMask mask)
+	static VkDescriptorType GetTypeBySetMask(DescriptorSetLayout::SetMask mask)
 	{
 		switch (mask)
 		{
-			case SAMPLED_IMAGE:
+		case DescriptorSetLayout::SAMPLED_IMAGE:
 				return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			case STORAGE_IMAGE:
+			case DescriptorSetLayout::STORAGE_IMAGE:
 				return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			case UNIFORM_BUFFER:
+			case DescriptorSetLayout::UNIFORM_BUFFER:
 				return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-			case STORAGE_BUFFER:
+			case DescriptorSetLayout::STORAGE_BUFFER:
 				return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			case SAMPLED_BUFFER:
+			case DescriptorSetLayout::SAMPLED_BUFFER:
 				return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-			case INPUT_ATTACHMENT:
+			case DescriptorSetLayout::INPUT_ATTACHMENT:
 				return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-			case SAMPLER:
+			case DescriptorSetLayout::SAMPLER:
 				return VK_DESCRIPTOR_TYPE_SAMPLER;
 			default:
 				assert(false);
@@ -44,15 +45,15 @@ namespace GPU
 
 			// calculate array size and pool size
 			U32 arraySize = layout.arraySize[i];
-			U32 poolSize = 0;
+			U32 poolArraySize = 0;
 			if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY)
 			{
 				arraySize = VULKAN_NUM_BINDINGS_BINDLESS_VARYING;
-				poolSize = arraySize;
+				poolArraySize = arraySize;
 			}
 			else
 			{
-				poolSize = arraySize * VULKAN_NUM_SETS_PER_POOL;
+				poolArraySize = arraySize * VULKAN_NUM_SETS_PER_POOL;
 			}
 			
 			// create VkDescriptorSetLayoutBinding
@@ -69,7 +70,7 @@ namespace GPU
 						stages, 								// stageFlags
 						nullptr 								// pImmutableSamplers
 					});
-					poolSize.push_back({ descriptorType, poolSize });
+					poolSize.push_back({ descriptorType, poolArraySize });
 					types++;
 				}
 			}	
@@ -78,11 +79,11 @@ namespace GPU
 
 		if (!bindings.empty())
 		{
-			info.bindingCount = bindings.size();
+			info.bindingCount = (U32)bindings.size();
 			info.pBindings = bindings.data();
 		}
 
-		if (vkCreateDescriptorSetLayout(device.device, &info, nullptr, &setLayout) != VK_NULL_HANDLE)
+		if (vkCreateDescriptorSetLayout(device.device, &info, nullptr, &setLayout) != VK_SUCCESS)
 		{
 			Logger::Error("Failed to create descriptor set layout.");
 		}
@@ -91,7 +92,7 @@ namespace GPU
 	DescriptorSetAllocator::~DescriptorSetAllocator()
 	{
 		if (setLayout != VK_NULL_HANDLE)
-			vkDestroyDescriptorSetLayout(device.device, setLaayout, nullptr);
+			vkDestroyDescriptorSetLayout(device.device, setLayout, nullptr);
 
 		Clear();
 	}
@@ -119,14 +120,14 @@ namespace GPU
 			shouldBegin = false;
 			for(auto kvp : setMap)
 			{
-				setVacants.push_back(kvp->second);
+				setVacants.push_back(kvp.second);
 			}
 			setMap.clear();
 		}
 
 		auto it = setMap.find(hash);
 		if (it != setMap.end())
-			return { *it->second, true };
+			return { it->second, true };
 		
 		auto set = RequestVacant(hash);
 		if (set != VK_NULL_HANDLE)
@@ -138,7 +139,7 @@ namespace GPU
 		info.maxSets = VULKAN_NUM_SETS_PER_POOL;
 		if (!poolSize.empty())
 		{
-			info.poolSizeCount = poolSize.size();
+			info.poolSizeCount = (U32)poolSize.size();
 			info.pPoolSizes = poolSize.data();
 		}
 
@@ -151,14 +152,14 @@ namespace GPU
 		// 一次性分配VULKAN_NUM_SETS_PER_POOL个descriptor set并缓存起来，以减少分配的次数
 		VkDescriptorSet sets[VULKAN_NUM_SETS_PER_POOL];
 		VkDescriptorSetLayout layouts[VULKAN_NUM_SETS_PER_POOL];
-		std::fill(begin(layouts), end(layouts), setLayout);
+		std::fill(std::begin(layouts), std::end(layouts), setLayout);
 
 		VkDescriptorSetAllocateInfo allocInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 		allocInfo.descriptorPool = pool;
 		allocInfo.descriptorSetCount = VULKAN_NUM_SETS_PER_POOL;
 		allocInfo.pSetLayouts = layouts;
 
-		if (vkAllocateDescriptorSets(device.device, &alloc, sets) != VK_SUCCESS)
+		if (vkAllocateDescriptorSets(device.device, &allocInfo, sets) != VK_SUCCESS)
 		{
 			Logger::Error("Failed to allocate descriptor sets.");
 			return { VK_NULL_HANDLE, false };

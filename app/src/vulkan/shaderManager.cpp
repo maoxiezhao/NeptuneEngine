@@ -201,6 +201,13 @@ ShaderTemplateProgram::ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage 
 	SetShader(stage, shaderTemplate);
 }
 
+ShaderTemplateProgram::ShaderTemplateProgram(DeviceVulkan& device_, const std::vector<std::pair<ShaderStage, ShaderTemplate*>>& templates) :
+	device(device_)
+{
+	for (auto kvp : templates)
+		SetShader(kvp.first, kvp.second);
+}
+
 ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const ShaderVariantMap& defines)
 {
 	HashCombiner hasher;
@@ -416,6 +423,26 @@ ShaderTemplateProgram* ShaderManager::RegisterShader(ShaderStage stage, const st
 		return it->second;
 
 	return programs.emplace(hasher.Get(), device, stage, templ);
+}
+
+ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines)
+{
+	ShaderTemplate* vertTempl = GetTemplate(ShaderStage::VS, vertex);
+	ShaderTemplate* fragTempl = GetTemplate(ShaderStage::PS, fragment);
+	if (vertTempl == nullptr || fragTempl == nullptr)
+		return nullptr;
+
+	HashCombiner hasher;
+	hasher.HashCombine(vertTempl->GetPathHash());
+	hasher.HashCombine(fragTempl->GetPathHash());
+	auto it = programs.find(hasher.Get());
+	if (it != programs.end())
+		return it->second;
+
+	std::vector<std::pair<ShaderStage, ShaderTemplate*>> templates;
+	templates.push_back(std::make_pair(ShaderStage::VS, vertTempl));
+	templates.push_back(std::make_pair(ShaderStage::PS, fragTempl));
+	return programs.emplace(hasher.Get(), device, templates);
 }
 
 ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string filePath)

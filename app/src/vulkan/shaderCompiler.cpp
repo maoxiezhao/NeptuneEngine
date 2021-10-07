@@ -179,7 +179,6 @@ namespace ShaderCompiler
 		Helper::StringConvert(Helper::GetFileNameFromPath(input.shadersourcefilename), wsource);
 		args.push_back(wsource.c_str());
 
-
 		// Compile shader!!
 		DxcBuffer Source;
 		Source.Ptr = shadersourcedata.data();

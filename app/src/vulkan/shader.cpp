@@ -29,7 +29,7 @@ Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pSha
 	{
 		layout = *layout_;
 	}
-	else if (!device.ReflectShader(layout, pShaderBytecode, bytecodeLength))
+	else if (!device.ReflectShader(layout, static_cast<const U32*>(pShaderBytecode), bytecodeLength))
 	{
 		Logger::Error("Failed to reflect shader resource layout.");
 		return;

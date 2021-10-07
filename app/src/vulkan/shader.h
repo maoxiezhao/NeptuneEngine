@@ -27,7 +27,7 @@ namespace GPU
 		{
 			VkDescriptorBufferInfo buffer;
 			VkDescriptorImageInfo image;
-		}
+		};
 	};
 
 	struct ResourceBindings

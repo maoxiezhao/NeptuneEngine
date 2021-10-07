@@ -53,7 +53,10 @@ solution ("VulkanTest")
             files 
             {
                 "../3rdparty/volk/volk.h",
-                "../3rdparty/volk/volk.c"
+                "../3rdparty/volk/volk.c",
+
+                "../3rdparty/spriv_reflect/spirv_reflect.h",
+                "../3rdparty/spriv_reflect/spirv_reflect.c",
             }
             -- vpaths { 
             --     ["volk"] = {
