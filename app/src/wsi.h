@@ -12,7 +12,7 @@ public:
 	void Uninitialize();
 	void BeginFrame();
 	void EndFrame();
-	void SetPlatform(Platform* platform);
+	void SetPlatform(Platform* platform_);
 
 	GPU::Swapchain* GetSwapChain();
 	GPU::DeviceVulkan* GetDevice();

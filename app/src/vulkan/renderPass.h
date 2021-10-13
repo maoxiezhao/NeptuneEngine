@@ -52,6 +52,8 @@ private:
 	VkFormat depthStencil = VK_FORMAT_UNDEFINED;
 	std::vector<Subpass> subpasses;
 
+    void SetupSubPasses(const VkRenderPassCreateInfo& info);
+
 public:
     RenderPass(DeviceVulkan& device_, const RenderPassInfo& info);
     ~RenderPass();

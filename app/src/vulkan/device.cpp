@@ -21,37 +21,14 @@ namespace
     static uint64_t STATIC_COOKIE = 0;
 }
 
-DeviceVulkan::DeviceVulkan() :
-    shaderManager(*this)
+DeviceVulkan::DeviceVulkan() : shaderManager(*this)
 {
- 
-
-    ///////////////////////////////////////////////////////////////////////////////////////////
-    // create frame resources
-    const int FRAME_COUNT = 2;
-    const int THREAD_COUNT = 1;
-    for (int frameIndex = 0; frameIndex < FRAME_COUNT; frameIndex++)
-    {
-
-        auto& frameResource = frameResources.emplace_back();
-        for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
-        {
-            frameResource.cmdPools->reserve(THREAD_COUNT);
-            for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
-            {
-                frameResource.cmdPools->emplace_back(this, queueIndex);
-            }
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////
-    //init managers
-    fencePoolManager.Initialize(*this);
-    semaphoreManager.Initialize(*this);
 }
 
 DeviceVulkan::~DeviceVulkan()
 {
+    WaitIdle();
+
     fencePoolManager.ClearAll();
     semaphoreManager.ClearAll();
 }
@@ -65,6 +42,16 @@ void DeviceVulkan::SetContext(VulkanContext& context)
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // create frame resources
+    InitFrameContext();
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+    //init managers
+    fencePoolManager.Initialize(*this);
+    semaphoreManager.Initialize(*this);
+}
+
+void DeviceVulkan::InitFrameContext()
+{
     const int FRAME_COUNT = 2;
     const int THREAD_COUNT = 1;
     for (int frameIndex = 0; frameIndex < FRAME_COUNT; frameIndex++)
@@ -80,12 +67,8 @@ void DeviceVulkan::SetContext(VulkanContext& context)
             }
         }
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////
-    //init managers
-    fencePoolManager.Initialize(*this);
-    semaphoreManager.Initialize(*this);
 }
+
 
 bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, uint32_t width, uint32_t height)
 {
@@ -150,8 +133,8 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
         swapchain->format = surfaceFormat;
 
         // find suitable present mode
-        VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // �������Ǹ����У���ʾ��ʱ��Ӷ���ͷ��һ��ͼ�񣬳��������Ⱦ��ͼ�񵽶���β��
-        bool isVsync = true;                                              // ����������˳����Ҫ�ȴ����������Ǵ�ֱͬ������ʾˢ�µ�ʱ�̾��Ǵ�ֱ�հ�
+        VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // 交换链是个队列，显示的时候从队列头拿一个图像，程序插入渲染的图像到队列尾。
+        bool isVsync = true;                                              // 如果队列满了程序就要等待，这差不多像是垂直同步，显示刷新的时刻就是垂直空白
         if (!isVsync)
         {
             for (auto& presentMode : swapchain->presentModes)
@@ -238,15 +221,6 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
                 imagePtr->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
                 swapchain->images.push_back(imagePtr);
             }
-
-            // ��GetSwapchainRenderPassInfo�и���Hash��ȡ
-            //VkImageView attachments[] = {
-            //    swapchain->mImageViews[i]
-            //};
-            //// ����frameBuffer��ImageViewһһ��Ӧ
-            //VkFramebufferCreateInfo framebufferInfo = {};
-            //res = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapchain->frameBuffers[i]);
-            //assert(res == VK_SUCCESS);
         }
     }
 
@@ -447,21 +421,11 @@ void DeviceVulkan::BeginFrameContext()
     if (++frameIndex >= frameResources.size())
         frameIndex = 0;
 
-    // reset recyle fences
-    auto& recyleFences = CurrentFrameResource().recyleFences;
-    if (!recyleFences.empty())
-    {
-        vkResetFences(device, (uint32_t)recyleFences.size(), recyleFences.data());
-        for (auto& fence : recyleFences)
-            fencePoolManager.Recyle(fence);
-        recyleFences.clear();
-    }
-
     // begin frame resources
-    CurrentFrameResource().Begin(device);
+    CurrentFrameResource().Begin(*this);
 
     // clear destroyed resources
-    CurrentFrameResource().ProcessDestroyed(device);
+    CurrentFrameResource().ProcessDestroyed(*this);
 
     // reset recyle semaphores
     auto& recyleSemaphores = CurrentFrameResource().recycledSemaphroes;
@@ -482,7 +446,6 @@ void DeviceVulkan::EndFrameContext()
         {
             SubmitQueue(queueIndex, &fence);
            
-            // ���������Fence�������ӵ�waitFences�������BeginFrameǰ�ȴ�
             if (fence.fence != VK_NULL_HANDLE)
             {
                 frame.waitFences.push_back(fence.fence);
@@ -610,7 +573,7 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 
 
             // descriptor type masks
-            for (U32 maskbit = 0; i < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
+            for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
             {
                 resLayout.sets[set].masks[maskbit] |= shaderResLayout.sets[set].masks[maskbit];
                 activeBinds |= (resLayout.sets[set].masks[maskbit] != 0);
@@ -674,15 +637,41 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
     hasher.HashCombine(resLayout.pushConstantRange.size);
     resLayout.pushConstantHash = hasher.Get();
     
-    auto piplineLayout = RequestPipelineLayout(resLayout);
+    auto& piplineLayout = RequestPipelineLayout(resLayout);
     program.SetPipelineLayout(&piplineLayout);
+}
+
+void DeviceVulkan::WaitIdle()
+{
+    EndFrameContext();
+
+    if (device != VK_NULL_HANDLE)
+    {
+        auto ret = vkDeviceWaitIdle(device);
+        if (ret != VK_SUCCESS)
+            Logger::Error("vkDeviceWaitIdle failed:%d", ret);
+    }
+
+    frameBuffers.Clear();
+
+    for (auto& allocator : descriptorSetAllocators)
+        allocator.second->Clear();
+
+    for (auto& frame : frameResources)
+    {
+        frame.waitFences.clear();
+        frame.Begin(*this);
+    }
+}
+
+bool DeviceVulkan::IsSwapchainTouched()
+{
+    return wsi.consumed;
 }
 
 void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
 {
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
-
-    // ����ύ����Ϊ�գ���ֱ�ӿ��ύ
     if (submissions.empty())
     {
         if (fence != nullptr)
@@ -753,13 +742,22 @@ VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkF
     return vkQueueSubmit(queue, (uint32_t)submits.size(), submits.data(), fence);
 }
 
-void DeviceVulkan::FrameResource::Begin(VkDevice device)
+void DeviceVulkan::FrameResource::Begin(DeviceVulkan& device)
 {
     // wait for submiting
     if (!waitFences.empty())
     {
-        vkWaitForFences(device, (uint32_t)waitFences.size(), waitFences.data(), VK_TRUE, UINT64_MAX);
+        vkWaitForFences(device.device, (uint32_t)waitFences.size(), waitFences.data(), VK_TRUE, UINT64_MAX);
         waitFences.clear();
+    }
+
+    // reset recyle fences
+    if (!recyleFences.empty())
+    {
+        vkResetFences(device.device, (uint32_t)recyleFences.size(), recyleFences.data());
+        for (auto& fence : recyleFences)
+            device.fencePoolManager.Recyle(fence);
+        recyleFences.clear();
     }
 
     // reset command pools
@@ -770,18 +768,20 @@ void DeviceVulkan::FrameResource::Begin(VkDevice device)
     }
 }
 
-void DeviceVulkan::FrameResource::ProcessDestroyed(VkDevice device)
+void DeviceVulkan::FrameResource::ProcessDestroyed(DeviceVulkan& device)
 {
+    VkDevice vkDevice = device.device;
+
 	for (auto& buffer : destroyedFrameBuffers)
-		vkDestroyFramebuffer(device, buffer, nullptr);
+		vkDestroyFramebuffer(vkDevice, buffer, nullptr);
     for (auto& image : destroyedImages)
-        vkDestroyImage(device, image, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
     for (auto& imageView : destroyedImageViews)
-		vkDestroyImageView(device, imageView, nullptr);
+		vkDestroyImageView(vkDevice, imageView, nullptr);
     for (auto& semaphore : destroyeSemaphores)
-        vkDestroySemaphore(device, semaphore, nullptr);
+        vkDestroySemaphore(vkDevice, semaphore, nullptr);
     for (auto& pipeline : destroyedPipelines)
-        vkDestroyPipeline(device, pipeline, nullptr);
+        vkDestroyPipeline(vkDevice, pipeline, nullptr);
 
 	destroyedFrameBuffers.clear();
 	destroyedImages.clear();
@@ -792,7 +792,7 @@ void DeviceVulkan::FrameResource::ProcessDestroyed(VkDevice device)
 
 BatchComposer::BatchComposer()
 {
-    // Ĭ�ϴ���һ��Submit
+    // 默认存在一个Submit
     submits.emplace_back();
 }
 
@@ -809,7 +809,7 @@ void BatchComposer::BeginBatch()
 
 void BatchComposer::AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages)
 {
-    // ����wait semaphoresʱ�Ƚ�֮ǰ��cmds batch
+    // 添加wait semaphores时先将之前的cmds batch
     if (!submitInfos[submitIndex].commandLists.empty())
         BeginBatch();
 
@@ -824,7 +824,7 @@ void BatchComposer::AddSignalSemaphore(VkSemaphore sem)
 
 void BatchComposer::AddCommandBuffer(VkCommandBuffer buffer)
 {
-    // �������Signal semaphores���Ƚ�֮ǰ��cmds batch
+    // 如果存在Signal semaphores，先将之前的cmds batch
     if (!submitInfos[submitIndex].signalSemaphores.empty())
         BeginBatch();
 

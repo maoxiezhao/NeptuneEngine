@@ -159,7 +159,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     renderPass = &device.RequestRenderPass(renderPassInfo);
 
     // area
-    VkRect2D rect = {};
+    VkRect2D rect = renderPassInfo.renderArea;
     uint32_t fbWidth = frameBuffer->GetWidth();
     uint32_t fbHeight = frameBuffer->GetHeight();
     rect.offset.x = min(fbWidth, uint32_t(rect.offset.x));
@@ -174,8 +174,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     };
     scissor = rect;
 
-    // clear color
-    // ��������colorAttachmentsͬʱ���clearAttachments mask
+    // 遍历所有colorAttachments同时检查clearAttachments mask
     VkClearValue clearColors[VULKAN_NUM_ATTACHMENTS + 1];
     uint32_t numClearColor = 0;
     for (uint32_t i = 0; i < renderPassInfo.numColorAttachments; i++)
@@ -188,8 +187,8 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 
         // Check use swapchian in stages
         if (renderPassInfo.colorAttachments[i]->GetImage()->IsSwapchainImage())
-            SetSwapchainStages(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);  // ָ����Ϻ�ܵ��Ľ׶Σ����дӹܵ����������ɫֵ
-                                                                                // �˽׶λ���������ɫ���غʹ洢�����Լ�������ɫ��ʽ��֡���帽���Ķ��ز�����������
+            SetSwapchainStages(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);  // 指定混合后管道的阶段，其中从管道输出最终颜色值
+                                                                                // 此阶段还包括子颜色加载和存储操作以及具有颜色格式的帧缓冲附件的多重采样解析操作
     }
     // check is depth stencil and clear depth stencil
     if (renderPassInfo.depthStencil != nullptr)
@@ -221,7 +220,6 @@ void CommandList::EndRenderPass()
     renderPass = nullptr;
 }
 
-// �����Program������Ĺ���״̬
 void CommandList::ClearPipelineState()
 {
     pipelineState.blendState = {};
@@ -321,6 +319,19 @@ void CommandList::SetProgram(ShaderProgram* program)
         currentLayout = program->GetPipelineLayout();
         currentPipelineLayout = currentLayout->GetLayout();
     }
+}
+
+void CommandList::SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines)
+{
+   auto* tempProgram = device.GetShaderManager().RegisterGraphics(vertex, fragment, defines);
+   if (tempProgram == nullptr)
+   {
+       SetProgram(nullptr);
+       return;
+   }
+
+   auto variant = tempProgram->RegisterVariant(defines);
+   SetProgram(variant->GetProgram());
 }
 
 void CommandList::BeginGraphicsContext()

@@ -1,4 +1,4 @@
-#include "wsi.h"
+﻿#include "wsi.h"
 #include "app.h"
 #include "vulkan\device.h"
 #include "vulkan\context.h"
@@ -14,6 +14,7 @@ namespace {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     GPU::DeviceVulkan* deviceVulkan = nullptr;
     GPU::Swapchain* swapchian = nullptr;
+    bool swapchainIndexHasAcquired = false;
 
     std::vector<const char*> GetRequiredExtensions(bool debugUtils)
     {
@@ -94,6 +95,10 @@ void WSI::BeginFrame()
         return;
     }
 
+    // 当前swapchian已经Acquired
+    if (swapchainIndexHasAcquired)
+        return;
+
     GPU::SemaphorePtr acquire = deviceVulkan->RequestSemaphore();
 
     // acquire next image index
@@ -105,20 +110,29 @@ void WSI::BeginFrame()
         VK_NULL_HANDLE,
         &swapchian->mImageIndex
     );
-    assert(res == VK_SUCCESS);
+    if (res >= 0)
+    {
+        swapchainIndexHasAcquired = true;
 
-    // acquire image to render
-    acquire->Signal();
+        // acquire image to render
+        acquire->Signal();
 
-    // set swapchain acquire semaphore
-    deviceVulkan->SetAcquireSemaphore(swapchian->mImageIndex, acquire);
+        // set swapchain acquire semaphore
+        deviceVulkan->SetAcquireSemaphore(swapchian->mImageIndex, acquire);
+    }
 }
 
 void WSI::EndFrame()
 {
     deviceVulkan->EndFrameContext();
 
-    // release��EndFrameContext������,ȷ��image�Ѿ��ͷ�
+    // 检测在这一帧中是否使用过Swapchain
+    if (!deviceVulkan->IsSwapchainTouched())
+        return;
+
+    swapchainIndexHasAcquired = false;
+
+    // release在EndFrameContext中设置,确保image已经释放
     GPU::SemaphorePtr release = deviceVulkan->GetAndConsumeReleaseSemaphore();
     assert(release->IsSignalled());
 
@@ -139,9 +153,9 @@ void WSI::EndFrame()
     }
 }
 
-void WSI::SetPlatform(Platform* platform)
+void WSI::SetPlatform(Platform* platform_)
 {
-	platform = platform;
+	platform = platform_;
 }
 
 GPU::Swapchain* WSI::GetSwapChain()

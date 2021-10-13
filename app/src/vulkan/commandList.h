@@ -4,6 +4,7 @@
 #include "renderPass.h"
 #include "frameBuffer.h"
 #include "shader.h"
+#include "shaderManager.h"
 
 namespace GPU
 {
@@ -20,10 +21,8 @@ class DeviceVulkan;
 enum CommandListDirtyBits
 {
 	COMMAND_LIST_DIRTY_PIPELINE_BIT = 1 << 0,
-
     COMMAND_LIST_DIRTY_VIEWPORT_BIT = 1 << 1,
     COMMAND_LIST_DIRTY_SCISSOR_BIT = 1 << 2,
-
     COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT = 1 << 3,
 
     COMMAND_LIST_DIRTY_DYNAMIC_BITS = COMMAND_LIST_DIRTY_VIEWPORT_BIT | COMMAND_LIST_DIRTY_SCISSOR_BIT
@@ -142,6 +141,7 @@ public:
     void ClearPipelineState();
     void SetDefaultOpaqueState();
     void SetProgram(ShaderProgram* program);
+    void SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines = {});
 
 private:
     friend class DeviceVulkan;

@@ -24,6 +24,10 @@ namespace {
 	}
 }
 
+void RenderPass::SetupSubPasses(const VkRenderPassCreateInfo& info)
+{
+}
+
 RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 	device(device_)
 {
@@ -100,6 +104,9 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 	createRenderPassInfo.pAttachments = attachments;
 	createRenderPassInfo.subpassCount = numSubPasses;
 	createRenderPassInfo.pSubpasses = subPasses.data();
+
+	// Setup subpasses
+	SetupSubPasses(createRenderPassInfo);
 
 	VkResult res = vkCreateRenderPass(device.device, &createRenderPassInfo, nullptr, &renderPass);
 	assert(res == VK_SUCCESS);

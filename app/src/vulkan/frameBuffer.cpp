@@ -14,8 +14,9 @@ FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass, const Re
 	height = UINT32_MAX;
 
 	// 遍历所有ColorAttachments，获取imageView，获取最小的size(w, h)
-	for (auto& view : info.colorAttachments)
+	for (U32 i = 0; i < info.numColorAttachments; i++)
 	{
+		const ImageView* view = info.colorAttachments[i];
 		imageViews[numImageViews++] = view->GetRenderTargetView(0);
 		width = min(width, view->GetImage()->GetWidth());
 		height = min(height, view->GetImage()->GetHeight());

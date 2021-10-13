@@ -280,7 +280,12 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     volkLoadDevice(device);
 
     for (int i = 0; i < QUEUE_INDEX_COUNT; i++)
-        vkGetDeviceQueue(device, queueIndices[i], 0, &queueInfo.mQueues[i]);
+    {
+        if (queueIndices[i] != VK_QUEUE_FAMILY_IGNORED)
+        {
+            vkGetDeviceQueue(device, queueIndices[i], 0, &queueInfo.mQueues[i]);
+        }
+    }
 
     return true;
 }

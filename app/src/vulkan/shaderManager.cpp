@@ -1,4 +1,4 @@
-#include "shaderManager.h"
+﻿#include "shaderManager.h"
 #include "shaderCompiler.h"
 #include "device.h"
 #include "utils\archive.h"
@@ -170,7 +170,7 @@ ShaderTemplate::Variant* ShaderTemplate::RegisterVariant(const ShaderVariantMap&
 		CompilerOutput output;
 		if (Compile(input, output))
 		{
-			Logger::Error("Compile shader successfully:%d", path.c_str());
+			Logger::Info("Compile shader successfully:%d", path.c_str());
 			SaveShaderAndMetadata(exportShaderPath, output);
 			if (!output.errorMessage.empty())
 				Logger::Error(output.errorMessage.c_str());
@@ -188,9 +188,21 @@ ShaderTemplate::Variant* ShaderTemplate::RegisterVariant(const ShaderVariantMap&
 			return nullptr;
 		}
 	}
+	else
+	{
+		if (!Helper::FileRead(exportShaderPath, ret->spirv))
+		{
+			Logger::Error("Failed to load export shader:%s", exportShaderPath.c_str());
+			return nullptr;
+		}
+	}
 #endif
-
+	ret->instance++;
 	ret->SetHash(hash);
+
+	if (!defines.empty())
+		ret->defines = defines;
+
 	variants.insert(hash, ret);
 	return ret;
 }

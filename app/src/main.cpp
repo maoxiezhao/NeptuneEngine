@@ -1,11 +1,11 @@
 
 #include "common.h"
 #include "vulkan/device.h"
-#include "app.h"
+#include "test.h"
 
 int main()
 {
-    std::unique_ptr<App> app = std::make_unique<App>();
+    std::unique_ptr<TestApp> app = std::make_unique<TestApp>();
     if (app == nullptr)
         return 0;
 

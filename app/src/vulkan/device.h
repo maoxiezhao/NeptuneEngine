@@ -97,8 +97,8 @@ public:
         // submissions
         std::vector<CommandListPtr> submissions[QUEUE_INDEX_COUNT];
 
-        void Begin(VkDevice device);
-        void ProcessDestroyed(VkDevice device);
+        void Begin(DeviceVulkan& device);
+        void ProcessDestroyed(DeviceVulkan& device);
     };
     std::vector<FrameResource> frameResources;
     uint32_t frameIndex = 0;
@@ -108,6 +108,8 @@ public:
         assert(frameIndex < frameResources.size());
         return frameResources[frameIndex];
     }
+
+    void InitFrameContext();
 
     // vulkan object cache
     // TODO: use vk_mem_alloc to replace vulkanCache
@@ -139,6 +141,8 @@ public:
     void SetContext(VulkanContext& context);
     bool CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, uint32_t width, uint32_t height);
     void BakeShaderProgram(ShaderProgram& program);
+    void WaitIdle();
+    bool IsSwapchainTouched();
 
     CommandListPtr RequestCommandList(QueueType queueType);
     CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
