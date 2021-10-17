@@ -5,7 +5,6 @@
 
 namespace GPU
 {
-
 namespace 
 {
 	static const QueueIndices QUEUE_FLUSH_ORDER[] = {

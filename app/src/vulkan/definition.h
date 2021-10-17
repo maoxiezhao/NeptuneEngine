@@ -5,6 +5,7 @@
 #include "utils\intrusivePtr.hpp"
 #include "utils\log.h"
 #include "utils\hash.h"
+#include "utils\stackAllocator.h"
 #include "vulkanCache.h"
 
 // platform win32
