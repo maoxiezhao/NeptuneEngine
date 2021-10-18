@@ -6,6 +6,7 @@
 #include "utils\log.h"
 #include "utils\hash.h"
 #include "utils\stackAllocator.h"
+#include "utils\tempHashMap.h"
 #include "vulkanCache.h"
 
 // platform win32
@@ -23,6 +24,8 @@
 #include "volk\volk.h"
 
 #include "GLFW\glfw3.h"
+
+#define VULKAN_DEBUG
 
 namespace GPU
 {
@@ -134,6 +137,12 @@ enum DepthWriteMask
     DEPTH_WRITE_MASK_ALL,
 };
 
+enum class ImageDomain
+{
+    PHYSICAL,
+    TRANSIENT,
+};
+
 class Image;
 struct ImageViewCreateInfo
 {
@@ -155,8 +164,25 @@ struct ImageCreateInfo
     VkImageCreateFlags flags = 0;
     uint32_t misc;
     VkImageLayout initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+    ImageDomain domain = ImageDomain::PHYSICAL;
 
     static ImageCreateInfo renderTarget(uint32_t width, uint32_t height, VkFormat format)
+    {
+        ImageCreateInfo info = {};
+        info.width = width;
+        info.height = height;
+        info.format = format;
+        info.usage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        info.initialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ?
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL :
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        return info;
+    }
+
+    static ImageCreateInfo TransientRenderTarget(uint32_t width, uint32_t height, VkFormat format)
     {
         ImageCreateInfo info = {};
         info.width = width;
@@ -247,6 +273,13 @@ struct DepthStencilState
     };
     DepthStencilOp frontFace;
     DepthStencilOp backFace;
+};
+
+struct SubresourceData
+{
+    const void* data = nullptr;
+    U32 rowPitch = 0;
+    U32 slicePitch = 0;
 };
 
 }

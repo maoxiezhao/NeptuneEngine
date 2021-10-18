@@ -154,9 +154,23 @@ CommandList::~CommandList()
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 {
+    assert(frameBuffer == nullptr);
+    assert(compatibleRenderPass == nullptr);
+
+    // Get frame buffer and render pass
     frameBuffer = &device.RequestFrameBuffer(renderPassInfo);
     compatibleRenderPass = &frameBuffer->GetRenderPass();
     renderPass = &device.RequestRenderPass(renderPassInfo);
+
+    pipelineState.subpassIndex = 0;
+
+    // init framebuffer attachments
+    memset(frameBufferAttachments, 0, sizeof(frameBufferAttachments));
+    U32 att = 0;
+    for (att = 0; att < renderPassInfo.numColorAttachments; att++)
+        frameBufferAttachments[att] = renderPassInfo.colorAttachments[att];
+    if (renderPassInfo.depthStencil != nullptr)
+        frameBufferAttachments[att] = renderPassInfo.depthStencil;
 
     // area
     VkRect2D rect = renderPassInfo.renderArea;
@@ -218,6 +232,7 @@ void CommandList::EndRenderPass()
     // clear runtime resources
     frameBuffer = nullptr;
     renderPass = nullptr;
+    compatibleRenderPass = nullptr;
 }
 
 void CommandList::ClearPipelineState()
@@ -375,7 +390,7 @@ void CommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t
 {
     if (FlushRenderState())
     {
-        vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);
+        // vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);
     }
 }
 
@@ -442,7 +457,7 @@ bool CommandList::FlushGraphicsPipeline()
 
     if (pipelineState.isOwnedByCommandList)
     {
-        device.UpdateGraphicsPipelineHash(pipelineState);
+        UpdateGraphicsPipelineHash(pipelineState);
         currentPipeline = pipelineState.shaderProgram->GetPipeline(pipelineState.hash);
     }
 
@@ -704,6 +719,25 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
 VkPipeline CommandList::BuildComputePipeline(const CompilePipelineState& pipelineState)
 {
     return VkPipeline();
+}
+
+void CommandList::UpdateGraphicsPipelineHash(CompilePipelineState pipeline)
+{
+    assert(pipeline.shaderProgram != nullptr);
+    HashCombiner hash;
+    const CombinedResourceLayout& layout = pipeline.shaderProgram->GetPipelineLayout()->GetResLayout();
+    ForEachBit(layout.attributeInputMask, [&](U32 bit) {
+        hash.HashCombine(bit);
+        hash.HashCombine(pipeline.attribs[bit].binding);
+        hash.HashCombine(pipeline.attribs[bit].format);
+        hash.HashCombine(pipeline.attribs[bit].offset);
+    });
+
+    hash.HashCombine(compatibleRenderPass->GetHash());
+    hash.HashCombine(pipeline.subpassIndex);
+    hash.HashCombine(pipeline.shaderProgram->GetHash());
+
+    pipeline.hash = hash.Get();
 }
 
 }

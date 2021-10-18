@@ -9,10 +9,14 @@ namespace GPU
 	{
 		DescriptorSetLayout sets[VULKAN_NUM_DESCRIPTOR_SETS];
 		uint32_t pushConstantSize = 0;
+		uint32_t inputMask = 0;
+		uint32_t outputMask = 0;
 	};
 
 	struct CombinedResourceLayout
 	{
+		U32 attributeInputMask = 0;
+		U32 renderTargetMask = 0;
 		U32 descriptorSetMask = 0;
 		U32 stagesForSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 		U32 stagesForBindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS] = {};

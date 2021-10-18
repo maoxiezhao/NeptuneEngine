@@ -41,6 +41,11 @@ public:
         return oldSemaphore;
     }
 
+    void WaitExternal()
+    {
+        signalled = false;
+    }
+
     void Signal()
     {
         assert(!signalled);

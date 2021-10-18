@@ -5,145 +5,128 @@
 namespace GPU
 {
 
-namespace
-{
-    bool CheckExtensionSupport(const char* checkExtension, const std::vector<VkExtensionProperties>& availableExtensions)
-    {
-        for (const auto& x : availableExtensions)
-        {
-            if (strcmp(x.extensionName, checkExtension) == 0)
-                return true;
-        }
-        return false;
-    }
-
-    std::vector<const char*> GetOptimalValidationLayers(const std::vector<VkLayerProperties>& layerProperties)
-    {
-        std::vector<std::vector<const char*>> validationLayerPriorityList =
-        {
-            // The preferred validation layer is "VK_LAYER_KHRONOS_validation"
-            {"VK_LAYER_KHRONOS_validation"},
-
-            // Otherwise we fallback to using the LunarG meta layer
-            {"VK_LAYER_LUNARG_standard_validation"},
-
-            // Otherwise we attempt to enable the individual layers that compose the LunarG meta layer since it doesn't exist
-            {
-                "VK_LAYER_GOOGLE_threading",
-                "VK_LAYER_LUNARG_parameter_validation",
-                "VK_LAYER_LUNARG_object_tracker",
-                "VK_LAYER_LUNARG_core_validation",
-                "VK_LAYER_GOOGLE_unique_objects",
-            },
-
-            // Otherwise as a last resort we fallback to attempting to enable the LunarG core layer
-            {"VK_LAYER_LUNARG_core_validation"}
-        };
-
-        auto ValidateLayers = [](const std::vector<const char*>& required,
-            const std::vector<VkLayerProperties>& available)
-        {
-            for (auto layer : required)
-            {
-                bool found = false;
-                for (auto& available_layer : available)
-                {
-                    if (strcmp(available_layer.layerName, layer) == 0)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        };
-
-        for (auto& validationLayers : validationLayerPriorityList)
-        {
-            if (ValidateLayers(validationLayers, layerProperties))
-            {
-                return validationLayers;
-            }
-        }
-
-        return {};
-    }
-
-
-    
-}
-
 VulkanContext::~VulkanContext()
 {
+#ifdef VULKAN_DEBUG
     if (mDebugUtilsMessenger != VK_NULL_HANDLE) {
         vkDestroyDebugUtilsMessengerEXT(instance, mDebugUtilsMessenger, nullptr);
     }
+#endif
 
     vkDestroyDevice(device, nullptr);
     vkDestroyInstance(instance, nullptr);
 }
 
-bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugLayer)
+bool VulkanContext::Initialize(std::vector<const char*> instanceExt_, std::vector<const char*> deviceExt_, bool debugLayer_)
 {
-    mIsDebugLayer = debugLayer;
+    debugLayer = debugLayer_;
 
     VkResult res = volkInitialize();
-    assert(res == VK_SUCCESS);
+    if (res != VK_SUCCESS)
+    {
+        Logger::Error("Faile to initialize volk");
+        return false;
+    }
 
-    // app info
-    VkApplicationInfo appInfo = {};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Cjing3D App";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "Cjing3D Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_2;
+    if (!CreateInstance(instanceExt_))
+    {
+        Logger::Error("Faile to create vulkan instance");
+        return false;
+    }
+  
+    if (!CreateDevice(VK_NULL_HANDLE, deviceExt_, {}))
+    {
+        Logger::Error("Faile to create vulkan device");
+        return false;
+    }
 
-    // enum available layers
-    uint32_t layerCount;
-    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-    std::vector<VkLayerProperties> availablelayerProperties(layerCount);
-    vkEnumerateInstanceLayerProperties(&layerCount, availablelayerProperties.data());
+    return true;
+}
+
+bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
+{
+    VkInstanceCreateInfo instCreateInfo = {};
+    extensionFeatures.supportsVulkan11Instance = volkGetInstanceVersion() >= VK_API_VERSION_1_1;
+
+    VkApplicationInfo appInfo = GetApplicationInfo();
+    std::vector<const char*> instanceExts;
+    std::vector<const char*> instanceLayers;
 
     // enum available extension
-    uint32_t extensionCount = 0;
-    res = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-    assert(res == VK_SUCCESS);
-    std::vector<VkExtensionProperties> availableInstanceExtensions(extensionCount);
-    res = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableInstanceExtensions.data());
-    assert(res == VK_SUCCESS);
+    for (const auto& ext : instanceExt)
+        instanceExts.push_back(ext);
 
+    uint32_t extensionCount = 0;
+    VkResult res = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+    assert(res == VK_SUCCESS);
+    std::vector<VkExtensionProperties> quiredExtensions(extensionCount);
+    res = vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, quiredExtensions.data());
+    assert(res == VK_SUCCESS);
 
     ///////////////////////////////////////////////////////////////////////////////////////////
-    // check features by instance extensions
+    // check extension
+    const auto HasExtension = [&](const char* name)
+    {
+        auto it = std::find_if(std::begin(quiredExtensions), std::end(quiredExtensions), [name](const VkExtensionProperties& e) -> bool {
+            return strcmp(e.extensionName, name) == 0;
+            });
+        return it != quiredExtensions.end();
+    };
+
     auto itr = std::find_if(instanceExt.begin(), instanceExt.end(), [](const char* name) {
         return strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0;
         });
     bool has_surface_extension = itr != instanceExt.end();
-    if (has_surface_extension && CheckExtensionSupport(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, availableInstanceExtensions))
+    if (has_surface_extension && HasExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
     {
         instanceExt.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
-        mExtensionFeatures.SupportsSurfaceCapabilities2 = true;
+        extensionFeatures.supportsSurfaceCapabilities2 = true;
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////
-    // enum layout instances
-    std::vector<const char*> instanceLayers;
-    if (debugLayer)
+#ifdef VULKAN_DEBUG
+    // check support valiadation layer
+    uint32_t layerCount = 0;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<VkLayerProperties> queriedLayers(layerCount);
+    if (layerCount)
+        vkEnumerateInstanceLayerProperties(&layerCount, queriedLayers.data());
+
+    const auto HasLayer = [&](const char* name)
     {
-        std::vector<const char*> optimalValidationLyers = GetOptimalValidationLayers(availablelayerProperties);
-        instanceLayers.insert(instanceLayers.end(), optimalValidationLyers.begin(), optimalValidationLyers.end());
+        auto it = std::find_if(std::begin(queriedLayers), std::end(queriedLayers), [name](const VkLayerProperties& e) -> bool {
+            return strcmp(e.layerName, name) == 0;
+            });
+        return it != queriedLayers.end();
+    };
+
+    VkValidationFeaturesEXT validationFeatures = { VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
+    if (debugLayer && HasLayer("VK_LAYER_KHRONOS_validation"))
+    {
+        instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+
+        uint32_t layerExtCount = 0;
+        vkEnumerateInstanceExtensionProperties("VK_LAYER_KHRONOS_validation", &layerExtCount, nullptr);
+        std::vector<VkExtensionProperties> layerExts(layerExtCount);
+        vkEnumerateInstanceExtensionProperties("VK_LAYER_KHRONOS_validation", &layerExtCount, layerExts.data());
+
+        if (std::find_if(std::begin(layerExts), std::end(layerExts), [](const VkExtensionProperties& e) {
+                return strcmp(e.extensionName, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME) == 0;
+            }) != std::end(layerExts))
+        {
+            instanceExts.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+
+            static const VkValidationFeatureEnableEXT validation_sync_features[1] = {
+                VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+            };
+            validationFeatures.enabledValidationFeatureCount = 1;
+            validationFeatures.pEnabledValidationFeatures = validation_sync_features;
+            instCreateInfo.pNext = &validationFeatures;
+        }
     }
+#endif
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // inst create info
-    VkInstanceCreateInfo instCreateInfo = {};
     instCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instCreateInfo.pApplicationInfo = &appInfo;
     instCreateInfo.enabledLayerCount = (uint32_t)instanceLayers.size();
@@ -151,17 +134,6 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     instCreateInfo.enabledExtensionCount = (uint32_t)instanceExt.size();
     instCreateInfo.ppEnabledExtensionNames = instanceExt.data();
 
-    // debug info
-    VkDebugUtilsMessengerCreateInfoEXT debugUtilsCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
-    if (debugLayer && mIsDebugUtils)
-    {
-        debugUtilsCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-        debugUtilsCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        debugUtilsCreateInfo.pfnUserCallback = DebugCallback;
-        instCreateInfo.pNext = &debugUtilsCreateInfo;
-    }
-
-    // create instance
     VkResult ret = vkCreateInstance(&instCreateInfo, nullptr, &instance);
     if (ret != VK_SUCCESS)
     {
@@ -170,43 +142,81 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     }
 
     // volk load instance
-    volkLoadInstanceOnly(instance);
+    volkLoadInstance(instance);
 
-    // create debug utils messager ext
-    if (debugLayer && mIsDebugUtils)
+#ifdef VULKAN_DEBUG
+    if (debugLayer)
     {
+        VkDebugUtilsMessengerCreateInfoEXT debugUtilsCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
+        debugUtilsCreateInfo.messageSeverity = 
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | 
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        debugUtilsCreateInfo.messageType = 
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugUtilsCreateInfo.pfnUserCallback = DebugCallback;
+        debugUtilsCreateInfo.pUserData = this;
+     
         res = vkCreateDebugUtilsMessengerEXT(instance, &debugUtilsCreateInfo, nullptr, &mDebugUtilsMessenger);
         assert(res == VK_SUCCESS);
     }
+#endif
 
+    return true;
+}
+
+bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<const char*> deviceExt, std::vector<const char*> deviceLayers)
+{
     ///////////////////////////////////////////////////////////////////////////////////////////
-    // enum physical devices
-    const std::vector<const char*> requiredDeviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,                // swapchain
-        VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME,        // depth clip
-    };
-    std::vector<const char*> enabledDeviceExtensions;
+    // Find physical device
 
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-    if (deviceCount == 0)
-    {
-        Logger::Error("Failed to find gpus with vulkan support.");
-        return false;
-    }
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+    physicalDevice = physicalDevice_;
 
-    bool isBreak = false;
-    for (const auto& device : devices)
+    if (physicalDevice == VK_NULL_HANDLE)
     {
-        if (CheckPhysicalSuitable(device, isBreak))
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+        if (deviceCount == 0)
         {
-            enabledDeviceExtensions = requiredDeviceExtensions;
+            Logger::Error("Failed to find gpus with vulkan support.");
+            return false;
+        }
+        std::vector<VkPhysicalDevice> devices(deviceCount);
+        vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-            physicalDevice = device;
-            if (isBreak)
-                break;
+        for (const auto& device : devices)
+        {
+            VkPhysicalDeviceProperties props;
+            vkGetPhysicalDeviceProperties(device, &props);
+            Logger::Info("Found Vulkan GPU: %s", props.deviceName);
+        }
+
+        // Find best physical device
+        U32 maxScore = 0;
+        for (U32 i = devices.size(); i > 0; i--)
+        {
+            U32 score = 0;
+            VkPhysicalDeviceProperties props = {};
+            vkGetPhysicalDeviceProperties(devices[i - 1], &props);
+            switch (props.deviceType)
+            {
+            case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+                score = 3;
+            case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+                score = 2;
+            case VK_PHYSICAL_DEVICE_TYPE_CPU:
+                score = 1;
+            default:
+                score = 0;
+            }
+            if (score >= maxScore)
+            {
+                physicalDevice = devices[i - 1];
+                maxScore = score;
+            }
         }
     }
 
@@ -214,6 +224,55 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     {
         Logger::Error("Failed to find a suitable GPU");
         return false;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+    // Check extension and layer
+    uint32_t extCount = 0;
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extCount, nullptr);
+    std::vector<VkExtensionProperties> queriedExtensions(extCount);
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extCount, queriedExtensions.data());
+
+    uint32_t layerCount = 0;
+    vkEnumerateDeviceLayerProperties(physicalDevice, &layerCount, nullptr);
+    std::vector<VkLayerProperties> queriedLayers(layerCount);
+    if (layerCount > 0)
+        vkEnumerateDeviceLayerProperties(physicalDevice, &layerCount, queriedLayers.data());
+
+    const auto HasExtension = [&](const char* name)
+    {
+        auto it = std::find_if(std::begin(queriedExtensions), std::end(queriedExtensions), [name](const VkExtensionProperties& e) -> bool {
+            return strcmp(e.extensionName, name) == 0;
+            });
+        return it != queriedExtensions.end();
+    };
+
+    const auto HasLayer = [&](const char* name)
+    {
+        auto it = std::find_if(std::begin(queriedLayers), std::end(queriedLayers), [name](const VkLayerProperties& e) -> bool {
+            return strcmp(e.layerName, name) == 0;
+            });
+        return it != queriedLayers.end();
+    };
+
+    for (const auto& ext : deviceExt)
+    {
+        if (!HasExtension(ext))
+            return false;
+    }
+    for (const auto& layer : deviceLayers)
+    {
+        if (!HasLayer(layer))
+            return false;
+    }
+
+    vkGetPhysicalDeviceProperties(physicalDevice, &physicalDevcieProps);
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &physicalDeviceMemProps);
+
+    Logger::Info("Selected vulkan gpu:%s", physicalDevcieProps.deviceName);
+    if (physicalDevcieProps.apiVersion >= VK_API_VERSION_1_1)
+    {
+        extensionFeatures.supportsVulkan11Device = extensionFeatures.supportsVulkan11Instance;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -246,6 +305,13 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
     ///////////////////////////////////////////////////////////////////////////////////////////
     // create logical device
 
+    std::vector<const char*> enabledExtensions;
+    std::vector<const char*> enabledLayers;
+    for (const auto& ext : deviceExt)
+        enabledExtensions.push_back(ext);
+    for (const auto& layer : deviceLayers)
+        enabledLayers.push_back(layer);
+
     // setup queue create infos
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<int> uniqueQueueFamilies = {
@@ -264,75 +330,111 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt, bool debugL
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+#ifdef VULKAN_DEBUG
+    if (debugLayer && HasLayer("VK_LAYER_KHRONOS_validation"))
+        enabledLayers.push_back("VK_LAYER_KHRONOS_validation");
+    else if (debugLayer && HasLayer("VK_LAYER_LUNARG_standard_validation"))
+        enabledLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+#endif
+
     // create device
     VkDeviceCreateInfo createDeviceInfo = {};
     createDeviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createDeviceInfo.queueCreateInfoCount = (uint32_t)queueCreateInfos.size();
+    createDeviceInfo.queueCreateInfoCount = (U32)queueCreateInfos.size();
     createDeviceInfo.pQueueCreateInfos = queueCreateInfos.data();
     createDeviceInfo.pEnabledFeatures = nullptr;
     createDeviceInfo.pNext = &mFeatures2;
-    createDeviceInfo.enabledExtensionCount = (uint32_t)enabledDeviceExtensions.size();
-    createDeviceInfo.ppEnabledExtensionNames = enabledDeviceExtensions.data();
+    createDeviceInfo.enabledExtensionCount = (U32)enabledExtensions.size();
+    createDeviceInfo.ppEnabledExtensionNames = enabledExtensions.empty() ? nullptr : enabledExtensions.data();
+    createDeviceInfo.enabledLayerCount = (U32)enabledLayers.size();
+    createDeviceInfo.ppEnabledLayerNames = enabledLayers.empty() ? nullptr : enabledLayers.data();
 
-    res = vkCreateDevice(physicalDevice, &createDeviceInfo, nullptr, &device);
-    assert(res == VK_SUCCESS);
+    if (vkCreateDevice(physicalDevice, &createDeviceInfo, nullptr, &device) != VK_SUCCESS)
+        return false;
 
     volkLoadDevice(device);
 
     for (int i = 0; i < QUEUE_INDEX_COUNT; i++)
     {
         if (queueIndices[i] != VK_QUEUE_FAMILY_IGNORED)
-        {
             vkGetDeviceQueue(device, queueIndices[i], 0, &queueInfo.mQueues[i]);
-        }
     }
 
     return true;
 }
 
-bool VulkanContext::CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak)
+VkApplicationInfo VulkanContext::GetApplicationInfo()
 {
-    const std::vector<const char*> requiredDeviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME,
-    };
-
-    // 1. check device support required device extensions
-    uint32_t extensionCount;
-    VkResult res = vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-    assert(res == VK_SUCCESS);
-    std::vector<VkExtensionProperties> availableDeviceExtensions(extensionCount);
-    res = vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableDeviceExtensions.data());
-    assert(res == VK_SUCCESS);
-
-    for (auto& requiredExt : requiredDeviceExtensions)
-    {
-        if (!CheckExtensionSupport(requiredExt, availableDeviceExtensions))
-            return false;
-    }
-
-    // 2. check device properties
-    bool ret = physicalDevice == VK_NULL_HANDLE;
-    vkGetPhysicalDeviceProperties2(device, &mProperties2);
-    if (mProperties2.properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-    {
-        isBreak = true;
-        ret = true;
-    }
-
-    // 3. check device features
-    mFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    vkGetPhysicalDeviceFeatures2(device, &mFeatures2);
-
-    ret &= mFeatures2.features.imageCubeArray == VK_TRUE;
-    ret &= mFeatures2.features.independentBlend == VK_TRUE;
-    ret &= mFeatures2.features.geometryShader == VK_TRUE;
-    ret &= mFeatures2.features.samplerAnisotropy == VK_TRUE;
-    ret &= mFeatures2.features.shaderClipDistance == VK_TRUE;
-    ret &= mFeatures2.features.textureCompressionBC == VK_TRUE;
-    ret &= mFeatures2.features.occlusionQueryPrecise == VK_TRUE;
-
-    return ret;
+    VkApplicationInfo appInfo = {};
+    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.pApplicationName = "Cjing3D App";
+    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.pEngineName = "Cjing3D Engine";
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.apiVersion = VK_API_VERSION_1_2;
+    return appInfo;
 }
+
+#ifdef VULKAN_DEBUG
+VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::DebugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
+    VkDebugUtilsMessageTypeFlagsEXT messageType, 
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
+    void* pUserData)
+{
+    if (messageType == VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+    {
+        // Using LINEAR filter with COMPARE. Spec bug, should not trigger validation.
+        if (uint32_t(pCallbackData->messageIdNumber) == 0xf2fea78eu)
+            return VK_FALSE;
+        if (uint32_t(pCallbackData->messageIdNumber) == 0xd2c86c0cu)
+            return VK_FALSE;
+        if (uint32_t(pCallbackData->messageIdNumber) == 0x2aba6354u)
+            return VK_FALSE;
+    }
+
+    switch (messageSeverity)
+    {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+        if (messageType == VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+            Logger::Error("[Vulkan]: Validation Error: %s\n", pCallbackData->pMessage);
+        else
+            Logger::Error("[Vulkan]: Other Error: %s\n", pCallbackData->pMessage);
+        break;
+
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+        if (messageType == VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+            Logger::Warning("[Vulkan]: Validation Warning: %s\n", pCallbackData->pMessage);
+        else
+            Logger::Warning("[Vulkan]: Other Warning: %s\n", pCallbackData->pMessage);
+        break;
+
+    default:
+        return VK_FALSE;
+    }
+
+    bool logObjectNames = false;
+    for (uint32_t i = 0; i < pCallbackData->objectCount; i++)
+    {
+        auto* name = pCallbackData->pObjects[i].pObjectName;
+        if (name)
+        {
+            logObjectNames = true;
+            break;
+        }
+    }
+
+    if (logObjectNames)
+    {
+        for (uint32_t i = 0; i < pCallbackData->objectCount; i++)
+        {
+            auto* name = pCallbackData->pObjects[i].pObjectName;
+            Logger::Info("  Object #%u: %s\n", i, name ? name : "N/A");
+        }
+    }
+
+    return VK_FALSE;
+}
+#endif
 
 }

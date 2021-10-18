@@ -25,6 +25,9 @@ namespace {
 
 	VkAttachmentReference* FindSubpassColor(std::vector<VkSubpassDescription>& subpasses, unsigned subpass, unsigned attachment)
 	{
+		if (subpasses[subpass].pColorAttachments == nullptr)
+			return nullptr;
+
 		auto* colors = subpasses[subpass].pColorAttachments;
 		for (unsigned i = 0; i < subpasses[subpass].colorAttachmentCount; i++)
 			if (colors[i].attachment == attachment)
@@ -35,6 +38,9 @@ namespace {
 
 	VkAttachmentReference* FindSubpassResolve(std::vector<VkSubpassDescription>& subpasses, unsigned subpass, unsigned attachment)
 	{
+		if (subpasses[subpass].pResolveAttachments == nullptr)
+			return nullptr;
+
 		auto* resolves = subpasses[subpass].pResolveAttachments;
 		for (unsigned i = 0; i < subpasses[subpass].colorAttachmentCount; i++)
 			if (resolves[i].attachment == attachment)
@@ -45,6 +51,9 @@ namespace {
 
 	VkAttachmentReference* FindSubpassInput(std::vector<VkSubpassDescription>& subpasses, unsigned subpass, unsigned attachment)
 	{
+		if (subpasses[subpass].pInputAttachments == nullptr)
+			return nullptr;
+
 		auto* inputs = subpasses[subpass].pInputAttachments;
 		for (unsigned i = 0; i < subpasses[subpass].inputAttachmentCount; i++)
 			if (inputs[i].attachment == attachment)
@@ -54,6 +63,9 @@ namespace {
 
 	VkAttachmentReference* FindSubpassDepthStencil(std::vector<VkSubpassDescription>& subpasses, unsigned subpass, unsigned attachment)
 	{
+		if (subpasses[subpass].pDepthStencilAttachment == nullptr)
+			return nullptr;
+
 		if (subpasses[subpass].pDepthStencilAttachment->attachment == attachment)
 			return const_cast<VkAttachmentReference*>(subpasses[subpass].pDepthStencilAttachment);
 		else

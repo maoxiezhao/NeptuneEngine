@@ -7,6 +7,17 @@ namespace GPU
 
 class DeviceVulkan;
 
+enum RenderPassOp
+{
+    RENDER_PASS_OP_CLEAR_DEPTH_STENCIL_BIT = 1 << 0,
+    RENDER_PASS_OP_LOAD_DEPTH_STENCIL_BIT = 1 << 1,
+    RENDER_PASS_OP_STORE_DEPTH_STENCIL_BIT = 1 << 2,
+    RENDER_PASS_OP_DEPTH_STENCIL_READ_ONLY_BIT = 1 << 3,
+    RENDER_PASS_OP_ENABLE_TRANSIENT_STORE_BIT = 1 << 4,
+    RENDER_PASS_OP_ENABLE_TRANSIENT_LOAD_BIT = 1 << 5
+};
+using RenderPassOpFlags = uint32_t;
+
 struct RenderPassInfo
 {
     const ImageView* colorAttachments[VULKAN_NUM_ATTACHMENTS];
@@ -16,6 +27,7 @@ struct RenderPassInfo
     uint32_t loadAttachments = 0;
     uint32_t storeAttachments = 0;
     VkRect2D renderArea = { { 0, 0 }, { UINT32_MAX, UINT32_MAX } };
+    RenderPassOpFlags opFlags = 0;
 
     struct SubPass
     {

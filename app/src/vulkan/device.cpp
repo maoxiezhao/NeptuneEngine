@@ -20,7 +20,10 @@ namespace
     static uint64_t STATIC_COOKIE = 0;
 }
 
-DeviceVulkan::DeviceVulkan() : shaderManager(*this)
+DeviceVulkan::DeviceVulkan() : 
+    shaderManager(*this),
+    transientAllocator(*this),
+    frameBufferAllocator(*this)
 {
 }
 
@@ -28,6 +31,8 @@ DeviceVulkan::~DeviceVulkan()
 {
     WaitIdle();
 
+    transientAllocator.Clear();
+    frameBufferAllocator.Clear();
     fencePoolManager.ClearAll();
     semaphoreManager.ClearAll();
 }
@@ -51,11 +56,14 @@ void DeviceVulkan::SetContext(VulkanContext& context)
 
 void DeviceVulkan::InitFrameContext()
 {
+    transientAllocator.Clear();
+    frameBufferAllocator.Clear();
+    frameResources.clear();
+
     const int FRAME_COUNT = 2;
     const int THREAD_COUNT = 1;
     for (int frameIndex = 0; frameIndex < FRAME_COUNT; frameIndex++)
     {
-
         auto& frameResource = frameResources.emplace_back();
         for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
         {
@@ -258,10 +266,16 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(const Swapchain& swapCha
     info.clearAttachments = ~0u;
     info.storeAttachments = 1u << 0;
 
+    if (swapchainRenderPassType == SwapchainRenderPassType::Depth)
+    {
+        info.opFlags |= RENDER_PASS_OP_CLEAR_DEPTH_STENCIL_BIT;
+        info.depthStencil;
+    }
+
     return info;
 }
 
-RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isComatible)
+RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isCompatible)
 {
     HashCombiner hash;
     VkFormat colorFormats[VULKAN_NUM_ATTACHMENTS];
@@ -302,6 +316,14 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
     hash.HashCombine(renderPassInfo.numColorAttachments);
     hash.HashCombine((uint32_t)depthStencilFormat);
 
+    // Compatible render passes do not care about load/store
+    if (!isCompatible)
+    {
+        hash.HashCombine(renderPassInfo.clearAttachments);
+        hash.HashCombine(renderPassInfo.loadAttachments);
+        hash.HashCombine(renderPassInfo.storeAttachments);
+    }
+
     auto findIt = renderPasses.find(hash.Get());
     if (findIt != renderPasses.end())
         return *findIt->second;
@@ -313,27 +335,7 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
 
 FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassInfo)
 {
-    HashCombiner hash;
-
-    // ��Ҫ����RenderPass�Լ�RT��Hashֵ��ȡ���ߴ���FrameBuffer
-    RenderPass& renderPass = RequestRenderPass(renderPassInfo, true);
-    hash.HashCombine(renderPass.GetHash());
-
-    // Get color attachments hash
-    for (uint32_t i = 0; i < renderPassInfo.numColorAttachments; i++)
-        hash.HashCombine(renderPassInfo.colorAttachments[i]->GetCookie());
-
-    // Get depth stencil hash
-    if (renderPassInfo.depthStencil)
-        hash.HashCombine(renderPassInfo.depthStencil->GetCookie());
-
-    auto findIt = frameBuffers.find(hash.Get());
-    if (findIt != frameBuffers.end())
-        return *findIt->second;
-
-    auto& frameBuffer = *frameBuffers.emplace(hash.Get(), *this, renderPass, renderPassInfo);
-    frameBuffer.SetHash(hash.Get());
-    return frameBuffer;
+    return frameBufferAllocator.RequestFrameBuffer(renderPassInfo);
 }
 
 PipelineLayout& DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout& resLayout)
@@ -407,10 +409,41 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const Descri
 	return *allocator;
 }
 
+ImagePtr DeviceVulkan::RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index, U32 samples, U32 layers)
+{
+    return transientAllocator.RequsetAttachment(w, h, format, index, samples, layers);
+}
+
+ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
+{
+    VkImageCreateInfo info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    info.format = createInfo.format;
+    info.extent.width = createInfo.width;
+    info.extent.height = createInfo.height;
+    info.extent.depth = createInfo.depth;
+    info.imageType = createInfo.type;
+    info.mipLevels = createInfo.levels;
+    info.arrayLayers = createInfo.layers;
+    info.samples = createInfo.samples;
+    info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    info.usage = createInfo.usage;
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    info.flags = createInfo.flags;
+
+    if (createInfo.domain == ImageDomain::TRANSIENT)
+        info.usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+
+    return ImagePtr();
+}
+
 void DeviceVulkan::BeginFrameContext()
 {
     // submit remain queue
     EndFrameContext();
+
+    transientAllocator.BeginFrame();
+    frameBufferAllocator.BeginFrame();
 
     // descriptor set begin
     for (auto& kvp : descriptorSetAllocators)
@@ -539,13 +572,6 @@ VkQueue DeviceVulkan::GetPresentQueue() const
     return wsi.presentQueue;
 }
 
-void DeviceVulkan::UpdateGraphicsPipelineHash(CompilePipelineState pipeline)
-{
-    HashCombiner hash;
-
-
-    pipeline.hash = hash.Get();
-}
 
 void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 {
@@ -557,7 +583,12 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
     // create pipeline layout
     CombinedResourceLayout resLayout;
     resLayout.descriptorSetMask = 0;
-    
+
+    if (program.GetShader(ShaderStage::VS))
+        resLayout.attributeInputMask = program.GetShader(ShaderStage::VS)->GetLayout().inputMask;
+    if (program.GetShader(ShaderStage::PS))
+        resLayout.renderTargetMask = program.GetShader(ShaderStage::VS)->GetLayout().outputMask;
+
     for (U32 i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
     {
         auto shader = program.GetShader(static_cast<ShaderStage>(i));
@@ -918,6 +949,69 @@ bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvD
     }
 
 	return true;
+}
+
+void TransientAttachmentAllcoator::BeginFrame()
+{
+    attachments.BeginFrame();
+}
+
+void TransientAttachmentAllcoator::Clear()
+{
+    attachments.Clear();
+}
+
+ImagePtr TransientAttachmentAllcoator::RequsetAttachment(U32 w, U32 h, VkFormat format, U32 index, U32 samples, U32 layers)
+{
+    HashCombiner hash;
+    hash.HashCombine(w);
+    hash.HashCombine(h);
+    hash.HashCombine(format);
+    hash.HashCombine(index);
+    hash.HashCombine(samples);
+    hash.HashCombine(layers);
+
+    auto* node = attachments.Requset(hash.Get());
+    if (node != nullptr)
+        return node->image;
+
+    auto imageInfo = ImageCreateInfo::TransientRenderTarget(w, h, format);
+    imageInfo.samples = static_cast<VkSampleCountFlagBits>(samples);
+    imageInfo.layers = layers;
+
+    node = attachments.Emplace(hash.Get(), device.CreateImage(imageInfo, nullptr));
+    return node->image;
+}
+
+void FrameBufferAllocator::BeginFrame()
+{
+    framebuffers.BeginFrame();
+}
+
+void FrameBufferAllocator::Clear()
+{
+    framebuffers.Clear();
+}
+
+FrameBuffer& FrameBufferAllocator::RequestFrameBuffer(const RenderPassInfo& info)
+{
+    HashCombiner hash;
+    RenderPass& renderPass = device.RequestRenderPass(info, true);
+    hash.HashCombine(renderPass.GetHash());
+
+    // Get color attachments hash
+    for (uint32_t i = 0; i < info.numColorAttachments; i++)
+        hash.HashCombine(info.colorAttachments[i]->GetCookie());
+
+    // Get depth stencil hash
+    if (info.depthStencil)
+        hash.HashCombine(info.depthStencil->GetCookie());
+
+    FrameBufferNode* node = framebuffers.Requset(hash.Get());
+    if (node != nullptr)
+        return *node;
+
+    return *framebuffers.Emplace(hash.Get(), device, renderPass, info);
 }
 
 }

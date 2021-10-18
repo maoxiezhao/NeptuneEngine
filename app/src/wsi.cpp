@@ -29,6 +29,11 @@ namespace {
         return extensions;
     }
 
+    std::vector<const char*> GetRequiredDeviceExtensions()
+    {
+        return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    }
+
     VkSurfaceKHR CreateSurface(VkInstance instance, Platform& platform)
     {
         VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -51,7 +56,8 @@ bool WSI::Initialize()
     vulkanContext = new GPU::VulkanContext();
 
     auto instanceExt = GetRequiredExtensions(true);
-    if (!vulkanContext->Initialize(instanceExt, true))
+    auto deviceExt = GetRequiredDeviceExtensions();
+    if (!vulkanContext->Initialize(instanceExt, deviceExt, true))
         return false;
 
     // init gpu
@@ -147,9 +153,9 @@ void WSI::EndFrame()
     info.pResults = &result;
 
     VkResult overall = vkQueuePresentKHR(deviceVulkan->GetPresentQueue(), &info);
-    if (overall >= 0)
+    if (overall < 0)
     {
-        // TODO
+        release->WaitExternal();
     }
 }
 

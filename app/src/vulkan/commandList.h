@@ -91,17 +91,19 @@ private:
     QueueType type;
     VkPipelineStageFlags swapchainStages = 0;
     U32 dirtySets = 0;
+    U32 activeVBOs = 0;
 
     // render pass runtime 
     FrameBuffer* frameBuffer = nullptr;
+    const ImageView* frameBufferAttachments[VULKAN_NUM_ATTACHMENTS + 1] = {};
     RenderPass* renderPass = nullptr;
     const RenderPass* compatibleRenderPass = nullptr;
+
     CompilePipelineState pipelineState = {};
     PipelineLayout* currentLayout = nullptr;
     ResourceBindings bindings;
     VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
     VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
-
 
 public:
     CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
@@ -153,6 +155,7 @@ private:
     bool FlushGraphicsPipeline();
     void FlushDescriptorSets();
     void FlushDescriptorSet(U32 set);
+    void UpdateGraphicsPipelineHash(CompilePipelineState pipeline);
 
     VkPipeline BuildGraphicsPipeline(const CompilePipelineState& pipelineState);
     VkPipeline BuildComputePipeline(const CompilePipelineState& pipelineState);

@@ -7,7 +7,10 @@ namespace GPU
 
 struct DeviceFeatures
 {
-    bool SupportsSurfaceCapabilities2 = false;
+    bool supportDebugUtils = false;
+    bool supportsSurfaceCapabilities2 = false;
+    bool supportsVulkan11Instance = false;
+    bool supportsVulkan11Device = false;
 };
 
 struct QueueInfo
@@ -24,7 +27,7 @@ public:
     VulkanContext(const VulkanContext&) = delete;
     void operator=(const VulkanContext&) = delete;
 
-    bool Initialize(std::vector <const char*> instanceExt, bool debugLayer);
+    bool Initialize(std::vector<const char*> instanceExt_, std::vector<const char*> deviceExt_, bool debugLayer_);
 
     VkDevice GetDevice()const
     {
@@ -37,18 +40,19 @@ public:
     }
 
 private:
-    bool CheckPhysicalSuitable(const VkPhysicalDevice& device, bool isBreak);
+    bool CreateInstance(std::vector<const char*> instanceExt);
+    bool CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<const char*> deviceExt, std::vector<const char*> deviceLayers);
+
+    VkApplicationInfo GetApplicationInfo();
     
+#ifdef VULKAN_DEBUG
     // debug callback
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType,
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-        void* pUserData)
-    {
-        Logger::Error("validation layer: %s", pCallbackData->pMessage);
-        return VK_FALSE;
-    }
+        void* pUserData);
+#endif
 
 private:
     friend class DeviceVulkan;
@@ -56,20 +60,21 @@ private:
     // base info
     uint32_t width = 0;
     uint32_t height = 0;
-    bool mIsDebugUtils = false;
-    bool mIsDebugLayer = false;
+    bool debugLayer = false;
 
     // core 
     VkDevice device;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkInstance instance;
     VkDebugUtilsMessengerEXT mDebugUtilsMessenger = VK_NULL_HANDLE;
+    VkPhysicalDeviceProperties physicalDevcieProps = {};
+    VkPhysicalDeviceMemoryProperties physicalDeviceMemProps = {};
 
     // features
     VkPhysicalDeviceProperties2 mProperties2 = {};
     VkPhysicalDeviceVulkan11Properties mProperties_1_1 = {};
     VkPhysicalDeviceVulkan12Properties mProperties_1_2 = {};
-    DeviceFeatures mExtensionFeatures = {};
+    DeviceFeatures extensionFeatures = {};
     VkPhysicalDeviceFeatures2 mFeatures2 = {};
 
     // queue

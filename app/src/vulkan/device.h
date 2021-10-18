@@ -67,12 +67,55 @@ public:
     std::vector<VkSubmitInfo>& Bake();
 };
 
+class TransientAttachmentAllcoator
+{
+public:
+    TransientAttachmentAllcoator(DeviceVulkan& device_) : device(device_) {}
+
+    void BeginFrame();
+    void Clear();
+    ImagePtr RequsetAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
+
+private:
+    class ImageNode : public Util::TempHashMapItem<ImagePtr>
+    {
+    public:
+        explicit ImageNode(ImagePtr image_) : image(image_) {}
+        ImagePtr image;
+    };
+
+    DeviceVulkan& device;
+    Util::TempHashMap<ImageNode, 8, false> attachments;
+};
+
+class FrameBufferAllocator
+{
+public:
+    FrameBufferAllocator(DeviceVulkan& device_) : device(device_) {}
+
+    void BeginFrame();
+    void Clear();
+    FrameBuffer& RequestFrameBuffer(const RenderPassInfo& info);
+
+private:
+    class FrameBufferNode : public Util::TempHashMapItem<FrameBufferNode>, public FrameBuffer
+    {
+    public:
+        explicit FrameBufferNode(DeviceVulkan& device_, RenderPass& renderPass_, const RenderPassInfo& info_) :
+            FrameBuffer(device_, renderPass_, info_)
+        {}
+    };
+
+    DeviceVulkan& device;
+    Util::TempHashMap<FrameBufferNode, 8, false> framebuffers;
+};
+
 class DeviceVulkan
 {
 public:
     VkDevice device = VK_NULL_HANDLE;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkInstance instance;
+    VkInstance instance = VK_NULL_HANDLE;
     QueueInfo queueInfo;
 
     // per frame resource
@@ -130,6 +173,8 @@ public:
     // vulkan object managers
     FenceManager fencePoolManager;
     SemaphoreManager semaphoreManager;
+    TransientAttachmentAllcoator transientAllocator;
+    FrameBufferAllocator frameBufferAllocator;
 
 public:
     DeviceVulkan();
@@ -146,13 +191,16 @@ public:
 
     CommandListPtr RequestCommandList(QueueType queueType);
     CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
-    RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isComatible = false);
+    RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isCompatible = false);
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
     PipelineLayout& RequestPipelineLayout(const CombinedResourceLayout& resLayout);
     SemaphorePtr RequestSemaphore();
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
+    ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
+
+    ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
 
     void BeginFrameContext();
     void EndFrameContext();
@@ -176,8 +224,6 @@ public:
 
 private:
     friend class CommandList;
-
-    void UpdateGraphicsPipelineHash(CompilePipelineState pipeline);
 
     // submit methods
     struct InternalFence

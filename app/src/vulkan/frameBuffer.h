@@ -6,9 +6,7 @@
 namespace GPU
 {
 
-class FrameBuffer;
-
-class FrameBuffer : public HashedObject<FrameBuffer>
+class FrameBuffer
 {
 public:
 	FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass_, const RenderPassInfo& info_);
