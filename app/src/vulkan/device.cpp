@@ -70,12 +70,11 @@ void DeviceVulkan::InitFrameContext()
             frameResource.cmdPools->reserve(THREAD_COUNT);
             for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
             {
-                frameResource.cmdPools->emplace_back(this, queueIndex);
+                frameResource.cmdPools->emplace_back(this, queueInfo.familyIndices[queueIndex]);
             }
         }
     }
 }
-
 
 bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, uint32_t width, uint32_t height)
 {
@@ -709,7 +708,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
         return;
     }
 
-    VkQueue queue = queueInfo.mQueues[queueIndex];
+    VkQueue queue = queueInfo.queues[queueIndex];
     BatchComposer batchComposer;
     for (int i = 0; i < submissions.size(); i++)
     {

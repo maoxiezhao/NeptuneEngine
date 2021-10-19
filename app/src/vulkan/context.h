@@ -11,12 +11,13 @@ struct DeviceFeatures
     bool supportsSurfaceCapabilities2 = false;
     bool supportsVulkan11Instance = false;
     bool supportsVulkan11Device = false;
+    bool supportsPhysicalDeviceProperties2 = false;
 };
 
 struct QueueInfo
 {
-    int mQueueIndices[QUEUE_INDEX_COUNT] = {};
-    VkQueue mQueues[QUEUE_INDEX_COUNT] = {};
+    int familyIndices[QUEUE_INDEX_COUNT] = {};
+    VkQueue queues[QUEUE_INDEX_COUNT] = {};
 };
 
 class VulkanContext
@@ -34,9 +35,19 @@ public:
         return device;
     }
 
+    VkPhysicalDevice GetPhysicalDevice()const
+    {
+        return physicalDevice;
+    }
+
     VkInstance GetInstance()const
     {
         return instance;
+    }
+
+    const QueueInfo& GetQueueInfo()const
+    {
+        return queueInfo;
     }
 
 private:
@@ -75,10 +86,11 @@ private:
     VkPhysicalDeviceVulkan11Properties mProperties_1_1 = {};
     VkPhysicalDeviceVulkan12Properties mProperties_1_2 = {};
     DeviceFeatures extensionFeatures = {};
-    VkPhysicalDeviceFeatures2 mFeatures2 = {};
+    VkPhysicalDeviceFeatures2KHR feature = {};
 
     // queue
-    std::vector<VkQueueFamilyProperties> mQueueFamilies;
+    std::vector<VkQueueFamilyProperties> queueFamilyProps;
+    std::vector<VkQueueFamilyProperties2> queueFamilyProps2;
     QueueInfo queueInfo = {};
 };
 

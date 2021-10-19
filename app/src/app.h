@@ -52,6 +52,7 @@ public:
 	void Tick();
 
 private:
+	virtual void Setup();
 	virtual void InitializeImpl();
 	virtual void Render();
 	virtual void UninitializeImpl();

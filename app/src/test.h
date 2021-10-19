@@ -8,7 +8,7 @@ public:
 	TestApp() = default;
 	~TestApp() = default;
 
-	void InitializeImpl()override;
+	void Setup()override;
 	void Render()override;
 	void UninitializeImpl()override;
 };

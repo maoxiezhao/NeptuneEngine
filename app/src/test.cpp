@@ -4,9 +4,20 @@
 
 static StdoutLoggerSink mStdoutLoggerSink;
 
-void TestApp::InitializeImpl()
+void TestApp::Setup()
 {
+    // console for std output..
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+        AllocConsole();
+    }
+
+    freopen("CONIN$", "r", stdin);
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+
     Logger::RegisterSink(mStdoutLoggerSink);
+
+    Logger::Info("Test app initialize.");
 }
 
 void TestApp::UninitializeImpl()

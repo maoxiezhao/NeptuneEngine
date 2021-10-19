@@ -39,6 +39,8 @@ bool Platform::Poll()
 
 bool App::Initialize(std::unique_ptr<Platform> platform_)
 {
+    Setup();
+
 	platform = std::move(platform_);
     wsi.SetPlatform(platform.get());
     
@@ -66,6 +68,10 @@ void App::Tick()
     wsi.BeginFrame();
     Render();
     wsi.EndFrame();
+}
+
+void App::Setup()
+{
 }
 
 void App::InitializeImpl()

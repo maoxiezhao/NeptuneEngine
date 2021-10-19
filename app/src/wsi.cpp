@@ -69,6 +69,24 @@ bool WSI::Initialize()
     if (surface == VK_NULL_HANDLE)
         return false;
   
+    // need to check which queue family support surface
+    VkBool32 supported = VK_FALSE;
+    uint32_t queuePresentSupport = 0;
+    for (U32 familyIndex : vulkanContext->GetQueueInfo().familyIndices)
+    {
+        if (familyIndex != VK_QUEUE_FAMILY_IGNORED)
+        {
+            auto ret = vkGetPhysicalDeviceSurfaceSupportKHR(vulkanContext->GetPhysicalDevice(), familyIndex, surface, &supported);
+            if (ret == VK_SUCCESS && supported)
+            {
+                queuePresentSupport |= 1u << familyIndex;
+            }
+        }
+    }
+
+    if (!(queuePresentSupport & (1 << vulkanContext->GetQueueInfo().familyIndices[(U32)GPU::QUEUE_INDEX_GRAPHICS])))
+        return false;
+
     // init swapchian
     if (!deviceVulkan->CreateSwapchain(swapchian, surface, platform->GetWidth(), platform->GetHeight()))
     {
@@ -81,11 +99,11 @@ bool WSI::Initialize()
 
 void WSI::Uninitialize()
 {
-    if (surface != VK_NULL_HANDLE)
-        vkDestroySurfaceKHR(vulkanContext->GetInstance(), surface, nullptr);
-
     if (swapchian != nullptr)
         delete swapchian;
+
+    if (surface != VK_NULL_HANDLE)
+        vkDestroySurfaceKHR(vulkanContext->GetInstance(), surface, nullptr);
 
     delete deviceVulkan;
     delete vulkanContext;

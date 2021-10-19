@@ -262,7 +262,7 @@ void CommandList::SetDefaultOpaqueState()
 
     // depth
     DepthStencilState& dsd = pipelineState.depthStencilState;
-    dsd.depthEnable = true;
+    dsd.depthEnable = false;
     dsd.depthWriteMask = DEPTH_WRITE_MASK_ALL;
     dsd.depthFunc = VK_COMPARE_OP_GREATER;
     dsd.stencilEnable = false;
@@ -275,7 +275,7 @@ void CommandList::SetDefaultOpaqueState()
     rs.depthBias = 0;
     rs.depthBiasClamp = 0;
     rs.slopeScaledDepthBias = 0;
-    rs.depthClipEnable = true;
+    rs.depthClipEnable = false;
     rs.multisampleEnable = false;
     rs.antialiasedLineEnable = false;
     rs.conservativeRasterizationEnable = false;
@@ -599,16 +599,24 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     std::vector<VkVertexInputAttributeDescription> attributes;
 
     // attributes
-    VkVertexInputAttributeDescription& attr = attributes.emplace_back();
-    attr.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    attr.location = 0;
-    attr.offset = 0;
+    U32 bindingMask = 0;
+    U32 attributeMask = pipelineState.shaderProgram->GetPipelineLayout()->GetResLayout().attributeInputMask;
+    ForEachBit(attributeMask, [&](U32 attributeIndex){
+        VkVertexInputAttributeDescription& attr = attributes.emplace_back();
+        attr.location = attributeIndex;
+        attr.format = pipelineState.attribs[attributeIndex].format;
+        attr.offset = pipelineState.attribs[attributeIndex].offset;
+
+        bindingMask |= pipelineState.attribs[attributeIndex].binding;
+    });
 
     // bindings
-    VkVertexInputBindingDescription& bind = bindings.emplace_back();
-    bind.binding = 0;
-    bind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    bind.stride = 0;
+    ForEachBit(bindingMask, [&](U32 binding) {
+        VkVertexInputBindingDescription& bind = bindings.emplace_back();
+        bind.binding = binding;
+        bind.inputRate = pipelineState.inputRates[binding];
+        bind.stride = pipelineState.strides[binding];
+     });
 
     vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size());
     vertexInputInfo.pVertexBindingDescriptions = bindings.data();

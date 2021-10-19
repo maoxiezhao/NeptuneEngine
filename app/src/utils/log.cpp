@@ -1,15 +1,11 @@
 #include "log.h"
+#include "platform\platform.h"
 
 #include <mutex>
 #include <stdarg.h>
 #include <iostream>
 #include <vector>
 #include <array>
-
-#ifdef CJING3D_PLATFORM_WIN32
-#include <Windows.h>
-#include <consoleapi2.h>
-#endif
 
 namespace Logger
 {
@@ -177,29 +173,23 @@ namespace Logger
 
 void StdoutLoggerSink::Log(LogLevel level, const char* msg)
 {
-	//switch (level)
-	//{
-	//case LogLevel::LVL_DEV:
-	//	Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_WHITE);
-	//	break;
-	//case LogLevel::LVL_INFO:
-	//	Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_GREEN);
-	//	break;
-	//case LogLevel::LVL_WARNING:
-	//	Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_YELLOW);
-	//	break;
-	//case LogLevel::LVL_ERROR:
-	//	Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_RED);
-	//	break;
-	//}
+	switch (level)
+	{
+	case LogLevel::LVL_DEV:
+		Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_WHITE);
+		break;
+	case LogLevel::LVL_INFO:
+		Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_GREEN);
+		break;
+	case LogLevel::LVL_WARNING:
+		Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_YELLOW);
+		break;
+	case LogLevel::LVL_ERROR:
+		Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_RED);
+		break;
+	}
 
-	//if (Logger::IsDisplayTime())
-	//{
-	//	auto timeStr = Timer::GetSystemTimeString();
-	//	std::cout << timeStr << " ";
-	//}
-
-	//std::cout << Logger::GetPrefix(level) << " ";
-	//std::cout << msg << std::endl;
-	//Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_WHITE);
+	std::cout << Logger::GetPrefix(level) << " ";
+	std::cout << msg << std::endl;
+	Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_WHITE);
 }
