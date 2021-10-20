@@ -27,7 +27,7 @@ enum CommandListDirtyBits
 
     COMMAND_LIST_DIRTY_DYNAMIC_BITS = COMMAND_LIST_DIRTY_VIEWPORT_BIT | COMMAND_LIST_DIRTY_SCISSOR_BIT
 };
-using CommandListDirtyFlags = uint32_t;
+using CommandListDirtyFlags = U32;
 
 struct CompilePipelineState
 {
@@ -41,7 +41,7 @@ struct CompilePipelineState
     VkDeviceSize strides[VULKAN_NUM_VERTEX_BUFFERS];
     VkVertexInputRate inputRates[VULKAN_NUM_VERTEX_BUFFERS];
 
-    uint32_t subpassIndex = 0;
+    U32 subpassIndex = 0;
     uint64_t hash = 0;
     VkPipelineCache cache;
     bool isOwnedByCommandList = true;
@@ -50,7 +50,7 @@ struct CompilePipelineState
 struct CommandPool
 {
 public:
-    CommandPool(DeviceVulkan* device_, uint32_t queueFamilyIndex);
+    CommandPool(DeviceVulkan* device_, U32 queueFamilyIndex);
     ~CommandPool();
 
     CommandPool(CommandPool&&) noexcept;
@@ -63,7 +63,7 @@ public:
     void BeginFrame();
 
 private:
-    uint32_t usedIndex = 0;
+    U32 usedIndex = 0;
     DeviceVulkan* device;
     VkCommandPool pool = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> buffers;
@@ -117,7 +117,11 @@ public:
 
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
 
-    void DrawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, uint32_t vertexOffset = 0);
+    void Draw(U32 vertexCount, U32 vertexOffset = 0);
+    void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);
+
+    void BeginEvent(const char* name);
+    void EndEvent();
 
     QueueType GetQueueType()const
     {

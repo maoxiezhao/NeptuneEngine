@@ -54,7 +54,7 @@ namespace
     }
 }
 
-CommandPool::CommandPool(DeviceVulkan* device_, uint32_t queueFamilyIndex) :
+CommandPool::CommandPool(DeviceVulkan* device_, U32 queueFamilyIndex) :
     device(device_)
 {
     VkCommandPoolCreateInfo info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -71,7 +71,7 @@ CommandPool::CommandPool(DeviceVulkan* device_, uint32_t queueFamilyIndex) :
 CommandPool::~CommandPool()
 {
     if (!buffers.empty())
-        vkFreeCommandBuffers(device->device, pool, (uint32_t)buffers.size(), buffers.data());
+        vkFreeCommandBuffers(device->device, pool, (U32)buffers.size(), buffers.data());
 
     if (pool != VK_NULL_HANDLE)
         vkDestroyCommandPool(device->device, pool, nullptr);
@@ -88,7 +88,7 @@ CommandPool& CommandPool::operator=(CommandPool&& other) noexcept
     {
         device = other.device;
         if (!buffers.empty())
-            vkFreeCommandBuffers(device->device, pool, (uint32_t)buffers.size(), buffers.data());
+            vkFreeCommandBuffers(device->device, pool, (U32)buffers.size(), buffers.data());
         if (pool != VK_NULL_HANDLE)
             vkDestroyCommandPool(device->device, pool, nullptr);
 
@@ -174,10 +174,10 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 
     // area
     VkRect2D rect = renderPassInfo.renderArea;
-    uint32_t fbWidth = frameBuffer->GetWidth();
-    uint32_t fbHeight = frameBuffer->GetHeight();
-    rect.offset.x = min(fbWidth, uint32_t(rect.offset.x));
-    rect.offset.y = min(fbHeight, uint32_t(rect.offset.y));
+    U32 fbWidth = frameBuffer->GetWidth();
+    U32 fbHeight = frameBuffer->GetHeight();
+    rect.offset.x = min(fbWidth, U32(rect.offset.x));
+    rect.offset.y = min(fbHeight, U32(rect.offset.y));
     rect.extent.width = min(fbWidth - rect.offset.x, rect.extent.width);
     rect.extent.height = min(fbHeight - rect.offset.y, rect.extent.height);
 
@@ -190,8 +190,8 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
 
     // 遍历所有colorAttachments同时检查clearAttachments mask
     VkClearValue clearColors[VULKAN_NUM_ATTACHMENTS + 1];
-    uint32_t numClearColor = 0;
-    for (uint32_t i = 0; i < renderPassInfo.numColorAttachments; i++)
+    U32 numClearColor = 0;
+    for (U32 i = 0; i < renderPassInfo.numColorAttachments; i++)
     {
         if (renderPassInfo.clearAttachments & (1u << i))
         {
@@ -271,7 +271,7 @@ void CommandList::SetDefaultOpaqueState()
     RasterizerState& rs = pipelineState.rasterizerState;
     rs.fillMode = FILL_SOLID;
     rs.cullMode = VK_CULL_MODE_BACK_BIT;
-    rs.frontCounterClockwise = true;
+    rs.frontCounterClockwise = false;
     rs.depthBias = 0;
     rs.depthBiasClamp = 0;
     rs.slopeScaledDepthBias = 0;
@@ -386,11 +386,44 @@ void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceS
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT);
 }
 
-void CommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t vertexOffset)
+void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
 {
     if (FlushRenderState())
     {
-        // vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);
+        vkCmdDraw(cmd, vertexCount, 1, vertexOffset, 0);
+    }
+}
+
+void CommandList::DrawIndexed(U32 indexCount, U32 firstIndex, U32 vertexOffset)
+{
+    if (FlushRenderState())
+    {
+        vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);
+    }
+}
+
+void CommandList::BeginEvent(const char* name)
+{
+    if (device.features.supportDebugUtils)
+    {
+        VkDebugUtilsLabelEXT info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+        info.pLabelName = name;
+        info.color[0] = 0.0f;
+        info.color[1] = 0.0f;
+        info.color[2] = 0.0f;
+        info.color[3] = 1.0f;
+
+        if (vkCmdBeginDebugUtilsLabelEXT)
+            vkCmdBeginDebugUtilsLabelEXT(cmd, &info);
+    }
+}
+
+void CommandList::EndEvent()
+{
+    if (device.features.supportDebugUtils)
+    {
+        if (vkCmdEndDebugUtilsLabelEXT)
+            vkCmdEndDebugUtilsLabelEXT(cmd);
     }
 }
 
@@ -618,9 +651,9 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
         bind.stride = pipelineState.strides[binding];
      });
 
-    vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size());
+    vertexInputInfo.vertexBindingDescriptionCount = static_cast<U32>(bindings.size());
     vertexInputInfo.pVertexBindingDescriptions = bindings.data();
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<U32>(attributes.size());
     vertexInputInfo.pVertexAttributeDescriptions = attributes.data();
 
     // input assembly

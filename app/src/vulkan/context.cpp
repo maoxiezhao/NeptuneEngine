@@ -95,6 +95,12 @@ bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
         extensionFeatures.supportsPhysicalDeviceProperties2 = true;
     }
 
+    if (HasExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
+    {
+        instanceExts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        extensionFeatures.supportDebugUtils = true;
+    }
+
 #ifdef VULKAN_DEBUG
     // check support valiadation layer
     uint32_t layerCount = 0;
@@ -203,7 +209,7 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
         {
             VkPhysicalDeviceProperties props;
             vkGetPhysicalDeviceProperties(device, &props);
-            Logger::Info("Found Vulkan GPU: %s", props.deviceName);
+            Logger::Info("Found vulkan gpu: %s", props.deviceName);
         }
 
         // Find best physical device

@@ -66,7 +66,7 @@ class Image : public Util::IntrusivePtrEnabled<Image, ImageDeleter>
 public:
     ~Image();
 
-    VkImage GetImage()
+    VkImage GetImage()const
     {
         return image;
     }

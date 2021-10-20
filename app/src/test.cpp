@@ -31,10 +31,14 @@ void TestApp::Render()
 
     GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*wsi.GetSwapChain(), GPU::SwapchainRenderPassType::ColorOnly);
     GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+
+    cmd->BeginEvent("Fullscreen");
     cmd->BeginRenderPass(rp);
     cmd->SetDefaultOpaqueState();
     cmd->SetProgram("screenVS.hlsl", "screenPS.hlsl");
-    cmd->DrawIndexed(3);
+    cmd->Draw(3);
     cmd->EndRenderPass();
+    cmd->EndEvent();
+
     device->Submit(cmd);
 }

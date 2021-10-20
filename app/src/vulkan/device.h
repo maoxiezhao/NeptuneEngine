@@ -117,6 +117,7 @@ public:
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkInstance instance = VK_NULL_HANDLE;
     QueueInfo queueInfo;
+    DeviceFeatures features;
 
     // per frame resource
     struct FrameResource
@@ -206,6 +207,7 @@ public:
     void EndFrameContext();
     void Submit(CommandListPtr& cmd);
     void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);
+    void SetName(const Image& image, const char* name);
 
     void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);

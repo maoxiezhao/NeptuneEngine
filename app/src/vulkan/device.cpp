@@ -1,6 +1,5 @@
 ﻿#include "device.h"
 #include "utils\hash.h"
-
 #include "spriv_reflect\spirv_reflect.h"
 
 namespace GPU
@@ -43,6 +42,7 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     physicalDevice = context.physicalDevice;
     instance = context.instance;
     queueInfo = context.queueInfo;
+    features = context.extensionFeatures;
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // create frame resources
@@ -368,6 +368,20 @@ Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderByteco
     Shader& shader = *shaders.emplace(hash.Get(), *this, stage, pShaderBytecode, bytecodeLength, layout);
     shader.SetHash(hash.Get());
     return shader;
+}
+
+void DeviceVulkan::SetName(const Image& image, const char* name)
+{
+    if (features.supportDebugUtils)
+    {
+        VkDebugUtilsObjectNameInfoEXT info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        info.pObjectName = name;
+        info.objectType = VK_OBJECT_TYPE_IMAGE;
+        info.objectHandle = (uint64_t)image.GetImage();
+
+        if (vkSetDebugUtilsObjectNameEXT)
+            vkSetDebugUtilsObjectNameEXT(device, &info);
+    }
 }
 
 ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)])
