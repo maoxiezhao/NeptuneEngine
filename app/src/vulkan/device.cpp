@@ -86,147 +86,139 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
 
     swapchain = new Swapchain(device);
 
-    // ??????????
-    bool useSurfaceInfo = false; // mExtensionFeatures.SupportsSurfaceCapabilities2;
-    if (useSurfaceInfo)
+    VkSurfaceCapabilitiesKHR surfaceProperties = {};
+    auto res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceProperties);
+    assert(res == VK_SUCCESS);
+
+    // get surface formats
+    uint32_t formatCount;
+    res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
+    assert(res == VK_SUCCESS);
+
+    if (formatCount != 0)
     {
+        swapchain->formats.resize(formatCount);
+        res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, swapchain->formats.data());
+        assert(res == VK_SUCCESS);
     }
-    else
+
+    // get present mode
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
+
+    if (presentModeCount != 0)
     {
-        VkSurfaceCapabilitiesKHR surfaceProperties = {};
-        auto res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceProperties);
-        assert(res == VK_SUCCESS);
+        swapchain->presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, swapchain->presentModes.data());
+    }
 
-        // get surface formats
-        uint32_t formatCount;
-        res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
-        assert(res == VK_SUCCESS);
-
-        if (formatCount != 0)
+    // find suitable surface format
+    VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_UNDEFINED };
+    VkFormat targetFormat = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
+    for (auto& format : swapchain->formats)
+    {
+        if (format.format = targetFormat)
         {
-            swapchain->formats.resize(formatCount);
-            res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, swapchain->formats.data());
-            assert(res == VK_SUCCESS);
+            surfaceFormat = format;
+            break;
         }
+    }
 
-        // get present mode
-        uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
+    if (surfaceFormat.format == VK_FORMAT_UNDEFINED)
+    {
+        Logger::Error("Failed to find suitable surface format.");
+        return false;
+    }
+    swapchain->format = surfaceFormat;
 
-        if (presentModeCount != 0)
+    // find suitable present mode
+    VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // 交换链是个队列，显示的时候从队列头拿一个图像，程序插入渲染的图像到队列尾。
+    bool isVsync = true;                                              // 如果队列满了程序就要等待，这差不多像是垂直同步，显示刷新的时刻就是垂直空白
+    if (!isVsync)
+    {
+        for (auto& presentMode : swapchain->presentModes)
         {
-            swapchain->presentModes.resize(presentModeCount);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, swapchain->presentModes.data());
-        }
-
-        // find suitable surface format
-        VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_UNDEFINED };
-        VkFormat targetFormat = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
-        for (auto& format : swapchain->formats)
-        {
-            if (format.format = targetFormat)
+            if (presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
             {
-                surfaceFormat = format;
+                swapchainPresentMode = presentMode;
                 break;
             }
         }
+    }
 
-        if (surfaceFormat.format == VK_FORMAT_UNDEFINED)
-        {
-            Logger::Error("Failed to find suitable surface format.");
-            return false;
-        }
-        swapchain->format = surfaceFormat;
+    // set swapchin extent
+    swapchain->swapchainExtent = { width, height };
+    swapchain->swapchainExtent.width =
+        max(surfaceProperties.minImageExtent.width, min(surfaceProperties.maxImageExtent.width, width));
+    swapchain->swapchainExtent.height =
+        max(surfaceProperties.minImageExtent.height, min(surfaceProperties.maxImageExtent.height, height));
 
-        // find suitable present mode
-        VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // 交换链是个队列，显示的时候从队列头拿一个图像，程序插入渲染的图像到队列尾。
-        bool isVsync = true;                                              // 如果队列满了程序就要等待，这差不多像是垂直同步，显示刷新的时刻就是垂直空白
-        if (!isVsync)
-        {
-            for (auto& presentMode : swapchain->presentModes)
-            {
-                if (presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
-                {
-                    swapchainPresentMode = presentMode;
-                    break;
-                }
-            }
-        }
-
-        // set swapchin extent
-        swapchain->swapchainExtent = { width, height };
-        swapchain->swapchainExtent.width =
-            max(surfaceProperties.minImageExtent.width, min(surfaceProperties.maxImageExtent.width, width));
-        swapchain->swapchainExtent.height =
-            max(surfaceProperties.minImageExtent.height, min(surfaceProperties.maxImageExtent.height, height));
-
-        // create swapchain
-        uint32_t desiredSwapchainImages = 2;
-        if (desiredSwapchainImages < surfaceProperties.minImageCount)
-            desiredSwapchainImages = surfaceProperties.minImageCount;
-        if ((surfaceProperties.maxImageCount > 0) && (desiredSwapchainImages > surfaceProperties.maxImageCount))
-            desiredSwapchainImages = surfaceProperties.maxImageCount;
+    // create swapchain
+    uint32_t desiredSwapchainImages = 2;
+    if (desiredSwapchainImages < surfaceProperties.minImageCount)
+        desiredSwapchainImages = surfaceProperties.minImageCount;
+    if ((surfaceProperties.maxImageCount > 0) && (desiredSwapchainImages > surfaceProperties.maxImageCount))
+        desiredSwapchainImages = surfaceProperties.maxImageCount;
 
 
-        VkSwapchainKHR oldSwapchain = swapchain->swapChain;;
-        VkSwapchainCreateInfoKHR createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = surface;
-        createInfo.minImageCount = desiredSwapchainImages;
-        createInfo.imageFormat = surfaceFormat.format;
-        createInfo.imageColorSpace = surfaceFormat.colorSpace;
-        createInfo.imageExtent = swapchain->swapchainExtent;
-        createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;            // һ��ͼ����ĳ��ʱ����ֻ�ܱ�һ��������ռ�ã��ڱ���һ��������ʹ��ǰ������ռ�����һ��Ҫ��ʽ�ؽ���ת�ơ���ѡ���ṩ����õ����ܡ�
-        createInfo.preTransform = surfaceProperties.currentTransform;
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;      // ��alphaͨ���Ƿ�Ӧ�úʹ���ϵͳ�е��������ڽ��л��, Ĭ�ϲ����
-        createInfo.presentMode = swapchainPresentMode;
-        createInfo.clipped = VK_TRUE;
-        createInfo.oldSwapchain = oldSwapchain;
+    VkSwapchainKHR oldSwapchain = swapchain->swapChain;;
+    VkSwapchainCreateInfoKHR createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    createInfo.surface = surface;
+    createInfo.minImageCount = desiredSwapchainImages;
+    createInfo.imageFormat = surfaceFormat.format;
+    createInfo.imageColorSpace = surfaceFormat.colorSpace;
+    createInfo.imageExtent = swapchain->swapchainExtent;
+    createInfo.imageArrayLayers = 1;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.preTransform = surfaceProperties.currentTransform;
+    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; 
+    createInfo.presentMode = swapchainPresentMode;
+    createInfo.clipped = VK_TRUE;
+    createInfo.oldSwapchain = oldSwapchain;
 
-        res = vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain->swapChain);
+    res = vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain->swapChain);
+    assert(res == VK_SUCCESS);
+
+    uint32_t imageCount = 0;
+    res = vkGetSwapchainImagesKHR(device, swapchain->swapChain, &imageCount, nullptr);
+    assert(res == VK_SUCCESS);
+
+    std::vector<VkImage> images(imageCount);
+    res = vkGetSwapchainImagesKHR(device, swapchain->swapChain, &imageCount, images.data());
+    assert(res == VK_SUCCESS);
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // create image views
+    ImageCreateInfo imageCreateInfo = ImageCreateInfo::renderTarget(width, height, swapchain->format.format);
+    for (int i = 0; i < images.size(); i++)
+    {
+        VkImageView imageView;
+        VkImageViewCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = images[i];
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = swapchain->format.format;
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
         assert(res == VK_SUCCESS);
 
-        uint32_t imageCount = 0;
-        res = vkGetSwapchainImagesKHR(device, swapchain->swapChain, &imageCount, nullptr);
-        assert(res == VK_SUCCESS);
-
-        std::vector<VkImage> images(imageCount);
-        res = vkGetSwapchainImagesKHR(device, swapchain->swapChain, &imageCount, images.data());
-        assert(res == VK_SUCCESS);
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // create image views
-        ImageCreateInfo imageCreateInfo = ImageCreateInfo::renderTarget(width, height, swapchain->format.format);
-        for (int i = 0; i < images.size(); i++)
+        ImagePtr imagePtr = ImagePtr(imagePool.allocate(*this, images[i], imageView, imageCreateInfo));
+        if (imagePtr)
         {
-            VkImageView imageView;
-            VkImageViewCreateInfo createInfo = {};
-            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            createInfo.image = images[i];
-            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = swapchain->format.format;
-            createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            createInfo.subresourceRange.baseMipLevel = 0;
-            createInfo.subresourceRange.levelCount = 1;
-            createInfo.subresourceRange.baseArrayLayer = 0;
-            createInfo.subresourceRange.layerCount = 1;
-
-            res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
-            assert(res == VK_SUCCESS);
-
-            ImagePtr imagePtr = ImagePtr(imagePool.allocate(*this, images[i], imageView, imageCreateInfo));
-            if (imagePtr)
-            {
-                imagePtr->DisownImge(); // image��vkGetSwapchainImagesKHR��ȡ
-                imagePtr->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-                swapchain->images.push_back(imagePtr);
-            }
+            imagePtr->DisownImge(); // image��vkGetSwapchainImagesKHR��ȡ
+            imagePtr->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            swapchain->images.push_back(imagePtr);
         }
     }
 
