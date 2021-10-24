@@ -8,10 +8,10 @@ namespace GPU
 struct DeviceFeatures
 {
     bool supportDebugUtils = false;
-    bool supportsSurfaceCapabilities2 = false;
     bool supportsVulkan11Instance = false;
     bool supportsVulkan11Device = false;
     bool supportsPhysicalDeviceProperties2 = false;
+    bool supportsSurfaceCapabilities2 = false;
 };
 
 struct QueueInfo

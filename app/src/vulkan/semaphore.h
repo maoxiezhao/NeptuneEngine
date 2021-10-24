@@ -33,9 +33,11 @@ public:
         return timeline;
     }
 
-    VkSemaphore Release()
+    VkSemaphore Consume()
     {
         auto oldSemaphore = semaphore;
+        assert(semaphore);
+        assert(signalled);
         semaphore = VK_NULL_HANDLE;
         signalled = false;
         return oldSemaphore;
@@ -52,6 +54,13 @@ public:
         signalled = true;
     }
 
+    bool CanRecycle()const
+    {
+        return !shouldDestroyOnConsume;
+    }
+
+    void Recycle();
+
 private:
     friend class DeviceVulkan;
     friend struct SemaphoreDeleter;
@@ -61,6 +70,7 @@ private:
     VkSemaphore semaphore;
     bool signalled = true;
     uint64_t timeline = 0;
+    bool shouldDestroyOnConsume = false;
 };
 using SemaphorePtr = Util::IntrusivePtr<Semaphore>;
 

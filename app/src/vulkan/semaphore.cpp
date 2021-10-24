@@ -18,14 +18,24 @@ Semaphore::Semaphore(DeviceVulkan& device_, VkSemaphore semaphore, bool isSignal
 
 Semaphore::~Semaphore()
 {
-	if (semaphore != VK_NULL_HANDLE)
+	Recycle();
+}
+
+void Semaphore::Recycle()
+{
+	if (semaphore)
 	{
-		device.ReleaseSemaphore(semaphore, signalled);
+		if (signalled)
+			device.ReleaseSemaphore(semaphore);
+		else
+			device.RecycleSemaphore(semaphore);
 	}
 }
 
 SemaphoreManager::~SemaphoreManager()
 {
+	for (auto& semaphore : seamphores)
+		vkDestroySemaphore(device->device, semaphore, nullptr);
 }
 
 void SemaphoreManager::Initialize(DeviceVulkan& device_)
@@ -51,12 +61,6 @@ VkSemaphore SemaphoreManager::Requset()
 void SemaphoreManager::Recyle(VkSemaphore semaphore)
 {
 	seamphores.push_back(semaphore);
-}
-
-void SemaphoreManager::ClearAll()
-{
-	for (auto& semaphore : seamphores)
-		vkDestroySemaphore(device->device, semaphore, nullptr);
 }
 
 }

@@ -18,28 +18,6 @@
 namespace GPU
 {
 
-struct Swapchain
-{
-    VkDevice& device;
-    VkSwapchainKHR swapChain = VK_NULL_HANDLE;
-    VkSurfaceFormatKHR format = {};
-    VkExtent2D swapchainExtent = {};
-    std::vector<ImagePtr> images;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-
-    uint32_t mImageIndex = 0;
-
-    Swapchain(VkDevice& device_) : device(device_)
-    {
-    }
-
-    ~Swapchain()
-    {
-        vkDestroySwapchainKHR(device, swapChain, nullptr);
-    }
-};
-
 struct BatchComposer
 {
 public:
@@ -122,6 +100,7 @@ public:
     // per frame resource
     struct FrameResource
     {
+        DeviceVulkan& device;
         std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
 
         // destroyed resoruces
@@ -141,16 +120,18 @@ public:
         // submissions
         std::vector<CommandListPtr> submissions[QUEUE_INDEX_COUNT];
 
-        void Begin(DeviceVulkan& device);
-        void ProcessDestroyed(DeviceVulkan& device);
+        FrameResource(DeviceVulkan& device_);
+        ~FrameResource();
+
+        void Begin();
     };
-    std::vector<FrameResource> frameResources;
+    std::vector<std::unique_ptr<FrameResource>> frameResources;
     uint32_t frameIndex = 0;
 
     FrameResource& CurrentFrameResource()
     {
         assert(frameIndex < frameResources.size());
-        return frameResources[frameIndex];
+        return *frameResources[frameIndex];
     }
 
     void InitFrameContext();
@@ -160,7 +141,6 @@ public:
     VulkanCache<Shader> shaders;
     VulkanCache<ShaderProgram> programs;
     VulkanCache<RenderPass> renderPasses;
-    VulkanCache<FrameBuffer> frameBuffers;
     VulkanCache<PipelineLayout> pipelineLayouts;
     VulkanCache<DescriptorSetAllocator> descriptorSetAllocators;
 
@@ -185,7 +165,7 @@ public:
     DeviceVulkan(DeviceVulkan&&) = delete;
 
     void SetContext(VulkanContext& context);
-    bool CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, uint32_t width, uint32_t height);
+    bool InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height);
     void BakeShaderProgram(ShaderProgram& program);
     void WaitIdle();
     bool IsSwapchainTouched();
@@ -203,7 +183,7 @@ public:
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
 
-    void BeginFrameContext();
+    void NextFrameContext();
     void EndFrameContext();
     void Submit(CommandListPtr& cmd);
     void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);
@@ -213,15 +193,21 @@ public:
     void ReleaseImage(VkImage image);
     void ReleaseImageView(VkImageView imageView);
     void ReleaseFence(VkFence fence, bool isWait);
-    void ReleaseSemaphore(VkSemaphore semaphore, bool isSignalled);
     void ReleasePipeline(VkPipeline pipeline);
+
+    void ReleaseSemaphore(VkSemaphore semaphore);
+    void RecycleSemaphore(VkSemaphore semaphore);
+
+    bool IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
 
     uint64_t GenerateCookie();
     ShaderManager& GetShaderManager();
     SemaphorePtr GetAndConsumeReleaseSemaphore();
     VkQueue GetPresentQueue()const;
+    DeviceFeatures GetFeatures()const { return features; }
 
-    RenderPassInfo GetSwapchianRenderPassInfo(const Swapchain& swapChain, SwapchainRenderPassType swapchainRenderPassType);
+    ImageView& GetSwapchainView();
+    RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
     bool ReflectShader(ShaderResourceLayout& layout, const U32 *spirvData, size_t spirvSize);
 
 private:
@@ -244,6 +230,14 @@ private:
         uint32_t index = 0;
         VkQueue presentQueue = VK_NULL_HANDLE;
         bool consumed = false;
+        std::vector<ImagePtr> swapchainImages;
+
+        void Clear()
+        {
+            acquire.reset();
+            release.reset();
+            swapchainImages.clear();
+        }
     };
     InternalWSI wsi;
 

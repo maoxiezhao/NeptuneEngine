@@ -37,6 +37,8 @@ FenceManager::FenceManager()
 
 FenceManager::~FenceManager()
 {
+	for (auto& fence : fences)
+		vkDestroyFence(device->device, fence, nullptr);
 }
 
 void FenceManager::Initialize(DeviceVulkan& device_)
@@ -62,12 +64,6 @@ VkFence FenceManager::Requset()
 void FenceManager::Recyle(VkFence fence)
 {
 	fences.push_back(fence);
-}
-
-void FenceManager::ClearAll()
-{
-	for (auto& fence : fences)
-		vkDestroyFence(device->device, fence, nullptr);
 }
 
 }

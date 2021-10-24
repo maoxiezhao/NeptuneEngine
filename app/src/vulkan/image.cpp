@@ -34,7 +34,7 @@ void ImageDeleter::operator()(Image* image)
 
 Image::Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const ImageCreateInfo& info):
 	device(device_),
-	image(image),
+	image(image_),
 	imageInfo(info)
 {
 	if (imageView_ != VK_NULL_HANDLE)

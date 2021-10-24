@@ -45,7 +45,6 @@ public:
     void Initialize(DeviceVulkan& device_);
     VkFence Requset();
     void Recyle(VkFence fence);
-    void ClearAll();
 
 private:
     DeviceVulkan* device = nullptr;

@@ -30,10 +30,10 @@ DeviceVulkan::~DeviceVulkan()
 {
     WaitIdle();
 
+    wsi.Clear();
+
     transientAllocator.Clear();
     frameBufferAllocator.Clear();
-    fencePoolManager.ClearAll();
-    semaphoreManager.ClearAll();
 }
 
 void DeviceVulkan::SetContext(VulkanContext& context)
@@ -61,137 +61,20 @@ void DeviceVulkan::InitFrameContext()
     frameResources.clear();
 
     const int FRAME_COUNT = 2;
-    const int THREAD_COUNT = 1;
     for (int frameIndex = 0; frameIndex < FRAME_COUNT; frameIndex++)
     {
-        auto& frameResource = frameResources.emplace_back();
-        for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
-        {
-            frameResource.cmdPools->reserve(THREAD_COUNT);
-            for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
-            {
-                frameResource.cmdPools->emplace_back(this, queueInfo.familyIndices[queueIndex]);
-            }
-        }
+        auto frameResource = std::make_unique<FrameResource>(*this);
+        frameResources.emplace_back(std::move(frameResource));
     }
 }
 
-bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, uint32_t width, uint32_t height)
+bool DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height)
 {
-    if (surface == VK_NULL_HANDLE)
-        return false;
+    wsi.swapchainImages.clear();
 
-    if (swapchain != nullptr)
-        delete swapchain;
+    ImageCreateInfo imageCreateInfo = ImageCreateInfo::renderTarget(width, height, format);
+    imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    swapchain = new Swapchain(device);
-
-    VkSurfaceCapabilitiesKHR surfaceProperties = {};
-    auto res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceProperties);
-    assert(res == VK_SUCCESS);
-
-    // get surface formats
-    uint32_t formatCount;
-    res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
-    assert(res == VK_SUCCESS);
-
-    if (formatCount != 0)
-    {
-        swapchain->formats.resize(formatCount);
-        res = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, swapchain->formats.data());
-        assert(res == VK_SUCCESS);
-    }
-
-    // get present mode
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
-
-    if (presentModeCount != 0)
-    {
-        swapchain->presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, swapchain->presentModes.data());
-    }
-
-    // find suitable surface format
-    VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_UNDEFINED };
-    VkFormat targetFormat = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
-    for (auto& format : swapchain->formats)
-    {
-        if (format.format = targetFormat)
-        {
-            surfaceFormat = format;
-            break;
-        }
-    }
-
-    if (surfaceFormat.format == VK_FORMAT_UNDEFINED)
-    {
-        Logger::Error("Failed to find suitable surface format.");
-        return false;
-    }
-    swapchain->format = surfaceFormat;
-
-    // find suitable present mode
-    VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // 交换链是个队列，显示的时候从队列头拿一个图像，程序插入渲染的图像到队列尾。
-    bool isVsync = true;                                              // 如果队列满了程序就要等待，这差不多像是垂直同步，显示刷新的时刻就是垂直空白
-    if (!isVsync)
-    {
-        for (auto& presentMode : swapchain->presentModes)
-        {
-            if (presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
-            {
-                swapchainPresentMode = presentMode;
-                break;
-            }
-        }
-    }
-
-    // set swapchin extent
-    swapchain->swapchainExtent = { width, height };
-    swapchain->swapchainExtent.width =
-        max(surfaceProperties.minImageExtent.width, min(surfaceProperties.maxImageExtent.width, width));
-    swapchain->swapchainExtent.height =
-        max(surfaceProperties.minImageExtent.height, min(surfaceProperties.maxImageExtent.height, height));
-
-    // create swapchain
-    uint32_t desiredSwapchainImages = 2;
-    if (desiredSwapchainImages < surfaceProperties.minImageCount)
-        desiredSwapchainImages = surfaceProperties.minImageCount;
-    if ((surfaceProperties.maxImageCount > 0) && (desiredSwapchainImages > surfaceProperties.maxImageCount))
-        desiredSwapchainImages = surfaceProperties.maxImageCount;
-
-
-    VkSwapchainKHR oldSwapchain = swapchain->swapChain;;
-    VkSwapchainCreateInfoKHR createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = surface;
-    createInfo.minImageCount = desiredSwapchainImages;
-    createInfo.imageFormat = surfaceFormat.format;
-    createInfo.imageColorSpace = surfaceFormat.colorSpace;
-    createInfo.imageExtent = swapchain->swapchainExtent;
-    createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    createInfo.preTransform = surfaceProperties.currentTransform;
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; 
-    createInfo.presentMode = swapchainPresentMode;
-    createInfo.clipped = VK_TRUE;
-    createInfo.oldSwapchain = oldSwapchain;
-
-    res = vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain->swapChain);
-    assert(res == VK_SUCCESS);
-
-    uint32_t imageCount = 0;
-    res = vkGetSwapchainImagesKHR(device, swapchain->swapChain, &imageCount, nullptr);
-    assert(res == VK_SUCCESS);
-
-    std::vector<VkImage> images(imageCount);
-    res = vkGetSwapchainImagesKHR(device, swapchain->swapChain, &imageCount, images.data());
-    assert(res == VK_SUCCESS);
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // create image views
-    ImageCreateInfo imageCreateInfo = ImageCreateInfo::renderTarget(width, height, swapchain->format.format);
     for (int i = 0; i < images.size(); i++)
     {
         VkImageView imageView;
@@ -199,7 +82,7 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         createInfo.image = images[i];
         createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        createInfo.format = swapchain->format.format;
+        createInfo.format = format;
         createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -210,15 +93,16 @@ bool DeviceVulkan::CreateSwapchain(Swapchain*& swapchain, VkSurfaceKHR surface, 
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
+        VkResult res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
         assert(res == VK_SUCCESS);
 
-        ImagePtr imagePtr = ImagePtr(imagePool.allocate(*this, images[i], imageView, imageCreateInfo));
-        if (imagePtr)
+        ImagePtr backbuffer = ImagePtr(imagePool.allocate(*this, images[i], imageView, imageCreateInfo));
+        if (backbuffer)
         {
-            imagePtr->DisownImge(); // image��vkGetSwapchainImagesKHR��ȡ
-            imagePtr->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-            swapchain->images.push_back(imagePtr);
+            backbuffer->DisownImge();
+            backbuffer->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            wsi.swapchainImages.push_back(backbuffer);
+            SetName(*backbuffer.get(), "backbuffer");
         }
     }
 
@@ -249,11 +133,17 @@ Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(int threadIndex
     return Util::IntrusivePtr<CommandList>(commandListPool.allocate(*this, buffer, queueType));
 }
 
-RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(const Swapchain& swapChain, SwapchainRenderPassType swapchainRenderPassType)
+ImageView& DeviceVulkan::GetSwapchainView()
+{
+    assert(wsi.swapchainImages.size() > 0);
+    return wsi.swapchainImages[wsi.index]->GetImageView();
+}
+
+RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType)
 {
     RenderPassInfo info = {};
     info.numColorAttachments = 1;
-    info.colorAttachments[0] = &swapChain.images[swapChain.mImageIndex]->GetImageView();
+    info.colorAttachments[0] = &GetSwapchainView();
     info.clearAttachments = ~0u;
     info.storeAttachments = 1u << 0;
 
@@ -442,7 +332,7 @@ ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const Subr
     return ImagePtr();
 }
 
-void DeviceVulkan::BeginFrameContext()
+void DeviceVulkan::NextFrameContext()
 {
     // submit remain queue
     EndFrameContext();
@@ -459,16 +349,7 @@ void DeviceVulkan::BeginFrameContext()
         frameIndex = 0;
 
     // begin frame resources
-    CurrentFrameResource().Begin(*this);
-
-    // clear destroyed resources
-    CurrentFrameResource().ProcessDestroyed(*this);
-
-    // reset recyle semaphores
-    auto& recyleSemaphores = CurrentFrameResource().recycledSemaphroes;
-    for (auto& semaphore : recyleSemaphores)
-        semaphoreManager.Recyle(semaphore);
-    recyleSemaphores.clear();
+    CurrentFrameResource().Begin();
 }
 
 void DeviceVulkan::EndFrameContext()
@@ -536,22 +417,27 @@ void DeviceVulkan::ReleaseFence(VkFence fence, bool isWait)
     }
 }
 
-void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore, bool isSignalled)
-{
-    // �Ѿ�signalled��semaphore��ֱ�����٣�����ѭ��ʹ��
-    if (isSignalled)
-    {
-        CurrentFrameResource().destroyeSemaphores.push_back(semaphore);
-    }
-    else
-    {
-        CurrentFrameResource().recycledSemaphroes.push_back(semaphore);
-    }
-}
-
 void DeviceVulkan::ReleasePipeline(VkPipeline pipeline)
 {
     CurrentFrameResource().destroyedPipelines.push_back(pipeline);
+}
+
+void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
+{
+    CurrentFrameResource().destroyeSemaphores.push_back(semaphore);
+}
+
+void DeviceVulkan::RecycleSemaphore(VkSemaphore semaphore)
+{
+    CurrentFrameResource().recycledSemaphroes.push_back(semaphore);
+}
+
+bool DeviceVulkan::IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling)
+{
+    VkFormatProperties props;
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+    auto flags = tiling == VK_IMAGE_TILING_OPTIMAL ? props.optimalTilingFeatures : props.linearTilingFeatures;
+    return (flags & required) == required;
 }
 
 uint64_t DeviceVulkan::GenerateCookie()
@@ -605,7 +491,6 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
         for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
         {
             U32 activeBinds = false;
-
 
             // descriptor type masks
             for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
@@ -687,15 +572,16 @@ void DeviceVulkan::WaitIdle()
             Logger::Error("vkDeviceWaitIdle failed:%d", ret);
     }
 
-    frameBuffers.Clear();
+    frameBufferAllocator.Clear();
+    transientAllocator.Clear();
 
     for (auto& allocator : descriptorSetAllocators)
         allocator.second->Clear();
 
     for (auto& frame : frameResources)
     {
-        frame.waitFences.clear();
-        frame.Begin(*this);
+        frame->waitFences.clear();
+        frame->Begin();
     }
 }
 
@@ -730,10 +616,14 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
                 batchComposer.AddWaitSemaphore(wsi.acquire, stages);
                 if (wsi.acquire->GetTimeLine() <= 0)
                 {
-                    ReleaseSemaphore(wsi.acquire->GetSemaphore(), wsi.acquire->IsSignalled());
+                    // wait semaphore仅保持一帧，下一帧开始会被释放
+                    if (wsi.acquire->CanRecycle())
+                        RecycleSemaphore(wsi.acquire->GetSemaphore());
+                    else 
+                        ReleaseSemaphore(wsi.acquire->GetSemaphore());
                 }
 
-                wsi.acquire->Release();
+                wsi.acquire->Consume();
                 wsi.acquire.reset();
             }
 
@@ -777,8 +667,26 @@ VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkF
     return vkQueueSubmit(queue, (uint32_t)submits.size(), submits.data(), fence);
 }
 
-void DeviceVulkan::FrameResource::Begin(DeviceVulkan& device)
+DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_) : device(device_)
 {
+    const int THREAD_COUNT = 1;
+    for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
+    {
+        cmdPools->reserve(THREAD_COUNT);
+        for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
+            cmdPools->emplace_back(&device_, device_.queueInfo.familyIndices[queueIndex]);
+    }
+}
+
+DeviceVulkan::FrameResource::~FrameResource()
+{
+    Begin();
+}
+
+void DeviceVulkan::FrameResource::Begin()
+{
+    VkDevice vkDevice = device.device;
+
     // wait for submiting
     if (!waitFences.empty())
     {
@@ -801,28 +709,30 @@ void DeviceVulkan::FrameResource::Begin(DeviceVulkan& device)
         for (auto& pool : cmdPools[queueIndex])
             pool.BeginFrame();
     }
-}
 
-void DeviceVulkan::FrameResource::ProcessDestroyed(DeviceVulkan& device)
-{
-    VkDevice vkDevice = device.device;
-
-	for (auto& buffer : destroyedFrameBuffers)
-		vkDestroyFramebuffer(vkDevice, buffer, nullptr);
+    // clear destroyed resources
+    for (auto& buffer : destroyedFrameBuffers)
+        vkDestroyFramebuffer(vkDevice, buffer, nullptr);
     for (auto& image : destroyedImages)
         vkDestroyImage(vkDevice, image, nullptr);
     for (auto& imageView : destroyedImageViews)
-		vkDestroyImageView(vkDevice, imageView, nullptr);
+        vkDestroyImageView(vkDevice, imageView, nullptr);
     for (auto& semaphore : destroyeSemaphores)
         vkDestroySemaphore(vkDevice, semaphore, nullptr);
     for (auto& pipeline : destroyedPipelines)
         vkDestroyPipeline(vkDevice, pipeline, nullptr);
 
-	destroyedFrameBuffers.clear();
-	destroyedImages.clear();
-	destroyedImageViews.clear();
+    destroyedFrameBuffers.clear();
+    destroyedImages.clear();
+    destroyedImageViews.clear();
     destroyeSemaphores.clear();
     destroyedPipelines.clear();
+
+    // reset recyle semaphores
+    auto& recyleSemaphores = recycledSemaphroes;
+    for (auto& semaphore : recyleSemaphores)
+        device.semaphoreManager.Recyle(semaphore);
+    recyleSemaphores.clear();
 }
 
 BatchComposer::BatchComposer()

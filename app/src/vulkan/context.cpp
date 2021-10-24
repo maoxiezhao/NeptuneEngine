@@ -79,16 +79,6 @@ bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
             return false;
     }
 
-    auto itr = std::find_if(instanceExts.begin(), instanceExts.end(), [](const char* name) {
-        return strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0;
-        });
-    bool has_surface_extension = itr != instanceExts.end();
-    if (has_surface_extension && HasExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
-    {
-        instanceExts.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
-        extensionFeatures.supportsSurfaceCapabilities2 = true;
-    }
-
     if (HasExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
     {
         instanceExts.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -100,6 +90,17 @@ bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
         instanceExts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         extensionFeatures.supportDebugUtils = true;
     }
+
+    auto itr = std::find_if(instanceExts.begin(), instanceExts.end(), [](const char* name) {
+        return strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0;
+        });
+    bool has_surface_extension = itr != instanceExts.end();
+    if (has_surface_extension && HasExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
+    {
+        instanceExts.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+        extensionFeatures.supportsSurfaceCapabilities2 = true;
+    }
+
 
 #ifdef VULKAN_DEBUG
     // check support valiadation layer

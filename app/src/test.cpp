@@ -29,7 +29,7 @@ void TestApp::Render()
     GPU::DeviceVulkan* device = wsi.GetDevice();
     assert(device != nullptr);
 
-    GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(*wsi.GetSwapChain(), GPU::SwapchainRenderPassType::ColorOnly);
+    GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
     GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
 
     cmd->BeginEvent("Fullscreen");

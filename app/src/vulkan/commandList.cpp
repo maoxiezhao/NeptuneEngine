@@ -648,7 +648,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
         VkVertexInputBindingDescription& bind = bindings.emplace_back();
         bind.binding = binding;
         bind.inputRate = pipelineState.inputRates[binding];
-        bind.stride = pipelineState.strides[binding];
+        bind.stride = (U32)pipelineState.strides[binding];
      });
 
     vertexInputInfo.vertexBindingDescriptionCount = static_cast<U32>(bindings.size());
@@ -754,6 +754,10 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
         Logger::Error("Failed to create graphics pipeline!");
         return VK_NULL_HANDLE;
     }
+
+    // Handle pipeline by shader program
+    pipelineState.shaderProgram->AddPipeline(pipelineState.hash, retPipeline);
+
     return retPipeline;
 }
 
