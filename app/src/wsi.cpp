@@ -1,7 +1,7 @@
 ﻿#include "wsi.h"
 #include "app.h"
-#include "vulkan\device.h"
-#include "vulkan\context.h"
+#include "gpu\vulkan\device.h"
+#include "gpu\vulkan\context.h"
 
 namespace {
 #ifdef DEBUG

@@ -6,6 +6,7 @@ import "../tools/cjing_build/config_base.jsc"
     {
         cjing_build_dir : "../tools/cjing_build",
         assets_dir : "../assets",
+        assets_export_dir : ".export",
     },
 
     ///////////////////////////////////////////////////////////////////
@@ -42,8 +43,17 @@ import "../tools/cjing_build/config_base.jsc"
                 "%{vs_version}",   // To genenrate vs sln, the first param must is "vs_version"
                 "--env_dir=../",
                 "--work_dir=${assets_dir}",
+                "--renderer=vulkan",
                 "--platform_dir=win32",
                 "--sdk_version=%{windows_sdk_version}",
+            ]
+        },
+
+        // copy
+        copy : {
+            type : none,
+            files : [
+                ["${assets_dir}/${assets_export_dir}", "bin/${platforms}/Debug/${assets_export_dir}"],
             ]
         },
 
@@ -56,7 +66,7 @@ import "../tools/cjing_build/config_base.jsc"
         dlls : {
             type : copy,
             files : [
-                ["../3rdparty/dxcompiler/bin/x64", "bin/win32"],
+                ["../3rdparty/dxcompiler/bin/x64", "bin/${platforms}"],
             ]
         },
     }

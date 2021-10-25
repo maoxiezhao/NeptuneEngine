@@ -1,14 +1,4 @@
 
-local function setup_platform_win32()
-    systemversion(windows_sdk_version())
-end 
-
-local function setup_platform()
-    if platform_dir == "win32" then 
-        setup_platform_win32()
-    end 
-end 
-
 local function set_module_env(module_dependencies, config)
     if not module_dependencies then 
         return
@@ -78,9 +68,7 @@ function create_plugin(plugin_name, module_dependencies, plugin_dependencies, ex
     kind "StaticLib"
     language "C++"
     conformanceMode(true)
-    setup_project_env()
-    setup_platform()
-    setup_project_definines()
+    setup_project()
     targetname(plugin_name)
 
     -- Files

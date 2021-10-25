@@ -1,6 +1,7 @@
 #include "test.h"
-#include "vulkan\device.h"
-#include "utils\log.h"
+#include "gpu\vulkan\device.h"
+#include "gpu\vulkan\definition.h"
+#include "core\utils\log.h"
 
 static StdoutLoggerSink mStdoutLoggerSink;
 

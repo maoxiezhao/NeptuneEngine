@@ -1,6 +1,5 @@
 
-#include "common.h"
-#include "vulkan/device.h"
+
 #include "test.h"
 
 int main()

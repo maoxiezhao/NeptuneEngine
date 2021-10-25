@@ -337,7 +337,6 @@ def process_variable(var, def_vars):
             print("current def vars:")
             print(json.dumps(def_vars, indent=4))
             exit(1)
-        count += 1
     return None
 
 def process_variables_recursive(jsn, def_vars):

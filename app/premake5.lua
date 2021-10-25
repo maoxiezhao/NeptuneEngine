@@ -32,38 +32,18 @@ solution ("VulkanTest")
     -- Reset the filter for other settings
     filter { }
     
-    create_example_app(
-        "app", 
-        "src", 
-        get_current_script_path(), 
-        "ConsoleApp",
-        nil,
-        function(SOURCE_DIR)
-            -- vulkan
-            includedirs { "../3rdparty/vulkan/include" }
-            -- local vulkan_dir = "../3rdparty/vulkan/include/vulkan"
-            -- files 
-            -- {
-            --     vulkan_dir .. "/**.c",
-            --     vulkan_dir .. "/**.cpp",
-            --     vulkan_dir .. "/**.hpp",
-            --     vulkan_dir .. "/**.h",
-            --     vulkan_dir .. "/**.inl"
-            -- }
-            files 
-            {
-                "../3rdparty/volk/volk.h",
-                "../3rdparty/volk/volk.c",
+    dofile "../modules/modules.lua"
 
-                "../3rdparty/spriv_reflect/spirv_reflect.h",
-                "../3rdparty/spriv_reflect/spirv_reflect.c",
-            }
-            -- vpaths { 
-            --     ["volk"] = {
-            --         "../3rdparty/volk/volk.h",
-            --         "../3rdparty/volk/volk.c"
-            --     }
-            -- }
+    create_example_app(
+        "app",                          -- project_name
+        "src",                          -- source_directory
+        get_current_script_path(),      -- root_directory
+        "ConsoleApp",                   -- app kind
+        nil,                            -- plugins,
+        default_engine_modules,         -- engine modules
+        function(SOURCE_DIR)
+            -- vulkan header
+            includedirs { "../3rdparty/vulkan/include" }
 
             -- glfw
             includedirs { "../3rdparty/glfw/include" }

@@ -1,9 +1,8 @@
 #pragma once
 
-#include <memory>
-
+#include "core\common.h"
 #include "wsi.h"
-#include "vulkan\definition.h"
+#include "GLFW\glfw3.h"
 
 class Platform
 {

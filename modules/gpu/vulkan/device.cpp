@@ -1,5 +1,5 @@
 ﻿#include "device.h"
-#include "utils\hash.h"
+#include "core\utils\hash.h"
 #include "spriv_reflect\spirv_reflect.h"
 
 namespace GPU

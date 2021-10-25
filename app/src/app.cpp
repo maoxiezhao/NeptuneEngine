@@ -1,5 +1,4 @@
 #include "app.h"
-#include "vulkan\device.h"
 
 Platform::Platform()
 {

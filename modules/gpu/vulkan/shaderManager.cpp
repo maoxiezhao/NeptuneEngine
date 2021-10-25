@@ -1,8 +1,8 @@
 ﻿#include "shaderManager.h"
 #include "shaderCompiler.h"
 #include "device.h"
-#include "utils\archive.h"
-#include "utils\helper.h"
+#include "core\utils\archive.h"
+#include "core\utils\helper.h"
 
 #include <unordered_set>
 #include <filesystem>

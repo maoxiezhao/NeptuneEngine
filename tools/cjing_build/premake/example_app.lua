@@ -1,12 +1,3 @@
-local function setup_platform_win32()
-    systemversion(windows_sdk_version())
-end 
-
-local function setup_platform()
-    if platform_dir == "win32" then 
-        setup_platform_win32()
-    end 
-end 
 
 local function link_plugins(plugins, config)
     if plugins == nil then 
@@ -27,7 +18,7 @@ function get_current_script_path()
     return str:match("(.*/)")
 end
 
-function create_example_app(project_name, source_directory, root_directory, app_kind, plugins, ext_func)
+function create_example_app(project_name, source_directory, root_directory, app_kind, plugins, engine_modules, ext_func)
     print("[APP]", project_name)
 
     local project_dir = root_directory .. "/build/" .. platform_dir .. "/" .. project_name
@@ -42,10 +33,9 @@ function create_example_app(project_name, source_directory, root_directory, app_
         conformanceMode(true)
         kind (app_kind)
         staticruntime "Off"
-        setup_project_env()
-        setup_platform()
-        setup_project_definines()
+        setup_project()
 
+        --------------------------------------------------------------
         -- plugins
         if plugins ~= nil then 
             setup_plugins_definines(plugins)
@@ -59,6 +49,7 @@ function create_example_app(project_name, source_directory, root_directory, app_
             filter {}
         end 
 
+        --------------------------------------------------------------
         -- includes
         includedirs { 
             -- local
@@ -69,6 +60,7 @@ function create_example_app(project_name, source_directory, root_directory, app_
             env_dir .. "assets/shaders", 
         }
 
+        --------------------------------------------------------------
         -- Files
         files 
         { 
@@ -79,6 +71,7 @@ function create_example_app(project_name, source_directory, root_directory, app_
             source_dir .. "/**.inl"
         }
 
+        --------------------------------------------------------------
         -- Debug dir
         local debug_dir = ""
         if work_dir ~= nil then 
@@ -92,6 +85,10 @@ function create_example_app(project_name, source_directory, root_directory, app_
             ext_func(source_dir)
         end 
 
+        if engine_modules ~= nil then 
+            libdirs {target_dir .. "/libs"}
+        end
+
         --------------------------------------------------------------
         -- Config
         targetdir (target_dir)
@@ -99,11 +96,17 @@ function create_example_app(project_name, source_directory, root_directory, app_
         filter {"configurations:Debug"}
             targetname(project_name)
             defines { "DEBUG" }
+            if engine_modules ~= nil then 
+                setup_modules("Debug", engine_modules)
+            end 
 
         -- Release config
         filter {"configurations:Release"}
             targetname(project_name .. "_d")
             defines { "NDEBUG" }
+            if engine_modules ~= nil then 
+                setup_modules("Release", engine_modules)
+            end
 
         filter { }
         --------------------------------------------------------------

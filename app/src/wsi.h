@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common.h"
-#include "vulkan\device.h"
+#include "core\common.h"
+#include "gpu\vulkan\device.h"
 
 class Platform;
 

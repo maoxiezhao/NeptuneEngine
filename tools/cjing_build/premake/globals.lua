@@ -5,6 +5,7 @@ require('vstudio')
 
 dofile("class.lua")
 dofile("modules.lua")
+dofile("platform.lua")
 
 premake.api.register {
     name = "conformanceMode",
@@ -53,14 +54,6 @@ build_app = false
 build_tests = false
 all_plugins = {}
 
-function setup_project_confgiurations()
-	configuration "Debug"
-		flags { "Symbols", "ReleaseRuntime" }
-
-    configuration {}
-        defines { "_ITERATOR_DEBUG_LEVEL=0", "STBI_NO_STDIO" }
-end 
-
 function setup_project_env_win32()
     platforms "x64"
     filter { "platforms:x64" }
@@ -79,7 +72,11 @@ function setup_project_env()
         setup_project_env_linux()
     end
 
-    setup_project_confgiurations()
+	configuration "Debug"
+		symbols "On"
+
+    configuration {}
+        defines { "_ITERATOR_DEBUG_LEVEL=0", "STBI_NO_STDIO" }
 end
 
 function setup_project_definines()
@@ -105,6 +102,12 @@ function force_Link(name)
         print("Force link error, current platform not support", current_platform)
     end 
 end
+
+function setup_project()
+    setup_project_env()
+    setup_platform()
+    setup_project_definines()
+end 
 
 -----------------------------------------------------------------------------------
 -- main

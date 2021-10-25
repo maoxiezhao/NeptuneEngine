@@ -1,6 +1,6 @@
 #include "shaderCompiler.h"
-#include "utils\helper.h"
-#include "utils\archive.h"
+#include "core\utils\helper.h"
+#include "core\utils\archive.h"
 
 #ifdef CJING3D_PLATFORM_WIN32
 #include <SDKDDKVer.h>

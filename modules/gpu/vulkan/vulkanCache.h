@@ -1,7 +1,7 @@
 #pragma once
 
-#include "utils\hash.h"
-#include "utils\objectPool.h"
+#include "core\utils\hash.h"
+#include "core\utils\objectPool.h"
 
 #include <unordered_map>
 

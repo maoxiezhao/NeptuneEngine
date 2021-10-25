@@ -13,7 +13,7 @@
 #endif
 
 #include "common.h"
-#include "utils\span.h"
+#include "core\utils\span.h"
 
 namespace Platform {
 

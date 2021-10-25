@@ -192,8 +192,8 @@ def task_run_build(config, task_name, files, args):
 def task_run_clean(config, task_name):
     if "clean" not in config.keys():
         return
-    print_task_header(task_name)
 
+    print_task_header(task_name)
     clean_task = config[task_name]
     if "directories" in clean_task:
         for directory in clean_task["directories"]:

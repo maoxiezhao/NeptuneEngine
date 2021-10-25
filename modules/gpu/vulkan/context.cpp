@@ -1,6 +1,7 @@
 #include "context.h"
 
 #include <set>
+#include <array>
 
 namespace GPU
 {
@@ -342,6 +343,8 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
         queueInfo.familyIndices[i] = VK_QUEUE_FAMILY_IGNORED;
 
     std::vector<U32> queueOffset(queueFamilyCount);
+    std::vector<std::array<F32, 4>> queuePriorities(queueFamilyCount);
+
     for (U32 famlilyIndex = 0; famlilyIndex < queueFamilyCount; famlilyIndex++)
         queueOffset[famlilyIndex] = 0;
 
@@ -359,6 +362,7 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
                 queueInfo.familyIndices[index] = famlilyIndex;
                 familyProp.queueCount--;
                 queueOffset[famlilyIndex]++;
+                queuePriorities[famlilyIndex][index] = 1.0f;
                 return true;
             }
         }
@@ -404,7 +408,7 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
         VkDeviceQueueCreateInfo queueCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
         queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueCount = queueOffset[queueFamily];
-        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfo.pQueuePriorities = queuePriorities[queueFamily].data();
         queueCreateInfos.push_back(queueCreateInfo);
     }
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "definition.h"
-#include "common.h"
 #include "context.h"
 #include "commandList.h"
 #include "image.h"
