@@ -10,5 +10,6 @@ public:
 
 	void Setup()override;
 	void Render()override;
+	void InitializeImpl()override;
 	void UninitializeImpl()override;
 };

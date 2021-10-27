@@ -2,6 +2,9 @@
 #include "core\utils\hash.h"
 #include "spriv_reflect\spirv_reflect.h"
 
+#define VMA_IMPLEMENTATION
+#include "utility\vk_mem_alloc.h"
+
 namespace GPU
 {
 namespace 
@@ -332,6 +335,11 @@ ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const Subr
     return ImagePtr();
 }
 
+BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData)
+{
+    return BufferPtr();
+}
+
 void DeviceVulkan::NextFrameContext()
 {
     // submit remain queue
@@ -523,7 +531,7 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
         if (shaderResLayout.pushConstantSize > 0)
         {
             resLayout.pushConstantRange.stageFlags |= stageMask;
-            resLayout.pushConstantRange.size = max(resLayout.pushConstantRange.size, shaderResLayout.pushConstantSize);
+            resLayout.pushConstantRange.size = std::max(resLayout.pushConstantRange.size, shaderResLayout.pushConstantSize);
         }
     }
 

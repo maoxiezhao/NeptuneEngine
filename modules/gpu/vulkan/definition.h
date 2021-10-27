@@ -27,7 +27,6 @@
 
 namespace GPU
 {
-
     static const U32 VULKAN_NUM_ATTACHMENTS = 8;
     static const U32 VULKAN_NUM_DESCRIPTOR_SETS = 4;
     static const U32 VULKAN_NUM_VERTEX_ATTRIBS = 16;
@@ -140,10 +139,17 @@ namespace GPU
         TRANSIENT,
     };
 
+    enum class BufferDomain
+    {
+        Device,     // Device local. Probably not visible from CPU.
+        Host,       // Host-only, needs to be synced to GPU. Might be device local as well on iGPUs.
+        CachedHost,
+    };
+
     class Image;
     struct ImageViewCreateInfo
     {
-        Image *image = nullptr;
+        Image* image = nullptr;
         VkFormat format = VK_FORMAT_UNDEFINED;
     };
 
@@ -273,4 +279,12 @@ namespace GPU
         U32 slicePitch = 0;
     };
 
+
+    struct BufferCreateInfo
+    {
+        BufferDomain domain = BufferDomain::Device;
+        VkDeviceSize size = 0;
+        VkBufferUsageFlags usage = 0;
+        U32 misc = 0;
+    };
 }

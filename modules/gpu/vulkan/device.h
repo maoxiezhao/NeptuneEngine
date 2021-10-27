@@ -4,6 +4,7 @@
 #include "context.h"
 #include "commandList.h"
 #include "image.h"
+#include "buffer.h"
 #include "renderPass.h"
 #include "fence.h"
 #include "semaphore.h"
@@ -181,6 +182,8 @@ public:
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
+    BufferPtr CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData);
+
 
     void NextFrameContext();
     void EndFrameContext();

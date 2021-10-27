@@ -1,42 +1,38 @@
 -- [Engine moduler] gpu
- 
-local THIRD_PARTY = "../../3rdparty"
+add_module_lib(PROJECT_GPU_NAME)
+   
+ -- Includedirs
+ includedirs { "" }
+ includedirs { third_party_location .. "/vulkan/include" }
+ files 
+ {
+     "**.c",
+     "**.cpp",
+     "**.hpp",
+     "**.h",
+     "**.inl",
 
--- Files
-files 
-{ 
-    "**.c",
-    "**.cpp",
-    "**.hpp",
-    "**.h",
-    "**.inl",
-}
+     third_party_location .. "/volk/volk.h",
+     third_party_location .. "/volk/volk.c",
 
--- Vulkan
-includedirs { THIRD_PARTY .. "/vulkan/include" }
-files 
-{
-    THIRD_PARTY .. "/volk/volk.h",
-    THIRD_PARTY .. "/volk/volk.c",
+     third_party_location .. "/spriv_reflect/spirv_reflect.h",
+     third_party_location .. "/spriv_reflect/spirv_reflect.c",
+ }
 
-    THIRD_PARTY .. "/spriv_reflect/spirv_reflect.h",
-    THIRD_PARTY .. "/spriv_reflect/spirv_reflect.c",
-}
-
-vpaths { 
-    ["3rdparty/volk"] = {
-        THIRD_PARTY .. "/volk/volk.h",
-        THIRD_PARTY .. "/volk/volk.c",
-    },
-    ["3rdparty/spriv_reflect"] = {
-        THIRD_PARTY .. "/spriv_reflect/spirv_reflect.h",
-        THIRD_PARTY .. "/spriv_reflect/spirv_reflect.c",
-    },
-    ["gpu/*"] = {
-        "**.c",
-        "**.cpp",
-        "**.hpp",
-        "**.h",
-        "**.inl",
-    }
-}
+ vpaths { 
+     ["3rdparty/volk"] = {
+         third_party_location .. "/volk/volk.h",
+         third_party_location .. "/volk/volk.c",
+     },
+     ["3rdparty/spriv_reflect"] = {
+         third_party_location .. "/spriv_reflect/spirv_reflect.h",
+         third_party_location .. "/spriv_reflect/spirv_reflect.c",
+     },
+     ["gpu/*"] = {
+         "**.c",
+         "**.cpp",
+         "**.hpp",
+         "**.h",
+         "**.inl",
+     }
+ }

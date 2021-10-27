@@ -18,15 +18,15 @@ FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass, const Re
 	{
 		const ImageView* view = info.colorAttachments[i];
 		imageViews[numImageViews++] = view->GetRenderTargetView(0);
-		width = min(width, view->GetImage()->GetWidth());
-		height = min(height, view->GetImage()->GetHeight());
+		width = std::min(width, view->GetImage()->GetWidth());
+		height = std::min(height, view->GetImage()->GetHeight());
 	}
 
 	if (info.depthStencil != nullptr)
 	{
 		imageViews[numImageViews++] = info.depthStencil->GetRenderTargetView(0);
-		width = min(width, info.depthStencil->GetImage()->GetWidth());
-		height = min(height, info.depthStencil->GetImage()->GetHeight());
+		width = std::min(width, info.depthStencil->GetImage()->GetWidth());
+		height = std::min(height, info.depthStencil->GetImage()->GetHeight());
 	}
 
 	VkFramebufferCreateInfo framebufferInfo = {};

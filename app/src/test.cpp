@@ -21,8 +21,20 @@ void TestApp::Setup()
     Logger::Info("Test app initialize.");
 }
 
+static GPU::BufferPtr buffer;
+void TestApp::InitializeImpl()
+{
+    //GPU::BufferCreateInfo info = {};
+    //info.domain = GPU::BufferDomain::Device;
+    //info.size = 128;
+    //info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    //info.misc = 0;
+    //buffer = wsi.GetDevice()->CreateBuffer(info, nullptr);
+}
+
 void TestApp::UninitializeImpl()
 {
+    buffer.reset();
 }
 
 void TestApp::Render()

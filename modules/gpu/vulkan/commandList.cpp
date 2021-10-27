@@ -176,10 +176,10 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     VkRect2D rect = renderPassInfo.renderArea;
     U32 fbWidth = frameBuffer->GetWidth();
     U32 fbHeight = frameBuffer->GetHeight();
-    rect.offset.x = min(fbWidth, U32(rect.offset.x));
-    rect.offset.y = min(fbHeight, U32(rect.offset.y));
-    rect.extent.width = min(fbWidth - rect.offset.x, rect.extent.width);
-    rect.extent.height = min(fbHeight - rect.offset.y, rect.extent.height);
+    rect.offset.x = std::min(fbWidth, U32(rect.offset.x));
+    rect.offset.y = std::min(fbHeight, U32(rect.offset.y));
+    rect.extent.width = std::min(fbWidth - rect.offset.x, rect.extent.width);
+    rect.extent.height = std::min(fbHeight - rect.offset.y, rect.extent.height);
 
     viewport = {
         float(rect.offset.x), float(rect.offset.y),

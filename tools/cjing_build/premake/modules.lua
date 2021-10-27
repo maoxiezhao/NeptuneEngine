@@ -5,6 +5,7 @@ dependencies_mapping = {}
 module_location = ""
 build_location = ""
 lib_location = ""
+third_party_location = ""
 
 function set_module_location(location)
     module_location = location
@@ -16,6 +17,10 @@ end
 
 function set_lib_location(location)
     lib_location = location
+end 
+
+function set_third_party_location(location)
+    third_party_location = location
 end 
 
 function register_module(project_name, dependencies, is_default)
@@ -92,7 +97,7 @@ function setup_modules(config, engine_modules)
     end 
 end 
 
-function create_modulen(module_name, module_file)
+function add_module_lib(module_name)
     print("[Module]", module_name)
     project (module_name)
     location(build_location.. "/" .. module_name)
@@ -105,11 +110,9 @@ function create_modulen(module_name, module_file)
     setup_module_dependencies(module_name)
 
     -- includes
-    local THIRD_PARTY = "../3rdparty"
     includedirs {
         module_location,
-        module_location .. "/" .. module_name,
-        THIRD_PARTY, 
+        third_party_location, 
     }
 
     -- Debug config
@@ -123,11 +126,5 @@ function create_modulen(module_name, module_file)
         targetdir (lib_location .. "/Release")
         defines { "NDEBUG" }
         setup_module_dependent_libs(module_name, "Release")
-
     filter { }
-
-    -- do module lua file
-    if module_file ~= nil and module_file ~= "" then 
-        dofile(module_file)
-    end 
 end

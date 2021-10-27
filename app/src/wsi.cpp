@@ -308,8 +308,8 @@ bool WSI::InitSwapchain(uint32_t width, uint32_t height)
 
     // clamp the target width, height to boundaries.
     VkExtent2D swapchainSize;
-    swapchainSize.width = max(min(width, surfaceProperties.maxImageExtent.width), surfaceProperties.minImageExtent.width);
-    swapchainSize.height = max(min(height, surfaceProperties.maxImageExtent.height), surfaceProperties.minImageExtent.height);
+    swapchainSize.width = std::max(std::min(width, surfaceProperties.maxImageExtent.width), surfaceProperties.minImageExtent.width);
+    swapchainSize.height = std::max(std::min(height, surfaceProperties.maxImageExtent.height), surfaceProperties.minImageExtent.height);
 
     // create swapchain
     VkSwapchainKHR oldSwapchain = swapchain;

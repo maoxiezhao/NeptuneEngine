@@ -84,6 +84,7 @@ function setup_project_definines()
     {
         ("CJING3D_PLATFORM_" .. string.upper(platform_dir)),
         ("CJING3D_RENDERER_" .. string.upper(renderer)),
+        ("NOMINMAX")
     }
 
     if net_lib ~= "" then 
@@ -154,7 +155,7 @@ function setup_env_from_action()
     print("[premake]:work_dir:", work_dir)
     print("[premake]:current_platform:", current_platform)
     print("[premake]:current renderer:", renderer and renderer or "NULL")
-    print("[premake]:current net lib:", net_lib and net_lib or "NULL")
+    -- print("[premake]:current net lib:", net_lib and net_lib or "NULL")
 
     if is_static_plugin then 
         print("[premake]:static plugins")
