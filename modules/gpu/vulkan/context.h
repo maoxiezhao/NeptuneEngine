@@ -8,10 +8,14 @@ namespace GPU
 struct DeviceFeatures
 {
     bool supportDebugUtils = false;
-    bool supportsVulkan11Instance = false;
-    bool supportsVulkan11Device = false;
+    bool supportsVulkan12Instance = false;
+    bool supportsVulkan12Device = false;
     bool supportsPhysicalDeviceProperties2 = false;
     bool supportsSurfaceCapabilities2 = false;
+
+    VkPhysicalDeviceFeatures2 features2 = {};
+    VkPhysicalDeviceVulkan11Features features_1_1 = {};
+    VkPhysicalDeviceVulkan12Features features_1_2 = {};
 };
 
 struct QueueInfo
@@ -85,8 +89,7 @@ private:
     VkPhysicalDeviceProperties2 mProperties2 = {};
     VkPhysicalDeviceVulkan11Properties mProperties_1_1 = {};
     VkPhysicalDeviceVulkan12Properties mProperties_1_2 = {};
-    DeviceFeatures extensionFeatures = {};
-    VkPhysicalDeviceFeatures2KHR feature = {};
+    DeviceFeatures ext = {};
 
     // queue
     std::vector<VkQueueFamilyProperties> queueFamilyProps;

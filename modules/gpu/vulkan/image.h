@@ -44,6 +44,17 @@ public:
         return info;
     }
 
+    void SetDepthStencilView(VkImageView depth, VkImageView stencil)
+    {
+        depthView = depth;
+        stencilView = stencil;
+    }
+
+    void SetRenderTargetViews(std::vector<VkImageView> views)
+    {
+        rtViews = views;
+    }
+
     VkImageView GetRenderTargetView(uint32_t layer)const;
 
 private:
@@ -52,7 +63,10 @@ private:
     friend class Util::ObjectPool<ImageView>;
     
     DeviceVulkan& device;
-    VkImageView imageView;
+    VkImageView imageView = VK_NULL_HANDLE;
+    VkImageView depthView = VK_NULL_HANDLE;
+    VkImageView stencilView = VK_NULL_HANDLE;
+    std::vector<VkImageView> rtViews;
     ImageViewCreateInfo info;
 };
 using ImageViewPtr = Util::IntrusivePtr<ImageView>;
@@ -114,6 +128,11 @@ public:
     uint32_t GetHeight() const
     {
         return imageInfo.height;
+    }
+
+    const ImageCreateInfo& GetCreateInfo()const
+    {
+        return imageInfo;
     }
 
 private:

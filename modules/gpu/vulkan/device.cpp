@@ -1,9 +1,7 @@
 ﻿#include "device.h"
 #include "core\utils\hash.h"
 #include "spriv_reflect\spirv_reflect.h"
-
-#define VMA_IMPLEMENTATION
-#include "utility\vk_mem_alloc.h"
+#include "memory.h"
 
 namespace GPU
 {
@@ -20,6 +18,121 @@ namespace
     }
 
     static uint64_t STATIC_COOKIE = 0;
+
+    static inline VkImageViewType GetImageViewType(const ImageCreateInfo& createInfo, const ImageViewCreateInfo* view)
+    {
+        unsigned layers = view ? view->layers : createInfo.layers;
+        unsigned base_layer = view ? view->baseLayer : 0;
+
+        if (layers == VK_REMAINING_ARRAY_LAYERS)
+            layers = createInfo.layers - base_layer;
+
+        bool force_array =
+            view ? (view->misc & IMAGE_VIEW_MISC_FORCE_ARRAY_BIT) : (createInfo.misc & IMAGE_MISC_FORCE_ARRAY_BIT);
+
+        switch (createInfo.type)
+        {
+        case VK_IMAGE_TYPE_1D:
+            assert(createInfo.width >= 1);
+            assert(createInfo.height == 1);
+            assert(createInfo.depth == 1);
+            assert(createInfo.samples == VK_SAMPLE_COUNT_1_BIT);
+
+            if (layers > 1 || force_array)
+                return VK_IMAGE_VIEW_TYPE_1D_ARRAY;
+            else
+                return VK_IMAGE_VIEW_TYPE_1D;
+
+        case VK_IMAGE_TYPE_2D:
+            assert(createInfo.width >= 1);
+            assert(createInfo.height >= 1);
+            assert(createInfo.depth == 1);
+
+            if ((createInfo.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) && (layers % 6) == 0)
+            {
+                assert(createInfo.width == createInfo.height);
+
+                if (layers > 6 || force_array)
+                    return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+                else
+                    return VK_IMAGE_VIEW_TYPE_CUBE;
+            }
+            else
+            {
+                if (layers > 1 || force_array)
+                    return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+                else
+                    return VK_IMAGE_VIEW_TYPE_2D;
+            }
+
+        case VK_IMAGE_TYPE_3D:
+            assert(createInfo.width >= 1);
+            assert(createInfo.height >= 1);
+            assert(createInfo.depth >= 1);
+            return VK_IMAGE_VIEW_TYPE_3D;
+
+        default:
+            assert(0 && "bogus");
+            return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
+        }
+    }
+
+    class ImageResourceCreator
+    {
+    public:
+        DeviceVulkan& device;
+        VkImageView imageView = VK_NULL_HANDLE;
+        VkImageView depthView = VK_NULL_HANDLE;
+        VkImageView stencilView = VK_NULL_HANDLE;
+        std::vector<VkImageView> rtViews;
+
+    public:
+        explicit ImageResourceCreator(DeviceVulkan& device_) :
+            device(device_)
+        {
+        }
+
+        bool CreateDefaultView(const VkImageViewCreateInfo& viewInfo)
+        {
+            return true;
+        }
+
+        bool CreatDepthAndStencilView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
+        {
+            return true;
+        }
+
+        bool CreateRenderTargetView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
+        {
+            return true;
+        }
+
+        bool CreateDefaultViews(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo* viewInfo)
+        {
+            U32 checkUsage = 
+                VK_IMAGE_USAGE_SAMPLED_BIT | 
+                VK_IMAGE_USAGE_STORAGE_BIT | 
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | 
+                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+            if ((createInfo.usage & checkUsage) == 0)
+            {
+                Logger::Error("Cannot create image view unless certain usage flags are present.\n");
+                return false;
+            }
+
+            if (!CreatDepthAndStencilView(createInfo, *viewInfo))
+                return false;
+
+            if (!CreateRenderTargetView(createInfo, *viewInfo))
+                return false;
+
+            if (!CreateDefaultView(*viewInfo))
+                return false;
+
+            return true;
+        }
+    };
 }
 
 DeviceVulkan::DeviceVulkan() : 
@@ -45,14 +158,13 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     physicalDevice = context.physicalDevice;
     instance = context.instance;
     queueInfo = context.queueInfo;
-    features = context.extensionFeatures;
+    features = context.ext;
 
-    ///////////////////////////////////////////////////////////////////////////////////////////
     // create frame resources
     InitFrameContext();
 
-    ///////////////////////////////////////////////////////////////////////////////////////////
     //init managers
+    memory.Initialize(this);
     fencePoolManager.Initialize(*this);
     semaphoreManager.Initialize(*this);
 }
@@ -335,9 +447,86 @@ ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const Subr
     return ImagePtr();
 }
 
+ImageViewPtr DeviceVulkan::CreateImageView(const ImageViewCreateInfo& viewInfo)
+{
+    auto& imageCreateInfo = viewInfo.image->GetCreateInfo();
+    VkFormat format = viewInfo.format != VK_FORMAT_UNDEFINED ? viewInfo.format : imageCreateInfo.format;
+    VkImageViewCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+    createInfo.image = viewInfo.image->GetImage();
+    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    createInfo.format = format;
+    createInfo.components = viewInfo.swizzle;
+    createInfo.subresourceRange.aspectMask = formatToAspectMask(format);
+    createInfo.subresourceRange.baseMipLevel = viewInfo.baseLevel;
+    createInfo.subresourceRange.levelCount = viewInfo.levels;
+    createInfo.subresourceRange.baseArrayLayer = viewInfo.baseLayer;
+    createInfo.subresourceRange.layerCount = viewInfo.layers;
+
+    if (viewInfo.viewType == VK_IMAGE_VIEW_TYPE_MAX_ENUM)
+        createInfo.viewType = GetImageViewType(imageCreateInfo, &viewInfo);
+    else
+        createInfo.viewType = viewInfo.viewType;
+
+    ImageResourceCreator creator(*this);
+    if (!creator.CreateDefaultViews(imageCreateInfo, &createInfo))
+        return ImageViewPtr();
+
+    ImageViewPtr viewPtr(imageViews.allocate(*this, creator.imageView, viewInfo));
+    if (viewPtr)
+    {
+        return viewPtr;
+    }
+
+    return ImageViewPtr();
+}
+
 BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData)
 {
+    VkBufferCreateInfo info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    info.size = createInfo.size;
+    info.usage = createInfo.usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    if (features.features_1_2.bufferDeviceAddress == VK_TRUE)
+    {
+        info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    }
+
+    VkBuffer buffer;
+    DeviceAllocation allocation;
+    AllocationMode mode;
+    if (createInfo.domain == BufferDomain::Device)
+        mode = AllocationMode::Device;
+    else
+        mode = AllocationMode::Host;
+
+    if (!memory.CreateBuffer(info, mode, buffer, &allocation))
+    {
+        Logger::Warning("Failed to create buffer");
+        return BufferPtr(nullptr);
+    }
+
+    // BufferPtr bufferPtr(buffers.allocate())
+    bool zeroInitialize = (createInfo.misc & BUFFER_MISC_ZERO_INITIALIZE_BIT) != 0;
+    if (initialData != nullptr)
+    {
+
+    }
     return BufferPtr();
+}
+
+BufferViewPtr DeviceVulkan::CreateBufferView(const BufferViewCreateInfo& viewInfo)
+{
+    VkBufferViewCreateInfo info = { VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO };
+    info.buffer = viewInfo.buffer->GetBuffer();
+    info.format = viewInfo.format;
+    info.offset = viewInfo.offset;
+    info.range = viewInfo.range;
+
+    VkBufferView view;
+    if (vkCreateBufferView(device, &info, nullptr, &view) != VK_SUCCESS)
+        return BufferViewPtr();
+
+    return BufferViewPtr(bufferViews.allocate(*this, view, viewInfo));
 }
 
 void DeviceVulkan::NextFrameContext()
@@ -425,9 +614,24 @@ void DeviceVulkan::ReleaseFence(VkFence fence, bool isWait)
     }
 }
 
+void DeviceVulkan::ReleaseBuffer(VkBuffer buffer)
+{
+    CurrentFrameResource().destroyedBuffers.push_back(buffer);
+}
+
+void DeviceVulkan::ReleaseBufferView(VkBufferView bufferView)
+{
+    CurrentFrameResource().destroyedBufferViews.push_back(bufferView);
+}
+
 void DeviceVulkan::ReleasePipeline(VkPipeline pipeline)
 {
     CurrentFrameResource().destroyedPipelines.push_back(pipeline);
+}
+
+void DeviceVulkan::FreeMemory(const DeviceAllocation& allocation)
+{
+    CurrentFrameResource().destroyedAllocations.push_back(std::move(allocation));
 }
 
 void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
@@ -725,16 +929,25 @@ void DeviceVulkan::FrameResource::Begin()
         vkDestroyImage(vkDevice, image, nullptr);
     for (auto& imageView : destroyedImageViews)
         vkDestroyImageView(vkDevice, imageView, nullptr);
+    for (auto& buffer : destroyedBuffers)
+        vkDestroyBuffer(vkDevice, buffer, nullptr);
+    for (auto& bufferView : destroyedBufferViews)
+        vkDestroyBufferView(vkDevice, bufferView, nullptr);
     for (auto& semaphore : destroyeSemaphores)
         vkDestroySemaphore(vkDevice, semaphore, nullptr);
     for (auto& pipeline : destroyedPipelines)
         vkDestroyPipeline(vkDevice, pipeline, nullptr);
+    for (auto& allocation : destroyedAllocations)
+        allocation.Free(device.memory);
 
     destroyedFrameBuffers.clear();
     destroyedImages.clear();
     destroyedImageViews.clear();
+    destroyedBuffers.clear();
+    destroyedBufferViews.clear();
     destroyeSemaphores.clear();
     destroyedPipelines.clear();
+    destroyedAllocations.clear();
 
     // reset recyle semaphores
     auto& recyleSemaphores = recycledSemaphroes;

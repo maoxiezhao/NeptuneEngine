@@ -1,10 +1,38 @@
 #pragma once
 
 #include "definition.h"
+#include "memory.h"
 
 namespace GPU
 {
     class Buffer;
+    class BufferView;
+
+    struct BufferViewDeleter
+    {
+        void operator()(BufferView* bufferView);
+    };
+    class BufferView : public Util::IntrusivePtrEnabled<BufferView, BufferViewDeleter>
+    {
+    public:
+        BufferView(DeviceVulkan& device_, VkBufferView view_, const BufferViewCreateInfo& info_);
+        ~BufferView();
+
+        VkBufferView GetBufferView()
+        {
+            return view;
+        }
+
+    private:
+        friend class DeviceVulkan;
+        friend struct BufferViewDeleter;
+        friend class Util::ObjectPool<BufferView>;
+
+        DeviceVulkan& device;
+        VkBufferView view;
+        BufferViewCreateInfo info;
+    };
+    using BufferViewPtr = Util::IntrusivePtr<BufferView>;
 
     struct BufferDeleter
     {
@@ -15,16 +43,38 @@ namespace GPU
     public:
         ~Buffer();
   
+        VkBuffer GetBuffer()const
+        {
+            return buffer;
+        }
+
+        const BufferCreateInfo& GetCreateInfo()const
+        {
+            return info;
+        }
+
+        DeviceAllocation& GetAllcation()
+        {
+            return allocation;
+        }
+
+        const DeviceAllocation& GetAllcation()const
+        {
+            return allocation;
+        }
+
     private:
         friend class DeviceVulkan;
         friend struct BufferDeleter;
         friend class Util::ObjectPool<Buffer>;
 
-        Buffer(DeviceVulkan& device_);
+        Buffer(DeviceVulkan& device_, VkBuffer buffer_, const DeviceAllocation& allocation_, const BufferCreateInfo& info_);
 
     private:
         DeviceVulkan& device;
-        BufferCreateInfo createInfo;
+        VkBuffer buffer;
+        DeviceAllocation allocation;
+        BufferCreateInfo info;
     };
     using BufferPtr = Util::IntrusivePtr<Buffer>;
 }

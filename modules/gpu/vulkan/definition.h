@@ -114,6 +114,31 @@ namespace GPU
         }
     }
 
+    static inline VkImageAspectFlags formatToAspectMask(VkFormat format)
+    {
+        switch (format)
+        {
+        case VK_FORMAT_UNDEFINED:
+            return 0;
+
+        case VK_FORMAT_S8_UINT:
+            return VK_IMAGE_ASPECT_STENCIL_BIT;
+
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_D32_SFLOAT:
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        default:
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+    }
+
     enum class DepthStencilMode
     {
         None,
@@ -146,13 +171,44 @@ namespace GPU
         CachedHost,
     };
 
+    enum ImageViewMiscFlagBits
+    {
+        IMAGE_VIEW_MISC_FORCE_ARRAY_BIT = 1 << 0
+    };
+
     class Image;
     struct ImageViewCreateInfo
     {
         Image* image = nullptr;
         VkFormat format = VK_FORMAT_UNDEFINED;
+        U32 baseLevel = 0;
+        U32 levels = VK_REMAINING_MIP_LEVELS;
+        U32 baseLayer = 0;
+        U32 layers = VK_REMAINING_ARRAY_LAYERS;
+        U32 misc = 0;
+        VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
+        VkComponentMapping swizzle = {
+            VK_COMPONENT_SWIZZLE_R, 
+            VK_COMPONENT_SWIZZLE_G, 
+            VK_COMPONENT_SWIZZLE_B, 
+            VK_COMPONENT_SWIZZLE_A,
+        };
     };
 
+    enum ImageMiscFlagBits
+    {
+        IMAGE_MISC_GENERATE_MIPS_BIT = 1 << 0,
+        IMAGE_MISC_FORCE_ARRAY_BIT = 1 << 1,
+        IMAGE_MISC_MUTABLE_SRGB_BIT = 1 << 2,
+        IMAGE_MISC_CONCURRENT_QUEUE_GRAPHICS_BIT = 1 << 3,
+        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT = 1 << 4,
+        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT = 1 << 5,
+        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_TRANSFER_BIT = 1 << 6,
+        IMAGE_MISC_VERIFY_FORMAT_FEATURE_SAMPLED_LINEAR_FILTER_BIT = 1 << 7,
+        IMAGE_MISC_LINEAR_IMAGE_IGNORE_DEVICE_LOCAL_BIT = 1 << 8,
+        IMAGE_MISC_FORCE_NO_DEDICATED_BIT = 1 << 9,
+        IMAGE_MISC_NO_DEFAULT_VIEWS_BIT = 1 << 10
+    };
     struct ImageCreateInfo
     {
         uint32_t width = 0;
@@ -279,7 +335,10 @@ namespace GPU
         U32 slicePitch = 0;
     };
 
-
+    enum BufferMiscFlagBits
+    {
+        BUFFER_MISC_ZERO_INITIALIZE_BIT = 1 << 0
+    };
     struct BufferCreateInfo
     {
         BufferDomain domain = BufferDomain::Device;
@@ -287,4 +346,14 @@ namespace GPU
         VkBufferUsageFlags usage = 0;
         U32 misc = 0;
     };
+
+    class Buffer;
+    struct BufferViewCreateInfo
+    {
+        const Buffer* buffer;
+        VkFormat format;
+        VkDeviceSize offset;
+        VkDeviceSize range;
+    };
+
 }

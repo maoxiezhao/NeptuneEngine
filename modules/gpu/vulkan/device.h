@@ -2,6 +2,7 @@
 
 #include "definition.h"
 #include "context.h"
+#include "memory.h"
 #include "commandList.h"
 #include "image.h"
 #include "buffer.h"
@@ -109,6 +110,11 @@ public:
         std::vector<VkFramebuffer> destroyedFrameBuffers;
         std::vector<VkSemaphore> destroyeSemaphores;
         std::vector<VkPipeline> destroyedPipelines;
+        std::vector<VkBuffer> destroyedBuffers;
+        std::vector<VkBufferView> destroyedBufferViews;
+
+        // memory
+        std::vector<DeviceAllocation> destroyedAllocations;
 
         // fences
         std::vector<VkFence> recyleFences;
@@ -143,6 +149,9 @@ public:
     VulkanCache<RenderPass> renderPasses;
     VulkanCache<PipelineLayout> pipelineLayouts;
     VulkanCache<DescriptorSetAllocator> descriptorSetAllocators;
+    VulkanCache<Buffer> buffers;
+    VulkanCache<BufferView> bufferViews;
+    VulkanCache<ImageView> imageViews;
 
     // vulkan object pool (release perframe)
     Util::ObjectPool<CommandList> commandListPool;
@@ -156,6 +165,7 @@ public:
     SemaphoreManager semaphoreManager;
     TransientAttachmentAllcoator transientAllocator;
     FrameBufferAllocator frameBufferAllocator;
+    DeviceAllocator memory;
 
 public:
     DeviceVulkan();
@@ -182,8 +192,9 @@ public:
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
+    ImageViewPtr CreateImageView(const ImageViewCreateInfo& viewInfo);
     BufferPtr CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData);
-
+    BufferViewPtr CreateBufferView(const BufferViewCreateInfo& viewInfo);
 
     void NextFrameContext();
     void EndFrameContext();
@@ -196,6 +207,9 @@ public:
     void ReleaseImageView(VkImageView imageView);
     void ReleaseFence(VkFence fence, bool isWait);
     void ReleasePipeline(VkPipeline pipeline);
+    void ReleaseBuffer(VkBuffer buffer);
+    void ReleaseBufferView(VkBufferView bufferView);
+    void FreeMemory(const DeviceAllocation& allocation);
 
     void ReleaseSemaphore(VkSemaphore semaphore);
     void RecycleSemaphore(VkSemaphore semaphore);

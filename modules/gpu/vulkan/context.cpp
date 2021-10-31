@@ -47,7 +47,7 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt_, std::vecto
 bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
 {
     VkInstanceCreateInfo instCreateInfo = {};
-    extensionFeatures.supportsVulkan11Instance = volkGetInstanceVersion() >= VK_API_VERSION_1_1;
+    ext.supportsVulkan12Instance = volkGetInstanceVersion() >= VK_API_VERSION_1_2;
 
     VkApplicationInfo appInfo = GetApplicationInfo();
     std::vector<const char*> instanceExts;
@@ -83,13 +83,13 @@ bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
     if (HasExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
     {
         instanceExts.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-        extensionFeatures.supportsPhysicalDeviceProperties2 = true;
+        ext.supportsPhysicalDeviceProperties2 = true;
     }
 
     if (HasExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
     {
         instanceExts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        extensionFeatures.supportDebugUtils = true;
+        ext.supportDebugUtils = true;
     }
 
     auto itr = std::find_if(instanceExts.begin(), instanceExts.end(), [](const char* name) {
@@ -99,7 +99,7 @@ bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
     if (has_surface_extension && HasExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME))
     {
         instanceExts.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
-        extensionFeatures.supportsSurfaceCapabilities2 = true;
+        ext.supportsSurfaceCapabilities2 = true;
     }
 
 
@@ -290,9 +290,9 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &physicalDeviceMemProps);
 
     Logger::Info("Selected vulkan gpu:%s", physicalDevcieProps.deviceName);
-    if (physicalDevcieProps.apiVersion >= VK_API_VERSION_1_1)
+    if (physicalDevcieProps.apiVersion >= VK_API_VERSION_1_2)
     {
-        extensionFeatures.supportsVulkan11Device = extensionFeatures.supportsVulkan11Instance;
+        ext.supportsVulkan12Device = ext.supportsVulkan12Instance;
     }
 
     std::vector<const char*> enabledExtensions;
@@ -314,9 +314,9 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
 
     // get queue framily props
     uint32_t queueFamilyCount = 0;
-    if (extensionFeatures.supportsVulkan11Instance && extensionFeatures.supportsVulkan11Device)
+    if (ext.supportsVulkan12Instance && ext.supportsVulkan12Device)
         vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyCount, nullptr);
-    else if (extensionFeatures.supportsPhysicalDeviceProperties2)
+    else if (ext.supportsPhysicalDeviceProperties2)
         vkGetPhysicalDeviceQueueFamilyProperties2KHR(physicalDevice, &queueFamilyCount, nullptr);
     else
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
@@ -327,14 +327,14 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
     for (U32 i = 0; i < queueFamilyCount; i++)
         queueFamilyProps2[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
 
-    if (extensionFeatures.supportsVulkan11Instance && extensionFeatures.supportsVulkan11Device)
+    if (ext.supportsVulkan12Instance && ext.supportsVulkan12Device)
         vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyCount, queueFamilyProps2.data());
-    else if (extensionFeatures.supportsPhysicalDeviceProperties2)
+    else if (ext.supportsPhysicalDeviceProperties2)
         vkGetPhysicalDeviceQueueFamilyProperties2KHR(physicalDevice, &queueFamilyCount, queueFamilyProps2.data());
     else
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilyProps.data());
 
-    if ((extensionFeatures.supportsVulkan11Instance && extensionFeatures.supportsVulkan11Device) || extensionFeatures.supportsPhysicalDeviceProperties2)
+    if ((ext.supportsVulkan12Instance && ext.supportsVulkan12Device) || ext.supportsPhysicalDeviceProperties2)
         for (U32 i = 0; i < queueFamilyCount; i++)
             queueFamilyProps[i] = queueFamilyProps2[i].queueFamilyProperties;
 
@@ -413,18 +413,35 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
-    // create logical device
-
     // setup device features
-    feature = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
+    ext.features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
+    ext.features_1_1.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    ext.features_1_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    ext.features2.pNext = &ext.features_1_1;
+    ext.features_1_1.pNext = &ext.features_1_2;
+    void** features_chain = &ext.features_1_2.pNext;
 
-    if (extensionFeatures.supportsVulkan11Instance && extensionFeatures.supportsVulkan11Device)
-        vkGetPhysicalDeviceFeatures2(physicalDevice, &feature);
-    else if (extensionFeatures.supportsPhysicalDeviceProperties2)
-        vkGetPhysicalDeviceFeatures2KHR(physicalDevice, &feature);
+    bool checkFeatureChain = ext.supportsPhysicalDeviceProperties2 ||
+        (ext.supportsVulkan12Device && ext.supportsVulkan12Instance);
+    if (checkFeatureChain)
+    {
+        //if (HasExtension(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME))
+        //{
+        //    enabledExtensions.push_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
+        //    ext.supportsDepthClip = true;
+        //    *features_chain = &ext.depthClipEnableFeatures;
+        //    features_chain = &ext.depthClipEnableFeatures.pNext;
+        //}
+    }
+
+    if (ext.supportsVulkan12Instance && ext.supportsVulkan12Device)
+        vkGetPhysicalDeviceFeatures2(physicalDevice, &ext.features2);
+    else if (ext.supportsPhysicalDeviceProperties2)
+        vkGetPhysicalDeviceFeatures2KHR(physicalDevice, &ext.features2);
     else
-        vkGetPhysicalDeviceFeatures(physicalDevice, &feature.features);
-
+        vkGetPhysicalDeviceFeatures(physicalDevice, &ext.features2.features);
+ 
+    ///////////////////////////////////////////////////////////////////////////////////////////
     // create device
     VkDeviceCreateInfo createDeviceInfo = {};
     createDeviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -436,10 +453,10 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
     createDeviceInfo.enabledLayerCount = (U32)enabledLayers.size();
     createDeviceInfo.ppEnabledLayerNames = enabledLayers.empty() ? nullptr : enabledLayers.data();
     
-    if (extensionFeatures.supportsPhysicalDeviceProperties2)
-        createDeviceInfo.pNext = &feature;
+    if (ext.supportsPhysicalDeviceProperties2)
+        createDeviceInfo.pNext = &ext.features2;
     else
-        createDeviceInfo.pEnabledFeatures = &feature.features;
+        createDeviceInfo.pEnabledFeatures = &ext.features2.features;
 
     if (vkCreateDevice(physicalDevice, &createDeviceInfo, nullptr, &device) != VK_SUCCESS)
         return false;
