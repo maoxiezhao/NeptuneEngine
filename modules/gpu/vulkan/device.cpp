@@ -529,6 +529,20 @@ BufferViewPtr DeviceVulkan::CreateBufferView(const BufferViewCreateInfo& viewInf
     return BufferViewPtr(bufferViews.allocate(*this, view, viewInfo));
 }
 
+DeviceAllocationOwnerPtr DeviceVulkan::AllocateMemmory(const MemoryAllocateInfo& allocInfo)
+{
+    DeviceAllocation alloc = {};
+    if (!memory.Allocate(
+        (U32)allocInfo.requirements.size,
+        (U32)allocInfo.requirements.alignment,
+        allocInfo.requirements.memoryTypeBits,
+        allocInfo.mode,
+        &alloc))
+        return DeviceAllocationOwnerPtr();
+
+    return DeviceAllocationOwnerPtr(allocations.allocate(*this, alloc));
+}
+
 void DeviceVulkan::NextFrameContext()
 {
     // submit remain queue

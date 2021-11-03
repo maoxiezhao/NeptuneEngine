@@ -356,4 +356,19 @@ namespace GPU
         VkDeviceSize range;
     };
 
+    enum class AllocationMode : uint8_t
+    {
+        Device,
+        LinkedDeviceHost,
+        Host,
+        CachedHost,
+        Count
+    };
+
+    struct MemoryAllocateInfo
+    {
+        VkMemoryRequirements requirements = {};
+        VkMemoryPropertyFlags requiredProperties = 0;
+        AllocationMode mode = {};
+    };
 }

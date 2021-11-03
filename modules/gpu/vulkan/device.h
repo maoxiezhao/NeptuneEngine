@@ -143,7 +143,6 @@ public:
     void InitFrameContext();
 
     // vulkan object cache
-    // TODO: use vk_mem_alloc to replace vulkanCache
     VulkanCache<Shader> shaders;
     VulkanCache<ShaderProgram> programs;
     VulkanCache<RenderPass> renderPasses;
@@ -152,6 +151,7 @@ public:
     VulkanCache<Buffer> buffers;
     VulkanCache<BufferView> bufferViews;
     VulkanCache<ImageView> imageViews;
+    VulkanCache<DeviceAllocationOwner> allocations;
 
     // vulkan object pool (release perframe)
     Util::ObjectPool<CommandList> commandListPool;
@@ -195,6 +195,7 @@ public:
     ImageViewPtr CreateImageView(const ImageViewCreateInfo& viewInfo);
     BufferPtr CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData);
     BufferViewPtr CreateBufferView(const BufferViewCreateInfo& viewInfo);
+    DeviceAllocationOwnerPtr AllocateMemmory(const MemoryAllocateInfo& allocInfo);
 
     void NextFrameContext();
     void EndFrameContext();
