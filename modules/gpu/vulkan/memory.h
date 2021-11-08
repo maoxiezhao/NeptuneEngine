@@ -10,6 +10,14 @@ namespace GPU
 	class DeviceVulkan;
 	class DeviceAllocator;
 
+	enum MemoryAccessFlag : U32
+	{
+		MEMORY_ACCESS_WRITE_BIT = 1,
+		MEMORY_ACCESS_READ_BIT = 2,
+		MEMORY_ACCESS_READ_WRITE_BIT = MEMORY_ACCESS_WRITE_BIT | MEMORY_ACCESS_READ_BIT
+	};
+	using MemoryAccessFlags = U32;
+
 	struct DeviceAllocation
 	{
 	public:

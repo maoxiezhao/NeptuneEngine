@@ -231,9 +231,10 @@ namespace GPU
             info.width = width;
             info.height = height;
             info.format = format;
+            info.type = VK_IMAGE_TYPE_2D;
             info.usage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
+            info.samples = VK_SAMPLE_COUNT_1_BIT;
             info.initialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             return info;
         }
@@ -244,10 +245,24 @@ namespace GPU
             info.width = width;
             info.height = height;
             info.format = format;
+            info.type = VK_IMAGE_TYPE_2D;
             info.usage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
+            info.samples = VK_SAMPLE_COUNT_1_BIT;
             info.initialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            return info;
+        }
+
+        static ImageCreateInfo ImmutableImage2D(U32 width, U32 height, VkFormat format)
+        {
+            ImageCreateInfo info = {};
+            info.width = width;
+            info.height = height;
+            info.format = format;
+            info.type = VK_IMAGE_TYPE_2D;
+            info.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+            info.samples = VK_SAMPLE_COUNT_1_BIT;
+            info.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             return info;
         }
     };

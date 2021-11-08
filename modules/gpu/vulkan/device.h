@@ -13,11 +13,18 @@
 #include "shaderManager.h"
 #include "descriptorSet.h"
 
+#include <array>
 #include <set>
 #include <unordered_map>
 
 namespace GPU
 {
+
+struct InitialImageBuffer
+{
+    BufferPtr buffer;
+    std::array<VkBufferImageCopy, 32> bit;
+};
 
 struct BatchComposer
 {
@@ -192,16 +199,12 @@ public:
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
+    InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
+    ImagePtr CreateImageFromStagingBuffer(const ImageCreateInfo& createInfo, const InitialImageBuffer* initial);
     ImageViewPtr CreateImageView(const ImageViewCreateInfo& viewInfo);
     BufferPtr CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData);
     BufferViewPtr CreateBufferView(const BufferViewCreateInfo& viewInfo);
     DeviceAllocationOwnerPtr AllocateMemmory(const MemoryAllocateInfo& allocInfo);
-
-    void NextFrameContext();
-    void EndFrameContext();
-    void Submit(CommandListPtr& cmd);
-    void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);
-    void SetName(const Image& image, const char* name);
 
     void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);
@@ -210,10 +213,19 @@ public:
     void ReleasePipeline(VkPipeline pipeline);
     void ReleaseBuffer(VkBuffer buffer);
     void ReleaseBufferView(VkBufferView bufferView);
-    void FreeMemory(const DeviceAllocation& allocation);
-
     void ReleaseSemaphore(VkSemaphore semaphore);
     void RecycleSemaphore(VkSemaphore semaphore);
+    void FreeMemory(const DeviceAllocation& allocation);
+
+    void* MapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
+    void UnmapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
+
+    void NextFrameContext();
+    void EndFrameContext();
+    void Submit(CommandListPtr& cmd);
+    void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);
+    void SetName(const Image& image, const char* name);
+    void SetName(const Buffer& buffer, const char* name);
 
     bool IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
 

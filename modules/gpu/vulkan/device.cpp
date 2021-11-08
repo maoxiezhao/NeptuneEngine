@@ -2,6 +2,7 @@
 #include "core\utils\hash.h"
 #include "spriv_reflect\spirv_reflect.h"
 #include "memory.h"
+#include "TextureFormatLayout.h"
 
 namespace GPU
 {
@@ -381,6 +382,20 @@ void DeviceVulkan::SetName(const Image& image, const char* name)
     }
 }
 
+void DeviceVulkan::SetName(const Buffer& buffer, const char* name)
+{
+    if (features.supportDebugUtils)
+    {
+        VkDebugUtilsObjectNameInfoEXT info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        info.pObjectName = name;
+        info.objectType = VK_OBJECT_TYPE_BUFFER;
+        info.objectHandle = (uint64_t)buffer.GetBuffer();
+
+        if (vkSetDebugUtilsObjectNameEXT)
+            vkSetDebugUtilsObjectNameEXT(device, &info);
+    }
+}
+
 ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)])
 {
     HashCombiner hasher;
@@ -425,6 +440,49 @@ ImagePtr DeviceVulkan::RequestTransientAttachment(U32 w, U32 h, VkFormat format,
 }
 
 ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
+{
+    if (pInitialData != nullptr)
+    {
+        InitialImageBuffer stagingBuffer = CreateImageStagingBuffer(createInfo, pInitialData);
+       return CreateImageFromStagingBuffer(createInfo, nullptr);
+    }   
+    else
+        return CreateImageFromStagingBuffer(createInfo, nullptr);
+}
+
+InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
+{
+    TextureFormatLayout layout;
+    U32 copyLevels = 1;
+    switch (createInfo.type)
+    {
+    case VK_IMAGE_TYPE_1D:
+        layout.SetTexture1D(createInfo.format, createInfo.width, createInfo.layers, copyLevels);
+        break;
+    case VK_IMAGE_TYPE_2D:
+        layout.SetTexture2D(createInfo.format, createInfo.width, createInfo.height, createInfo.layers, copyLevels);
+        break;
+    case VK_IMAGE_TYPE_3D:
+        layout.SetTexture3D(createInfo.format, createInfo.width, createInfo.height, createInfo.depth, copyLevels);
+        break;
+    default:
+        return {};
+    }
+
+    InitialImageBuffer imageBuffer = {};
+    BufferCreateInfo bufferCreateInfo = {};
+    bufferCreateInfo.domain = BufferDomain::Host;
+    bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferCreateInfo.size = layout.GetRequiredSize();
+    imageBuffer.buffer = CreateBuffer(bufferCreateInfo, nullptr);
+    if (!imageBuffer.buffer)
+        return InitialImageBuffer();
+    SetName(*imageBuffer.buffer, "image_upload_staging_buffer");
+
+    return imageBuffer;
+}
+
+ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& createInfo, const InitialImageBuffer* initial)
 {
     VkImageCreateInfo info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     info.format = createInfo.format;
@@ -646,6 +704,15 @@ void DeviceVulkan::ReleasePipeline(VkPipeline pipeline)
 void DeviceVulkan::FreeMemory(const DeviceAllocation& allocation)
 {
     CurrentFrameResource().destroyedAllocations.push_back(std::move(allocation));
+}
+
+void* DeviceVulkan::MapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
+{
+    return nullptr;
+}
+
+void DeviceVulkan::UnmapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
+{
 }
 
 void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
