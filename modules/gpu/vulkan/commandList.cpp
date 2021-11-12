@@ -386,6 +386,10 @@ void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceS
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT);
 }
 
+void CommandList::CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
+{
+}
+
 void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
 {
     if (FlushRenderState())
@@ -400,6 +404,33 @@ void CommandList::DrawIndexed(U32 indexCount, U32 firstIndex, U32 vertexOffset)
     {
         vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);
     }
+}
+
+void CommandList::ImageBarrier(const ImagePtr& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
+{
+    VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.image = image->GetImage();
+    barrier.subresourceRange.aspectMask = formatToAspectMask(image->GetCreateInfo().format);
+    barrier.subresourceRange.levelCount = image->GetCreateInfo().levels;
+    barrier.subresourceRange.layerCount = image->GetCreateInfo().layers;
+    barrier.srcAccessMask = srcAccess;
+    barrier.dstAccessMask = dstAccess;
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void CommandList::Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
+{
+    VkMemoryBarrier barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+    barrier.srcAccessMask = srcAccess;
+    barrier.dstAccessMask = dstAccess;
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+}
+
+void CommandList::Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers)
+{
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, imageBarrierCount, imageBarriers);
 }
 
 void CommandList::BeginEvent(const char* name)

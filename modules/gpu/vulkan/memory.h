@@ -18,6 +18,19 @@ namespace GPU
 	};
 	using MemoryAccessFlags = U32;
 
+	struct MemoryAllocateUsage
+	{
+		VmaMemoryUsage usage;
+		VmaAllocationCreateFlags flags;
+	};
+
+	struct MemoryAllocateInfo
+	{
+		VkMemoryRequirements requirements = {};
+		VkMemoryPropertyFlags requiredProperties = 0;
+		MemoryAllocateUsage usage;
+	};
+
 	struct DeviceAllocation
 	{
 	public:
@@ -25,6 +38,8 @@ namespace GPU
 		U32 offset = 0;
 		U32 mask = 0;
 		U32 size = 0;
+		U8* hostBase = nullptr;
+		VkMemoryPropertyFlags memFlags = 0;
 
 	public:
 		VmaAllocation GetMemory()const
@@ -80,10 +95,11 @@ namespace GPU
 		~DeviceAllocator();
 
 		void Initialize(DeviceVulkan* device_);
-		bool CreateBuffer(const VkBufferCreateInfo& bufferInfo, AllocationMode mode, VkBuffer& buffer, DeviceAllocation* allocation);
-		bool Allocate(U32 size, U32 alignment, U32 typeBits, AllocationMode mode, DeviceAllocation* allocation);
-		void* MapMemory(DeviceAllocation& allocation);
-		void UnmapMemory(DeviceAllocation& allocation);
+		bool CreateBuffer(const VkBufferCreateInfo& bufferInfo, BufferDomain domain, VkBuffer& buffer, DeviceAllocation* allocation);
+		bool CreateImage(const VkImageCreateInfo& imageInfo, ImageDomain domain, VkImage& image, DeviceAllocation* allocation);
+		bool Allocate(U32 size, U32 alignment, U32 typeBits, const MemoryAllocateUsage& usage, DeviceAllocation* allocation);
+		void* MapMemory(const DeviceAllocation& allocation, MemoryAccessFlags flags, VkDeviceSize offset, VkDeviceSize length);
+		void UnmapMemory(const DeviceAllocation& allocation, MemoryAccessFlags flags, VkDeviceSize offset, VkDeviceSize length);
 
 	private:
 		friend struct DeviceAllocation;

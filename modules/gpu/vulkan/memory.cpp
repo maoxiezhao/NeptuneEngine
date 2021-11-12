@@ -8,35 +8,67 @@ namespace GPU
 {
 	namespace {
 	
-		VmaMemoryUsage GetMemoryUsage(AllocationMode mode)
+		VmaMemoryUsage GetMemoryUsage(BufferDomain domain)
 		{
 			VmaMemoryUsage ret = VMA_MEMORY_USAGE_UNKNOWN;
-			switch (mode)
+			switch (domain)
 			{
-			case AllocationMode::Device:
+			case BufferDomain::Device:
 				ret = VMA_MEMORY_USAGE_GPU_ONLY;
 				break;
-			case AllocationMode::LinkedDeviceHost:
+			case BufferDomain::LinkedDeviceHost:
 				ret = VMA_MEMORY_USAGE_CPU_TO_GPU;
 				break;
-			case AllocationMode::Host:
+			case BufferDomain::Host:
 				ret = VMA_MEMORY_USAGE_CPU_ONLY;
 				break;
-			case AllocationMode::CachedHost:
+			case BufferDomain::CachedHost:
 				ret = VMA_MEMORY_USAGE_GPU_TO_CPU;
 				break;
 			}
 			return ret;
 		}
-
-		VmaAllocationCreateFlags GetCreateFlags(AllocationMode mode)
+		VmaAllocationCreateFlags GetCreateFlags(BufferDomain domain)
 		{
 			VmaAllocationCreateFlags ret = 0;
-			switch (mode)
+			switch (domain)
 			{
-			case AllocationMode::Host:
-			case AllocationMode::CachedHost:
-				ret = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+			case BufferDomain::Host:
+			case BufferDomain::CachedHost:
+				ret |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+				break;
+			}
+			return ret;
+		}
+
+		VmaMemoryUsage GetMemoryUsage(ImageDomain domain)
+		{
+			VmaMemoryUsage ret = VMA_MEMORY_USAGE_UNKNOWN;
+			switch (domain)
+			{
+			case ImageDomain::Physical:
+				ret = VMA_MEMORY_USAGE_GPU_ONLY;
+				break;
+			case ImageDomain::Transient:
+				ret = VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
+				break;
+			case ImageDomain::LinearHostCached:
+				ret = VMA_MEMORY_USAGE_GPU_TO_CPU;
+				break;
+			case ImageDomain::LinearHost:
+				ret = VMA_MEMORY_USAGE_CPU_ONLY;
+				break;
+			}
+			return ret;
+		}
+		VmaAllocationCreateFlags GetCreateFlags(ImageDomain domain)
+		{
+			VmaAllocationCreateFlags ret = 0;
+			switch (domain)
+			{
+			case ImageDomain::LinearHost:
+			case ImageDomain::LinearHostCached:
+				ret |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 				break;
 			}
 			return ret;
@@ -101,39 +133,73 @@ namespace GPU
 		}
 	}
 
-	bool DeviceAllocator::CreateBuffer(const VkBufferCreateInfo& bufferInfo, AllocationMode mode, VkBuffer& buffer, DeviceAllocation* allocation)
+	bool DeviceAllocator::CreateBuffer(const VkBufferCreateInfo& bufferInfo, BufferDomain domain, VkBuffer& buffer, DeviceAllocation* allocation)
 	{
-		VmaAllocationCreateInfo allocInfo = {};
-		allocInfo.usage = GetMemoryUsage(mode);
-		allocInfo.flags = GetCreateFlags(mode);
-		return vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation->allocation, nullptr) != VK_SUCCESS;
+		VmaAllocationInfo allocInfo;
+		VmaAllocationCreateInfo createInfo = {};
+		createInfo.usage = GetMemoryUsage(domain);
+		createInfo.flags = GetCreateFlags(domain);
+		bool ret = vmaCreateBuffer(allocator, &bufferInfo, &createInfo, &buffer, &allocation->allocation, &allocInfo) != VK_SUCCESS;
+		if (ret == true)
+		{
+			VkMemoryPropertyFlags memFlags;
+			vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
+			if ((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 && allocInfo.pMappedData != nullptr)
+				allocation->hostBase = static_cast<U8*>(allocInfo.pMappedData);
+
+			allocation->memFlags = memFlags;
+		}
+		return ret;
 	}
 
-	bool DeviceAllocator::Allocate(U32 size, U32 alignment, U32 typeBits, AllocationMode mode, DeviceAllocation* allocation)
+	bool DeviceAllocator::CreateImage(const VkImageCreateInfo& imageInfo, ImageDomain domain, VkImage& image, DeviceAllocation* allocation)
+	{
+		return false;
+	}
+
+
+	bool DeviceAllocator::Allocate(U32 size, U32 alignment, U32 typeBits, const MemoryAllocateUsage& usage, DeviceAllocation* allocation)
 	{
 		VkMemoryRequirements memRep = {};
 		memRep.size = size;
 		memRep.alignment = alignment;
 		memRep.memoryTypeBits = typeBits;
 
-		VmaAllocationCreateInfo allocInfo = {};
-		allocInfo.usage = GetMemoryUsage(mode);
-		allocInfo.flags = GetCreateFlags(mode);
+		VmaAllocationCreateInfo allocCreateInfo = {};
+		allocCreateInfo.usage = usage.usage;
+		allocCreateInfo.flags = usage.flags;
 
-		return vmaAllocateMemory(allocator, &memRep, &allocInfo, &allocation->allocation, nullptr) != VK_SUCCESS;
+		VmaAllocationInfo allocInfo;
+		bool ret = vmaAllocateMemory(allocator, &memRep, &allocCreateInfo, &allocation->allocation, &allocInfo) != VK_SUCCESS;
+		if (ret == true)
+		{
+			VkMemoryPropertyFlags memFlags;
+			vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
+			if ((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 && allocInfo.pMappedData != nullptr)
+				allocation->hostBase = static_cast<U8*>(allocInfo.pMappedData);
+
+			allocation->memFlags = memFlags;
+		}
+		return ret;
 	}
 
-	void* DeviceAllocator::MapMemory(DeviceAllocation& allocation)
+	void* DeviceAllocator::MapMemory(const DeviceAllocation& allocation, MemoryAccessFlags flags, VkDeviceSize offset, VkDeviceSize length)
 	{
-		void* data = nullptr;
-		if (vmaMapMemory(allocator, allocation.GetMemory(), &data) != VK_SUCCESS)
+		if (allocation.hostBase == nullptr)
 			return nullptr;
 
-		return data;
+		if (flags & MEMORY_ACCESS_READ_BIT && !(allocation.memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+			vmaInvalidateAllocation(allocator, allocation.allocation, offset, length);
+
+		return allocation.hostBase + offset;
 	}
 
-	void DeviceAllocator::UnmapMemory(DeviceAllocation& allocation)
+	void DeviceAllocator::UnmapMemory(const DeviceAllocation& allocation, MemoryAccessFlags flags, VkDeviceSize offset, VkDeviceSize length)
 	{
-		vmaUnmapMemory(allocator, allocation.allocation);
+		if (allocation.hostBase == nullptr)
+			return;
+
+		if (flags & MEMORY_ACCESS_WRITE_BIT && !(allocation.memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+			vmaFlushAllocation(allocator, allocation.allocation, offset, length);
 	}
 }

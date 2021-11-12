@@ -5,6 +5,8 @@
 #include "frameBuffer.h"
 #include "shader.h"
 #include "shaderManager.h"
+#include "image.h"
+#include "buffer.h"
 
 namespace GPU
 {
@@ -114,12 +116,16 @@ public:
     void BindPipelineState(const CompilePipelineState& pipelineState_);
     void BindVertexBuffers();
     void BindIndexBuffers();
-
+    
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
+    void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
     void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);
 
+    void ImageBarrier(const ImagePtr& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
+    void Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
+    void Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers);
     void BeginEvent(const char* name);
     void EndEvent();
 

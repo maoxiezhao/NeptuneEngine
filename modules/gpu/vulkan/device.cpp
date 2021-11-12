@@ -78,6 +78,11 @@ namespace
         }
     }
 
+    static QueueIndices GetQueueIndexFromQueueType(QueueType queueType)
+    {
+        return QueueIndices(queueType);
+    }
+
     class ImageResourceCreator
     {
     public:
@@ -132,6 +137,11 @@ namespace
                 return false;
 
             return true;
+        }
+
+        VkImageViewType GetImageViewType()const
+        {
+            return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
         }
     };
 }
@@ -212,13 +222,13 @@ bool DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, 
         VkResult res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
         assert(res == VK_SUCCESS);
 
-        ImagePtr backbuffer = ImagePtr(imagePool.allocate(*this, images[i], imageView, imageCreateInfo));
+        ImagePtr backbuffer = ImagePtr(imagePool.allocate(*this, images[i], imageView, DeviceAllocation(), imageCreateInfo));
         if (backbuffer)
         {
             backbuffer->DisownImge();
             backbuffer->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
             wsi.swapchainImages.push_back(backbuffer);
-            SetName(*backbuffer.get(), "backbuffer");
+            SetName(*backbuffer.get(), "Backbuffer");
         }
     }
 
@@ -452,6 +462,7 @@ ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const Subr
 
 InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
 {
+    // Setup texture format layout
     TextureFormatLayout layout;
     U32 copyLevels = 1;
     switch (createInfo.type)
@@ -469,6 +480,7 @@ InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo&
         return {};
     }
 
+    // Create staging buffer
     InitialImageBuffer imageBuffer = {};
     BufferCreateInfo bufferCreateInfo = {};
     bufferCreateInfo.domain = BufferDomain::Host;
@@ -479,10 +491,45 @@ InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo&
         return InitialImageBuffer();
     SetName(*imageBuffer.buffer, "image_upload_staging_buffer");
 
+    // Map staging buffer and copy initial datas to staging buffer
+    U8* mapped = static_cast<U8*>(MapBuffer(*imageBuffer.buffer, MEMORY_ACCESS_WRITE_BIT));
+    if (mapped != nullptr)
+    {
+        layout.SetBuffer(mapped, layout.GetRequiredSize());
+
+        U32 index = 0;
+        U32 blockStride = layout.GetBlockStride();
+        for (U32 level = 0; level < copyLevels; level++, index++)
+        {
+            // Calculate dst stride
+            const auto& mipInfo = layout.GetMipInfo(level);
+            U32 dstRowSize = mipInfo.blockW * blockStride;
+            U32 dstHeightStride = mipInfo.blockH * dstRowSize;
+
+            for (U32 layer = 0; layer < createInfo.layers; layer++)
+            {
+                U32 srcRowLength = pInitialData[index].rowPitch ? pInitialData[index].rowPitch : mipInfo.rowLength;
+                U32 srcArrayHeight = pInitialData[index].slicePitch ? pInitialData[index].slicePitch : mipInfo.imageHeight;
+                U32 srcRowStride = (U32)layout.RowByteStride(srcRowLength);
+                U32 srcHeightStride = (U32)layout.LayerByteStride(srcArrayHeight, srcRowStride);
+
+                U8* dst = static_cast<uint8_t*>(layout.Data(layer, level));
+                const U8* src = static_cast<const uint8_t*>(pInitialData[index].data);
+
+                for (U32 depth = 0; depth < mipInfo.depth; depth++)
+                    for (U32 y = 0; y < mipInfo.blockH; y++)
+                        memcpy(dst + depth * dstHeightStride + y * dstRowSize, src + depth * srcHeightStride + y * srcRowStride, dstRowSize);
+            }
+        }
+        UnmapBuffer(*imageBuffer.buffer, MEMORY_ACCESS_WRITE_BIT);
+
+        // Create VkBufferImageCopies
+        layout.BuildBufferImageCopies(imageBuffer.numBit, imageBuffer.bit);
+    }
     return imageBuffer;
 }
 
-ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& createInfo, const InitialImageBuffer* initial)
+ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& createInfo, const InitialImageBuffer* stagingBuffer)
 {
     VkImageCreateInfo info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     info.format = createInfo.format;
@@ -493,14 +540,156 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
     info.mipLevels = createInfo.levels;
     info.arrayLayers = createInfo.layers;
     info.samples = createInfo.samples;
-    info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     info.usage = createInfo.usage;
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.flags = createInfo.flags;
 
-    if (createInfo.domain == ImageDomain::TRANSIENT)
+    if (createInfo.domain == ImageDomain::Transient)
         info.usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+
+    if (stagingBuffer != nullptr)
+        info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    if (createInfo.domain == ImageDomain::LinearHostCached || createInfo.domain == ImageDomain::LinearHost)
+    {
+        info.tiling = VK_IMAGE_TILING_LINEAR;
+        info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    }
+    else
+    {
+        info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
+    if (info.tiling == VK_IMAGE_TILING_LINEAR)
+    {
+        if (stagingBuffer)
+            return ImagePtr();
+        if (info.mipLevels > 1)
+            return ImagePtr();
+        if (info.arrayLayers > 1)
+            return ImagePtr();
+        if (info.imageType != VK_IMAGE_TYPE_2D)
+            return ImagePtr();
+        if (info.samples != VK_SAMPLE_COUNT_1_BIT)
+            return ImagePtr();
+    }
+
+    // Check concurrent
+    uint32_t queueFlags =createInfo.misc &
+        (IMAGE_MISC_CONCURRENT_QUEUE_GRAPHICS_BIT |
+        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT |
+        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT |
+        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_TRANSFER_BIT);
+    bool concurrentQueue = queueFlags != 0;
+
+    //VkBuffer buffer;
+    VkImage image = VK_NULL_HANDLE;
+    DeviceAllocation allocation;
+    if (!memory.CreateImage(info, createInfo.domain, image, &allocation))
+    {
+        Logger::Warning("Failed to create image");
+        return ImagePtr(nullptr);
+    }
+    
+    // Create image views
+    bool hasView = (info.usage & (
+        VK_IMAGE_USAGE_SAMPLED_BIT | 
+        VK_IMAGE_USAGE_STORAGE_BIT | 
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | 
+        VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) != 0 &&
+        (createInfo.misc & IMAGE_MISC_NO_DEFAULT_VIEWS_BIT) == 0;
+
+    ImageResourceCreator viewCreator(*this);
+    VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
+    if (hasView)
+    {
+        if (!viewCreator.CreateDefaultViews(createInfo, nullptr))
+            return ImagePtr();
+
+        viewType = viewCreator.GetImageViewType();
+    }
+
+    // Create image ptr
+    ImagePtr imagePtr(imagePool.allocate(*this, image, viewCreator.imageView, allocation, createInfo));
+    if (!imagePtr)
+        return imagePtr;
+
+    if (hasView)
+    {
+        auto& imageView = imagePtr->GetImageView();
+        imageView.SetDepthStencilView(viewCreator.depthView, viewCreator.stencilView);
+        imageView.SetRenderTargetViews(std::move(viewCreator.rtViews));
+    }
+
+    imagePtr->isOwnsImge = false;
+    imagePtr->stageFlags = Image::ConvertUsageToPossibleStages(createInfo.usage);
+    imagePtr->accessFlags = Image::ConvertUsageToPossibleAccess(createInfo.usage);
+
+    // if staging buffer is not null, create transition_cmd and copy the staging buffer to gpu buffer
+    CommandListPtr transitionCmd;
+    if (stagingBuffer != nullptr)
+    {
+        ASSERT(createInfo.domain != ImageDomain::Transient);
+        ASSERT(createInfo.initialLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+
+        VkAccessFlags transitionSrcAccess = 0;
+        if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] == queueInfo.queues[QUEUE_INDEX_TRANSFER])
+            transitionSrcAccess = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        CommandListPtr graphicsCmd = RequestCommandList(QueueType::QUEUE_TYPE_GRAPHICS);
+        CommandListPtr transferCmd;
+        if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] != queueInfo.queues[QUEUE_INDEX_TRANSFER])
+            transferCmd = RequestCommandList(QueueType::QUEUE_TYPE_ASYNC_TRANSFER);
+        else
+            transferCmd = graphicsCmd; 
+
+        // Add image barrier until finish transfer
+        transferCmd->ImageBarrier(
+            imagePtr, 
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+        transferCmd->BeginEvent("Copy_image_to_gpu");
+        transferCmd->CopyToImage(imagePtr, stagingBuffer->buffer, stagingBuffer->numBit, stagingBuffer->bit.data());
+        transferCmd->EndEvent();
+
+        if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] != queueInfo.queues[QUEUE_INDEX_TRANSFER])
+        {
+           // If queue is not concurent, we will also need a release + acquire barrier 
+           // to marshal ownership from transfer queue over to graphics
+            if (!concurrentQueue && queueInfo.familyIndices[QUEUE_INDEX_GRAPHICS] != queueInfo.familyIndices[QUEUE_INDEX_TRANSFER])
+            {
+                VkImageMemoryBarrier release = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+                release.image = imagePtr->GetImage();
+                release.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                release.dstAccessMask = 0;
+                release.srcQueueFamilyIndex = queueInfo.familyIndices[QUEUE_INDEX_TRANSFER];
+                release.dstQueueFamilyIndex = queueInfo.familyIndices[QUEUE_INDEX_GRAPHICS];
+                release.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                release.newLayout = createInfo.initialLayout;
+                release.subresourceRange.levelCount = info.mipLevels;
+                release.subresourceRange.aspectMask = formatToAspectMask(info.format);
+                release.subresourceRange.layerCount = info.arrayLayers;
+
+                VkImageMemoryBarrier acquire = release;
+                acquire.srcAccessMask = 0;
+                acquire.dstAccessMask = imagePtr->GetAccessFlags() & Image::ConvertLayoutToPossibleAccess(createInfo.initialLayout);
+            
+                transferCmd->Barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1, &release);
+                graphicsCmd->Barrier(imagePtr->GetStageFlags(), imagePtr->GetStageFlags(), 1, &acquire);
+            }
+
+            // Submit transfer cmd
+            SemaphorePtr semaphore;
+            Submit(transferCmd, nullptr, 1, &semaphore);
+            AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphore, imagePtr->GetStageFlags(), true);
+        
+            transitionCmd = std::move(graphicsCmd);
+        }
+    }
 
     return ImagePtr();
 }
@@ -551,13 +740,7 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
 
     VkBuffer buffer;
     DeviceAllocation allocation;
-    AllocationMode mode;
-    if (createInfo.domain == BufferDomain::Device)
-        mode = AllocationMode::Device;
-    else
-        mode = AllocationMode::Host;
-
-    if (!memory.CreateBuffer(info, mode, buffer, &allocation))
+    if (!memory.CreateBuffer(info, createInfo.domain, buffer, &allocation))
     {
         Logger::Warning("Failed to create buffer");
         return BufferPtr(nullptr);
@@ -594,7 +777,7 @@ DeviceAllocationOwnerPtr DeviceVulkan::AllocateMemmory(const MemoryAllocateInfo&
         (U32)allocInfo.requirements.size,
         (U32)allocInfo.requirements.alignment,
         allocInfo.requirements.memoryTypeBits,
-        allocInfo.mode,
+        allocInfo.usage,
         &alloc))
         return DeviceAllocationOwnerPtr();
 
@@ -629,7 +812,7 @@ void DeviceVulkan::EndFrameContext()
     auto submissionList = frame.submissions;
     for (auto& queueIndex : QUEUE_FLUSH_ORDER)
     {
-        if (!submissionList[queueIndex].empty())
+        if (queueDatas[queueIndex].needFence || !submissionList[queueIndex].empty())
         {
             SubmitQueue(queueIndex, &fence);
            
@@ -638,17 +821,22 @@ void DeviceVulkan::EndFrameContext()
                 frame.waitFences.push_back(fence.fence);
                 frame.recyleFences.push_back(fence.fence);
             }
+            queueDatas[queueIndex].needFence = false;
         }
     }
 }
 
-void DeviceVulkan::Submit(CommandListPtr& cmd)
+void DeviceVulkan::FlushFrame(QueueIndices queueIndex)
 {
-    cmd->EndCommandBuffer();
+    if (queueInfo.queues[queueIndex] != VK_NULL_HANDLE)
+    {
+        SubmitQueue(queueIndex, nullptr);
+    }
+}
 
-    QueueIndices queueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
-    auto& submissions = CurrentFrameResource().submissions[queueIndex];
-    submissions.push_back(std::move(cmd));
+void DeviceVulkan::Submit(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
+{
+    SubmitImpl(cmd, fence, semaphoreCount, semaphore);
 }
 
 void DeviceVulkan::SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire)
@@ -656,6 +844,17 @@ void DeviceVulkan::SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire)
     wsi.acquire = std::move(acquire);
     wsi.index = index;
     wsi.consumed = false;
+}
+
+void DeviceVulkan::AddWaitSemaphore(QueueType queueType, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
+{
+    if (flush)
+        FlushFrame(GetQueueIndexFromQueueType(queueType));
+
+    auto& queueData = queueDatas[(int)queueType];
+    queueData.waitSemaphores.push_back(semaphore);
+    queueData.waitStages.push_back(stages);
+    queueData.needFence = true;
 }
 
 void DeviceVulkan::ReleaseFrameBuffer(VkFramebuffer buffer)
@@ -708,11 +907,12 @@ void DeviceVulkan::FreeMemory(const DeviceAllocation& allocation)
 
 void* DeviceVulkan::MapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
 {
-    return nullptr;
+    return memory.MapMemory(buffer.allocation, flags, 0, buffer.GetCreateInfo().size);
 }
 
 void DeviceVulkan::UnmapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
 {
+    memory.UnmapMemory(buffer.allocation, flags, 0, buffer.GetCreateInfo().size);
 }
 
 void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
@@ -883,8 +1083,21 @@ bool DeviceVulkan::IsSwapchainTouched()
     return wsi.consumed;
 }
 
+void DeviceVulkan::SubmitImpl(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
+{
+    cmd->EndCommandBuffer();
+
+    QueueIndices queueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
+    auto& submissions = CurrentFrameResource().submissions[queueIndex];
+    submissions.push_back(std::move(cmd));
+}
+
 void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
 {
+    // Flush/Submit transfer queue
+    if (queueIndex != QueueIndices::QUEUE_INDEX_TRANSFER)
+        FlushFrame(QueueIndices::QUEUE_INDEX_TRANSFER);
+
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
     if (submissions.empty())
     {
@@ -893,23 +1106,47 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
         return;
     }
 
-    VkQueue queue = queueInfo.queues[queueIndex];
     BatchComposer batchComposer;
+
+    // Colloect wait semaphores
+    WaitSemaphores waitSemaphores = {};
+    QueueData& queueData = queueDatas[queueIndex];
+    for (int i = 0; i < queueData.waitSemaphores.size(); i++)
+    {
+        SemaphorePtr& semaphore = queueData.waitSemaphores[i];
+        VkSemaphore vkSemaphore = semaphore->Consume();
+        if (semaphore->GetTimeLine() <= 0)
+        {
+            if (semaphore->CanRecycle())
+                RecycleSemaphore(vkSemaphore);
+            else
+                ReleaseSemaphore(vkSemaphore);
+
+            waitSemaphores.binaryWaits.push_back(vkSemaphore);
+            waitSemaphores.binaryWaitStages.push_back(queueData.waitStages[i]);
+        }
+    }
+    queueData.waitSemaphores.clear();
+    queueData.waitStages.clear();
+    batchComposer.AddWaitSemaphores(waitSemaphores);
+
+    // Compose submit batches
+    VkQueue queue = queueInfo.queues[queueIndex];
     for (int i = 0; i < submissions.size(); i++)
     {
         auto& cmd = submissions[i];
         VkPipelineStageFlags stages = cmd->GetSwapchainStages();  
 
-        // use swapchian in stages
+        // For first command buffer which uses WSI, need to emit WSI acquire wait 
         if (stages != 0 && !wsi.consumed)
         {
             // Acquire semaphore
             if (wsi.acquire && wsi.acquire->GetSemaphore() != VK_NULL_HANDLE)
             {
+                ASSERT(wsi.acquire->IsSignalled());
                 batchComposer.AddWaitSemaphore(wsi.acquire, stages);
                 if (wsi.acquire->GetTimeLine() <= 0)
                 {
-                    // wait semaphore仅保持一帧，下一帧开始会被释放
                     if (wsi.acquire->CanRecycle())
                         RecycleSemaphore(wsi.acquire->GetSemaphore());
                     else 
@@ -952,6 +1189,45 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
 
 void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence)
 {
+    // Submit empty to wait for fences or sempahores
+    // 
+    // Colloect wait semaphores
+    WaitSemaphores waitSemaphores = {};
+    QueueData& queueData = queueDatas[queueIndex];
+    for (int i = 0; i < queueData.waitSemaphores.size(); i++)
+    {
+        SemaphorePtr& semaphore = queueData.waitSemaphores[i];
+        VkSemaphore vkSemaphore = semaphore->Consume();
+        if (semaphore->GetTimeLine() <= 0)
+        {
+            if (semaphore->CanRecycle())
+                RecycleSemaphore(vkSemaphore);
+            else
+                ReleaseSemaphore(vkSemaphore);
+
+            waitSemaphores.binaryWaits.push_back(vkSemaphore);
+            waitSemaphores.binaryWaitStages.push_back(queueData.waitStages[i]);
+        }
+    }
+    queueData.waitSemaphores.clear();
+    queueData.waitStages.clear();
+
+    BatchComposer batchComposer;
+    batchComposer.AddWaitSemaphores(waitSemaphores);
+
+    VkFence clearedFence = fence ? fencePoolManager.Requset() : VK_NULL_HANDLE;
+    if (fence)
+        fence->fence = clearedFence;
+
+    // Submit batches
+    VkQueue queue = queueInfo.queues[queueIndex];
+    VkResult ret = SubmitBatches(batchComposer, queue, clearedFence);
+    if (ret != VK_SUCCESS)
+    {
+        Logger::Error("Submit queue failed: ");
+        return;
+    }
+    queueData.needFence = true;
 }
 
 VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence)
@@ -1051,6 +1327,18 @@ void BatchComposer::BeginBatch()
     {
         submitIndex = (uint32_t)submits.size();
         submits.emplace_back();
+    }
+}
+
+void BatchComposer::AddWaitSemaphores(WaitSemaphores& semaphores)
+{
+    if (!semaphores.binaryWaits.empty())
+    {
+        for (int i = 0; i < semaphores.binaryWaits.size(); i++)
+        {
+            submitInfos[submitIndex].waitSemaphores.push_back(semaphores.binaryWaits[i]);
+            submitInfos[submitIndex].waitStages.push_back(semaphores.binaryWaitStages[i]);    
+        }
     }
 }
 

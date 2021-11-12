@@ -62,6 +62,7 @@ namespace GPU
     enum QueueType
     {
         QUEUE_TYPE_GRAPHICS = QUEUE_INDEX_GRAPHICS,
+        QUEUE_TYPE_ASYNC_TRANSFER = QUEUE_INDEX_TRANSFER,
         QUEUE_TYPE_COUNT,
     };
 
@@ -160,13 +161,16 @@ namespace GPU
 
     enum class ImageDomain
     {
-        PHYSICAL,
-        TRANSIENT,
+        Physical,
+        Transient,
+        LinearHostCached,
+        LinearHost
     };
 
     enum class BufferDomain
     {
         Device,     // Device local. Probably not visible from CPU.
+        LinkedDeviceHost, // On desktop, directly mapped VRAM over PCI.
         Host,       // Host-only, needs to be synced to GPU. Might be device local as well on iGPUs.
         CachedHost,
     };
@@ -223,7 +227,7 @@ namespace GPU
         VkImageCreateFlags flags = 0;
         uint32_t misc;
         VkImageLayout initialLayout = VK_IMAGE_LAYOUT_GENERAL;
-        ImageDomain domain = ImageDomain::PHYSICAL;
+        ImageDomain domain = ImageDomain::Physical;
 
         static ImageCreateInfo renderTarget(uint32_t width, uint32_t height, VkFormat format)
         {
@@ -369,21 +373,5 @@ namespace GPU
         VkFormat format;
         VkDeviceSize offset;
         VkDeviceSize range;
-    };
-
-    enum class AllocationMode : uint8_t
-    {
-        Device,
-        LinkedDeviceHost,
-        Host,
-        CachedHost,
-        Count
-    };
-
-    struct MemoryAllocateInfo
-    {
-        VkMemoryRequirements requirements = {};
-        VkMemoryPropertyFlags requiredProperties = 0;
-        AllocationMode mode = {};
     };
 }

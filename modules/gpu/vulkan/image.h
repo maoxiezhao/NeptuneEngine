@@ -1,10 +1,10 @@
 #pragma once
 
 #include "definition.h"
+#include "memory.h"
 
 namespace GPU
 {
-
 class DeviceVulkan;
 class ImageView;
 class Image;
@@ -135,12 +135,26 @@ public:
         return imageInfo;
     }
 
+    VkAccessFlags GetAccessFlags()const
+    {
+        return accessFlags;
+    }
+
+    VkPipelineStageFlags GetStageFlags()const
+    {
+        return stageFlags;
+    }
+
+    static VkPipelineStageFlags ConvertUsageToPossibleStages(VkImageUsageFlags usage);
+    static VkAccessFlags ConvertUsageToPossibleAccess(VkImageUsageFlags usage);
+    static VkAccessFlags ConvertLayoutToPossibleAccess(VkImageLayout layout);
+
 private:
     friend class DeviceVulkan;
     friend struct ImageDeleter;
     friend class Util::ObjectPool<Image>;
 
-    Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const ImageCreateInfo& info_);
+    Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const DeviceAllocation& allocation_, const ImageCreateInfo& info_);
 
 private:
     DeviceVulkan& device;
@@ -148,7 +162,11 @@ private:
     ImageViewPtr imageView;
     ImageCreateInfo imageInfo;
     VkImageLayout swapchainLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    DeviceAllocation allocation;
     bool isOwnsImge = true;
+
+    VkAccessFlags accessFlags = 0;
+    VkPipelineStageFlags stageFlags = 0;
 };
 using ImagePtr = Util::IntrusivePtr<Image>;
 

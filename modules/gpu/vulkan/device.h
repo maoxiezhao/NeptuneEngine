@@ -24,6 +24,13 @@ struct InitialImageBuffer
 {
     BufferPtr buffer;
     std::array<VkBufferImageCopy, 32> bit;
+    U32 numBit = 0;
+};
+
+struct WaitSemaphores
+{
+    std::vector<VkSemaphore> binaryWaits;
+    std::vector<VkPipelineStageFlags> binaryWaitStages;
 };
 
 struct BatchComposer
@@ -47,6 +54,7 @@ private:
     void BeginBatch();
 
 public:
+    void AddWaitSemaphores(WaitSemaphores& semaphores);
     void AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages);
     void AddSignalSemaphore(VkSemaphore sem);
     void AddCommandBuffer(VkCommandBuffer buffer);
@@ -200,7 +208,7 @@ public:
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
     InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
-    ImagePtr CreateImageFromStagingBuffer(const ImageCreateInfo& createInfo, const InitialImageBuffer* initial);
+    ImagePtr CreateImageFromStagingBuffer(const ImageCreateInfo& createInfo, const InitialImageBuffer* stagingBuffer);
     ImageViewPtr CreateImageView(const ImageViewCreateInfo& viewInfo);
     BufferPtr CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData);
     BufferViewPtr CreateBufferView(const BufferViewCreateInfo& viewInfo);
@@ -222,8 +230,10 @@ public:
 
     void NextFrameContext();
     void EndFrameContext();
-    void Submit(CommandListPtr& cmd);
+    void FlushFrame(QueueIndices queueIndex);
+    void Submit(CommandListPtr& cmd, FencePtr* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphore = nullptr);
     void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);
+    void AddWaitSemaphore(QueueType queueType, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush);
     void SetName(const Image& image, const char* name);
     void SetName(const Buffer& buffer, const char* name);
 
@@ -242,11 +252,21 @@ public:
 private:
     friend class CommandList;
 
+    // Queue data
+    struct QueueData
+    {
+        std::vector<SemaphorePtr> waitSemaphores;
+        std::vector<VkPipelineStageFlags> waitStages;
+        bool needFence = false;
+    };
+    QueueData queueDatas[QUEUE_INDEX_COUNT];
+
     // submit methods
     struct InternalFence
     {
         VkFence fence = VK_NULL_HANDLE;
     };
+    void SubmitImpl(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
     void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr);
     void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence);
     VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);
