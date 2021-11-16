@@ -62,6 +62,8 @@ namespace GPU
 			return size;
 		}
 
+		bool IsHostVisible()const;
+
 		void Free(DeviceAllocator& allocator);
 	};
 

@@ -746,13 +746,63 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
         return BufferPtr(nullptr);
     }
 
-    // BufferPtr bufferPtr(buffers.allocate())
-    bool zeroInitialize = (createInfo.misc & BUFFER_MISC_ZERO_INITIALIZE_BIT) != 0;
-    if (initialData != nullptr)
+    auto tmpinfo = createInfo;
+    tmpinfo.usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    BufferPtr bufferPtr(buffers.allocate(*this, buffer, allocation, tmpinfo));
+    if (!bufferPtr)
     {
-
+        Logger::Warning("Failed to create buffer");
+        return BufferPtr(nullptr);
     }
-    return BufferPtr();
+     
+    bool needInitialize = (createInfo.misc & BUFFER_MISC_ZERO_INITIALIZE_BIT) != 0 || (initialData != nullptr);
+    if (createInfo.domain == BufferDomain::Device && needInitialize && !allocation.IsHostVisible())
+    {
+        // Buffer is device only, create a staging buffer and copy it
+        CommandListPtr cmd;
+        if (initialData != nullptr)
+        {
+            // Create a staging buffer which domain is host
+            BufferCreateInfo stagingCreateInfo = createInfo;
+            stagingCreateInfo.domain = BufferDomain::Host;
+            BufferPtr stagingBuffer = CreateBuffer(stagingCreateInfo, initialData);
+            if (!stagingBuffer)
+            {
+                Logger::Warning("Failed to create buffer");
+                return BufferPtr(nullptr);
+            }
+            SetName(*stagingBuffer, "Buffer_upload_staging_buffer");
+
+            // Request async transfer cmd to copy staging buffer
+            cmd = RequestCommandList(QueueType::QUEUE_TYPE_ASYNC_TRANSFER);
+            cmd->BeginEvent("Fill_buffer_staging");
+            cmd->CopyBuffer(bufferPtr, stagingBuffer);
+            cmd->EndEvent();
+        }
+        else
+        {
+            cmd = RequestCommandList(QueueType::QUEUE_TYPE_ASYNC_COMPUTE);
+            cmd->BeginEvent("Fill_buffer_staging");
+            cmd->FillBuffer(bufferPtr, 0);
+            cmd->EndEvent();
+        }
+
+        SubmitStaging(cmd, info.usage, true);
+    }
+    else if (needInitialize)
+    {
+        void* ptr = memory.MapMemory(allocation, MemoryAccessFlag::MEMORY_ACCESS_WRITE_BIT, 0, allocation.size);
+        if (ptr == nullptr)
+            return BufferPtr(nullptr);
+
+        if (initialData != nullptr)
+            memcpy(ptr, initialData, createInfo.size);
+        else
+            memset(ptr, 0, createInfo.size);
+
+        memory.UnmapMemory(allocation, MemoryAccessFlag::MEMORY_ACCESS_WRITE_BIT, 0, allocation.size);
+    }
+    return bufferPtr;
 }
 
 BufferViewPtr DeviceVulkan::CreateBufferView(const BufferViewCreateInfo& viewInfo)
@@ -1234,6 +1284,33 @@ VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkF
 {
     auto& submits = composer.Bake();
     return vkQueueSubmit(queue, (uint32_t)submits.size(), submits.data(), fence);
+}
+
+void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush)
+{
+    VkPipelineStageFlags stages = Buffer::BufferUsageToPossibleStages(usage);
+    QueueIndices srcQueueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
+    if (srcQueueIndex == QUEUE_INDEX_GRAPHICS)
+    {
+    }
+    else if (srcQueueIndex == QUEUE_INDEX_COMPUTE)
+    {
+    }
+    else
+    {
+        auto computeStages = stages &
+                (VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                 VK_PIPELINE_STAGE_TRANSFER_BIT |
+                 VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+
+        if (stages != 0 && computeStages != 0)
+        {
+            SemaphorePtr semaphores[2];
+            Submit(cmd, nullptr, 2, semaphores);
+            AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphores[0], stages, flush);
+            AddWaitSemaphore(QueueType::QUEUE_TYPE_ASYNC_COMPUTE, semaphores[1], computeStages, flush);
+        }
+    }
 }
 
 DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_) : device(device_)

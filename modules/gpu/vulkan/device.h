@@ -270,6 +270,7 @@ private:
     void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr);
     void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence);
     VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);
+    void SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush);
 
     // internal wsi
     struct InternalWSI

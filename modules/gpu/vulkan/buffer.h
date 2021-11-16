@@ -63,6 +63,8 @@ namespace GPU
             return allocation;
         }
 
+        static VkPipelineStageFlags BufferUsageToPossibleStages(VkBufferUsageFlags usage);
+
     private:
         friend class DeviceVulkan;
         friend struct BufferDeleter;

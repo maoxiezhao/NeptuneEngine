@@ -3,6 +3,30 @@
 
 namespace GPU
 {
+	VkPipelineStageFlags Buffer::BufferUsageToPossibleStages(VkBufferUsageFlags usage)
+	{
+		VkPipelineStageFlags flags = 0;
+		if (usage & (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT))
+			flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+		if (usage & (VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
+			flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+
+		if (usage & VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT)
+			flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+
+		if (usage & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT))
+			flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | 
+					VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+		if (usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+			flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+		return flags;
+	}
+
+
 	void BufferViewDeleter::operator()(BufferView* bufferView)
 	{
 		bufferView->device.bufferViews.free(bufferView);

@@ -141,10 +141,10 @@ void CommandListDeleter::operator()(CommandList* cmd)
         cmd->device.commandListPool.free(cmd);
 }
 
-CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer, QueueType type) :
+CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_) :
     device(device_),
-    cmd(buffer),
-    type(type)
+    cmd(buffer_),
+    type(type_)
 {
 }
 
@@ -387,6 +387,14 @@ void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceS
 }
 
 void CommandList::CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
+{
+}
+
+void CommandList::CopyBuffer(const BufferPtr& dst, const BufferPtr& src)
+{
+}
+
+void CommandList::FillBuffer(const BufferPtr& buffer, U32 value)
 {
 }
 

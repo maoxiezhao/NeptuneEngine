@@ -75,6 +75,11 @@ namespace GPU
 		}
 	}
 
+	bool DeviceAllocation::IsHostVisible() const
+	{
+		return memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+	}
+
 	void DeviceAllocation::Free(DeviceAllocator& allocator)
 	{
 		if (allocation != VK_NULL_HANDLE)

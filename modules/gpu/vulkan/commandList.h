@@ -119,6 +119,8 @@ public:
     
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
     void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
+    void CopyBuffer(const BufferPtr& dst, const BufferPtr& src);
+    void FillBuffer(const BufferPtr& buffer, U32 value);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
     void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);
