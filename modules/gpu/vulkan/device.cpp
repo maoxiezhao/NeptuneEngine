@@ -87,10 +87,13 @@ namespace
     {
     public:
         DeviceVulkan& device;
+        VkImage image = VK_NULL_HANDLE;
         VkImageView imageView = VK_NULL_HANDLE;
         VkImageView depthView = VK_NULL_HANDLE;
         VkImageView stencilView = VK_NULL_HANDLE;
         std::vector<VkImageView> rtViews;
+        VkImageViewCreateInfo defaultViewCreateInfo = {};
+        bool imageOwned = false;
 
     public:
         explicit ImageResourceCreator(DeviceVulkan& device_) :
@@ -98,19 +101,79 @@ namespace
         {
         }
 
+        explicit ImageResourceCreator(DeviceVulkan& device_, VkImage image_) :
+            device(device_),
+            image(image_),
+            imageOwned(false)
+        {
+        }
+
         bool CreateDefaultView(const VkImageViewCreateInfo& viewInfo)
         {
-            return true;
+            return vkCreateImageView(device.device, &viewInfo, nullptr, &imageView) != VK_SUCCESS;
         }
 
         bool CreatDepthAndStencilView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
         {
+            if (viewInfo.subresourceRange.aspectMask == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT))
+            {
+                if ((createInfo.usage & ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0)
+                {
+                    auto tempInfo = viewInfo;
+                    tempInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+                    if (vkCreateImageView(device.device, &tempInfo, nullptr, &depthView) != VK_SUCCESS)
+                        return false;
+
+                    tempInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+                    if (vkCreateImageView(device.device, &tempInfo, nullptr, &stencilView) != VK_SUCCESS)
+                        return false;
+                }
+            }
             return true;
         }
 
         bool CreateRenderTargetView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
         {
+            if (viewInfo.subresourceRange.layerCount > 0 && createInfo.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT))
+            {
+                rtViews.reserve(viewInfo.subresourceRange.layerCount);
+
+                VkImageViewCreateInfo tempInfo = viewInfo;
+                tempInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+                for (U32 layer = 0; layer < tempInfo.subresourceRange.layerCount; layer++)
+                {
+                    tempInfo.subresourceRange.levelCount = 1;
+                    tempInfo.subresourceRange.layerCount = 1;
+                    tempInfo.subresourceRange.baseArrayLayer = viewInfo.subresourceRange.baseArrayLayer + layer;
+
+                    VkImageView rtView = VK_NULL_HANDLE;
+                    if (vkCreateImageView(device.device, &tempInfo, nullptr, &rtView) != VK_SUCCESS)
+                        return false;
+
+                    rtViews.push_back(rtView);
+                }
+            }
+
             return true;
+        }
+
+        void CreateDefaultViewCreateInfo(const ImageCreateInfo& imageCreateInfo)
+        {
+            defaultViewCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+            defaultViewCreateInfo.image = image;
+            defaultViewCreateInfo.viewType = GetImageViewType(imageCreateInfo, nullptr);
+            defaultViewCreateInfo.format = imageCreateInfo.format;
+            defaultViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            defaultViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            defaultViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            defaultViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+            defaultViewCreateInfo.subresourceRange.aspectMask = formatToAspectMask(imageCreateInfo.format);
+            defaultViewCreateInfo.subresourceRange.baseMipLevel = 0;
+            defaultViewCreateInfo.subresourceRange.levelCount = imageCreateInfo.levels;
+            defaultViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+            defaultViewCreateInfo.subresourceRange.layerCount = imageCreateInfo.layers;
+
         }
 
         bool CreateDefaultViews(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo* viewInfo)
@@ -126,22 +189,26 @@ namespace
                 Logger::Error("Cannot create image view unless certain usage flags are present.\n");
                 return false;
             }
-
-            if (!CreatDepthAndStencilView(createInfo, *viewInfo))
+            if (viewInfo != nullptr)
+                defaultViewCreateInfo = *viewInfo;
+            else
+                CreateDefaultViewCreateInfo(createInfo);
+            
+            if (!CreatDepthAndStencilView(createInfo, defaultViewCreateInfo))
                 return false;
 
-            if (!CreateRenderTargetView(createInfo, *viewInfo))
+            if (!CreateRenderTargetView(createInfo, defaultViewCreateInfo))
                 return false;
 
-            if (!CreateDefaultView(*viewInfo))
+            if (!CreateDefaultView(defaultViewCreateInfo))
                 return false;
 
             return true;
         }
 
-        VkImageViewType GetImageViewType()const
+        VkImageViewType GetDefaultImageViewType()const
         {
-            return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
+            return defaultViewCreateInfo.viewType;
         }
     };
 }
@@ -601,14 +668,14 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) != 0 &&
         (createInfo.misc & IMAGE_MISC_NO_DEFAULT_VIEWS_BIT) == 0;
 
-    ImageResourceCreator viewCreator(*this);
+    ImageResourceCreator viewCreator(*this, image);
     VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     if (hasView)
     {
         if (!viewCreator.CreateDefaultViews(createInfo, nullptr))
             return ImagePtr();
 
-        viewType = viewCreator.GetImageViewType();
+        viewType = viewCreator.GetDefaultImageViewType();
     }
 
     // Create image ptr
@@ -627,7 +694,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
     imagePtr->stageFlags = Image::ConvertUsageToPossibleStages(createInfo.usage);
     imagePtr->accessFlags = Image::ConvertUsageToPossibleAccess(createInfo.usage);
 
-    // if staging buffer is not null, create transition_cmd and copy the staging buffer to gpu buffer
+    // If staging buffer is not null, create transition_cmd and copy the staging buffer to gpu buffer
     CommandListPtr transitionCmd;
     if (stagingBuffer != nullptr)
     {
@@ -688,6 +755,11 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphore, imagePtr->GetStageFlags(), true);
         
             transitionCmd = std::move(graphicsCmd);
+        }
+
+        if (transitionCmd)
+        {
+            Submit(transitionCmd, nullptr, 0, nullptr);
         }
     }
 
@@ -787,7 +859,8 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
             cmd->EndEvent();
         }
 
-        SubmitStaging(cmd, info.usage, true);
+        if (cmd)
+            SubmitStaging(cmd, info.usage, true);
     }
     else if (needInitialize)
     {
@@ -1288,6 +1361,7 @@ VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkF
 
 void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush)
 {
+    // Check source buffer's usage to decide which queues (Graphics/Compute) need to wait
     VkPipelineStageFlags stages = Buffer::BufferUsageToPossibleStages(usage);
     QueueIndices srcQueueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
     if (srcQueueIndex == QUEUE_INDEX_GRAPHICS)
@@ -1309,6 +1383,22 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
             Submit(cmd, nullptr, 2, semaphores);
             AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphores[0], stages, flush);
             AddWaitSemaphore(QueueType::QUEUE_TYPE_ASYNC_COMPUTE, semaphores[1], computeStages, flush);
+        }
+        else if (stages != 0)
+        {
+            SemaphorePtr semaphores;
+            Submit(cmd, nullptr, 1, &semaphores);
+            AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphores, stages, flush);
+        }
+        else if (computeStages != 0)
+        {
+            SemaphorePtr semaphores;
+            Submit(cmd, nullptr, 1, &semaphores);
+            AddWaitSemaphore(QueueType::QUEUE_TYPE_ASYNC_COMPUTE, semaphores, stages, flush);
+        }
+        else
+        {
+            Submit(cmd, nullptr, 0, nullptr);
         }
     }
 }

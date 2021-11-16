@@ -12,6 +12,7 @@
 #include "shader.h"
 #include "shaderManager.h"
 #include "descriptorSet.h"
+#include "TextureFormatLayout.h"
 
 #include <array>
 #include <set>
