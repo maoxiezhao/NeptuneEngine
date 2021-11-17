@@ -144,7 +144,7 @@ namespace GPU
 		VmaAllocationCreateInfo createInfo = {};
 		createInfo.usage = GetMemoryUsage(domain);
 		createInfo.flags = GetCreateFlags(domain);
-		bool ret = vmaCreateBuffer(allocator, &bufferInfo, &createInfo, &buffer, &allocation->allocation, &allocInfo) != VK_SUCCESS;
+		bool ret = vmaCreateBuffer(allocator, &bufferInfo, &createInfo, &buffer, &allocation->allocation, &allocInfo) == VK_SUCCESS;
 		if (ret == true)
 		{
 			VkMemoryPropertyFlags memFlags;
@@ -159,7 +159,21 @@ namespace GPU
 
 	bool DeviceAllocator::CreateImage(const VkImageCreateInfo& imageInfo, ImageDomain domain, VkImage& image, DeviceAllocation* allocation)
 	{
-		return false;
+		VmaAllocationInfo allocInfo;
+		VmaAllocationCreateInfo createInfo = {};
+		createInfo.usage = GetMemoryUsage(domain);
+		createInfo.flags = GetCreateFlags(domain);
+		bool ret = vmaCreateImage(allocator, &imageInfo, &createInfo, &image, &allocation->allocation, &allocInfo) == VK_SUCCESS;
+		if (ret == true)
+		{
+			VkMemoryPropertyFlags memFlags;
+			vmaGetMemoryTypeProperties(allocator, allocInfo.memoryType, &memFlags);
+			if ((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 && allocInfo.pMappedData != nullptr)
+				allocation->hostBase = static_cast<U8*>(allocInfo.pMappedData);
+
+			allocation->memFlags = memFlags;
+		}
+		return ret;
 	}
 
 
@@ -175,7 +189,7 @@ namespace GPU
 		allocCreateInfo.flags = usage.flags;
 
 		VmaAllocationInfo allocInfo;
-		bool ret = vmaAllocateMemory(allocator, &memRep, &allocCreateInfo, &allocation->allocation, &allocInfo) != VK_SUCCESS;
+		bool ret = vmaAllocateMemory(allocator, &memRep, &allocCreateInfo, &allocation->allocation, &allocInfo) == VK_SUCCESS;
 		if (ret == true)
 		{
 			VkMemoryPropertyFlags memFlags;

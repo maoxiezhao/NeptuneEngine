@@ -110,7 +110,7 @@ namespace
 
         bool CreateDefaultView(const VkImageViewCreateInfo& viewInfo)
         {
-            return vkCreateImageView(device.device, &viewInfo, nullptr, &imageView) != VK_SUCCESS;
+            return vkCreateImageView(device.device, &viewInfo, nullptr, &imageView) == VK_SUCCESS;
         }
 
         bool CreatDepthAndStencilView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
@@ -238,8 +238,11 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     queueInfo = context.queueInfo;
     features = context.ext;
 
-    // create frame resources
+    // Create frame resources
     InitFrameContext();
+
+    // Init bindless descriptor set allocator
+    InitBindless();
 
     //init managers
     memory.Initialize(this);
@@ -501,6 +504,8 @@ ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(Sha
 DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds)
 {
 	HashCombiner hasher;
+    hasher.HashCombine(reinterpret_cast<const uint32_t*>(&layout), sizeof(layout));
+    hasher.HashCombine(stageForBinds, sizeof(U32) * VULKAN_NUM_BINDINGS);
 	
 	auto findIt = descriptorSetAllocators.find(hasher.Get());
 	if (findIt != descriptorSetAllocators.end())
@@ -521,10 +526,12 @@ ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const Subr
     if (pInitialData != nullptr)
     {
         InitialImageBuffer stagingBuffer = CreateImageStagingBuffer(createInfo, pInitialData);
-       return CreateImageFromStagingBuffer(createInfo, nullptr);
+        return CreateImageFromStagingBuffer(createInfo, &stagingBuffer);
     }   
     else
+    {
         return CreateImageFromStagingBuffer(createInfo, nullptr);
+    }
 }
 
 InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
@@ -690,7 +697,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         imageView.SetRenderTargetViews(std::move(viewCreator.rtViews));
     }
 
-    imagePtr->isOwnsImge = false;
+    imagePtr->isOwnsImge = true;
     imagePtr->stageFlags = Image::ConvertUsageToPossibleStages(createInfo.usage);
     imagePtr->accessFlags = Image::ConvertUsageToPossibleAccess(createInfo.usage);
 
@@ -715,9 +722,12 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         // Add image barrier until finish transfer
         transferCmd->ImageBarrier(
             imagePtr, 
-            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+            VK_IMAGE_LAYOUT_UNDEFINED, 
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
+            0, 
+            VK_PIPELINE_STAGE_TRANSFER_BIT, 
+            VK_ACCESS_TRANSFER_WRITE_BIT);
 
         transferCmd->BeginEvent("Copy_image_to_gpu");
         transferCmd->CopyToImage(imagePtr, stagingBuffer->buffer, stagingBuffer->numBit, stagingBuffer->bit.data());
@@ -762,8 +772,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             Submit(transitionCmd, nullptr, 0, nullptr);
         }
     }
-
-    return ImagePtr();
+    return imagePtr;
 }
 
 ImageViewPtr DeviceVulkan::CreateImageView(const ImageViewCreateInfo& viewInfo)
@@ -1213,9 +1222,15 @@ void DeviceVulkan::SubmitImpl(CommandListPtr& cmd, FencePtr* fence, U32 semaphor
     QueueIndices queueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
     submissions.push_back(std::move(cmd));
+
+    if (fence != nullptr || (semaphoreCount > 0 && semaphore != nullptr))
+    {
+        InternalFence signalledFence;
+        SubmitQueue(queueIndex, fence != nullptr ? &signalledFence : nullptr, semaphoreCount, semaphore);
+    }
 }
 
-void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
+void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores)
 {
     // Flush/Submit transfer queue
     if (queueIndex != QueueIndices::QUEUE_INDEX_TRANSFER)
@@ -1224,8 +1239,8 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
     if (submissions.empty())
     {
-        if (fence != nullptr)
-            SubmitEmpty(queueIndex, fence);
+        if (fence != nullptr || (semaphoreCount > 0 && semaphores != nullptr))
+            SubmitEmpty(queueIndex, fence, semaphoreCount, semaphores);
         return;
     }
 
@@ -1296,9 +1311,18 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
         }
     }
 
+    // Add cleared fence
     VkFence clearedFence = fence ? fencePoolManager.Requset() : VK_NULL_HANDLE;
     if (fence)
         fence->fence = clearedFence;
+
+    // Add cleared semaphores, they will signal when submission finished
+    for (unsigned i = 0; i < semaphoreCount; i++)
+    {
+        VkSemaphore semaphore = semaphoreManager.Requset();
+        batchComposer.AddSignalSemaphore(semaphore);
+        semaphores[i] = SemaphorePtr(semaphorePool.allocate(*this, semaphore, true));
+    }
 
     VkResult ret = SubmitBatches(batchComposer, queue, clearedFence);
     if (ret != VK_SUCCESS)
@@ -1310,7 +1334,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence)
     submissions.clear();
 }
 
-void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence)
+void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores)
 {
     // Submit empty to wait for fences or sempahores
     // 
@@ -1338,9 +1362,18 @@ void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence)
     BatchComposer batchComposer;
     batchComposer.AddWaitSemaphores(waitSemaphores);
 
+    // Add cleared fence
     VkFence clearedFence = fence ? fencePoolManager.Requset() : VK_NULL_HANDLE;
     if (fence)
         fence->fence = clearedFence;
+
+    // Add cleared semaphores, they will signal when submission finished
+    for (unsigned i = 0; i < semaphoreCount; i++)
+    {
+        VkSemaphore semaphore = semaphoreManager.Requset();
+        batchComposer.AddSignalSemaphore(semaphore);
+        semaphores[i] = SemaphorePtr(semaphorePool.allocate(*this, semaphore, true));
+    }
 
     // Submit batches
     VkQueue queue = queueInfo.queues[queueIndex];
@@ -1408,9 +1441,9 @@ DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_) : device(devic
     const int THREAD_COUNT = 1;
     for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
     {
-        cmdPools->reserve(THREAD_COUNT);
+        cmdPools[queueIndex].reserve(THREAD_COUNT);
         for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
-            cmdPools->emplace_back(&device_, device_.queueInfo.familyIndices[queueIndex]);
+            cmdPools[queueIndex].emplace_back(&device_, device_.queueInfo.familyIndices[queueIndex]);
     }
 }
 
@@ -1621,6 +1654,41 @@ bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvD
     }
 
 	return true;
+}
+
+void DeviceVulkan::InitBindless()
+{
+    DescriptorSetLayout layout;
+    layout.arraySize[0] = DescriptorSetLayout::UNSIZED_ARRAY;
+    for (unsigned i = 1; i < VULKAN_NUM_BINDINGS; i++)
+        layout.arraySize[i] = 1;
+
+    uint32_t stagesForSets[VULKAN_NUM_BINDINGS] = { VK_SHADER_STAGE_ALL };
+
+    if (features.features_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind == VK_TRUE)
+    {
+        DescriptorSetLayout tmpLayout = layout;
+        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::SAMPLED_IMAGE] = 1;
+        bindlessSampledImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+    }
+    if (features.features_1_2.descriptorBindingStorageBufferUpdateAfterBind == VK_TRUE)
+    {
+        DescriptorSetLayout tmpLayout = layout;
+        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::STORAGE_BUFFER] = 1;
+        bindlessStorageBuffers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+    }
+    if (features.features_1_2.descriptorBindingStorageImageUpdateAfterBind == VK_TRUE)
+    {
+        DescriptorSetLayout tmpLayout = layout;
+        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::STORAGE_IMAGE] = 1;
+        bindlessStorageImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+    }
+    if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
+    {
+        DescriptorSetLayout tmpLayout = layout;
+        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::SAMPLER] = 1;
+        bindlessSamplers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+    }
 }
 
 void TransientAttachmentAllcoator::BeginFrame()

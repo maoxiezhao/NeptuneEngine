@@ -164,6 +164,7 @@ private:
     VkImageLayout swapchainLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     DeviceAllocation allocation;
     bool isOwnsImge = true;
+    bool isOwnsMemory = true;
 
     VkAccessFlags accessFlags = 0;
     VkPipelineStageFlags stageFlags = 0;

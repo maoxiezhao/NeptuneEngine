@@ -52,6 +52,11 @@ public:
         images[2] = device->CreateImage(imageInfo, &data);
         data.data = black;
         images[3] = device->CreateImage(imageInfo, &data);
+
+        device->SetName(*images[0], "ColorImg0");
+        device->SetName(*images[1], "ColorImg1");
+        device->SetName(*images[2], "ColorImg2");
+        device->SetName(*images[3], "ColorImg3");
     }
     
     void UninitializeImpl()override

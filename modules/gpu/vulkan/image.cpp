@@ -139,11 +139,11 @@ Image::Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, cons
 
 Image::~Image()
 {
-	// 如果是自身持有image，需要在析构时释放VkImage
 	if (isOwnsImge)
-	{
 		device.ReleaseImage(image);
-	}
+
+	if (isOwnsMemory)
+		device.FreeMemory(allocation);
 }
 
 }

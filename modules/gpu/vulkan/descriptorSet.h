@@ -4,6 +4,13 @@
 
 namespace GPU
 {
+	enum class BindlessReosurceType
+	{
+		Image,
+		Buffer,
+		Sampler
+	};
+
 	struct DescriptorSetLayout
 	{
 		enum SetMask

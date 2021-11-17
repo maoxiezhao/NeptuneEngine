@@ -9,7 +9,7 @@ namespace GPU
 	{
 		switch (mask)
 		{
-		case DescriptorSetLayout::SAMPLED_IMAGE:
+			case DescriptorSetLayout::SAMPLED_IMAGE:
 				return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			case DescriptorSetLayout::STORAGE_IMAGE:
 				return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -58,9 +58,9 @@ namespace GPU
 			
 			// create VkDescriptorSetLayoutBinding
 			U32 types = 0;
-			for (U32 maskbit = 0; i < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
+			for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
             {
-				if (layout.masks[maskbit] & (1 << i))
+				if (layout.masks[maskbit] & (1u << i))
 				{
 					auto descriptorType = GetTypeBySetMask(static_cast<DescriptorSetLayout::SetMask>(maskbit));
 					bindings.push_back({

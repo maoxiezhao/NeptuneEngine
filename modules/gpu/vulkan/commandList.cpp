@@ -388,6 +388,7 @@ void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceS
 
 void CommandList::CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
 {
+    vkCmdCopyBufferToImage(cmd, buffer->GetBuffer(), image->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, numBlits, blits);
 }
 
 void CommandList::CopyBuffer(const BufferPtr& dst, const BufferPtr& src)

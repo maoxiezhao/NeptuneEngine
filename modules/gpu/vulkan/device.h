@@ -253,6 +253,14 @@ public:
 private:
     friend class CommandList;
 
+    // Bindless
+    void InitBindless();
+
+    DescriptorSetAllocator* bindlessSampledImages = nullptr;
+    DescriptorSetAllocator* bindlessStorageBuffers = nullptr;
+    DescriptorSetAllocator* bindlessStorageImages = nullptr;
+    DescriptorSetAllocator* bindlessSamplers = nullptr;
+
     // Queue data
     struct QueueData
     {
@@ -268,8 +276,8 @@ private:
         VkFence fence = VK_NULL_HANDLE;
     };
     void SubmitImpl(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
-    void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr);
-    void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence);
+    void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphores = nullptr);
+    void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores);
     VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);
     void SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush);
 
