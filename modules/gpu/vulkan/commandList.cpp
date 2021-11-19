@@ -14,6 +14,24 @@ namespace
         U32 writeCount = 0;
         VkWriteDescriptorSet writes[VULKAN_NUM_BINDINGS];
 
+        // sampled image
+        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::SAMPLED_IMAGE)],
+            [&](U32 binding) {
+                U32 arraySize = setLayout.arraySize[binding];
+                for (U32 i = 0; i < arraySize; i++)
+                {
+                    auto& write = writes[writeCount++];
+                    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    write.pNext = nullptr;
+                    write.descriptorCount = 1;
+                    write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                    write.dstArrayElement = i;
+                    write.dstBinding = binding;
+                    write.dstSet = descSet;
+                    write.pImageInfo = &bindings[binding + i].image;
+                }
+            });
+
         // storage image
         ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::STORAGE_IMAGE)], 
             [&](U32 binding) {
@@ -352,6 +370,7 @@ void CommandList::SetProgram(const std::string& vertex, const std::string& fragm
 void CommandList::BeginGraphicsContext()
 {
     dirty = ~0u;  // set all things are dirty
+    memset(bindings.cookies, 0, sizeof(bindings.cookies));
     pipelineState.shaderProgram = nullptr;
     currentPipeline = VK_NULL_HANDLE;
     currentPipelineLayout = VK_NULL_HANDLE;
@@ -393,10 +412,44 @@ void CommandList::CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U3
 
 void CommandList::CopyBuffer(const BufferPtr& dst, const BufferPtr& src)
 {
+    CopyBuffer(dst, 0, src, 0, src->GetCreateInfo().size);
+}
+
+void CommandList::CopyBuffer(const BufferPtr& dst, VkDeviceSize dstOffset, const BufferPtr& src, VkDeviceSize srcOffset, VkDeviceSize size)
+{
+    VkBufferCopy region = {};
+    region.srcOffset = srcOffset;
+    region.dstOffset = dstOffset;
+    region.size = size;
+    vkCmdCopyBuffer(cmd, src->GetBuffer(), dst->GetBuffer(), 1, &region);
 }
 
 void CommandList::FillBuffer(const BufferPtr& buffer, U32 value)
 {
+}
+
+void CommandList::SetBindless(U32 set, VkDescriptorSet descriptorSet)
+{
+    bindlessSets[set] = descriptorSet;
+    dirtySets |= 1u << set;
+}
+
+void CommandList::SetSampler(U32 set, U32 binding, const Sampler& sampler)
+{
+    if (sampler.GetCookie() == bindings.cookies[set][binding])
+        return;
+
+    ResourceBinding& resBinding = bindings.bindings[set][binding];
+    resBinding.image.sampler = sampler.GetSampler();
+    dirtySets |= 1u << set;
+    bindings.cookies[set][binding] = sampler.GetCookie();
+}
+
+void CommandList::SetSampler(U32 set, U32 binding, StockSampler type)
+{
+    ImmutableSampler* sampler = device.GetStockSampler(type);
+    if (sampler != nullptr)
+        SetSampler(set, binding, sampler->GetSampler());
 }
 
 void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
@@ -557,7 +610,7 @@ void CommandList::FlushDescriptorSet(U32 set)
 {
     auto& resLayout = currentLayout->GetResLayout();
     // check is bindless descriptor set
-    if (false)
+    if (resLayout.bindlessSetMask & (1u << set))
     {
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
             currentPipelineLayout, set, 1, &bindlessSets[set], 0, nullptr);
@@ -577,8 +630,15 @@ void CommandList::FlushDescriptorSet(U32 set)
         UpdateDescriptorSet(device, allocated.first, resLayout.sets[set], bindings.bindings[set]);
     }
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-        currentPipelineLayout, 0, 1, &allocated.first, 0, nullptr);
+    vkCmdBindDescriptorSets(
+        cmd, 
+        VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        currentPipelineLayout,
+        0, 
+        1, 
+        &allocated.first,
+        0,
+        nullptr);
     allocatedSets[set] = allocated.first;
 }
 

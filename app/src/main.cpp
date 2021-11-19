@@ -75,15 +75,27 @@ public:
 
         GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
         GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
-
         cmd->BeginEvent("Fullscreen");
         cmd->BeginRenderPass(rp);
-        cmd->SetDefaultOpaqueState();
-        cmd->SetProgram("screenVS.hlsl", "screenPS.hlsl");
-        cmd->Draw(3);
+
+        GPU::BindlessDescriptorPoolPtr bindlessPoolPtr = device->GetBindlessDescriptorPool(GPU::BindlessReosurceType::SampledImage, 1, 1024);
+        if (bindlessPoolPtr)
+        {
+            bindlessPoolPtr->AllocateDescriptors(1024);
+            for (int i = 0; i < 1024; i++)
+                bindlessPoolPtr->SetTexture(i, images[i % 4]->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        
+            cmd->SetBindless(1, bindlessPoolPtr->GetDescriptorSet());
+            cmd->SetSampler(0, 0, GPU::StockSampler::NearestClamp);
+        
+            cmd->SetDefaultOpaqueState();
+            cmd->SetProgram("screenVS.hlsl", "test/bindlessPS.hlsl");
+            cmd->Draw(3);
+        }
+
         cmd->EndRenderPass();
         cmd->EndEvent();
-
+        
         device->Submit(cmd);
     }
 };

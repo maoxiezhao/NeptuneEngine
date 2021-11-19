@@ -1,6 +1,5 @@
 ﻿#include "device.h"
 #include "core\utils\hash.h"
-#include "spriv_reflect\spirv_reflect.h"
 #include "memory.h"
 #include "TextureFormatLayout.h"
 
@@ -81,6 +80,23 @@ namespace
     static QueueIndices GetQueueIndexFromQueueType(QueueType queueType)
     {
         return QueueIndices(queueType);
+    }
+
+    static U32 GetStageMaskFromShaderStage(ShaderStage stage)
+    {
+        U32 mask = 0;
+        switch (stage)
+        {
+        case ShaderStage::VS:
+            mask = (U32)VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT;
+            break;
+        case ShaderStage::PS:
+            mask = (U32)VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT;
+            break;
+        default:
+            break;
+        }
+        return mask;
     }
 
     class ImageResourceCreator
@@ -244,7 +260,10 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     // Init bindless descriptor set allocator
     InitBindless();
 
-    //init managers
+    // Init stock buffers
+    InitStockSamplers();
+
+    // Init managers
     memory.Initialize(this);
     fencePoolManager.Initialize(*this);
     semaphoreManager.Initialize(*this);
@@ -516,9 +535,97 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const Descri
 	return *allocator;
 }
 
+DescriptorSetAllocator* DeviceVulkan::GetBindlessDescriptorSetAllocator(BindlessReosurceType type)
+{
+    switch (type)
+    {
+    case BindlessReosurceType::SampledImage:
+        return bindlessSampledImages;
+    case BindlessReosurceType::StorageImage:
+        return bindlessStorageImages;
+    case BindlessReosurceType::StorageBuffer:
+        return bindlessStorageBuffers;
+    case BindlessReosurceType::Sampler:
+        return bindlessSamplers;
+    default:
+        break;
+    }
+    return nullptr;
+}
+
+BindlessDescriptorPoolPtr DeviceVulkan::GetBindlessDescriptorPool(BindlessReosurceType type, U32 numSets, U32 numDescriptors)
+{
+    DescriptorSetAllocator* allocator = GetBindlessDescriptorSetAllocator(type);
+    if (allocator == nullptr)
+        return BindlessDescriptorPoolPtr();
+
+    VkDescriptorPool pool = allocator->AllocateBindlessPool(numSets, numDescriptors);
+    if (pool == VK_NULL_HANDLE)
+        return BindlessDescriptorPoolPtr();
+
+    return BindlessDescriptorPoolPtr(bindlessDescriptorPools.allocate(*this, pool, allocator, numSets, numDescriptors));
+}
+
 ImagePtr DeviceVulkan::RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index, U32 samples, U32 layers)
 {
     return transientAllocator.RequsetAttachment(w, h, format, index, samples, layers);
+}
+
+SamplerPtr DeviceVulkan::RequestSampler(const SamplerCreateInfo& createInfo)
+{
+    VkSamplerCreateInfo info = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    info.magFilter = createInfo.magFilter;
+    info.minFilter = createInfo.minFilter;
+    info.mipmapMode = createInfo.mipmapMode;
+    info.addressModeU = createInfo.addressModeU;
+    info.addressModeV = createInfo.addressModeV;
+    info.addressModeW = createInfo.addressModeW;
+    info.mipLodBias = createInfo.mipLodBias;
+    info.anisotropyEnable = createInfo.anisotropyEnable;
+    info.maxAnisotropy = createInfo.maxAnisotropy;
+    info.compareEnable = createInfo.compareEnable;
+    info.compareOp = createInfo.compareOp;
+    info.minLod = createInfo.minLod;
+    info.maxLod = createInfo.maxLod;
+    info.borderColor = createInfo.borderColor;
+    info.unnormalizedCoordinates = createInfo.unnormalizedCoordinates;
+
+    VkSampler sampler = VK_NULL_HANDLE;
+    if (vkCreateSampler(device, &info, nullptr, &sampler) != VK_SUCCESS)
+    {
+        Logger::Error("Failed to create sampler.");
+        return SamplerPtr();
+    }
+
+    return SamplerPtr(samplers.allocate(*this, sampler, createInfo));
+}
+
+ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo& createInfo)
+{
+    HashCombiner hash;
+    hash.HashCombine(createInfo.magFilter);
+    hash.HashCombine(createInfo.minFilter);
+    hash.HashCombine(createInfo.mipmapMode);
+    hash.HashCombine(createInfo.addressModeU);
+    hash.HashCombine(createInfo.addressModeV);
+    hash.HashCombine(createInfo.addressModeW);
+    hash.HashCombine(createInfo.mipLodBias);
+    hash.HashCombine(createInfo.anisotropyEnable);
+    hash.HashCombine(createInfo.maxAnisotropy);
+    hash.HashCombine(createInfo.compareEnable);
+    hash.HashCombine(createInfo.compareOp);
+    hash.HashCombine(createInfo.minLod);
+    hash.HashCombine(createInfo.maxLod);
+    hash.HashCombine(createInfo.borderColor);
+    hash.HashCombine(createInfo.unnormalizedCoordinates);
+
+    auto findIt = immutableSamplers.find(hash.Get());
+    if (findIt != immutableSamplers.end())
+        return findIt->second;
+
+    ImmutableSampler* sampler = immutableSamplers.emplace(hash.Get(), *this, createInfo);
+    sampler->SetHash(hash.Get());
+    return sampler;
 }
 
 ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
@@ -1027,6 +1134,16 @@ void DeviceVulkan::ReleaseBufferView(VkBufferView bufferView)
     CurrentFrameResource().destroyedBufferViews.push_back(bufferView);
 }
 
+void DeviceVulkan::ReleaseSampler(VkSampler sampler)
+{
+    CurrentFrameResource().destroyedSamplers.push_back(sampler);
+}
+
+void DeviceVulkan::ReleaseDescriptorPool(VkDescriptorPool pool)
+{
+    CurrentFrameResource().destroyedDescriptorPool.push_back(pool);
+}
+
 void DeviceVulkan::ReleasePipeline(VkPipeline pipeline)
 {
     CurrentFrameResource().destroyedPipelines.push_back(pipeline);
@@ -1063,6 +1180,11 @@ bool DeviceVulkan::IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags 
     vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
     auto flags = tiling == VK_IMAGE_TILING_OPTIMAL ? props.optimalTilingFeatures : props.linearTilingFeatures;
     return (flags & required) == required;
+}
+
+ImmutableSampler* DeviceVulkan::GetStockSampler(StockSampler type)
+{
+    return stockSamplers[(int)type];
 }
 
 uint64_t DeviceVulkan::GenerateCookie()
@@ -1111,7 +1233,10 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
         if (shader == nullptr)
             continue;
 
-        U32 stageMask = 1u << i;
+        U32 stageMask = GetStageMaskFromShaderStage(static_cast<ShaderStage>(i));
+        if (stageMask == 0)
+            continue;
+
         auto& shaderResLayout = shader->GetLayout();
         for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
         {
@@ -1482,6 +1607,8 @@ void DeviceVulkan::FrameResource::Begin()
     // clear destroyed resources
     for (auto& buffer : destroyedFrameBuffers)
         vkDestroyFramebuffer(vkDevice, buffer, nullptr);
+    for (auto& sampler : destroyedSamplers)
+        vkDestroySampler(vkDevice, sampler, nullptr);
     for (auto& image : destroyedImages)
         vkDestroyImage(vkDevice, image, nullptr);
     for (auto& imageView : destroyedImageViews)
@@ -1490,6 +1617,8 @@ void DeviceVulkan::FrameResource::Begin()
         vkDestroyBuffer(vkDevice, buffer, nullptr);
     for (auto& bufferView : destroyedBufferViews)
         vkDestroyBufferView(vkDevice, bufferView, nullptr);
+    for (auto& pool : destroyedDescriptorPool)
+        vkDestroyDescriptorPool(vkDevice, pool, nullptr);
     for (auto& semaphore : destroyeSemaphores)
         vkDestroySemaphore(vkDevice, semaphore, nullptr);
     for (auto& pipeline : destroyedPipelines)
@@ -1498,10 +1627,12 @@ void DeviceVulkan::FrameResource::Begin()
         allocation.Free(device.memory);
 
     destroyedFrameBuffers.clear();
+    destroyedSamplers.clear();
     destroyedImages.clear();
     destroyedImageViews.clear();
     destroyedBuffers.clear();
     destroyedBufferViews.clear();
+    destroyedDescriptorPool.clear();
     destroyeSemaphores.clear();
     destroyedPipelines.clear();
     destroyedAllocations.clear();
@@ -1515,7 +1646,7 @@ void DeviceVulkan::FrameResource::Begin()
 
 BatchComposer::BatchComposer()
 {
-    // 默认存在一个Submit
+    // Add a default empty submission
     submits.emplace_back();
 }
 
@@ -1588,72 +1719,44 @@ std::vector<VkSubmitInfo>& BatchComposer::Bake()
     return submits;
 }
 
-namespace {
-    static void UpdateShaderArrayInfo(ShaderResourceLayout& layout, U32 set, U32 binding)
-    {
-        
-    }
+
+void DeviceVulkan::InitStockSamplers()
+{
+    for (int i = 0; i < (int)StockSampler::Count; i++)
+        InitStockSampler(StockSampler(i));
 }
 
-bool DeviceVulkan::ReflectShader(ShaderResourceLayout& layout, const U32 *spirvData, size_t spirvSize)
+void DeviceVulkan::InitStockSampler(StockSampler type)
 {
-	SpvReflectShaderModule module;
-	if (spvReflectCreateShaderModule(spirvSize, spirvData, &module) != SPV_REFLECT_RESULT_SUCCESS)
-	{
-		Logger::Error("Failed to create reflect shader module.");
-		return false;
-	}
+    SamplerCreateInfo info = {};
+    info.maxLod = VK_LOD_CLAMP_NONE;
+    info.maxAnisotropy = 1.0f;
+    info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    info.compareEnable = false;
 
-	// get bindings info
-	U32 bindingCount = 0;
-	if (spvReflectEnumerateDescriptorBindings(&module, &bindingCount, nullptr))
-	{
-		Logger::Error("Failed to reflect bindings.");
-		return false;
-	}
-	std::vector<SpvReflectDescriptorBinding*> bindings(bindingCount);
-	if (spvReflectEnumerateDescriptorBindings(&module, &bindingCount, bindings.data()))
-	{
-		Logger::Error("Failed to reflect bindings.");
-		return false;
-	}
-
-	// get push constants info
-	U32 pushCount = 0;
-	if (spvReflectEnumeratePushConstantBlocks(&module, &pushCount, nullptr))
-	{
-		Logger::Error("Failed to reflect push constant blocks.");
-		return false;
-	}
-	std::vector<SpvReflectBlockVariable*> pushConstants(pushCount);
-	if (spvReflectEnumeratePushConstantBlocks(&module, &pushCount, pushConstants.data()))
-	{
-		Logger::Error("Failed to reflect push constant blocks.");
-		return false;
-	}
-
-    // parse push constant buffers
-    if (!pushConstants.empty())
+    switch (type)
     {
-        // 这里仅仅获取第一个constant的大小
-        // At least on older validation layers, it did not do a static analysis to determine similar information
-        layout.pushConstantSize = pushConstants.front()->offset + pushConstants.front()->size;
+    case GPU::StockSampler::NearestClamp:
+        info.magFilter = VK_FILTER_LINEAR;
+        info.minFilter = VK_FILTER_LINEAR;
+        break;
+    case GPU::StockSampler::PointClamp:
+        info.magFilter = VK_FILTER_NEAREST;
+        info.minFilter = VK_FILTER_NEAREST;
+        break;
     }
 
-    // parse bindings
-    for (auto& x : bindings)
+    switch (type)
     {
-        auto descriptorType = x->descriptor_type;
-        U32 set = x->set;
-        U32 binding = x->binding;
-        if (descriptorType == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-        {
-            layout.sets[set].masks[static_cast<U32>(DescriptorSetLayout::STORAGE_IMAGE)] |= 1u << binding;
-            UpdateShaderArrayInfo(layout, set, binding);
-        }
+    case GPU::StockSampler::NearestClamp:
+    case GPU::StockSampler::PointClamp:
+        info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        break;
     }
 
-	return true;
+    stockSamplers[(int)type] = RequestImmutableSampler(info);
 }
 
 void DeviceVulkan::InitBindless()

@@ -5,7 +5,7 @@ namespace GPU
 {
 
 ImageView::ImageView(DeviceVulkan& device_, VkImageView imageView, const ImageViewCreateInfo& info) :
-	GraphicsCookie(device.GenerateCookie()),
+	GraphicsCookie(device_.GenerateCookie()),
 	device(device_),
 	imageView(imageView),
 	info(info)

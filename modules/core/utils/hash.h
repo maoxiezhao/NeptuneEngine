@@ -50,6 +50,17 @@ inline uint64_t HashFunc(uint64_t Input, uint64_t Data) { return FNV1aHash(Input
 inline uint64_t HashFunc(uint64_t Input, int32_t Data) { return FNV1aHash(Input, &Data, 4); }
 inline uint64_t HashFunc(uint64_t Input, int64_t Data) { return FNV1aHash(Input, &Data, sizeof(Data)); }
 
+inline uint64_t HashFunc(uint64_t Input, float Data)
+{
+	union
+	{
+		float f32;
+		uint32_t u32;
+	} u;
+	u.f32 = Data;
+	return HashFunc(Input, u.u32);
+}
+
 template<typename T>
 inline uint32_t HashFunc(uint32_t Input, const T& Data)
 {

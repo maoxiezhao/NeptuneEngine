@@ -413,7 +413,14 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
-    // setup device features
+    // setup device properties/features
+    ext.properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+    ext.properties_1_1 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
+    ext.properties_1_2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
+    ext.properties2.pNext = &ext.properties_1_1;
+    ext.properties_1_1.pNext = &ext.properties_1_2;
+    void** properties_chain = &ext.properties_1_2.pNext;
+
     ext.features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
     ext.features_1_1.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
     ext.features_1_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -421,19 +428,27 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
     ext.features_1_1.pNext = &ext.features_1_2;
     void** features_chain = &ext.features_1_2.pNext;
 
-    bool checkFeatureChain = ext.supportsPhysicalDeviceProperties2 ||
-        (ext.supportsVulkan12Device && ext.supportsVulkan12Instance);
+    bool checkFeatureChain = ext.supportsPhysicalDeviceProperties2 || (ext.supportsVulkan12Device && ext.supportsVulkan12Instance);
     if (checkFeatureChain)
     {
-        //if (HasExtension(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME))
-        //{
-        //    enabledExtensions.push_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
-        //    ext.supportsDepthClip = true;
-        //    *features_chain = &ext.depthClipEnableFeatures;
-        //    features_chain = &ext.depthClipEnableFeatures.pNext;
-        //}
+        if (HasExtension(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME))
+        {
+            //enabledExtensions.push_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
+            //ext.supportsDepthClip = true;
+            //*features_chain = &ext.depthClipEnableFeatures;
+            //features_chain = &ext.depthClipEnableFeatures.pNext;
+        }
     }
 
+    // Get properties
+    if (ext.supportsVulkan12Instance && ext.supportsVulkan12Device)
+        vkGetPhysicalDeviceProperties2(physicalDevice, &ext.properties2);
+    else if (ext.supportsPhysicalDeviceProperties2)
+        vkGetPhysicalDeviceProperties2KHR(physicalDevice, &ext.properties2);
+    else
+        vkGetPhysicalDeviceProperties(physicalDevice, &ext.properties2.properties);
+
+    // Get features
     if (ext.supportsVulkan12Instance && ext.supportsVulkan12Device)
         vkGetPhysicalDeviceFeatures2(physicalDevice, &ext.features2);
     else if (ext.supportsPhysicalDeviceProperties2)

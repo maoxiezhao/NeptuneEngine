@@ -6,8 +6,9 @@ namespace GPU
 {
 	enum class BindlessReosurceType
 	{
-		Image,
-		Buffer,
+		SampledImage,
+		StorageImage,
+		StorageBuffer,
 		Sampler
 	};
 
@@ -34,6 +35,49 @@ namespace GPU
 		}
 	};
 
+	class DescriptorSetAllocator;
+	class BindlessDescriptorPool;
+	class ImageView;
+
+	struct BindlessDescriptorPoolDeleter
+	{
+		void operator()(BindlessDescriptorPool* buffer);
+	};
+	class BindlessDescriptorPool : public Util::IntrusivePtrEnabled<BindlessDescriptorPool, BindlessDescriptorPoolDeleter>
+	{
+	public:
+		~BindlessDescriptorPool();
+
+		BindlessDescriptorPool(const BindlessDescriptorPool& rhs) = delete;
+		void operator=(const BindlessDescriptorPool& rhs) = delete;
+
+		bool AllocateDescriptors(U32 count);
+		void Reset();
+		VkDescriptorSet GetDescriptorSet()const;
+
+		void SetTexture(int binding, const ImageView& iamgeView, VkImageLayout imageLayout);
+
+	private:
+		friend class DeviceVulkan;
+		friend struct BindlessDescriptorPoolDeleter;
+		friend class Util::ObjectPool<BindlessDescriptorPool>;
+
+		BindlessDescriptorPool(DeviceVulkan& device_, VkDescriptorPool pool_, DescriptorSetAllocator* allocator_, U32 totalSets_, U32 totalDescriptors_);
+		VkDescriptorSet AllocateDescriptorSet(U32 numDescriptors);
+		void ResetDescriptorSet(VkDescriptorSet descritprSet);
+
+	private:
+		DeviceVulkan& device;
+		DescriptorSetAllocator* allocator = nullptr;
+		VkDescriptorPool pool = VK_NULL_HANDLE;
+		VkDescriptorSet set = VK_NULL_HANDLE;
+		U32 totalSets = 0;
+		U32 totalDescriptors = 0;
+		U32 allocatedSets = 0;
+		U32 allocatedDescriptors = 0;
+	};
+	using BindlessDescriptorPoolPtr = Util::IntrusivePtr<BindlessDescriptorPool>;
+
 	class DescriptorSetAllocator : public HashedObject<DescriptorSetAllocator>
 	{
 	public:
@@ -49,9 +93,11 @@ namespace GPU
 		}
 
 		std::pair<VkDescriptorSet, bool> GetOrAllocate(HashValue hash);
+		VkDescriptorPool AllocateBindlessPool(U32 numSets, U32 numDescriptors);
 
 	private:
 		DeviceVulkan& device;
+		DescriptorSetLayout layoutInfo;
 		VkDescriptorSetLayout setLayout;
 		std::vector<VkDescriptorPool> pools;
 		std::vector<VkDescriptorPoolSize> poolSize;

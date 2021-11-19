@@ -16,6 +16,10 @@ struct DeviceFeatures
     VkPhysicalDeviceFeatures2 features2 = {};
     VkPhysicalDeviceVulkan11Features features_1_1 = {};
     VkPhysicalDeviceVulkan12Features features_1_2 = {};
+
+    VkPhysicalDeviceProperties2 properties2 = {};
+    VkPhysicalDeviceVulkan11Properties properties_1_1 = {};
+    VkPhysicalDeviceVulkan12Properties properties_1_2 = {};
 };
 
 struct QueueInfo
@@ -86,9 +90,6 @@ private:
     VkPhysicalDeviceMemoryProperties physicalDeviceMemProps = {};
 
     // features
-    VkPhysicalDeviceProperties2 mProperties2 = {};
-    VkPhysicalDeviceVulkan11Properties mProperties_1_1 = {};
-    VkPhysicalDeviceVulkan12Properties mProperties_1_2 = {};
     DeviceFeatures ext = {};
 
     // queue

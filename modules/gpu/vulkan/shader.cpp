@@ -29,7 +29,7 @@ Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pSha
 	{
 		layout = *layout_;
 	}
-	else if (!device.ReflectShader(layout, static_cast<const U32*>(pShaderBytecode), bytecodeLength))
+	else if (!device.GetShaderManager().ReflectShader(layout, static_cast<const U32*>(pShaderBytecode), bytecodeLength))
 	{
 		Logger::Error("Failed to reflect shader resource layout.");
 		return;
@@ -90,7 +90,7 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout res
 		{
 			auto allocator = &device.RequestDescriptorSetAllocator(resLayout_.sets[i], resLayout_.stagesForBindings[i]);
 			descriptorSetAllocators[i] = allocator;
-			descriptorLayouts[i] = allocator->GetSetLayout();
+			layouts[i] = allocator->GetSetLayout();
 			numSets = i + 1;
 		}
 	}

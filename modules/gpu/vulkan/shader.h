@@ -23,6 +23,7 @@ namespace GPU
 		DescriptorSetLayout sets[VULKAN_NUM_DESCRIPTOR_SETS];
 		VkPushConstantRange pushConstantRange = {};
 		HashValue pushConstantHash = 0;
+		U32 bindlessSetMask = 0;
 	};
 
 	struct ResourceBinding
@@ -38,6 +39,7 @@ namespace GPU
 	{
 		ResourceBinding bindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
 		uint8_t pushConstantData[VULKAN_PUSH_CONSTANT_SIZE];
+		uint64_t cookies[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
 	};
 
 	class PipelineLayout : public HashedObject<PipelineLayout>
@@ -65,7 +67,6 @@ namespace GPU
 		DeviceVulkan& device;
 		CombinedResourceLayout resLayout;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-		VkDescriptorSetLayout descriptorLayouts[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 		DescriptorSetAllocator* descriptorSetAllocators[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 	};
 

@@ -13,6 +13,7 @@
 #include "shaderManager.h"
 #include "descriptorSet.h"
 #include "TextureFormatLayout.h"
+#include "sampler.h"
 
 #include <array>
 #include <set>
@@ -112,6 +113,7 @@ public:
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkInstance instance = VK_NULL_HANDLE;
     QueueInfo queueInfo;
+    
     DeviceFeatures features;
 
     // per frame resource
@@ -128,6 +130,8 @@ public:
         std::vector<VkPipeline> destroyedPipelines;
         std::vector<VkBuffer> destroyedBuffers;
         std::vector<VkBufferView> destroyedBufferViews;
+        std::vector<VkDescriptorPool> destroyedDescriptorPool;
+        std::vector<VkSampler> destroyedSamplers;
 
         // memory
         std::vector<DeviceAllocation> destroyedAllocations;
@@ -164,10 +168,9 @@ public:
     VulkanCache<RenderPass> renderPasses;
     VulkanCache<PipelineLayout> pipelineLayouts;
     VulkanCache<DescriptorSetAllocator> descriptorSetAllocators;
-    VulkanCache<Buffer> buffers;
-    VulkanCache<BufferView> bufferViews;
-    VulkanCache<ImageView> imageViews;
     VulkanCache<DeviceAllocationOwner> allocations;
+    VulkanCache<BindlessDescriptorPool> bindlessDescriptorPools;
+    VulkanCache<ImmutableSampler> immutableSamplers;
 
     // vulkan object pool (release perframe)
     Util::ObjectPool<CommandList> commandListPool;
@@ -175,6 +178,10 @@ public:
     Util::ObjectPool<ImageView> imageViewPool;
     Util::ObjectPool<Fence> fencePool;
     Util::ObjectPool<Semaphore> semaphorePool;
+    Util::ObjectPool<Sampler> samplers;
+    Util::ObjectPool<Buffer> buffers;
+    Util::ObjectPool<BufferView> bufferViews;
+    Util::ObjectPool<ImageView> imageViews;
 
     // vulkan object managers
     FenceManager fencePoolManager;
@@ -205,7 +212,11 @@ public:
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
+    DescriptorSetAllocator* GetBindlessDescriptorSetAllocator(BindlessReosurceType type);
+    BindlessDescriptorPoolPtr GetBindlessDescriptorPool(BindlessReosurceType type, U32 numSets, U32 numDescriptors);
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
+    SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo);
+    ImmutableSampler* RequestImmutableSampler(const SamplerCreateInfo& createInfo);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
     InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
@@ -222,6 +233,8 @@ public:
     void ReleasePipeline(VkPipeline pipeline);
     void ReleaseBuffer(VkBuffer buffer);
     void ReleaseBufferView(VkBufferView bufferView);
+    void ReleaseSampler(VkSampler sampler);
+    void ReleaseDescriptorPool(VkDescriptorPool pool);
     void ReleaseSemaphore(VkSemaphore semaphore);
     void RecycleSemaphore(VkSemaphore semaphore);
     void FreeMemory(const DeviceAllocation& allocation);
@@ -240,6 +253,7 @@ public:
 
     bool IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
 
+    ImmutableSampler* GetStockSampler(StockSampler type);
     uint64_t GenerateCookie();
     ShaderManager& GetShaderManager();
     SemaphorePtr GetAndConsumeReleaseSemaphore();
@@ -248,12 +262,16 @@ public:
 
     ImageView& GetSwapchainView();
     RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
-    bool ReflectShader(ShaderResourceLayout& layout, const U32 *spirvData, size_t spirvSize);
-
+    
 private:
     friend class CommandList;
 
-    // Bindless
+    // stock samplers
+    void InitStockSamplers();
+    void InitStockSampler(StockSampler type);
+    ImmutableSampler* stockSamplers[(int)StockSampler::Count] = {};
+
+    // bindless
     void InitBindless();
 
     DescriptorSetAllocator* bindlessSampledImages = nullptr;
@@ -261,7 +279,7 @@ private:
     DescriptorSetAllocator* bindlessStorageImages = nullptr;
     DescriptorSetAllocator* bindlessSamplers = nullptr;
 
-    // Queue data
+    // queue data
     struct QueueData
     {
         std::vector<SemaphorePtr> waitSemaphores;
@@ -303,6 +321,4 @@ private:
     // shaders
     ShaderManager shaderManager;
 };
-
-
 }

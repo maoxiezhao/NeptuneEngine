@@ -7,6 +7,7 @@
 #include "shaderManager.h"
 #include "image.h"
 #include "buffer.h"
+#include "sampler.h"
 
 namespace GPU
 {
@@ -92,7 +93,6 @@ private:
     VkCommandBuffer cmd;
     QueueType type;
     VkPipelineStageFlags swapchainStages = 0;
-    U32 dirtySets = 0;
     U32 activeVBOs = 0;
 
     // render pass runtime 
@@ -106,6 +106,7 @@ private:
     ResourceBindings bindings;
     VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
     VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+    U32 dirtySets = 0;
 
 public:
     CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
@@ -120,7 +121,11 @@ public:
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
     void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
     void CopyBuffer(const BufferPtr& dst, const BufferPtr& src);
+    void CopyBuffer(const BufferPtr& dst, VkDeviceSize dstOffset, const BufferPtr& src, VkDeviceSize srcOffset, VkDeviceSize size);
     void FillBuffer(const BufferPtr& buffer, U32 value);
+    void SetBindless(U32 set, VkDescriptorSet descriptorSet);
+    void SetSampler(U32 set, U32 binding, const Sampler& sampler);
+    void SetSampler(U32 set, U32 binding, StockSampler type);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
     void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);

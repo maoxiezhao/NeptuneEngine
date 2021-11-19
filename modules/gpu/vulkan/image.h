@@ -19,7 +19,7 @@ public:
     ImageView(DeviceVulkan& device_, VkImageView imageView_, const ImageViewCreateInfo& info_);
     ~ImageView();
 
-    VkImageView GetImageView()
+    VkImageView GetImageView()const
     {
         return imageView;
     }
