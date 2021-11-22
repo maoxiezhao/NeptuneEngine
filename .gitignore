@@ -1,5 +1,7 @@
 app/bin
 app/build
+tests/bin
+tests/build
 
 # 3rdparty
 3rdparty/glfw/build
@@ -9,3 +11,6 @@ tools/cjing_build/scripts/__pycache__
 
 # assets
 assets/.export
+
+# vscode
+.vscode

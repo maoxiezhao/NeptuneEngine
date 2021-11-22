@@ -68,6 +68,24 @@ namespace
                 }
             });
 
+        // Sampler
+        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::SAMPLER)],
+            [&](U32 binding) {
+                U32 arraySize = setLayout.arraySize[binding];
+                for (U32 i = 0; i < arraySize; i++)
+                {
+                    auto& write = writes[writeCount++];
+                    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    write.pNext = nullptr;
+                    write.descriptorCount = 1;
+                    write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+                    write.dstArrayElement = i;
+                    write.dstBinding = binding;
+                    write.dstSet = descSet;
+                    write.pImageInfo = &bindings[binding + i].image;
+                }
+            });
+
         vkUpdateDescriptorSets(device.device, writeCount, writes, 0, nullptr);
     }
 }
@@ -622,7 +640,19 @@ void CommandList::FlushDescriptorSet(U32 set)
     if (allocator == nullptr)
         return;
     
+    // Calculate descriptor set layout hash
     HashCombiner hasher;
+    const DescriptorSetLayout& setLayout = resLayout.sets[set];
+    for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
+    {
+        ForEachBit(setLayout.masks[maskbit], [&](U32 binding) {
+            for (U8 i = 0; i < setLayout.arraySize[binding]; i++)
+            {
+                hasher.HashCombine(bindings.cookies[set][binding + i]);
+            }
+        });
+    }
+
     auto allocated = allocator->GetOrAllocate(hasher.Get());
     // The descriptor set was not successfully cached, rebuild.
 	if (!allocated.second)

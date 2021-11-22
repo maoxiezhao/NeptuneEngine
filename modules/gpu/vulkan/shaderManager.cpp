@@ -511,6 +511,7 @@ namespace {
 		if (spvBinding->type_description->op == SpvOpTypeRuntimeArray)
 		{
 			size = DescriptorSetLayout::UNSIZED_ARRAY;
+			layout.bindlessDescriptorSetMask |= 1u << set;
 		}
 		else
 		{

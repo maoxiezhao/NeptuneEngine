@@ -1,5 +1,4 @@
 ﻿#include "wsi.h"
-#include "app.h"
 #include "gpu\vulkan\device.h"
 #include "gpu\vulkan\context.h"
 
@@ -20,48 +19,21 @@ namespace {
     VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
     U32 swapchainImageIndex = 0;
     bool swapchainIndexHasAcquired = false;
-
-    std::vector<const char*> GetRequiredExtensions(bool debugUtils)
-    {
-        uint32_t glfwExtensionCount = 0;
-        const char** glfwExtensions;
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-        std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-        if (debugUtils) {
-            extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        }
-        return extensions;
-    }
-
-    std::vector<const char*> GetRequiredDeviceExtensions()
-    {
-        return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-    }
-
-    VkSurfaceKHR CreateSurface(VkInstance instance, Platform& platform)
-    {
-        VkSurfaceKHR surface = VK_NULL_HANDLE;
-        if (glfwCreateWindowSurface(instance, platform.GetWindow(), nullptr, &surface) != VK_SUCCESS)
-            return VK_NULL_HANDLE;
-
-        int actual_width, actual_height;
-        glfwGetFramebufferSize(platform.GetWindow(), &actual_width, &actual_height);
-        platform.SetSize(
-            unsigned(actual_width),
-            unsigned(actual_height)
-        );
-        return surface;
-    }
 }
 
 bool WSI::Initialize()
 {
+    if (platform == nullptr)
+    {
+        Logger::Error("Invalid wsi platform.");
+        return false;
+    }
+
     // init vulkan context
     vulkanContext = new GPU::VulkanContext();
 
-    auto instanceExt = GetRequiredExtensions(true);
-    auto deviceExt = GetRequiredDeviceExtensions();
+    auto instanceExt = platform->GetRequiredExtensions(true);
+    auto deviceExt = platform->GetRequiredDeviceExtensions();
     if (!vulkanContext->Initialize(instanceExt, deviceExt, true))
         return false;
 
@@ -70,7 +42,7 @@ bool WSI::Initialize()
     deviceVulkan->SetContext(*vulkanContext);
 
     // init surface
-    surface = CreateSurface(vulkanContext->GetInstance(), *platform);
+    surface = platform->CreateSurface(vulkanContext->GetInstance());
     if (surface == VK_NULL_HANDLE)
         return false;
   
@@ -181,7 +153,7 @@ void WSI::EndFrame()
     }
 }
 
-void WSI::SetPlatform(Platform* platform_)
+void WSI::SetPlatform(WSIPlatform* platform_)
 {
 	platform = platform_;
 }

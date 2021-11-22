@@ -67,13 +67,6 @@ namespace GPU
         QUEUE_TYPE_COUNT,
     };
 
-    enum class SwapchainRenderPassType
-    {
-        ColorOnly,
-        Depth,
-        DepthStencil
-    };
-
     enum ColorWriteMask
     {
         COLOR_WRITE_DISABLE = 0,
@@ -200,20 +193,6 @@ namespace GPU
         };
     };
 
-    enum ImageMiscFlagBits
-    {
-        IMAGE_MISC_GENERATE_MIPS_BIT = 1 << 0,
-        IMAGE_MISC_FORCE_ARRAY_BIT = 1 << 1,
-        IMAGE_MISC_MUTABLE_SRGB_BIT = 1 << 2,
-        IMAGE_MISC_CONCURRENT_QUEUE_GRAPHICS_BIT = 1 << 3,
-        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT = 1 << 4,
-        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT = 1 << 5,
-        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_TRANSFER_BIT = 1 << 6,
-        IMAGE_MISC_VERIFY_FORMAT_FEATURE_SAMPLED_LINEAR_FILTER_BIT = 1 << 7,
-        IMAGE_MISC_LINEAR_IMAGE_IGNORE_DEVICE_LOCAL_BIT = 1 << 8,
-        IMAGE_MISC_FORCE_NO_DEDICATED_BIT = 1 << 9,
-        IMAGE_MISC_NO_DEFAULT_VIEWS_BIT = 1 << 10
-    };
     struct ImageCreateInfo
     {
         uint32_t width = 0;

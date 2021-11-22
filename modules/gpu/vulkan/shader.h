@@ -8,9 +8,10 @@ namespace GPU
 	struct ShaderResourceLayout
 	{
 		DescriptorSetLayout sets[VULKAN_NUM_DESCRIPTOR_SETS];
-		uint32_t pushConstantSize = 0;
-		uint32_t inputMask = 0;
-		uint32_t outputMask = 0;
+		U32 pushConstantSize = 0;
+		U32 inputMask = 0;
+		U32 outputMask = 0;
+		U32 bindlessDescriptorSetMask = 0;
 	};
 
 	struct CombinedResourceLayout

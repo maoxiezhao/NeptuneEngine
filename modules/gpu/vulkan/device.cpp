@@ -571,7 +571,7 @@ ImagePtr DeviceVulkan::RequestTransientAttachment(U32 w, U32 h, VkFormat format,
     return transientAllocator.RequsetAttachment(w, h, format, index, samples, layers);
 }
 
-SamplerPtr DeviceVulkan::RequestSampler(const SamplerCreateInfo& createInfo)
+SamplerPtr DeviceVulkan::RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable)
 {
     VkSamplerCreateInfo info = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
     info.magFilter = createInfo.magFilter;
@@ -597,7 +597,7 @@ SamplerPtr DeviceVulkan::RequestSampler(const SamplerCreateInfo& createInfo)
         return SamplerPtr();
     }
 
-    return SamplerPtr(samplers.allocate(*this, sampler, createInfo));
+    return SamplerPtr(samplers.allocate(*this, sampler, createInfo, isImmutable));
 }
 
 ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo& createInfo)
@@ -1237,7 +1237,7 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
         if (stageMask == 0)
             continue;
 
-        auto& shaderResLayout = shader->GetLayout();
+        const ShaderResourceLayout& shaderResLayout = shader->GetLayout();
         for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
         {
             U32 activeBinds = false;
@@ -1275,6 +1275,8 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
             resLayout.pushConstantRange.stageFlags |= stageMask;
             resLayout.pushConstantRange.size = std::max(resLayout.pushConstantRange.size, shaderResLayout.pushConstantSize);
         }
+
+        resLayout.bindlessSetMask |= shaderResLayout.bindlessDescriptorSetMask;
     }
 
     // bindings and check array size

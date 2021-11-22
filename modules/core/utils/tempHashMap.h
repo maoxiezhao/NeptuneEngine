@@ -114,6 +114,7 @@ namespace Util
 				{
 					rings[ret->GetIndex()].erase(it);
 					rings[ringIndex].push_back(ret);
+					ret->SetIndex(ringIndex);
 				}
 			}
 	

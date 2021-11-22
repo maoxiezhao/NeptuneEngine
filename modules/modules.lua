@@ -8,17 +8,23 @@ set_third_party_location(module_env .. "3rdparty")
 -- definitions
 PROJECT_CORE_NAME       = "core"
 PROJECT_GPU_NAME        = "gpu"
+PROJECT_CLIENT_NAME     = "client"
 
 register_module(PROJECT_CORE_NAME)
 register_module(PROJECT_GPU_NAME, 
     { PROJECT_CORE_NAME }
 )
+register_module(PROJECT_CLIENT_NAME, 
+    { PROJECT_GPU_NAME  }
+)
 
 print("---------------------------------------------------")
 print("Create modules")
+group "modules"
 local project_file_name = "**/project.lua"
 local matches = os.matchfiles(project_file_name)
 for _, v in ipairs(matches) do 
     dofile(v)
 end 
 print("---------------------------------------------------")
+group ""

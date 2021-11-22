@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\common.h"
-#include "gpu\vulkan\device.h"
+#include "device.h"
 
 class Platform;
 
@@ -13,6 +13,23 @@ enum class PresentMode
 	UnlockedNoTearing     // Force MAILBOX
 };
 
+class WSIPlatform
+{
+public:
+	virtual ~WSIPlatform() = default;
+
+	virtual std::vector<const char*> GetRequiredExtensions(bool debugUtils) = 0;
+	virtual std::vector<const char*> GetRequiredDeviceExtensions()
+	{
+		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	}
+	virtual VkSurfaceKHR CreateSurface(VkInstance instance) = 0;
+
+	virtual bool Poll() = 0;
+	virtual U32 GetWidth() = 0;
+	virtual U32 GetHeight() = 0;
+};
+
 class WSI
 {
 public:
@@ -20,7 +37,7 @@ public:
 	void Uninitialize();
 	void BeginFrame();
 	void EndFrame();
-	void SetPlatform(Platform* platform_);
+	void SetPlatform(WSIPlatform* platform_);
 
 	GPU::DeviceVulkan* GetDevice();
 
@@ -28,6 +45,6 @@ private:
 	bool InitSwapchain(uint32_t width, uint32_t height);
 	void TeardownSwapchain();
 	
-	Platform* platform = nullptr;
+	WSIPlatform* platform = nullptr;
 	PresentMode presentMode = PresentMode::SyncToVBlank;
 };

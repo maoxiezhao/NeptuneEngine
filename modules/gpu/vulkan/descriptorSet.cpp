@@ -121,6 +121,7 @@ namespace GPU
 	void BindlessDescriptorPool::SetTexture(int binding, const ImageView& iamgeView, VkImageLayout imageLayout)
 	{
 		VkDescriptorImageInfo imageInfo = {};
+		imageInfo.sampler = VK_NULL_HANDLE;
 		imageInfo.imageView = iamgeView.GetImageView();
 		imageInfo.imageLayout = imageLayout;
 
@@ -264,11 +265,13 @@ namespace GPU
 
 	void DescriptorSetAllocator::BeginFrame()
 	{
-		shouldBegin = true;
+		if (!isBindless)
+			shouldBegin = true;
 	}
 
 	void DescriptorSetAllocator::Clear()
 	{
+		descriptorSetNodes.Clear();
 		for(auto& pool : pools)
 		{
 			vkResetDescriptorPool(device.device, pool, 0);
@@ -283,20 +286,16 @@ namespace GPU
 		if (shouldBegin)
 		{
 			shouldBegin = false;
-			for(auto kvp : setMap)
-			{
-				setVacants.push_back(kvp.second);
-			}
-			setMap.clear();
+			descriptorSetNodes.BeginFrame();
 		}
 
-		auto it = setMap.find(hash);
-		if (it != setMap.end())
-			return { it->second, true };
+		DescriptorSetNode* node = descriptorSetNodes.Requset(hash);
+		if (node != nullptr)
+			return { node->set, true };
 		
-		auto set = RequestVacant(hash);
-		if (set != VK_NULL_HANDLE)
-			return { set, false };
+		node = descriptorSetNodes.RequestVacant(hash);
+		if (node && node->set != VK_NULL_HANDLE)
+			return { node->set, false };
 
 		// create descriptor pool
 		VkDescriptorPool pool;
@@ -333,9 +332,9 @@ namespace GPU
 		// 缓存sets，并分配一个set返回
 		pools.push_back(pool);
 		for(auto set : sets)
-			setVacants.push_back(set);
+			descriptorSetNodes.MakeVacant(set);
 
-		return { RequestVacant(hash), false };
+		return { descriptorSetNodes.RequestVacant(hash)->set, false };
 	}
 
 	VkDescriptorPool DescriptorSetAllocator::AllocateBindlessPool(U32 numSets, U32 numDescriptors)
@@ -364,16 +363,5 @@ namespace GPU
 			return VK_NULL_HANDLE;
 		}
 		return pool;
-	}
-
-	VkDescriptorSet DescriptorSetAllocator::RequestVacant(HashValue hash)
-	{
-		if (setVacants.empty())
-			return VK_NULL_HANDLE;
-		
-		auto top = setVacants.back();
-		setVacants.pop_back();
-		setMap.insert(std::make_pair(hash, top));   
-		return top;
 	}
 }

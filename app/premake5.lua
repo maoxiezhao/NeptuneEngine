@@ -33,6 +33,7 @@ solution ("VulkanTest")
     filter { }
     
     dofile "../modules/modules.lua"
+    dofile "../tests/project.lua"
 
     create_example_app(
         "app",                          -- project_name
@@ -44,14 +45,5 @@ solution ("VulkanTest")
         function(SOURCE_DIR)
             -- vulkan header
             includedirs { "../3rdparty/vulkan/include" }
-
-            -- glfw
-            includedirs { "../3rdparty/glfw/include" }
-            libdirs {  "../3rdparty/glfw/lib/" .. platform_dir,  }
-            filter {"configurations:Debug"}
-                links {"glfw_lib_d"}
-            filter {"configurations:Release"}
-                links {"glfw_lib"}
-            filter {}
         end
     )

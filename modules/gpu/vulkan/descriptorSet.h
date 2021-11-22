@@ -102,9 +102,13 @@ namespace GPU
 		std::vector<VkDescriptorPool> pools;
 		std::vector<VkDescriptorPoolSize> poolSize;
 
-		std::unordered_map<HashValue, VkDescriptorSet> setMap;
-		std::vector<VkDescriptorSet> setVacants;
-		VkDescriptorSet RequestVacant(HashValue hash);
+		class DescriptorSetNode : public Util::TempHashMapItem<DescriptorSetNode>
+		{
+		public:
+			explicit DescriptorSetNode(VkDescriptorSet set_) : set(set_) {}
+			VkDescriptorSet set;
+		};
+		Util::TempHashMap<DescriptorSetNode, 8, true> descriptorSetNodes;
 
 		bool shouldBegin = false;
 		bool isBindless = false;

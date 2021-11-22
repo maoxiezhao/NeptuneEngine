@@ -22,6 +22,13 @@
 namespace GPU
 {
 
+enum class SwapchainRenderPassType
+{
+    ColorOnly,
+    Depth,
+    DepthStencil
+};
+
 struct InitialImageBuffer
 {
     BufferPtr buffer;
@@ -73,7 +80,7 @@ public:
     ImagePtr RequsetAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
 
 private:
-    class ImageNode : public Util::TempHashMapItem<ImagePtr>
+    class ImageNode : public Util::TempHashMapItem<ImageNode>
     {
     public:
         explicit ImageNode(ImagePtr image_) : image(image_) {}
@@ -115,6 +122,17 @@ public:
     QueueInfo queueInfo;
     
     DeviceFeatures features;
+
+    // vulkan object pool, it is deleted last.
+    Util::ObjectPool<CommandList> commandListPool;
+    Util::ObjectPool<Image> imagePool;
+    Util::ObjectPool<ImageView> imageViewPool;
+    Util::ObjectPool<Fence> fencePool;
+    Util::ObjectPool<Semaphore> semaphorePool;
+    Util::ObjectPool<Sampler> samplers;
+    Util::ObjectPool<Buffer> buffers;
+    Util::ObjectPool<BufferView> bufferViews;
+    Util::ObjectPool<ImageView> imageViews;
 
     // per frame resource
     struct FrameResource
@@ -172,17 +190,6 @@ public:
     VulkanCache<BindlessDescriptorPool> bindlessDescriptorPools;
     VulkanCache<ImmutableSampler> immutableSamplers;
 
-    // vulkan object pool (release perframe)
-    Util::ObjectPool<CommandList> commandListPool;
-    Util::ObjectPool<Image> imagePool;
-    Util::ObjectPool<ImageView> imageViewPool;
-    Util::ObjectPool<Fence> fencePool;
-    Util::ObjectPool<Semaphore> semaphorePool;
-    Util::ObjectPool<Sampler> samplers;
-    Util::ObjectPool<Buffer> buffers;
-    Util::ObjectPool<BufferView> bufferViews;
-    Util::ObjectPool<ImageView> imageViews;
-
     // vulkan object managers
     FenceManager fencePoolManager;
     SemaphoreManager semaphoreManager;
@@ -215,7 +222,7 @@ public:
     DescriptorSetAllocator* GetBindlessDescriptorSetAllocator(BindlessReosurceType type);
     BindlessDescriptorPoolPtr GetBindlessDescriptorPool(BindlessReosurceType type, U32 numSets, U32 numDescriptors);
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
-    SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo);
+    SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable = false);
     ImmutableSampler* RequestImmutableSampler(const SamplerCreateInfo& createInfo);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);

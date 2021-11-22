@@ -38,12 +38,13 @@ namespace GPU
         friend struct SamplerDeleter;
         friend class Util::ObjectPool<Sampler>;
 
-        Sampler(DeviceVulkan& device_, VkSampler sampler_, const SamplerCreateInfo& createInfo_);
+        Sampler(DeviceVulkan& device_, VkSampler sampler_, const SamplerCreateInfo& createInfo_, bool isImmutable_);
 
     private:
         DeviceVulkan& device;
         VkSampler sampler;
         SamplerCreateInfo createInfo;
+        bool isImmutable;
     };
     using SamplerPtr = Util::IntrusivePtr<Sampler>;
 
