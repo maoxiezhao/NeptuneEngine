@@ -7,10 +7,16 @@
 
 namespace VulkanTest
 {
+    struct PushConstantImage
+    {
+        int textureIndex = 2;
+    };
+
     class TestApp : public App
     {
     private:
         GPU::ImagePtr images[4];
+        PushConstantImage push;
 
     public:
         void InitializeImpl() override
@@ -72,6 +78,7 @@ namespace VulkanTest
                 cmd->SetBindless(1, bindlessPoolPtr->GetDescriptorSet());
                 cmd->SetBindless(2, bindlessPoolPtr->GetDescriptorSet());
                 cmd->SetSampler(0, 0, GPU::StockSampler::NearestClamp);
+                cmd->PushConstants(&push, 0, sizeof(push));
 
                 cmd->SetDefaultOpaqueState();
                 cmd->SetProgram("screenVS.hlsl", "test/bindlessPS.hlsl");
