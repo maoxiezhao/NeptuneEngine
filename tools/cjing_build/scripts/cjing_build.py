@@ -253,8 +253,8 @@ def task_run_launch(config, task_name, args):
 
     target_exe = args[0]
     for command in commands:
-        command = os.path.join(command, target_exe)
-        child = subprocess.Popen(command, shell=True)
+        cmd = "cd /d " + command + " && " + target_exe
+        child = subprocess.Popen(cmd, shell=True)
         e = child.wait()
         if e:
             print("error: faild to run command:" + command)
