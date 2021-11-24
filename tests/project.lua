@@ -2,7 +2,7 @@ group "tests"
 create_example_app(
     "test",                         -- project_name
     "src",                          -- source_directory
-    get_current_script_path(),      -- root_directory
+    "../app",                       -- target_directory
     "ConsoleApp",                   -- app kind
     nil,                            -- plugins,
     default_engine_modules,         -- engine modules

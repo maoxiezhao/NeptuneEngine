@@ -18,12 +18,12 @@ function get_current_script_path()
     return str:match("(.*/)")
 end
 
-function create_example_app(project_name, source_directory, root_directory, app_kind, plugins, engine_modules, ext_func)
+function create_example_app(project_name, source_directory, target_directory, app_kind, plugins, engine_modules, ext_func)
     print("[APP]", project_name)
 
-    local project_dir = root_directory .. "/build/" .. platform_dir .. "/" .. project_name
-    local target_dir  = root_directory .. "/bin/" .. platform_dir
-    local source_dir  = root_directory .. source_directory
+    local project_dir = target_directory .. "/build/" .. platform_dir .. "/" .. project_name
+    local target_dir  = target_directory .. "/bin/" .. platform_dir
+    local source_dir  = source_directory
 
     project (project_name)
         location(project_dir)

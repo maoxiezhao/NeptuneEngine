@@ -1,4 +1,9 @@
 -- registers a new command-line option.
+newoption 
+{
+   trigger     = "sln_name",
+   description = "the name of sln",
+}
 
 newoption 
 {

@@ -59,7 +59,6 @@ def get_task_files(config, task_name):
 
         if type(file_task) == list:
             task_files.extend(get_task_files_raw(file_task))
-        
 
     return task_files
 
@@ -230,6 +229,38 @@ def task_run_shaders(config, task_name, args):
         print("[error] failed to compile shader:" + cmd)
         exit(e)
 
+def task_run_launch(config, task_name, args):
+    if "launch" not in config.keys():
+        return
+
+    if len(args) <= 0:
+        print("error: no target to launch")
+        exit(1)
+
+    print_task_header(task_name)  
+    launch_config = config[task_name]
+    if "commands" not in launch_config.keys():
+        return
+
+    # do copy task first
+    if "copy" in launch_config.keys():
+        taks_run_copy(launch_config, "copy", get_task_files(launch_config, "copy"))
+
+    commands = launch_config["commands"]
+    if type(commands) != list:
+        print("error: task shell's commands must be array of strings")
+        exit(1)
+
+    target_exe = args[0]
+    for command in commands:
+        command = os.path.join(command, target_exe)
+        child = subprocess.Popen(command, shell=True)
+        e = child.wait()
+        if e:
+            print("error: faild to run command:" + command)
+            exit(1)
+
+
 def task_run_generate_build_config(config, task_name, files):
     if "build_config" not in config.keys():
         return
@@ -337,16 +368,25 @@ def print_help(config):
     print("cmd arguments:")
     print("options:")
     print("      -help (display help)")
-    print("      -show_cfg (print cfg json)")
+    print("      build (build projects)")
+    print("      shader (compile shader offline")
+    print("      launch (launch target exe)")
+    print("")
     print("profile:(edit in config.jsc)")
     if config:
         for p in config.keys():
             print(" " * 6 + p)
+    print("")
     print("task:")
     print("      -all ")
     print("      -libs")
     print("      -premake")
     print("      -copy")
+    print("")
+    print("Example:")
+    print("      win32 -all ")
+    print("      build win32 all ")
+    print("      shaders win32")
 
 ##########################################################################################
 # Main Functions
@@ -466,6 +506,9 @@ def main():
     elif len(sys.argv) > 1 and sys.argv[1] == "shader":
         profile_index = 2
         build_mode = "shaders"
+    elif len(sys.argv) > 1 and sys.argv[1] == "launch":
+        profile_index = 2
+        build_mode = "launch"
 
     # user pass args
     user_args = [
@@ -496,7 +539,7 @@ def main():
 
     # print title header
     print("-----------------------------------------------------------------------")
-    print("Cjing Build " + get_version())
+    print("Cjing build " + get_version())
     print("-----------------------------------------------------------------------")
 
     # set user config
@@ -517,6 +560,8 @@ def main():
         task_run_build(profile_cfg, "build", files, sys.argv[3:])
     elif build_mode == "shaders":
         task_run_shaders(profile_cfg, "shaders", sys.argv[3:])
+    elif build_mode == "launch":
+        task_run_launch(profile_cfg, "launch", sys.argv[3:])
     else:
         do_normal(profile_cfg, all_cfg, user_args)
 

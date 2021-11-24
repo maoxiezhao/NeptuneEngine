@@ -10,8 +10,12 @@ if not build_editor then
     start_project = app_name
 end 
 
+if sln_name == "" then 
+    sln_name = "Test"
+end 
+
 -- total solution
-solution ("VulkanTest")
+solution (sln_name)
     location ("build/" .. platform_dir ) 
     cppdialect "C++17"
     language "C++"
@@ -38,7 +42,7 @@ solution ("VulkanTest")
     create_example_app(
         "app",                          -- project_name
         "src",                          -- source_directory
-        get_current_script_path(),      -- root_directory
+        get_current_script_path(),      -- target_directory
         "ConsoleApp",                   -- app kind
         nil,                            -- plugins,
         default_engine_modules,         -- engine modules

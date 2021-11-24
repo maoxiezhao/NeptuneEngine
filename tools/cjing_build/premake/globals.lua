@@ -41,6 +41,7 @@ end
 -----------------------------------------------------------------------------------
 -- env
 -----------------------------------------------------------------------------------
+sln_name = ""
 renderer = ""
 platform_dir = ""
 sdk_version = ""
@@ -114,6 +115,9 @@ end
 -- main
 -----------------------------------------------------------------------------------
 function setup_env_from_options()
+    if _OPTIONS["sln_name"] then 
+        sln_name = _OPTIONS["sln_name"]
+    end 
     if _OPTIONS["renderer"] then 
         renderer = _OPTIONS["renderer"]
     end 
@@ -148,14 +152,14 @@ end
 
 function setup_env_from_action()
     if _ACTION == "vs2017" or _ACTION == "vs2019" then
-        current_platform = "win32" 
-    end 
+        current_platform = "win32"
+    end
 
+    print("[premake]:sln_name:", sln_name)
     print("[premake]:env_dir:", env_dir)
     print("[premake]:work_dir:", work_dir)
     print("[premake]:current_platform:", current_platform)
     print("[premake]:current renderer:", renderer and renderer or "NULL")
-    -- print("[premake]:current net lib:", net_lib and net_lib or "NULL")
 
     if is_static_plugin then 
         print("[premake]:static plugins")
