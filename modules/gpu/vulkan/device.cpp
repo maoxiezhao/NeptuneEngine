@@ -628,6 +628,10 @@ ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo&
     return sampler;
 }
 
+void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle)
+{
+}
+
 ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
 {
     if (pInitialData != nullptr)

@@ -58,6 +58,11 @@ static inline uint32_t trailingZeroes(uint32_t x)
 		return 32;
 }
 
+static inline uint32_t trailingOnes(uint32_t x)
+{
+	return trailingZeroes(~x);
+}
+
 template <typename T>
 inline void ForEachBit(uint32_t value, const T & func)
 {
@@ -66,5 +71,29 @@ inline void ForEachBit(uint32_t value, const T & func)
 		uint32_t bit = trailingZeroes(value);
 		func(bit);
 		value &= ~(1u << bit);
+	}
+}
+
+template <typename T>
+inline void ForEachBitRange(uint32_t value, const T& func)
+{
+	if (value == ~0u)
+	{
+		func(0, 32);
+		return;
+	}
+
+	U32 onesRange = 0;
+	U32 bitOffset = 0;
+	while (value)
+	{
+		uint32_t bit = trailingZeroes(value);
+		bitOffset += bit;
+		value >>= bit;
+
+		// Find ones range
+		onesRange = trailingOnes(value);
+		func(bitOffset, onesRange);
+		value &= ~((1u << onesRange) - 1);
 	}
 }

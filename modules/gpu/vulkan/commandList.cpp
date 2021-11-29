@@ -388,7 +388,10 @@ void CommandList::SetProgram(const std::string& vertex, const std::string& fragm
 void CommandList::BeginGraphicsContext()
 {
     dirty = ~0u;  // set all things are dirty
+    dirtyVbos = ~0u;
+    dirtySets = ~0u;
     memset(bindings.cookies, 0, sizeof(bindings.cookies));
+    memset(vbos.buffers, 0, sizeof(vbos.buffers));
     pipelineState.shaderProgram = nullptr;
     currentPipeline = VK_NULL_HANDLE;
     currentPipelineLayout = VK_NULL_HANDLE;
@@ -401,18 +404,39 @@ void CommandList::EndCommandBuffer()
     assert(res == VK_SUCCESS);
 }
 
-void CommandList::BindPipelineState(const CompilePipelineState& pipelineState_)
+void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
 {
     SetProgram(pipelineState_.shaderProgram);
     pipelineState = pipelineState_;
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
-void CommandList::BindVertexBuffers()
+void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate)
 {
+    if (!vboBlock.IsAllocated())
+    {
+
+    }
+
+    return nullptr;
 }
 
-void CommandList::BindIndexBuffers()
+void CommandList::BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride)
+{
+    ASSERT(binding < VULKAN_NUM_VERTEX_ATTRIBS);
+
+    VkBuffer targetBuffer = buffer->GetBuffer();
+    if (vbos.buffers[binding] != targetBuffer || vbos.offsets[binding] != offset)
+        dirtyVbos |= 1u << binding;
+    if (vbos.strides[binding] != stride)
+        SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_STATIC_VERTEX_BIT);
+
+    vbos.buffers[binding] = targetBuffer;
+    vbos.offsets[binding] = offset;
+    vbos.strides[binding] = stride;
+}
+
+void CommandList::BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
 {
 }
 
@@ -591,6 +615,13 @@ bool CommandList::FlushRenderState()
         vkCmdSetScissor(cmd, 0, 1, &scissor);
     }
 
+    // update vbos
+    U32 updateVboMask = dirtyVbos & activeVBOs;
+    ForEachBitRange(updateVboMask, [&](U32 binding, U32 bindingCount) {
+        vkCmdBindVertexBuffers(cmd, binding, bindingCount, vbos.buffers + binding, vbos.offsets + binding);
+    });
+    dirtyVbos &= ~updateVboMask;
+
     return true;
 }
 
@@ -601,7 +632,7 @@ bool CommandList::FlushGraphicsPipeline()
 
     if (pipelineState.isOwnedByCommandList)
     {
-        UpdateGraphicsPipelineHash(pipelineState);
+        UpdateGraphicsPipelineHash(pipelineState, activeVBOs);
         currentPipeline = pipelineState.shaderProgram->GetPipeline(pipelineState.hash);
     }
 
@@ -672,7 +703,7 @@ void CommandList::FlushDescriptorSet(U32 set)
     allocatedSets[set] = allocated.first;
 }
 
-VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipelineState)
+VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipelineState)
 {
     U32 subpassIndex = pipelineState.subpassIndex;
 
@@ -891,21 +922,29 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompilePipelineState& pipeli
     return retPipeline;
 }
 
-VkPipeline CommandList::BuildComputePipeline(const CompilePipelineState& pipelineState)
+VkPipeline CommandList::BuildComputePipeline(const CompiledPipelineState& pipelineState)
 {
     return VkPipeline();
 }
 
-void CommandList::UpdateGraphicsPipelineHash(CompilePipelineState pipeline)
+void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U32& activeVbos)
 {
     assert(pipeline.shaderProgram != nullptr);
     HashCombiner hash;
+    activeVbos = 0;
     const CombinedResourceLayout& layout = pipeline.shaderProgram->GetPipelineLayout()->GetResLayout();
     ForEachBit(layout.attributeInputMask, [&](U32 bit) {
         hash.HashCombine(bit);
         hash.HashCombine(pipeline.attribs[bit].binding);
         hash.HashCombine(pipeline.attribs[bit].format);
         hash.HashCombine(pipeline.attribs[bit].offset);
+
+        activeVbos |= 1u << pipeline.attribs[bit].binding;
+    });
+
+    ForEachBit(activeVbos, [&](U32 bit) {
+        hash.HashCombine(vbos.inputRate[bit]);
+        hash.HashCombine(vbos.strides[bit]);
     });
 
     hash.HashCombine(compatibleRenderPass->GetHash());

@@ -77,6 +77,12 @@ namespace GPU
         COLOR_WRITE_ENABLE_ALL = ~0,
     };
 
+    enum InputClassification
+    {
+        PER_VERTEX_DATA,
+        PER_INSTANCE_DATA,
+    };
+
     static inline bool IsFormatHasDepth(VkFormat format)
     {
         switch (format)
@@ -163,9 +169,9 @@ namespace GPU
 
     enum class BufferDomain
     {
-        Device,     // Device local. Probably not visible from CPU.
-        LinkedDeviceHost, // On desktop, directly mapped VRAM over PCI.
-        Host,       // Host-only, needs to be synced to GPU. Might be device local as well on iGPUs.
+        Device,             // Device local. Probably not visible from CPU.
+        LinkedDeviceHost,   // On desktop, directly mapped VRAM over PCI.
+        Host,               // Host-only, needs to be synced to GPU. Might be device local as well on iGPUs.
         CachedHost,
     };
 

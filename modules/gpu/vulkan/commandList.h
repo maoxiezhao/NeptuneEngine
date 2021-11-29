@@ -7,6 +7,7 @@
 #include "shaderManager.h"
 #include "image.h"
 #include "buffer.h"
+#include "bufferPool.h"
 #include "sampler.h"
 
 namespace GPU
@@ -28,11 +29,21 @@ enum CommandListDirtyBits
     COMMAND_LIST_DIRTY_SCISSOR_BIT = 1 << 2,
     COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT = 1 << 3,
 
+    COMMAND_LIST_DIRTY_STATIC_VERTEX_BIT = 1 << 4,
+
     COMMAND_LIST_DIRTY_DYNAMIC_BITS = COMMAND_LIST_DIRTY_VIEWPORT_BIT | COMMAND_LIST_DIRTY_SCISSOR_BIT
 };
 using CommandListDirtyFlags = U32;
 
-struct CompilePipelineState
+struct VertexBindingState
+{
+    VkBuffer buffers[VULKAN_NUM_VERTEX_BUFFERS];
+    VkDeviceSize offsets[VULKAN_NUM_VERTEX_BUFFERS];
+    VkDeviceSize strides[VULKAN_NUM_VERTEX_BUFFERS];
+    VkVertexInputRate inputRate[VULKAN_NUM_VERTEX_BUFFERS];
+};
+
+struct CompiledPipelineState
 {
 	ShaderProgram* shaderProgram = nullptr;
     BlendState blendState = {};
@@ -86,14 +97,25 @@ private:
 
     VkViewport viewport = {};
     VkRect2D scissor = {};
-    VkPipeline currentPipeline = VK_NULL_HANDLE;               // ����ʵ��
-    VkPipelineLayout currentPipelineLayout = VK_NULL_HANDLE;   // ������Դ�ֲ�
+    VkPipeline currentPipeline = VK_NULL_HANDLE;              
+    VkPipelineLayout currentPipelineLayout = VK_NULL_HANDLE;
 
     DeviceVulkan& device;
     VkCommandBuffer cmd;
     QueueType type;
     VkPipelineStageFlags swapchainStages = 0;
     U32 activeVBOs = 0;
+    VertexBindingState vbos;
+
+    CompiledPipelineState pipelineState = {};
+    PipelineLayout* currentLayout = nullptr;
+    ResourceBindings bindings;
+    VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+    VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+    U32 dirtySets = 0;
+    U32 dirtyVbos = 0;
+
+    BufferBlock vboBlock;
 
     // render pass runtime 
     FrameBuffer* frameBuffer = nullptr;
@@ -101,22 +123,16 @@ private:
     RenderPass* renderPass = nullptr;
     const RenderPass* compatibleRenderPass = nullptr;
 
-    CompilePipelineState pipelineState = {};
-    PipelineLayout* currentLayout = nullptr;
-    ResourceBindings bindings;
-    VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
-    VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
-    U32 dirtySets = 0;
-
 public:
     CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
     ~CommandList();
 
     void BeginRenderPass(const RenderPassInfo& renderPassInfo);
     void EndRenderPass();
-    void BindPipelineState(const CompilePipelineState& pipelineState_);
-    void BindVertexBuffers();
-    void BindIndexBuffers();
+    void BindPipelineState(const CompiledPipelineState& pipelineState_);
+    void* AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate);
+    void BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride);
+    void BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset);
     
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
     void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
@@ -172,10 +188,10 @@ private:
     bool FlushGraphicsPipeline();
     void FlushDescriptorSets();
     void FlushDescriptorSet(U32 set);
-    void UpdateGraphicsPipelineHash(CompilePipelineState pipeline);
+    void UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U32& activeVbos);
 
-    VkPipeline BuildGraphicsPipeline(const CompilePipelineState& pipelineState);
-    VkPipeline BuildComputePipeline(const CompilePipelineState& pipelineState);
+    VkPipeline BuildGraphicsPipeline(const CompiledPipelineState& pipelineState);
+    VkPipeline BuildComputePipeline(const CompiledPipelineState& pipelineState);
 
     CommandListDirtyFlags dirty = 0;
     void SetDirty(CommandListDirtyFlags flags)

@@ -6,6 +6,7 @@
 #include "commandList.h"
 #include "image.h"
 #include "buffer.h"
+#include "bufferPool.h"
 #include "renderPass.h"
 #include "fence.h"
 #include "semaphore.h"
@@ -224,6 +225,7 @@ public:
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
     SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable = false);
     ImmutableSampler* RequestImmutableSampler(const SamplerCreateInfo& createInfo);
+    void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
     InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
