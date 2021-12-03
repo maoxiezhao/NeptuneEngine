@@ -5,6 +5,8 @@
 
 #include <unordered_map>
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	template<typename T>
@@ -117,4 +119,5 @@ namespace GPU
 		Util::ObjectPool<T> pool;
 	};
 
+}
 }

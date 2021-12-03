@@ -2,6 +2,8 @@
 
 #include "definition.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	class DeviceVulkan;
@@ -90,4 +92,5 @@ namespace GPU
 		U8* buffer = nullptr;
 		size_t bufferSize = 0;
 	};
+}
 }

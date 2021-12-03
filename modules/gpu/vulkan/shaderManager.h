@@ -3,6 +3,8 @@
 #include "definition.h"
 #include "shader.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -122,4 +124,5 @@ private:
 	DeviceVulkan& device;
 };
 
+}
 }

@@ -10,6 +10,8 @@
 #include "bufferPool.h"
 #include "sampler.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -213,4 +215,5 @@ private:
 };
 using CommandListPtr = Util::IntrusivePtr<CommandList>;
 
+}
 }

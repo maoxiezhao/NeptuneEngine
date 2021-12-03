@@ -1,6 +1,8 @@
 #include "semaphore.h"
 #include "vulkan/device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -63,4 +65,5 @@ void SemaphoreManager::Recyle(VkSemaphore semaphore)
 	seamphores.push_back(semaphore);
 }
 
+}
 }

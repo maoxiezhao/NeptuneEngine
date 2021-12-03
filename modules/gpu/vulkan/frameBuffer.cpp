@@ -1,6 +1,8 @@
 #include "frameBuffer.h"
 #include "device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -13,7 +15,6 @@ FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass, const Re
 	width = UINT32_MAX;
 	height = UINT32_MAX;
 
-	// 遍历所有ColorAttachments，获取imageView，获取最小的size(w, h)
 	for (U32 i = 0; i < info.numColorAttachments; i++)
 	{
 		const ImageView* view = info.colorAttachments[i];
@@ -50,4 +51,5 @@ FrameBuffer::~FrameBuffer()
 	}
 }
 
+}
 }

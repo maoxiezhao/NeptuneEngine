@@ -1,6 +1,7 @@
 #include "hash.h"
 
-
+namespace VulkanTest
+{
 namespace
 {
 	/*
@@ -290,4 +291,5 @@ uint64_t FNV1aHash(uint64_t input, const void* data, size_t size)
 uint64_t HashFunc(uint64_t Input, const char* Data)
 {
 	return fnv_64a_str(Data, Input);
+}
 }

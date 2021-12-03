@@ -15,6 +15,7 @@
 
 #pragma warning(disable : 4996)
 
+namespace VulkanTest {
 namespace Platform {
 
 	namespace {
@@ -435,6 +436,6 @@ namespace Platform {
 	{
 		return ::GetProcAddress((HMODULE)handle, symbolName);
 	}
-
-#endif
 }
+}
+#endif

@@ -6,6 +6,8 @@
 #include <atomic>
 #include <type_traits>
 
+namespace VulkanTest
+{
 namespace Util
 {
 	class SingleThreadCounter
@@ -265,4 +267,5 @@ namespace Util
 
 	template <typename T>
 	using ThreadSafeIntrusivePtrEnabled = IntrusivePtrEnabled<T, std::default_delete<T>, MultiThreadCounter>;
+}
 }

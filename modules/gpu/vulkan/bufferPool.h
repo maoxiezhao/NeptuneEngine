@@ -3,6 +3,8 @@
 #include "definition.h"
 #include "buffer.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	class DeviceVulkan;
@@ -25,14 +27,16 @@ namespace GPU
 		BufferPtr cpuBuffer;
 
 	public:
-		~BufferBlock();
-
 		BufferBlockAllocation Allocate(VkDeviceSize allocateSize)
 		{
 			VkDeviceSize aligned = (offset + alignment - 1) & ~(alignment - 1);
 			if (aligned + allocateSize <= container)
 			{
+				U8* ret = mapped + aligned;
+				offset = aligned + allocateSize;
 
+				VkDeviceSize paddedSize = std::min(paddedSize, container - aligned);
+				return { ret , allocateSize, paddedSize };
 			}
 
 			return { nullptr, 0, 0 };
@@ -55,6 +59,10 @@ namespace GPU
 		BufferBlock RequestBlock(VkDeviceSize minimumSize);
 		void RecycleBlock(BufferBlock& block);
 
+		VkDeviceSize GetBlockSize()const {
+			return blockSize;
+		}
+
 	private:
 		BufferBlock AllocateBlock(VkDeviceSize size);
 
@@ -65,4 +73,5 @@ namespace GPU
 		U32 maxRetainedBlocks;
 		std::vector<BufferBlock> blocks;
 	};
+}
 }

@@ -1,9 +1,10 @@
 #include "TextureFormatLayout.h"
 #include <array>
 
+namespace VulkanTest
+{
 namespace GPU
 {
-
 	FormatInfo TextureFormatLayout::GetFormatInfo(VkFormat format, VkImageAspectFlags aspect) const
 	{
 		FormatInfo info = {};
@@ -398,4 +399,5 @@ namespace GPU
 			blit.imageExtent.depth = mipInfo.depth;
 		}
 	}
+}
 }

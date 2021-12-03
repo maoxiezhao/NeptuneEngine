@@ -2,6 +2,8 @@
 
 #include "definition.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	enum class BindlessReosurceType
@@ -113,4 +115,5 @@ namespace GPU
 		bool shouldBegin = false;
 		bool isBindless = false;
 	};
+}
 }

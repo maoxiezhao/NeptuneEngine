@@ -2,6 +2,8 @@
 
 #include "definition.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -89,4 +91,5 @@ private:
     std::vector<VkSemaphore> seamphores;
 };
 
+}
 }

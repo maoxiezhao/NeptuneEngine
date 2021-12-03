@@ -1,6 +1,8 @@
 #include "shader.h"
 #include "device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_, const ShaderResourceLayout* layout_) :
@@ -121,4 +123,5 @@ PipelineLayout::~PipelineLayout()
 		vkDestroyPipelineLayout(device.device, pipelineLayout, nullptr);
 }
 
+}
 }

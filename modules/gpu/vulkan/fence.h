@@ -2,6 +2,8 @@
 
 #include "definition.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -51,4 +53,5 @@ private:
     std::vector<VkFence> fences;
 };
 
+}
 }

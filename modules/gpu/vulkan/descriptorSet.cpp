@@ -2,6 +2,8 @@
 #include "device.h"
 #include "image.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	namespace 
@@ -364,4 +366,5 @@ namespace GPU
 		}
 		return pool;
 	}
+}
 }

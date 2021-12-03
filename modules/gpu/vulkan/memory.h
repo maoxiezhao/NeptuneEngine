@@ -5,6 +5,8 @@
 #define VK_NO_PROTOTYPES
 #include "utility\vk_mem_alloc.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	class DeviceVulkan;
@@ -109,4 +111,5 @@ namespace GPU
 		DeviceVulkan* device;
 		VmaAllocator allocator = VK_NULL_HANDLE;
 	};
+}
 }

@@ -1,6 +1,8 @@
 #include "bufferPool.h"
 #include "device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
     BufferPool::BufferPool()
@@ -71,4 +73,5 @@ namespace GPU
         block.container = size;
         return block;
     }
+}
 }

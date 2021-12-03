@@ -20,6 +20,8 @@
 #include <set>
 #include <unordered_map>
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -165,6 +167,9 @@ public:
         // submissions
         std::vector<CommandListPtr> submissions[QUEUE_INDEX_COUNT];
 
+        // buffer blocks
+        std::vector<BufferBlock> vboBlocks;
+
         FrameResource(DeviceVulkan& device_);
         ~FrameResource();
 
@@ -180,6 +185,9 @@ public:
     }
 
     void InitFrameContext();
+
+    // buffer pools
+    BufferPool vboPool;
 
     // vulkan object cache
     VulkanCache<Shader> shaders;
@@ -225,6 +233,8 @@ public:
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
     SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable = false);
     ImmutableSampler* RequestImmutableSampler(const SamplerCreateInfo& createInfo);
+    
+    void RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
@@ -330,4 +340,5 @@ private:
     // shaders
     ShaderManager shaderManager;
 };
+}
 }

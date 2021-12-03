@@ -1,6 +1,8 @@
 #include "image.h"
 #include "vulkan/device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -146,4 +148,5 @@ Image::~Image()
 		device.FreeMemory(allocation);
 }
 
+}
 }

@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+namespace VulkanTest
+{
 namespace Util
 {
 	template<typename T, size_t N>
@@ -35,4 +37,5 @@ namespace Util
 		T buffer[N];
 		size_t offset = 0;
 	};
+}
 }

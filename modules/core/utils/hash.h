@@ -3,6 +3,8 @@
 #include <functional>
 #include <type_traits>
 
+namespace VulkanTest
+{
 // SDBM Hash
 inline uint32_t SDBMHash(uint32_t hash, unsigned char c)
 {
@@ -132,3 +134,4 @@ public:
 private:
 	HashValue mHashValue = 0;
 };
+}

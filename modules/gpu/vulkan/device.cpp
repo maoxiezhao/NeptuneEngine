@@ -3,6 +3,8 @@
 #include "memory.h"
 #include "TextureFormatLayout.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 namespace 
@@ -256,6 +258,9 @@ void DeviceVulkan::SetContext(VulkanContext& context)
 
     // Create frame resources
     InitFrameContext();
+
+    // Init buffer pools
+    vboPool.Init(this, 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
 
     // Init bindless descriptor set allocator
     InitBindless();
@@ -628,8 +633,31 @@ ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo&
     return sampler;
 }
 
+void DeviceVulkan::RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size)
+{
+    RequestBufferBlock(block, size, vboPool, CurrentFrameResource().vboBlocks);
+}
+
 void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle)
 {
+    if (block.mapped != nullptr)
+        UnmapBuffer(*block.cpuBuffer, MemoryAccessFlag::MEMORY_ACCESS_WRITE_BIT);
+
+    if (block.offset == 0)
+    {
+        if (block.container == pool.GetBlockSize())
+            pool.RecycleBlock(block);
+    }
+    else
+    {
+        if (block.container == pool.GetBlockSize())
+            recycle.push_back(block);
+    }
+
+    if (size > 0)
+        block = pool.RequestBlock(size);
+    else
+        block = {};
 }
 
 ImagePtr DeviceVulkan::CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData)
@@ -1328,6 +1356,13 @@ void DeviceVulkan::WaitIdle()
             Logger::Error("vkDeviceWaitIdle failed:%d", ret);
     }
 
+    // Clear buffer pools
+    vboPool.Reset();
+    for (auto& frame : frameResources)
+    {
+        frame->vboBlocks.clear();
+    }
+
     frameBufferAllocator.Clear();
     transientAllocator.Clear();
 
@@ -1610,6 +1645,11 @@ void DeviceVulkan::FrameResource::Begin()
             pool.BeginFrame();
     }
 
+    // Recycle buffer blocks
+    for (auto& block : vboBlocks)
+        device.vboPool.RecycleBlock(block);
+    vboBlocks.clear();
+
     // clear destroyed resources
     for (auto& buffer : destroyedFrameBuffers)
         vkDestroyFramebuffer(vkDevice, buffer, nullptr);
@@ -1863,4 +1903,5 @@ FrameBuffer& FrameBufferAllocator::RequestFrameBuffer(const RenderPassInfo& info
     return *framebuffers.Emplace(hash.Get(), device, renderPass, info);
 }
 
+}
 }

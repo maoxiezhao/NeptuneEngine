@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <stdlib.h>
 
+namespace VulkanTest
+{
 namespace Util
 {
 	template<typename T>
@@ -71,4 +73,5 @@ namespace Util
 		std::vector<std::unique_ptr<T, MallocDeleter>> memory;
 #endif
 	};
+}
 }

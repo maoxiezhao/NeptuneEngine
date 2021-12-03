@@ -25,6 +25,8 @@
 
 #define VULKAN_DEBUG
 
+namespace VulkanTest
+{
 namespace GPU
 {
     static const U32 VULKAN_NUM_ATTACHMENTS = 8;
@@ -379,4 +381,5 @@ namespace GPU
         VkBorderColor borderColor;
         VkBool32 unnormalizedCoordinates;
     };
+}
 }

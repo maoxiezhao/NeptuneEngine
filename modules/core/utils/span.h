@@ -2,6 +2,8 @@
 
 #include <assert.h>
 
+namespace VulkanTest
+{
 template<typename T>
 class Span
 {
@@ -60,3 +62,4 @@ private:
 	T* mBegin = nullptr;
 	T* mEnd   = nullptr;
 };
+}

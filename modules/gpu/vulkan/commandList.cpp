@@ -1,6 +1,8 @@
 ﻿#include "commandList.h"
 #include "vulkan/device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 namespace 
@@ -954,4 +956,5 @@ void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U3
     pipeline.hash = hash.Get();
 }
 
+}
 }

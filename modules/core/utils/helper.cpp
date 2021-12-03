@@ -9,6 +9,8 @@
 #include <windows.h>
 #endif
 
+namespace VulkanTest
+{
 namespace Helper
 {
 	void DirectoryCreate(const std::string& path)
@@ -143,4 +145,5 @@ namespace Helper
 		SplitPath(fullPath, empty, ret);
 		return ret;
 	}
+}
 }

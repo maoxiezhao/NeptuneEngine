@@ -4,6 +4,8 @@
 #include <fstream>
 #include <iostream>
 
+namespace VulkanTest
+{
 // this should always be only INCREMENTED and only if a new serialization is implemeted somewhere!
 uint64_t __archiveVersion = 72;
 // this is the version number of which below the archive is not compatible with the current version
@@ -97,4 +99,5 @@ const std::string& Archive::GetSourceDirectory() const
 const std::string& Archive::GetSourceFileName() const
 {
 	return fileName;
+}
 }

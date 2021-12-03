@@ -2,6 +2,8 @@
 
 #include "definition.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -32,4 +34,5 @@ namespace ShaderCompiler
 	bool Compile(const CompilerInput& input, CompilerOutput& output);
 }
 
+}
 }

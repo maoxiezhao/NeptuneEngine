@@ -1,6 +1,8 @@
 #include "fence.h"
 #include "vulkan/device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -66,4 +68,5 @@ void FenceManager::Recyle(VkFence fence)
 	fences.push_back(fence);
 }
 
+}
 }

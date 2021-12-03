@@ -7,6 +7,8 @@
 #include "hash.h"
 #include "objectPool.h"
 
+namespace VulkanTest
+{
 namespace Util
 {
 	template <typename T>
@@ -146,4 +148,5 @@ namespace Util
 			return obj;
 		}
 	};
+}
 }

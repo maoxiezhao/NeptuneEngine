@@ -1,6 +1,8 @@
 #include "renderPass.h"
 #include "vulkan/device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -110,7 +112,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 {
 	uint32_t numAttachments = info.numColorAttachments + (info.depthStencil != nullptr ? 1 : 0);
 	U32 implicitTransitions = 0;
-	U32 implicitBottomOfPipe = 0;	// ¹ÜÏß½áÊø½×¶ÎµÄÒþÊ½×ª»»
+	U32 implicitBottomOfPipe = 0;	// ï¿½ï¿½ï¿½ß½ï¿½ï¿½ï¿½ï¿½×¶Îµï¿½ï¿½ï¿½Ê½×ªï¿½ï¿½
 
 	// Color attachments
 	VkAttachmentDescription attachments[VULKAN_NUM_ATTACHMENTS + 1] = {};
@@ -137,7 +139,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 			attachment.finalLayout = image->GetSwapchainLayout();
 
-			// Èç¹ûÎÒÃÇ´ÓPRESENT_SRC_KHR¿ªÊ¼Transition£¬»á´æÔÚÒ»¸öexternal subpass dependency·¢ÉúÔÚBOTTOM_OF_PIPE.
+			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ï¿½PRESENT_SRC_KHRï¿½ï¿½Ê¼Transitionï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½external subpass dependencyï¿½ï¿½ï¿½ï¿½ï¿½ï¿½BOTTOM_OF_PIPE.
 			if (attachment.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
 				implicitBottomOfPipe |= 1u << i;
 
@@ -248,15 +250,15 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 	unsigned lastSubpassForAttachment[VULKAN_NUM_ATTACHMENTS + 1] = {};
 
-	// subpassÏà¹Øattchament²Ù×÷µÄmask,ÓÃÓÚ¹¹½¨subpassÖ®¼äµÄdependency stageMask
+	// subpassï¿½ï¿½ï¿½attchamentï¿½ï¿½ï¿½ï¿½ï¿½ï¿½mask,ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½ï¿½subpassÖ®ï¿½ï¿½ï¿½dependency stageMask
 	U32 colorAttachmentReadWriteSubpassMask = 0;
 	U32 inputAttachmentReadSubpassMask = 0;
 	U32 depthAttachmentWriteSubpassMask = 0;
 	U32 depthAttachmentReadSubpassMask = 0;
 
-	// ´¦ÀíÃ¿Ò»¸öAttachemnt¼°ÆäÏà¹ØµÄSubpasses
-	// ÉèÖÃAttachmentÔÚ¶ÔÓ¦subpass½×¶ÎËùÊ¹ÓÃµÄlayout(AttachmentReference)
-	// Í¬Ê±»ñÈ¡Ïà¹ØÍâ²¿ÒÀÀµ(color,depth, input)
+	// ï¿½ï¿½ï¿½ï¿½Ã¿Ò»ï¿½ï¿½Attachemntï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½Subpasses
+	// ï¿½ï¿½ï¿½ï¿½Attachmentï¿½Ú¶ï¿½Ó¦subpassï¿½×¶ï¿½ï¿½ï¿½Ê¹ï¿½Ãµï¿½layout(AttachmentReference)
+	// Í¬Ê±ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½â²¿ï¿½ï¿½ï¿½ï¿½(color,depth, input)
 
 	U32 externalColorDependencies = 0;
 	U32 externalDepthDependencies = 0;
@@ -285,7 +287,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 				continue;
 			}
 
-			// attachmentÊôÓÚTransientImage»òÕßSwapchainImage
+			// attachmentï¿½ï¿½ï¿½ï¿½TransientImageï¿½ï¿½ï¿½ï¿½SwapchainImage
 			if (!used && (implicitTransitions & attachmenBit))
 			{
 				if (color != nullptr)
@@ -296,7 +298,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 					externalDepthDependencies |= 1u << subpass;
 			}
 
-			// ÉèÖÃ²ÎÓëimplicitBottomOfPipeµÄsubpass
+			// ï¿½ï¿½ï¿½Ã²ï¿½ï¿½ï¿½implicitBottomOfPipeï¿½ï¿½subpass
 			if (!used && (implicitBottomOfPipe & attachmenBit))
 				externalSubpassBottomOfPipeDependencies |= 1u << subpass;
 
@@ -310,7 +312,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 				if (!used && attachments[attachment].initialLayout != VK_IMAGE_LAYOUT_UNDEFINED)
 					attachments[attachment].initialLayout = currentLayout;
 
-				// Èç¹ûÊÇµÚÒ»¸ö×ªÒÆlayoutµÄsubpass,ÎÒÃÇÐèÒª×¢ÈëÒ»¸öexternal subpass dependency
+				// ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½×ªï¿½ï¿½layoutï¿½ï¿½subpass,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òª×¢ï¿½ï¿½Ò»ï¿½ï¿½external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 				{
 					externalColorDependencies |= 1u << subpass;
@@ -328,7 +330,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 				color->layout = currentLayout;
 
-				// Èç¹ûÊÇµÚÒ»¸ö×ªÒÆlayoutµÄsubpass,ÎÒÃÇÐèÒª×¢ÈëÒ»¸öexternal subpass dependency
+				// ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½×ªï¿½ï¿½layoutï¿½ï¿½subpass,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òª×¢ï¿½ï¿½Ò»ï¿½ï¿½external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 					externalColorDependencies |= 1u << subpass;
 
@@ -351,7 +353,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 						currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				}
 
-				// Èç¹ûÊÇµÚÒ»¸ö×ªÒÆlayoutµÄsubpass,ÎÒÃÇÐèÒª×¢ÈëÒ»¸öexternal subpass dependency
+				// ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½×ªï¿½ï¿½layoutï¿½ï¿½subpass,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òª×¢ï¿½ï¿½Ò»ï¿½ï¿½external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 				{
 					externalDepthDependencies |= 1u << subpass;
@@ -378,7 +380,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 						currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				}
 
-				// Èç¹ûÊÇµÚÒ»¸ö×ªÒÆlayoutµÄsubpass,ÎÒÃÇÐèÒª×¢ÈëÒ»¸öexternal subpass dependency
+				// ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½×ªï¿½ï¿½layoutï¿½ï¿½subpass,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òª×¢ï¿½ï¿½Ò»ï¿½ï¿½external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 					externalDepthDependencies |= 1u << subpass;
 
@@ -395,7 +397,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		}
 		assert(used);
 
-		// Èç¹ûµ±Ç°attachmentÎ´ÉèÖÃfinalLayout£¬ÔòÊ¹ÓÃ¾­¹ýpassºóµÄcurrentLayout
+		// ï¿½ï¿½ï¿½ï¿½ï¿½Ç°attachmentÎ´ï¿½ï¿½ï¿½ï¿½finalLayoutï¿½ï¿½ï¿½ï¿½Ê¹ï¿½Ã¾ï¿½ï¿½ï¿½passï¿½ï¿½ï¿½currentLayout
 		if (attachments[attachment].finalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		{
 			attachments[attachment].finalLayout = currentLayout;
@@ -508,4 +510,5 @@ RenderPass::~RenderPass()
 	vkDestroyRenderPass(device.device, renderPass, nullptr);
 }
 
+}
 }

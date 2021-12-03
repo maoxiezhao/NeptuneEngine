@@ -7,6 +7,8 @@
 #include <vector>
 #include <array>
 
+namespace VulkanTest
+{
 namespace Logger
 {
 	namespace
@@ -192,4 +194,5 @@ void StdoutLoggerSink::Log(LogLevel level, const char* msg)
 	std::cout << Logger::GetPrefix(level) << " ";
 	std::cout << msg << std::endl;
 	Platform::SetLoggerConsoleFontColor(Platform::CONSOLE_FONT_WHITE);
+}
 }

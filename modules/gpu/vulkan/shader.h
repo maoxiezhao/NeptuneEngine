@@ -3,6 +3,8 @@
 #include "definition.h"
 #include "descriptorSet.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	struct ShaderResourceLayout
@@ -139,4 +141,5 @@ namespace GPU
 		std::unordered_map<HashValue, VkPipeline> pipelines;
 	};
 
+}
 }

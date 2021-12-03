@@ -3,6 +3,8 @@
 #include "definition.h"
 #include "memory.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
     class Buffer;
@@ -79,4 +81,5 @@ namespace GPU
         BufferCreateInfo info;
     };
     using BufferPtr = Util::IntrusivePtr<Buffer>;
+}
 }

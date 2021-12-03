@@ -2,6 +2,8 @@
 
 #include "definition.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	class DeviceVulkan;
@@ -82,4 +84,5 @@ namespace GPU
         DeviceVulkan& device;
         SamplerPtr sampler;
     };
+}
 }

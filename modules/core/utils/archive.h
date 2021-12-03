@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+namespace VulkanTest
+{
 class Archive
 {
 private:
@@ -250,4 +252,4 @@ private:
 		pos += (size_t)(sizeof(data) * count);
 	}
 };
-
+}

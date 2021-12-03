@@ -2,6 +2,8 @@
 
 #include "image.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -104,4 +106,5 @@ public:
     }
 };
 
+}
 }

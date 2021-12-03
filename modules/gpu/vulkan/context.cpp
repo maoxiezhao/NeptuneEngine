@@ -3,6 +3,8 @@
 #include <set>
 #include <array>
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -561,4 +563,5 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::DebugCallback(
 }
 #endif
 
+}
 }

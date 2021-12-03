@@ -6,17 +6,15 @@ set_lib_location(module_env .. "app/bin/" ..  platform_dir .. "/libs")
 set_third_party_location(module_env .. "3rdparty")
 
 -- definitions
+PROJECT_MATH_NAME       = "math"
 PROJECT_CORE_NAME       = "core"
 PROJECT_GPU_NAME        = "gpu"
 PROJECT_CLIENT_NAME     = "client"
 
-register_module(PROJECT_CORE_NAME)
-register_module(PROJECT_GPU_NAME, 
-    { PROJECT_CORE_NAME }
-)
-register_module(PROJECT_CLIENT_NAME, 
-    { PROJECT_GPU_NAME  }
-)
+register_module(PROJECT_MATH_NAME)
+register_module(PROJECT_CORE_NAME,   { PROJECT_MATH_NAME })
+register_module(PROJECT_GPU_NAME,    { PROJECT_CORE_NAME })
+register_module(PROJECT_CLIENT_NAME, { PROJECT_GPU_NAME  })
 
 print("---------------------------------------------------")
 print("Create modules")

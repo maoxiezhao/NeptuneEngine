@@ -2,6 +2,8 @@
 
 #include "core\common.h"
 
+namespace VulkanTest
+{
 namespace Helper
 {
 	void DirectoryCreate(const std::string& path);
@@ -15,4 +17,5 @@ namespace Helper
 	void StringConvert(const std::string& from, std::wstring& to);
 	void StringConvert(const std::wstring& from, std::string& to);
 	std::string GetFileNameFromPath(const std::string& fullPath);
+}
 }

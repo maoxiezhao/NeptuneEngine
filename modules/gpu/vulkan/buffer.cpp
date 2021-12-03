@@ -1,6 +1,8 @@
 #include "buffer.h"
 #include "device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	VkPipelineStageFlags Buffer::BufferUsageToPossibleStages(VkBufferUsageFlags usage)
@@ -63,4 +65,5 @@ namespace GPU
 		info(info_)
 	{
 	}
+}
 }

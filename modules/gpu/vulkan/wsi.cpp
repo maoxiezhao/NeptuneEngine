@@ -2,6 +2,8 @@
 #include "gpu\vulkan\device.h"
 #include "gpu\vulkan\context.h"
 
+namespace VulkanTest
+{
 namespace {
 #ifdef DEBUG
     static bool debugLayer = true;
@@ -329,4 +331,5 @@ void WSI::TeardownSwapchain()
         vkDestroySwapchainKHR(vulkanContext->GetDevice(), swapchain, nullptr);
         swapchain = VK_NULL_HANDLE;
     }
+}
 }

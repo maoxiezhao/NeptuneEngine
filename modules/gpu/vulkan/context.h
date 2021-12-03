@@ -2,6 +2,8 @@
 
 #include "definition.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -97,4 +99,5 @@ private:
     QueueInfo queueInfo = {};
 };
 
+}
 }

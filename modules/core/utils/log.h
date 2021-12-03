@@ -1,5 +1,7 @@
 #pragma once
 
+namespace VulkanTest
+{
 enum class LogLevel
 {
 	LVL_DEV,
@@ -36,3 +38,4 @@ class StdoutLoggerSink : public LoggerSink
 public:
 	void Log(LogLevel level, const char* msg)override;
 };
+}

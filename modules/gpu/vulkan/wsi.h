@@ -3,6 +3,8 @@
 #include "core\common.h"
 #include "device.h"
 
+namespace VulkanTest
+{
 class Platform;
 
 enum class PresentMode
@@ -48,3 +50,4 @@ private:
 	WSIPlatform* platform = nullptr;
 	PresentMode presentMode = PresentMode::SyncToVBlank;
 };
+}

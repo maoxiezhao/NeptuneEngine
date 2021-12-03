@@ -4,6 +4,8 @@
 #define VMA_IMPLEMENTATION
 #include "utility\vk_mem_alloc.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	namespace {
@@ -221,4 +223,5 @@ namespace GPU
 		if (flags & MEMORY_ACCESS_WRITE_BIT && !(allocation.memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 			vmaFlushAllocation(allocator, allocation.allocation, offset, length);
 	}
+}
 }

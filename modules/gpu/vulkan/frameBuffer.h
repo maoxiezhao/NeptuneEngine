@@ -3,6 +3,8 @@
 #include "definition.h"
 #include "renderPass.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -45,4 +47,5 @@ private:
 	const RenderPass& renderPass;
 };
 
+}
 }

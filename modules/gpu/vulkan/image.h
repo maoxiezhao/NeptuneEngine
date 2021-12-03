@@ -3,6 +3,8 @@
 #include "definition.h"
 #include "memory.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 class DeviceVulkan;
@@ -186,4 +188,5 @@ private:
 };
 using ImagePtr = Util::IntrusivePtr<Image>;
 
+}
 }

@@ -1,6 +1,8 @@
 #include "definition.h"
 #include "device.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 	void SamplerDeleter::operator()(Sampler* sampler)
@@ -35,4 +37,5 @@ namespace GPU
 		if (ptr)
 			sampler = ptr;
 	}
+}
 }

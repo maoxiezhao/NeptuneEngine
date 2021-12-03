@@ -18,6 +18,8 @@
 #include "dxcompiler\inc\d3d12shader.h"
 #include "dxcompiler\inc\dxcapi.h"
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -234,4 +236,5 @@ namespace ShaderCompiler
 	}
 }
 
+}
 }

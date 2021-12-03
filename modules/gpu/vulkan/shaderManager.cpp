@@ -8,6 +8,8 @@
 #include <unordered_set>
 #include <filesystem>
 
+namespace VulkanTest
+{
 namespace GPU
 {
 
@@ -579,4 +581,5 @@ bool ShaderManager::ReflectShader(ShaderResourceLayout& layout, const U32* spirv
 	return true;
 }
 
+}
 }

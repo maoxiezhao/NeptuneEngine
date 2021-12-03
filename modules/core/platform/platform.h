@@ -15,6 +15,7 @@
 #include "common.h"
 #include "core\utils\span.h"
 
+namespace VulkanTest {
 namespace Platform {
 
 #ifdef CJING3D_PLATFORM_WIN32
@@ -116,4 +117,5 @@ namespace Platform {
 	void* LibraryOpen(const char* path);
 	void  LibraryClose(void* handle);
 	void* LibrarySymbol(void* handle, const char* symbolName);
+}
 }
