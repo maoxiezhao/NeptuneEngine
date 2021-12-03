@@ -4,9 +4,9 @@
 #include "core\utils\objectPool.h"
 #include "core\utils\intrusivePtr.hpp"
 #include "core\utils\log.h"
-#include "core\utils\hash.h"
 #include "core\utils\stackAllocator.h"
 #include "core\utils\tempHashMap.h"
+#include "math\hash.h"
 #include "vulkanCache.h"
 
 // platform win32

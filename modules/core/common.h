@@ -1,7 +1,7 @@
 #pragma once
 
 #include "utils\log.h"
-#include "math\math.h"
+#include "math\math.hpp"
 
 #include <vector>
 #include <memory>

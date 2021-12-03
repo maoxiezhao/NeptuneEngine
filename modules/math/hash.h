@@ -1,5 +1,7 @@
 #pragma once
 
+#include "math_common.h"
+
 #include <functional>
 #include <type_traits>
 

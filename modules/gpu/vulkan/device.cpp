@@ -1,5 +1,5 @@
 ﻿#include "device.h"
-#include "core\utils\hash.h"
+#include "math\hash.h"
 #include "memory.h"
 #include "TextureFormatLayout.h"
 

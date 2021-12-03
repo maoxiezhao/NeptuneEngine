@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core\utils\hash.h"
+#include "math\hash.h"
 #include "core\utils\objectPool.h"
 
 #include <unordered_map>
