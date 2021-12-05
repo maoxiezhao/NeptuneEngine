@@ -1,7 +1,5 @@
-#pragma once
-
-#include "math_common.h"
 #include "vMath.h"
+#include "vMath_impl.hpp"
 
 namespace VulkanTest
 {

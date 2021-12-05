@@ -133,6 +133,7 @@ public:
     void EndRenderPass();
     void BindPipelineState(const CompiledPipelineState& pipelineState_);
     void* AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate);
+    void SetVertexAttribute(U32 attribute, U32 binding, VkFormat format, VkDeviceSize offset);
     void BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride);
     void BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset);
     
@@ -177,6 +178,7 @@ public:
 public:
     void ClearPipelineState();
     void SetDefaultOpaqueState();
+    void SetPrimitiveTopology(VkPrimitiveTopology topology);
     void SetProgram(ShaderProgram* program);
     void SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines = {});
 

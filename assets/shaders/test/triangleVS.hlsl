@@ -2,19 +2,13 @@
 struct Output
 {
     float4 pos : SV_POSITION;
+    float4 col : COLOR0;
 };
 
-inline void FullScreenTriangle(in uint vertexID, out float4 pos)
-{
-	pos.x = (float)(vertexID / 2) * 4.0 - 1.0;
-	pos.y = (float)(vertexID % 2) * 4.0 - 1.0;
-	pos.z = 0;
-	pos.w = 1;
-}
-
-Output main(uint vID : SV_VERTEXID)
+Output main(float2 pos : SV_POSITION)
 {
     Output Out;
-    FullScreenTriangle(vID, Out.pos);
+    Out.pos = float4(pos, 0.0f, 1.0f);
+    Out.col = float4(1.0f, 1.0f, 1.0f, 1.0f);
     return Out;
 }

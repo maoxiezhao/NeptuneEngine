@@ -559,6 +559,20 @@ bool ShaderManager::ReflectShader(ShaderResourceLayout& layout, const U32* spirv
 		return false;
 	}
 
+	// get input variables
+	U32 inputVariableCount = 0;
+	if (spvReflectEnumerateInputVariables(&module, &inputVariableCount, nullptr))
+	{
+		Logger::Error("Failed to reflect input variables.");
+		return false;
+	}
+	std::vector<SpvReflectInterfaceVariable*> inputVariables(inputVariableCount);
+	if (spvReflectEnumerateInputVariables(&module, &inputVariableCount, inputVariables.data()))
+	{
+		Logger::Error("Failed to reflect input variables.");
+		return false;
+	}
+
 	// parse push constant buffers
 	if (!pushConstants.empty())
 	{
@@ -576,6 +590,12 @@ bool ShaderManager::ReflectShader(ShaderResourceLayout& layout, const U32* spirv
 			layout.sets[x->set].masks[mask] |= 1u << x->binding;
 			UpdateShaderArrayInfo(layout, x->set, x->binding, x);
 		}
+	}
+
+	// parse input
+	for (auto& x : inputVariables)
+	{
+		layout.inputMask |= 1u << x->location;
 	}
 
 	return true;

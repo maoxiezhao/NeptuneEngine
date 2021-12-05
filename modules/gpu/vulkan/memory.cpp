@@ -37,6 +37,7 @@ namespace GPU
 			{
 			case BufferDomain::Host:
 			case BufferDomain::CachedHost:
+			case BufferDomain::LinkedDeviceHost:
 				ret |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 				break;
 			}

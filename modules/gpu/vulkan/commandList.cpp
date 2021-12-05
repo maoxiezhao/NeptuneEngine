@@ -324,6 +324,12 @@ void CommandList::SetDefaultOpaqueState()
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
+void CommandList::SetPrimitiveTopology(VkPrimitiveTopology topology)
+{
+    pipelineState.topology = topology;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
 void CommandList::SetProgram(ShaderProgram* program)
 {
     if (pipelineState.shaderProgram == program)
@@ -416,12 +422,30 @@ void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
 void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate)
 {
     if (!vboBlock.IsAllocated())
-    {
+        device.RequestVertexBufferBlock(vboBlock, size);
 
+    auto data = vboBlock.Allocate(size);
+    if (data.data == nullptr)
+    {
+        device.RequestVertexBufferBlock(vboBlock, size);
+        data = vboBlock.Allocate(size);
     }
 
-    return nullptr;
+    BindVertexBuffer(vboBlock.cpuBuffer, binding, data.offset, stride);
+    return data.data;
 }
+
+ void CommandList::SetVertexAttribute(U32 attribute, U32 binding, VkFormat format, VkDeviceSize offset)
+ {
+    ASSERT(attribute < VULKAN_NUM_VERTEX_ATTRIBS);
+    auto& attr = pipelineState.attribs[attribute];
+    if (attr.binding != binding || attr.format != format || attr.offset != offset)
+        SetDirty(COMMAND_LIST_DIRTY_STATIC_VERTEX_BIT);
+
+    attr.binding = binding;
+    attr.format = format;
+    attr.offset = offset;
+ }
 
 void CommandList::BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride)
 {
@@ -803,7 +827,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
         attr.format = pipelineState.attribs[attributeIndex].format;
         attr.offset = pipelineState.attribs[attributeIndex].offset;
 
-        bindingMask |= pipelineState.attribs[attributeIndex].binding;
+        bindingMask |= 1u << pipelineState.attribs[attributeIndex].binding;
     });
 
     // bindings
