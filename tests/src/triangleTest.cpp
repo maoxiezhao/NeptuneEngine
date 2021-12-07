@@ -28,9 +28,9 @@ namespace VulkanTest
             GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
             cmd->BeginRenderPass(rp);
             {
+                cmd->SetProgram("test/triangleVS.hlsl", "test/trianglePS.hlsl");
                 cmd->SetDefaultOpaqueState();
                 cmd->SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
-                cmd->SetProgram("test/triangleVS.hlsl", "test/trianglePS.hlsl");
 
                 Vec2* vertBuf = static_cast<Vec2*>(cmd->AllocateVertexBuffer(0, sizeof(vertices), sizeof(Vec2), VK_VERTEX_INPUT_RATE_VERTEX));
                 memcpy(vertBuf, vertices, sizeof(vertices));

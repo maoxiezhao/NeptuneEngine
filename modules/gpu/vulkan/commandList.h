@@ -134,7 +134,7 @@ public:
     void BindPipelineState(const CompiledPipelineState& pipelineState_);
     void* AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate);
     void SetVertexAttribute(U32 attribute, U32 binding, VkFormat format, VkDeviceSize offset);
-    void BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride);
+    void BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride, VkVertexInputRate inputRate);
     void BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset);
     
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);

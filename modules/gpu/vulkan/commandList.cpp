@@ -410,6 +410,9 @@ void CommandList::EndCommandBuffer()
 {
     VkResult res = vkEndCommandBuffer(cmd);
     assert(res == VK_SUCCESS);
+
+    if (vboBlock.mapped != nullptr)
+        device.RequestVertexBufferBlock(vboBlock, 0);
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
@@ -431,7 +434,7 @@ void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDevice
         data = vboBlock.Allocate(size);
     }
 
-    BindVertexBuffer(vboBlock.cpuBuffer, binding, data.offset, stride);
+    BindVertexBuffer(vboBlock.cpuBuffer, binding, data.offset, stride, inputRate);
     return data.data;
 }
 
@@ -447,7 +450,7 @@ void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDevice
     attr.offset = offset;
  }
 
-void CommandList::BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride)
+void CommandList::BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride, VkVertexInputRate inputRate)
 {
     ASSERT(binding < VULKAN_NUM_VERTEX_ATTRIBS);
 
@@ -460,6 +463,7 @@ void CommandList::BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDevic
     vbos.buffers[binding] = targetBuffer;
     vbos.offsets[binding] = offset;
     vbos.strides[binding] = stride;
+    vbos.inputRate[binding] = inputRate;
 }
 
 void CommandList::BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
@@ -598,7 +602,7 @@ bool CommandList::FlushRenderState()
         SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 
     // flush pipeline
-    if (IsDirtyAndClear(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT))
+    if (IsDirtyAndClear(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT | CommandListDirtyBits::COMMAND_LIST_DIRTY_STATIC_VERTEX_BIT))
     {
         VkPipeline oldPipeline = currentPipeline;
         if (!FlushGraphicsPipeline())
@@ -824,10 +828,11 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
     ForEachBit(attributeMask, [&](U32 attributeIndex){
         VkVertexInputAttributeDescription& attr = attributes.emplace_back();
         attr.location = attributeIndex;
+        attr.binding = pipelineState.attribs[attributeIndex].binding;
         attr.format = pipelineState.attribs[attributeIndex].format;
         attr.offset = pipelineState.attribs[attributeIndex].offset;
 
-        bindingMask |= 1u << pipelineState.attribs[attributeIndex].binding;
+        bindingMask |= 1u << attr.binding;
     });
 
     // bindings

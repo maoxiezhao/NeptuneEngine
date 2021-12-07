@@ -595,7 +595,8 @@ bool ShaderManager::ReflectShader(ShaderResourceLayout& layout, const U32* spirv
 	// parse input
 	for (auto& x : inputVariables)
 	{
-		layout.inputMask |= 1u << x->location;
+		if (x->location <= 32)
+			layout.inputMask |= 1u << x->location;
 	}
 
 	return true;
