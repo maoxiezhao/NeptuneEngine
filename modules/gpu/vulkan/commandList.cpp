@@ -839,8 +839,8 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
     ForEachBit(bindingMask, [&](U32 binding) {
         VkVertexInputBindingDescription& bind = bindings.emplace_back();
         bind.binding = binding;
-        bind.inputRate = pipelineState.inputRates[binding];
-        bind.stride = (U32)pipelineState.strides[binding];
+        bind.inputRate = vbos.inputRate[binding];
+        bind.stride = (U32)vbos.strides[binding];
      });
 
     vertexInputInfo.vertexBindingDescriptionCount = static_cast<U32>(bindings.size());

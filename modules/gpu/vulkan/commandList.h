@@ -52,10 +52,7 @@ struct CompiledPipelineState
     RasterizerState rasterizerState = {};
     DepthStencilState depthStencilState = {};
     VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
     VertexAttribState attribs[VULKAN_NUM_VERTEX_ATTRIBS];
-    VkDeviceSize strides[VULKAN_NUM_VERTEX_BUFFERS];
-    VkVertexInputRate inputRates[VULKAN_NUM_VERTEX_BUFFERS];
 
     U32 subpassIndex = 0;
     uint64_t hash = 0;
