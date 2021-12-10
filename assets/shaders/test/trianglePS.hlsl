@@ -1,4 +1,7 @@
 
+Texture2D bindless_textures[] : register(space1);
+SamplerState sam : register(s0);
+
 struct Input
 {
     float4 pos : SV_POSITION;

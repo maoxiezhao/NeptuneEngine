@@ -9,11 +9,13 @@ set_third_party_location(module_env .. "3rdparty")
 PROJECT_MATH_NAME       = "math"
 PROJECT_CORE_NAME       = "core"
 PROJECT_GPU_NAME        = "gpu"
+PROJECT_RENDERER_NAME   = "renderer"
 PROJECT_CLIENT_NAME     = "client"
 
 register_module(PROJECT_MATH_NAME)
 register_module(PROJECT_CORE_NAME,   { PROJECT_MATH_NAME })
 register_module(PROJECT_GPU_NAME,    { PROJECT_CORE_NAME })
+register_module(PROJECT_RENDERER_NAME, { PROJECT_GPU_NAME  })
 register_module(PROJECT_CLIENT_NAME, { PROJECT_GPU_NAME  })
 
 print("---------------------------------------------------")

@@ -405,7 +405,6 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramCompute()
 ShaderManager::ShaderManager(DeviceVulkan& device_) :
 	device(device_)
 {
-	ShaderCompiler::Initialize();
 }
 
 ShaderManager::~ShaderManager()
