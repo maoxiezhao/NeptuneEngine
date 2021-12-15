@@ -13,7 +13,6 @@
 #endif
 
 #include "common.h"
-#include "core\utils\span.h"
 
 namespace VulkanTest {
 namespace Platform {
@@ -21,6 +20,7 @@ namespace Platform {
 #ifdef CJING3D_PLATFORM_WIN32
 	using WindowType = HWND;
 	static const HWND INVALID_WINDOW = NULL;
+	using ThreadID = U32;
 #else 
 	using WindowType = int;
 	static const int INVALID_WINDOW = 0;
@@ -74,7 +74,17 @@ namespace Platform {
 	I32  GetCPUsCount();
 
 	/////////////////////////////////////////////////////////////////////////////////
-	// window
+	// Threads
+	ThreadID GetCurrentThreadID();
+	I32 GetNumPhysicalCores();
+	U64 GetPhysicalCoreAffinityMask(I32 core);
+	void YieldCPU();
+	void Sleep(F32 seconds);
+	void Barrier();
+	void SwitchToThread();
+
+	/////////////////////////////////////////////////////////////////////////////////
+	// Window
 	WindowRect GetClientBounds(WindowType window);
 	void SetMouseCursorType(CursorType cursorType);
 	void SetMouseCursorVisible(bool isVisible);
@@ -113,9 +123,15 @@ namespace Platform {
 	void DebugOutput(const char* msg);
 
 	/////////////////////////////////////////////////////////////////////////////////
-	// library
+	// Library
 	void* LibraryOpen(const char* path);
 	void  LibraryClose(void* handle);
 	void* LibrarySymbol(void* handle, const char* symbolName);
+
+	/////////////////////////////////////////////////////////////////////////////////
+	// Memory
+	void* MemReserve(size_t size);
+	void MemCommit(void* ptr, size_t size);
+	void MemRelease(void* ptr, size_t size);
 }
 }

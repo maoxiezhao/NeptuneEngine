@@ -5,6 +5,7 @@
 #include "client\app\app.h"
 #include "gpu\vulkan\device.h"
 #include "math\math.hpp"
+#include "core\memory\memory.h"
 
 namespace VulkanTest
 {
@@ -136,5 +137,16 @@ namespace VulkanTest
 
 int main(int argc, char *argv[])
 {
-    return VulkanTest::ApplicationMain(VulkanTest::CreateApplication, argc, argv);
+    void* memList[64];
+    VulkanTest::DefaultAllocator allcoator;
+    for (int i = 0; i < 64; i++)
+    {
+        if (i == 63)
+            std::cout << "Test pause" << std::endl;
+
+        memList[i] = allcoator.Allocate(64, __FILE__, __LINE__);
+    }
+
+    return 0;
+    //return VulkanTest::ApplicationMain(VulkanTest::CreateApplication, argc, argv);
 }

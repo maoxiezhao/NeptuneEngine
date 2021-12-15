@@ -6,6 +6,8 @@
 
 #include "platform\platform.h"
 
+#include <array>
+
 #pragma warning(push)
 #pragma warning(disable : 4091)
 #include <ShlObj.h>
@@ -242,6 +244,72 @@ namespace Platform {
 		return sys_info.dwNumberOfProcessors > 0 ? sys_info.dwNumberOfProcessors : 1;
 	}
 
+	ThreadID GetCurrentThreadID()
+	{
+		return ::GetCurrentThreadId();
+	}
+
+	I32 GetNumPhysicalCores()
+	{
+		I32 numCores = 0;
+		std::array<SYSTEM_LOGICAL_PROCESSOR_INFORMATION, 256> info;
+		I32 size = sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+
+		DWORD retLen = info.size() * size;
+		::GetLogicalProcessorInformation(info.data(), &retLen);
+		const I32 numInfos = retLen / size;	// calculate num of infos
+		for (I32 index = 0; index < numInfos; index++)
+		{
+			if (info[index].Relationship == RelationProcessorCore) {
+				numCores++;
+			}
+		}
+		return numCores;
+	}
+
+	U64 GetPhysicalCoreAffinityMask(I32 core)
+	{
+		// get core affinity mask for thread::SetAffinity
+		std::array<SYSTEM_LOGICAL_PROCESSOR_INFORMATION, 256> info;
+		I32 size = sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+
+		DWORD retLen = info.size() * size;
+		::GetLogicalProcessorInformation(info.data(), &retLen);
+		const I32 numInfos = retLen / size;	// calculate num of infos
+		I32 numCores = 0;
+		for (I32 index = 0; index < numInfos; index++)
+		{
+			if (info[index].Relationship == RelationProcessorCore)
+			{
+				if (numCores == core) {
+					return info[index].ProcessorMask;
+				}
+				numCores++;
+			}
+		}
+		return 0;
+	}
+
+	void YieldCPU()
+	{
+		::YieldProcessor();
+	}
+
+	void Sleep(F32 seconds)
+	{
+		::Sleep((DWORD)(seconds * 1000));
+	}
+
+	void Barrier()
+	{
+		::MemoryBarrier();
+	}
+
+	void SwitchToThread()
+	{
+		::SwitchToThread();
+	}
+
 	WindowRect GetClientBounds(WindowType window)
 	{
 		RECT rect;
@@ -435,6 +503,21 @@ namespace Platform {
 	void* LibrarySymbol(void* handle, const char* symbolName)
 	{
 		return ::GetProcAddress((HMODULE)handle, symbolName);
+	}
+
+	void* MemReserve(size_t size)
+	{
+		return VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_TOP_DOWN, PAGE_READWRITE);
+	}
+
+	void MemCommit(void* ptr, size_t size)
+	{
+		VirtualAlloc(ptr, size, MEM_COMMIT, PAGE_READWRITE);
+	}
+	
+	void MemRelease(void* ptr, size_t size)
+	{
+		VirtualFree(ptr, 0, MEM_RELEASE);
 	}
 }
 }
