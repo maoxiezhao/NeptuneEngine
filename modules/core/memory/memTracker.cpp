@@ -11,7 +11,6 @@ namespace VulkanTest
 {
 	Mutex mutex;
 	std::ofstream loggerFile;
-	bool mIsExit = false;
 
 	MemoryTracker::MemoryTracker()
 	{
@@ -128,8 +127,6 @@ namespace VulkanTest
 			loggerFile << os.str();
 			loggerFile.close();
 		}
-
-		mIsExit = true;
 	}
 
 	MemoryTracker& MemoryTracker::Get()

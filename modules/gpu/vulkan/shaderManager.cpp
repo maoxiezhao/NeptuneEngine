@@ -134,7 +134,7 @@ bool ShaderTemplate::Initialize()
 	return true;
 }
 
-ShaderTemplate::Variant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& defines)
+ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& defines)
 {
 	HashCombiner hasher;
 	for (auto& define : defines)
@@ -143,17 +143,17 @@ ShaderTemplate::Variant* ShaderTemplate::RegisterVariant(const ShaderVariantMap&
 	HashValue hash = hasher.Get();
 	auto it = variants.find(hash);
 	if (it != variants.end())
-	{
 		return it->second;
-	}
 
-	Variant* ret = variants.allocate();
+	ShaderTemplateVariant* ret = variants.allocate();
 	if (ret == nullptr)
 	{
 		variants.free(ret);
 		return nullptr;
 	}
-	ret->hash = hash;
+
+	hasher.HashCombine(pathHash);
+	ret->hash = hasher.Get();
 
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	std::string exportShaderPath = EXPORT_SHADER_PATH + path;
@@ -600,6 +600,5 @@ bool ShaderManager::ReflectShader(ShaderResourceLayout& layout, const U32* spirv
 
 	return true;
 }
-
 }
 }

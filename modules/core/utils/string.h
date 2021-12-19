@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "core\common.h"
 
 #include <stdarg.h>
 #include <string_view>
@@ -12,6 +12,7 @@ namespace VulkanTest
 {
 	size_t StringLength(const char* str);
 	bool CopyString(Span<char> dst, const char* source);
+	bool CopyString(Span<char> dst, Span<const char> source);
 	bool CatChar(Span<char> dst, char source);
 	bool CatString(Span<char> dst, const char* source);
 	bool CopyNString(Span<char> dst, const char* source, size_t n);
@@ -38,7 +39,7 @@ namespace VulkanTest
 
 	// Fixed size string 
 	template<size_t N>
-	class StaticString
+	class VULKAN_TEST_API StaticString
 	{
 	public:
 		char data[N];
@@ -181,7 +182,7 @@ namespace VulkanTest
 	using String = std::string;
 	using StringView = std::string_view;
 #else
-	class String
+	class VULKAN_TEST_API String
 	{
 	public:
 		String();

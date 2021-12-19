@@ -27,14 +27,18 @@ public:
 	}
 	virtual VkSurfaceKHR CreateSurface(VkInstance instance) = 0;
 
-	virtual bool Poll() = 0;
+	virtual void PollInput() = 0;
 	virtual U32 GetWidth() = 0;
 	virtual U32 GetHeight() = 0;
+	virtual bool IsAlived() = 0;
 };
 
 class WSI
 {
 public:
+	WSI();
+	~WSI();
+
 	bool Initialize();
 	void Uninitialize();
 	void BeginFrame();

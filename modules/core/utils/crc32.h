@@ -4,8 +4,5 @@
 
 namespace VulkanTest
 {
-	class VULKAN_TEST_API FileSystem
-	{
-
-	};
+	U32 CRC32(const char* str);
 }

@@ -4,8 +4,8 @@
 
 namespace VulkanTest
 {
-	class VULKAN_TEST_API FileSystem
+	namespace Profiler
 	{
-
-	};
+		void SetThreadName(const char* name);
+	}
 }

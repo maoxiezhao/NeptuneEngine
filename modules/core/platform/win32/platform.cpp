@@ -255,7 +255,7 @@ namespace Platform {
 		std::array<SYSTEM_LOGICAL_PROCESSOR_INFORMATION, 256> info;
 		I32 size = sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
 
-		DWORD retLen = info.size() * size;
+		DWORD retLen = DWORD(info.size() * size);
 		::GetLogicalProcessorInformation(info.data(), &retLen);
 		const I32 numInfos = retLen / size;	// calculate num of infos
 		for (I32 index = 0; index < numInfos; index++)
@@ -273,7 +273,7 @@ namespace Platform {
 		std::array<SYSTEM_LOGICAL_PROCESSOR_INFORMATION, 256> info;
 		I32 size = sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
 
-		DWORD retLen = info.size() * size;
+		DWORD retLen = DWORD(info.size() * size);
 		::GetLogicalProcessorInformation(info.data(), &retLen);
 		const I32 numInfos = retLen / size;	// calculate num of infos
 		I32 numCores = 0;

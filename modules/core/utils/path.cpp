@@ -1,0 +1,139 @@
+#include "path.h"
+#include "crc32.h"
+
+namespace VulkanTest
+{
+	const char* Path::INVALID_PATH = "N/A";
+
+	void Path::Normalize(const char* path, Span<char> outPath)
+	{
+		if (path == nullptr) {
+			return;
+		}
+
+		char* out = outPath.begin();
+		U32 maxLength = (U32)outPath.length();
+		U32 i = 0;
+		bool isPrevSlash = false;
+
+		if (path[0] == '.' && (path[1] == '\\' || path[1] == '/')) {
+			path += 2;
+		}
+#ifdef CJING3D_PLATFORM_WIN32
+		if (path[0] == '\\' || path[0] == '/') {
+			++path;
+		}
+#endif
+		while (*path != '\0' && i < maxLength)
+		{
+			bool isCurrentSlash = *path == '\\' || *path == '/';
+			if (isCurrentSlash && isPrevSlash)
+			{
+				++path;
+				continue;
+			}
+			*out = *path == '\\' ? '/' : *path;
+
+			path++;
+			out++;
+			i++;
+			isPrevSlash = isCurrentSlash;
+		}
+		(i < maxLength ? *out : *(out - 1)) = '\0';
+	}
+
+	Span<const char> Path::GetDir(const char* path)
+	{
+		if (!path[0]) return { nullptr, nullptr };
+
+		Span<const char> dir;
+		dir.pBegin = path;
+		dir.pEnd = path + StringLength(path) - 1;
+		while (dir.pEnd != dir.pBegin && *dir.pEnd != '\\' && *dir.pEnd != '/')
+			--dir.pEnd;
+		if (dir.pEnd != dir.pBegin) 
+			++dir.pEnd;
+		return dir;
+	}
+
+	Span<const char> Path::GetBaseName(const char* path)
+	{
+		if (!path[0]) return { nullptr, nullptr };
+
+		Span<const char> basename;
+		const char* end = path + StringLength(path);
+		basename.pEnd = end;
+		basename.pBegin = end;
+		while (basename.pBegin != path && *basename.pBegin != '\\' && *basename.pBegin != '/')
+			--basename.pBegin;
+		if (*basename.pBegin == '\\' || *basename.pBegin == '/') 
+			++basename.pBegin;
+
+		basename.pEnd = basename.pBegin;
+		while (basename.pEnd != end && *basename.pEnd != '.') ++basename.pEnd;
+		return basename;
+	}
+
+	Span<const char> Path::GetExtension(Span<const char> path)
+	{
+		if (path.length() <= 0) return { nullptr, nullptr };
+
+		Span<const char> ext;
+		ext.pEnd = path.pEnd;
+		ext.pBegin = path.pEnd - 1;
+		while (ext.pBegin != path.pBegin && *ext.pBegin != '.') {
+			--ext.pBegin;
+		}
+		if (*ext.pBegin != '.')  return { nullptr, nullptr };
+		ext.pBegin++;
+		return ext;
+	}
+
+	bool Path::IsAbsolutePath(const char* path)
+	{
+		return false;
+	}
+
+	PathInfo::PathInfo(const char* path)
+	{
+		char tempPath[MAX_PATH_LENGTH];
+		Path::Normalize(path, tempPath);
+		CopyString(Span(extension), Path::GetExtension(Span(tempPath, StringLength(tempPath))));
+		CopyString(Span(basename), Path::GetBaseName(path));
+		CopyString(Span(dir), Path::GetDir(path));
+	}
+
+	Path::Path() :
+		hash(0),
+		path()
+	{
+	}
+
+	Path::Path(const char* path_)
+	{
+		Path::Normalize(path_, path);
+		hash = CRC32(path);
+	}
+
+	void Path::operator=(const char* rhs)
+	{
+		Path::Normalize(rhs, path);
+		hash = CRC32(path);
+	}
+
+	size_t Path::Length() const
+	{
+		return StringLength(path);
+	}
+
+	bool Path::operator==(const Path& rhs) const
+	{
+		return hash == rhs.hash;
+	}
+
+	bool Path::operator!=(const Path& rhs) const
+	{
+		return hash != rhs.hash;
+	}
+
+}

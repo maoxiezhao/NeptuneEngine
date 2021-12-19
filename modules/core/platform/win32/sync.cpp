@@ -33,7 +33,7 @@ namespace VulkanTest
 	Mutex::~Mutex()
 	{
 		::DeleteCriticalSection(&Get()->critSec);
-		Get()->~MutexImpl();
+		// Get()->~MutexImpl();
 	}
 
 	Mutex::Mutex(Mutex&& rhs)

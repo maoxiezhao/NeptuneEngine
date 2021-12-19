@@ -23,6 +23,15 @@ namespace {
     bool swapchainIndexHasAcquired = false;
 }
 
+WSI::WSI()
+{
+}
+
+WSI::~WSI()
+{
+    Uninitialize();
+}
+
 bool WSI::Initialize()
 {
     if (platform == nullptr)
@@ -78,7 +87,8 @@ bool WSI::Initialize()
 
 void WSI::Uninitialize()
 {
-    TeardownSwapchain();
+    if (vulkanContext != nullptr)
+        TeardownSwapchain();
 
     if (surface != VK_NULL_HANDLE)
         vkDestroySurfaceKHR(vulkanContext->GetInstance(), surface, nullptr);

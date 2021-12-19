@@ -1,13 +1,13 @@
 #include "app.h"
 #include "core\utils\log.h"
+#include "core\utils\profiler.h"
 
 namespace VulkanTest
 {
 static StdoutLoggerSink mStdoutLoggerSink;
 
-void App::Setup()
+App::App()
 {
-    //console for std output..
     if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
         AllocConsole();
     }
@@ -20,48 +20,46 @@ void App::Setup()
     Logger::Info("App initialize.");
 }
 
-bool App::Initialize(std::unique_ptr<WSIPlatform> platform_)
+App::~App()
 {
-    Setup();
+}
 
+bool App::InitWSI(std::unique_ptr<WSIPlatform> platform_)
+{
 	platform = std::move(platform_);
     wsi.SetPlatform(platform.get());
     
     if (!wsi.Initialize())
         return false;
 
-    InitializeImpl();
-
     return true;
+}
+
+void App::Initialize()
+{
+    InitializeImpl();
 }
 
 void App::Uninitialize()
 {
     UninitializeImpl();
-    wsi.Uninitialize();
 }
 
 bool App::Poll()
 {
-    return platform->Poll();
+    if (!platform->IsAlived())
+        return false;
+
+    if (requestedShutdown)
+        return false;
+    
+    return true;
 }
 
-void App::Tick()
+void App::RunFrame()
 {
     wsi.BeginFrame();
     Render();
     wsi.EndFrame();
-}
-
-void App::InitializeImpl()
-{
-}
-
-void App::Render()
-{
-}
-
-void App::UninitializeImpl()
-{
 }
 }

@@ -32,6 +32,29 @@ namespace VulkanTest
 		return *source == '\0';
 	}
 
+	bool CopyString(Span<char> dst, Span<const char> source)
+	{
+		if (dst.length() < 1) return false;
+		if (source.length() < 1)
+		{
+			*dst.pBegin = 0;
+			return true;
+		}
+
+		U32 len = (U32)dst.length();
+		char* mem = dst.pBegin;
+		const char* src = source.pBegin;
+		while (src != source.pEnd && len > 1)
+		{
+			*mem = *src;
+			len--;
+			mem++;
+			src++;
+		}
+		*mem = 0;
+		return src == source.pEnd;
+	}
+
 	bool CatChar(Span<char> dst, char source)
 	{
 		size_t length = dst.length();

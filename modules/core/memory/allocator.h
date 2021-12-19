@@ -4,7 +4,7 @@
 
 ///////////////////////////////////////////////////////////////////////
 // allocator definitions
-#define CJING_MEMORY_ALLOCATOR_DEFAULT 1
+#define VULKAN_MEMORY_ALLOCATOR_DEFAULT 1
 
 ///////////////////////////////////////////////////////////////////////
 // memory tracker
@@ -14,10 +14,10 @@
 
 ///////////////////////////////////////////////////////////////////////
 // common memory allocator
-#define CJING_MEMORY_ALLOCATOR	CJING_MEMORY_ALLOCATOR_DEFAULT
+#define VULKAN_MEMORY_ALLOCATOR	VULKAN_MEMORY_ALLOCATOR_DEFAULT
 
 // container allocator
-#define CJING_CONTAINER_ALLOCATOR  CJING_MEMORY_ALLOCATOR_DEFAULT
+#define VULKAN_CONTAINER_ALLOCATOR  VULKAN_MEMORY_ALLOCATOR_DEFAULT
 
 ///////////////////////////////////////////////////////////////////////
 // use stl smart pointer

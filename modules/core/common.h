@@ -13,7 +13,7 @@
 
 #ifdef _MSC_VER
 #pragma warning( disable :26812)
-#pragma warning( disable :4819 4996)
+#pragma warning( disable :4819 4996 6031)
 #define COMPILER_MSVC 1
 #define NOEXCEPT
 #else
@@ -67,6 +67,8 @@
 
 namespace VulkanTest
 {
+
+static const int MAX_PATH_LENGTH = 256;
 
 using UIntPtr = U64;
 static_assert(sizeof(UIntPtr) == sizeof(void*), "Incorrect size of uintptr");
@@ -192,7 +194,7 @@ public:
 	constexpr T* begin()const noexcept { return pBegin; }
 	constexpr T* end()const noexcept { return pEnd; }
 
-private:
+public:
 	T* pBegin = nullptr;
 	T* pEnd = nullptr;
 };

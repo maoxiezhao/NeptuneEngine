@@ -7,13 +7,13 @@ namespace VulkanTest
 {
 	struct NewPlaceHolder {};
 
-//#if (CJING_MEMORY_ALLOCATOR == CJING_MEMORY_ALLOCATOR_DEFAULT)
-//	using MemoryAllocator = DefaultAllocator;
-//#endif
-//
-//#if (CJING_CONTAINER_ALLOCATOR == CJING_MEMORY_ALLOCATOR_DEFAULT)
-//	using ContainerAllocator = DefaultAllocator;
-//#endif
+#if (VULKAN_MEMORY_ALLOCATOR == VULKAN_MEMORY_ALLOCATOR_DEFAULT)
+	using MemoryAllocator = DefaultAllocator;
+#endif
+
+#if (VULKAN_CONTAINER_ALLOCATOR == VULKAN_MEMORY_ALLOCATOR_DEFAULT)
+	using ContainerAllocator = DefaultAllocator;
+#endif
 
 	class Memory
 	{
@@ -22,22 +22,20 @@ namespace VulkanTest
 		static void* Alloc(size_t size, const char* filename, int line);
 		static void* Realloc(void* ptr, size_t newBytes, const char* filename, int line);
 		static void  Free(void* ptr);
-		static void* AlignAlloc(size_t size, size_t align, const char* filename, int line);
-		static void* AlignRealloc(void* ptr, size_t newBytes, size_t align, const char* filename, int line);
-		static void  AlignFree(void* ptr);
+		static void* AllocAligned(size_t size, size_t align, const char* filename, int line);
+		static void* ReallocAligned(void* ptr, size_t newBytes, size_t align, const char* filename, int line);
+		static void  FreeAligned(void* ptr);
 #else
 		static void* Alloc(size_t size);
 		static void* Realloc(void* ptr, size_t newBytes);
 		static void  Free(void* ptr);
-		static void* AlignAlloc(size_t size, size_t align);
-		static void* AlignRealloc(void* ptr, size_t newBytes, size_t align);
-		static void  AlignFree(void* ptr);
-
+		static void* AllocAligned(size_t size, size_t align);
+		static void* ReallocAligned(void* ptr, size_t newBytes, size_t align);
+		static void  FreeAligned(void* ptr);
 #endif
 		static void  Memmove(void* dst, const void* src, size_t size);
 		static void  Memcpy(void* dst, const void* src, size_t size);
 		static void  Memset(void* dst, int c, int count);
-		static void* StackAlloca(size_t size);
 
 		template<typename T>
 		static void ObjectConstruct(T* ptr)

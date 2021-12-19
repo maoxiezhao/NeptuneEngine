@@ -1,6 +1,10 @@
 #include "app\app.h"
+#include "core\memory\memory.h"
+#include "core\utils\profiler.h"
 #include "gpu\vulkan\wsi.h"
 #include "GLFW\glfw3.h"
+
+#include <thread>
 
 namespace VulkanTest
 {
@@ -10,6 +14,9 @@ private:
 	uint32_t width = 0;
 	uint32_t height = 0;
 	GLFWwindow* window = nullptr;
+	bool asyncLoopAlive = true;
+	std::atomic_bool requestClose;
+	std::thread mainLoop;
 
 public:
 	PlatformGFLW() = default;
@@ -25,6 +32,8 @@ public:
 
 	bool Init(int width_, int height_)
 	{
+		requestClose.store(false);
+
 		width = width_;
 		height = height_;
 
@@ -40,10 +49,8 @@ public:
 		return true;
 	}
 
-	bool Poll() override
+	void PollInput() override
 	{
-		glfwPollEvents();
-    	return !glfwWindowShouldClose(window);
 	}
 
 	U32 GetWidth() override
@@ -99,12 +106,53 @@ public:
         return surface;
 	}
 
-	int RunMainLoop(App* app)
+	void notify_close()
 	{
-		while (app->Poll())
-			app->Tick();
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+		requestClose.store(true);
+	}
 
+	bool IsAlived()override
+	{
+		return !requestClose.load();
+	}
+
+	int RunMainLoop()
+	{
+		while (!glfwWindowShouldClose(window))
+		{
+			glfwWaitEvents();
+			if (!asyncLoopAlive)
+				glfwSetWindowShouldClose(window, GLFW_TRUE);
+		}
 		return 0;
+	}
+
+	int RunAsyncLoop(App* app)
+	{
+		Profiler::SetThreadName("MainThread");
+		asyncLoopAlive = true;
+		mainLoop = std::thread(&PlatformGFLW::ThreadMainLoop, this, app);
+
+		int ret = RunMainLoop();
+
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+		requestClose.store(true);
+
+		if (mainLoop.joinable())
+			mainLoop.join();
+
+		return ret;
+	}
+
+	void ThreadMainLoop(App* app)
+	{
+		Profiler::SetThreadName("AsyncMainThread");
+		app->Initialize();
+		while (app->Poll())
+			app->RunFrame();
+
+		app->Uninitialize();
 	}
 };
 
@@ -115,14 +163,14 @@ int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, c
        return 1;
 
     std::unique_ptr<PlatformGFLW> platform = std::make_unique<PlatformGFLW>();
+	auto* platformHandle = platform.get();
     if (!platform->Init(800, 600))
        return 1;
 
-    if (!app->Initialize(std::move(platform)))
+    if (!app->InitWSI(std::move(platform)))
        return 1;
 
-	int ret = platform->RunMainLoop(app.get());
-    app->Uninitialize();
+	int ret = platformHandle->RunAsyncLoop(app.get());
     app.reset();
 	return ret;
 }

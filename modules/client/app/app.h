@@ -8,23 +8,41 @@ namespace VulkanTest
 class App
 {
 public:
-	App() = default;
-	~App() = default;
+	App();
+	virtual ~App();
 
-	bool Initialize(std::unique_ptr<WSIPlatform> platform_);
+	bool InitWSI(std::unique_ptr<WSIPlatform> platform_);
+	void Initialize();
 	void Uninitialize();
 	bool Poll();
-	void Tick();
+	void RunFrame();
+
+	WSI& GetWSI()
+	{
+		return wsi;
+	}
+
+	WSIPlatform& GetPlatform()
+	{
+		return *platform;
+	}
 
 private:
-	virtual void Setup();
-	virtual void InitializeImpl();
-	virtual void Render();
-	virtual void UninitializeImpl();
+	virtual void InitializeImpl() {};
+	virtual void UninitializeImpl() {};
+	virtual void Render() {};
+
+protected:
+	void request_shutdown()
+	{
+		requestedShutdown = true;
+	}
+
 
 protected:
 	std::unique_ptr<WSIPlatform> platform;
 	WSI wsi;
+	bool requestedShutdown = false;
 };
 
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[]);

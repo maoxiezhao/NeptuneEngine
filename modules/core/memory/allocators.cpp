@@ -10,7 +10,7 @@ namespace VulkanTest
 	// According to size divided into 4 free lists: 8 16 32 64
 
 	static constexpr U32 SMALL_ALLOC_MAX_SIZE = 64;
-	static constexpr U32 MAX_PAGE_SIZE = 4096;
+	static constexpr U32 PAGE_SIZE = 4096;
 	static constexpr size_t MAX_PAGE_COUNT = 16384;
 
 	struct DefaultAllocator::MemPage
@@ -22,7 +22,7 @@ namespace VulkanTest
 			U32 firstFree;
 			U32 itemSize;
 		};
-		U8 data[MAX_PAGE_COUNT - sizeof(Header)];
+		U8 data[PAGE_SIZE - sizeof(Header)];
 		Header header;
 	};
 
@@ -40,7 +40,7 @@ namespace VulkanTest
 
 	static void InitMemPage(DefaultAllocator::MemPage* page, int itemSize)
 	{
-		Platform::MemCommit(page, MAX_PAGE_SIZE);
+		Platform::MemCommit(page, PAGE_SIZE);
 		page = new (NewPlaceHolder(), page) DefaultAllocator::MemPage;
 		page->header.prev = nullptr;
 		page->header.next = nullptr;
@@ -48,14 +48,14 @@ namespace VulkanTest
 		page->header.itemSize = itemSize;
 
 		for (int i = 0; i < (sizeof(page->data) / itemSize); i++)
-			*(U32*)(&page->data) = U32(i * itemSize + itemSize);
+			*(U32*)&page->data[i * itemSize] = U32(i * itemSize + itemSize);
 	}
 
 	static DefaultAllocator::MemPage* GetMemPage(void* ptr)
 	{
 		// Page mem block:
 		// | BaseAddr| PAGE_SIZE |
-		return (DefaultAllocator::MemPage*)((UIntPtr)ptr & ~(U64)(MAX_PAGE_SIZE - 1));
+		return (DefaultAllocator::MemPage*)((UIntPtr)ptr & ~(U64)(PAGE_SIZE - 1));
 	}
 
 	static void* AllocSmall(DefaultAllocator& allocator, size_t size)
@@ -63,7 +63,7 @@ namespace VulkanTest
 		U32 freeListIndex = GetFreeListIndex(size);
 		ScopedMutex lock(allocator.mutex);
 		if (allocator.smallAllocation == nullptr)
-			allocator.smallAllocation = (U8*)Platform::MemReserve(MAX_PAGE_COUNT * MAX_PAGE_SIZE);
+			allocator.smallAllocation = (U8*)Platform::MemReserve(MAX_PAGE_COUNT * PAGE_SIZE);
 
 		DefaultAllocator::MemPage* page = allocator.freeList[freeListIndex];
 		if (page == nullptr)
@@ -71,7 +71,7 @@ namespace VulkanTest
 			if (allocator.pageCount == MAX_PAGE_COUNT)
 				return nullptr;
 
-			page = (DefaultAllocator::MemPage*)(allocator.smallAllocation + MAX_PAGE_SIZE * allocator.pageCount);
+			page = (DefaultAllocator::MemPage*)(allocator.smallAllocation + PAGE_SIZE * allocator.pageCount);
 			InitMemPage(page, 8 << freeListIndex);
 			allocator.freeList[freeListIndex] = page;
 			allocator.pageCount++;
@@ -156,7 +156,7 @@ namespace VulkanTest
 	{
 		return allocator.smallAllocation != nullptr &&
 			mem >= allocator.smallAllocation &&
-			mem < (allocator.smallAllocation + MAX_PAGE_COUNT * MAX_PAGE_SIZE);
+			mem < (allocator.smallAllocation + MAX_PAGE_COUNT * PAGE_SIZE);
 	}
 
 	DefaultAllocator::DefaultAllocator()
@@ -168,7 +168,7 @@ namespace VulkanTest
 	DefaultAllocator::~DefaultAllocator()
 	{
 		if (smallAllocation != nullptr)
-			Platform::MemRelease(smallAllocation, MAX_PAGE_COUNT * MAX_PAGE_SIZE);
+			Platform::MemRelease(smallAllocation, MAX_PAGE_COUNT * PAGE_SIZE);
 	}
 
 #ifdef VULKAN_MEMORY_TRACKER
@@ -177,6 +177,11 @@ namespace VulkanTest
 		void* ptr = size <= SMALL_ALLOC_MAX_SIZE ? AllocSmall(*this, size) : malloc(size);
 		MemoryTracker::Get().RecordAlloc(ptr, size, filename, line);
 		return ptr;
+	}
+
+	void* DefaultAllocator::Allocate(size_t size)
+	{
+		return size <= SMALL_ALLOC_MAX_SIZE ? AllocSmall(*this, size) : malloc(size);
 	}
 
 	void* DefaultAllocator::Reallocate(void* ptr, size_t newBytes, const char* filename, int line)
