@@ -214,7 +214,7 @@ public:
     DeviceVulkan(DeviceVulkan&&) = delete;
 
     void SetContext(VulkanContext& context);
-    bool InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height);
+    void InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height);
     void BakeShaderProgram(ShaderProgram& program);
     void WaitIdle();
     bool IsSwapchainTouched();

@@ -31,6 +31,23 @@ public:
 	virtual U32 GetWidth() = 0;
 	virtual U32 GetHeight() = 0;
 	virtual bool IsAlived() = 0;
+
+	bool ShouldResize()const 
+	{
+		return isResize; 
+	}
+
+	virtual void NotifySwapchainDimensions(unsigned width, unsigned height)
+	{
+		swapchainWidth = width;
+		swapchainHeight = height;
+		isResize = false;
+	}
+
+protected:
+	U32 swapchainWidth = 0;
+	U32 swapchainHeight = 0;
+	bool isResize = false;
 };
 
 class WSI
@@ -48,7 +65,17 @@ public:
 	GPU::DeviceVulkan* GetDevice();
 
 private:
-	bool InitSwapchain(uint32_t width, uint32_t height);
+	bool InitSwapchain(U32 width, U32 height);
+	enum class SwapchainError
+	{
+		None,
+		NoSurface,
+		Error
+	};
+	SwapchainError InitSwapchainImpl(U32 width, U32 height);
+
+	void UpdateFrameBuffer(U32 width, U32 height);
+	void DrainSwapchain();
 	void TeardownSwapchain();
 	
 	WSIPlatform* platform = nullptr;

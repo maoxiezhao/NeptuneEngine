@@ -21,6 +21,9 @@ namespace {
     VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
     U32 swapchainImageIndex = 0;
     bool swapchainIndexHasAcquired = false;
+    bool isSwapchinSuboptimal = false;
+
+    std::vector<GPU::SemaphorePtr> releaseSemaphores;
 }
 
 WSI::WSI()
@@ -59,7 +62,7 @@ bool WSI::Initialize()
   
     // need to check which queue family support surface
     VkBool32 supported = VK_FALSE;
-    uint32_t queuePresentSupport = 0;
+    U32 queuePresentSupport = 0;
     for (U32 familyIndex : vulkanContext->GetQueueInfo().familyIndices)
     {
         if (familyIndex != VK_QUEUE_FAMILY_IGNORED)
@@ -81,7 +84,7 @@ bool WSI::Initialize()
         Logger::Error("Failed to init swapchian.");
         return false;
     }
-
+    deviceVulkan->InitSwapchain(swapchianImages, swapchainFormat, swapchainWidth, swapchainHeight);
 	return true;
 }
 
@@ -106,6 +109,9 @@ void WSI::BeginFrame()
         std::cout << "Lost swapchain." << std::endl;
         return;
     }
+
+    if (platform->ShouldResize() || isSwapchinSuboptimal)
+        int a = 0;
 
     // 当前swapchian已经Acquired
     if (swapchainIndexHasAcquired)
@@ -159,9 +165,29 @@ void WSI::EndFrame()
     info.pResults = &result;
 
     VkResult overall = vkQueuePresentKHR(deviceVulkan->GetPresentQueue(), &info);
-    if (overall < 0)
+    if (overall == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT ||
+        result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+    {
+        Logger::Error("Lost exclusive full-screen");
+    }
+
+    if (overall == VK_SUBOPTIMAL_KHR || result == VK_SUBOPTIMAL_KHR)
+    {
+        isSwapchinSuboptimal = true;
+    }
+
+    if (overall < 0 || result < 0)
+    {
+        Logger::Error("Failed to vkQueuePresentKHR");
+        TeardownSwapchain();
+        return;
+    }
+    else
     {
         release->WaitExternal();
+
+        // 暂时先不释放releaseSemaphore，直到Image再次等待
+        releaseSemaphores[swapchainImageIndex] = release;
     }
 }
 
@@ -175,10 +201,37 @@ GPU::DeviceVulkan* WSI::GetDevice()
     return deviceVulkan;
 }
 
-bool WSI::InitSwapchain(uint32_t width, uint32_t height)
+bool WSI::InitSwapchain(U32 width, U32 height)
+{
+    U32 tryCounter = 0;
+    SwapchainError err;
+    do
+    {
+        err = InitSwapchainImpl(width, height);
+        if (err != SwapchainError::None)
+            platform->NotifySwapchainDimensions(0, 0);
+
+        if (err == SwapchainError::NoSurface)
+        {
+            Logger::Error("Failed to make progress due to minimization.");
+            return false;
+        }
+        else if (err == SwapchainError::Error)
+        {
+            if (tryCounter++ > 3)
+                return false;
+
+            TeardownSwapchain();
+        }
+    } while (err != SwapchainError::None);
+
+    return swapchain != VK_NULL_HANDLE;
+}
+
+WSI::SwapchainError WSI::InitSwapchainImpl(U32 width, U32 height)
 {
     if (surface == VK_NULL_HANDLE)
-        return false;
+        return SwapchainError::NoSurface;
 
     // get surface properties
     VkSurfaceCapabilitiesKHR surfaceProperties;
@@ -191,18 +244,18 @@ bool WSI::InitSwapchain(uint32_t width, uint32_t height)
     
         VkSurfaceCapabilities2KHR surfaceCapabilities2 = { VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR };
         if (vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice, &surfaceInfo, &surfaceCapabilities2) != VK_SUCCESS)
-            return false;
+            return SwapchainError::Error;
 
         surfaceProperties = surfaceCapabilities2.surfaceCapabilities;
     }
     else
     {
         if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceProperties) != VK_SUCCESS)
-            return false;
+            return SwapchainError::Error;
     }
 
     // get surface formats
-    uint32_t formatCount = 0;
+    U32 formatCount = 0;
     std::vector<VkSurfaceFormatKHR> formats;
 
     if (useSurfaceInfo)
@@ -232,7 +285,7 @@ bool WSI::InitSwapchain(uint32_t width, uint32_t height)
 
 
     // get present mode
-    uint32_t presentModeCount = 0;
+    U32 presentModeCount = 0;
     std::vector<VkPresentModeKHR> presentModes;
     vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
     if (presentModeCount != 0)
@@ -260,7 +313,7 @@ bool WSI::InitSwapchain(uint32_t width, uint32_t height)
     if (surfaceFormat.format == VK_FORMAT_UNDEFINED)
     {
         Logger::Error("Failed to find suitable surface format.");
-        return false;
+        return SwapchainError::Error;
     }
 
     // find suitable present mode
@@ -284,7 +337,7 @@ bool WSI::InitSwapchain(uint32_t width, uint32_t height)
     }
 
     // Get desired swapchian images
-    uint32_t desiredSwapchainImages = 2;
+    U32 desiredSwapchainImages = 2;
     if (desiredSwapchainImages < surfaceProperties.minImageCount)
         desiredSwapchainImages = surfaceProperties.minImageCount;
     if ((surfaceProperties.maxImageCount > 0) && (desiredSwapchainImages > surfaceProperties.maxImageCount))
@@ -314,28 +367,53 @@ bool WSI::InitSwapchain(uint32_t width, uint32_t height)
     createInfo.oldSwapchain = oldSwapchain;
 
     if (vkCreateSwapchainKHR(vulkanContext->GetDevice(), &createInfo, nullptr, &swapchain) != VK_SUCCESS)
-        return false;
+        return SwapchainError::Error;
 
     swapchainWidth = swapchainSize.width;
     swapchainHeight = swapchainSize.height;
     swapchainFormat = surfaceFormat.format;
 
     // Get swapchian images
-    uint32_t imageCount = 0;
+    U32 imageCount = 0;
     if (vkGetSwapchainImagesKHR(vulkanContext->GetDevice(), swapchain, &imageCount, nullptr) != VK_SUCCESS)
-        return false;
+        return SwapchainError::Error;
+
     swapchianImages.resize(imageCount);
     if (vkGetSwapchainImagesKHR(vulkanContext->GetDevice(), swapchain, &imageCount, swapchianImages.data()) != VK_SUCCESS)
-        return false;
+        return SwapchainError::Error;
 
-    if (!deviceVulkan->InitSwapchain(swapchianImages, swapchainFormat, swapchainWidth, swapchainHeight))
-        return false;
+    releaseSemaphores.resize(imageCount);
+    return SwapchainError::None;
+}
 
-    return true;
+void WSI::UpdateFrameBuffer(U32 width, U32 height)
+{
+    if (vulkanContext == nullptr || deviceVulkan == nullptr)
+        return;
+
+    DrainSwapchain();
+
+    if (InitSwapchain(platform->GetWidth(), platform->GetHeight()))
+    {
+        deviceVulkan->InitSwapchain(swapchianImages, swapchainFormat, swapchainWidth, swapchainHeight);
+    }
+
+    if (platform != nullptr)
+        platform->NotifySwapchainDimensions(swapchainWidth, swapchainHeight);
+}
+
+void WSI::DrainSwapchain()
+{
+    releaseSemaphores.clear();
+    deviceVulkan->SetAcquireSemaphore(0, GPU::SemaphorePtr());
+    deviceVulkan->GetAndConsumeReleaseSemaphore();
+    deviceVulkan->WaitIdle();
 }
 
 void WSI::TeardownSwapchain()
 {
+    DrainSwapchain();
+
     if (swapchain != VK_NULL_HANDLE)
     {
         vkDestroySwapchainKHR(vulkanContext->GetDevice(), swapchain, nullptr);

@@ -288,7 +288,7 @@ void DeviceVulkan::InitFrameContext()
     }
 }
 
-bool DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height)
+void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height)
 {
     wsi.swapchainImages.clear();
 
@@ -325,8 +325,6 @@ bool DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, 
             SetName(*backbuffer.get(), "Backbuffer");
         }
     }
-
-    return true;
 }
 
 Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queueType)

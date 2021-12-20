@@ -1,13 +1,20 @@
 #include "app\app.h"
 #include "core\memory\memory.h"
 #include "core\utils\profiler.h"
+#include "core\platform\sync.h"
 #include "gpu\vulkan\wsi.h"
 #include "GLFW\glfw3.h"
 
 #include <thread>
+#include <functional>
 
 namespace VulkanTest
 {
+class PlatformGFLW;
+
+static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
+static void WindowCloseCallback(GLFWwindow* window);
+
 class PlatformGFLW : public WSIPlatform
 {
 private:
@@ -17,6 +24,52 @@ private:
 	bool asyncLoopAlive = true;
 	std::atomic_bool requestClose;
 	std::thread mainLoop;
+
+private:
+	struct EventList
+	{
+		Mutex mutex;
+		std::vector<std::function<void()>> list;
+	};
+	EventList mainThreadEventList, asyncThreadEventList;
+
+	void PorcessEventList(EventList& list)
+	{
+		ScopedMutex lock(list.mutex);
+		for (auto& ent : list.list)
+			ent();
+		list.list.clear();
+	}
+
+	template<typename FUNC>
+	void PushEventTaskToList(EventList& list, FUNC&& func)
+	{
+		ScopedMutex lock(list.mutex);
+		list.list.emplace_back(std::forward<FUNC>(func));
+	}
+
+	template <typename FUNC>
+	void PushEventTaskToMainThread(FUNC&& func)
+	{
+		PushEventTaskToList(mainThreadEventList, std::forward<FUNC>(func));
+		glfwPostEmptyEvent();
+	}
+	
+	template <typename FUNC>
+	void PushEventTaskToAsyncThread(FUNC&& func)
+	{
+		PushEventTaskToList(asyncThreadEventList, std::forward<FUNC>(func));
+	}
+
+	void ProcessEventsMainThread()
+	{
+		PorcessEventList(mainThreadEventList);
+	}
+
+	void ProcessEventsAsyncThread()
+	{
+		PorcessEventList(asyncThreadEventList);
+	}
 
 public:
 	PlatformGFLW() = default;
@@ -45,6 +98,10 @@ public:
 		window = glfwCreateWindow(width, height, "Vulkan Test", nullptr, nullptr);
 		if (window == nullptr)
 			return false;
+
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
+		glfwSetWindowCloseCallback(window, WindowCloseCallback);
 
 		return true;
 	}
@@ -106,7 +163,16 @@ public:
         return surface;
 	}
 
-	void notify_close()
+	void NotifyResize(U32 width_, U32 height_)
+	{
+		PushEventTaskToAsyncThread([=]() {
+			isResize = true;
+			width = width_;
+			height = height_;
+		});
+	}
+
+	void NotifyClose()
 	{
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 		requestClose.store(true);
@@ -114,6 +180,7 @@ public:
 
 	bool IsAlived()override
 	{
+		ProcessEventsAsyncThread();
 		return !requestClose.load();
 	}
 
@@ -122,6 +189,7 @@ public:
 		while (!glfwWindowShouldClose(window))
 		{
 			glfwWaitEvents();
+			ProcessEventsMainThread();
 			if (!asyncLoopAlive)
 				glfwSetWindowShouldClose(window, GLFW_TRUE);
 		}
@@ -153,8 +221,25 @@ public:
 			app->RunFrame();
 
 		app->Uninitialize();
+
+		PushEventTaskToMainThread([this]() {
+			asyncLoopAlive = false;
+		});
 	}
 };
+
+static void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
+{
+	auto* glfw = static_cast<PlatformGFLW*>(glfwGetWindowUserPointer(window));
+	ASSERT(width != 0 && height != 0);
+	glfw->NotifyResize(width, height);
+}
+
+static void WindowCloseCallback(GLFWwindow* window)
+{
+	auto* glfw = static_cast<PlatformGFLW*>(glfwGetWindowUserPointer(window));
+	glfw->NotifyClose();
+}
 
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[])
 {
