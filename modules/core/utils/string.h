@@ -24,6 +24,7 @@ namespace VulkanTest
 	int  FindSubstring(const char* str, const char* substr, int pos);
 	int  ReverseFindSubstring(const char* str, const char* substr);
 	void ReverseString(char* str, size_t n);
+	bool EndsWith(const char* str, const char* substr);
 
 	template<size_t N>
 	bool CopyString(char(&destination)[N], const char* source)
@@ -65,6 +66,9 @@ namespace VulkanTest
 		}
 		void append(char* str) {
 			CatString(data, str);
+		}
+		void append(Span<const char*> str) {
+			CatString(data, str.data());
 		}
 		void append(char c) 
 		{

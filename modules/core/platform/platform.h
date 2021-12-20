@@ -13,6 +13,9 @@
 #endif
 
 #include "common.h"
+#include "file.h"
+
+#include <string.h>
 
 namespace VulkanTest {
 namespace Platform {
@@ -73,6 +76,9 @@ namespace Platform {
 	bool OpenExplorer(const char* path);
 	I32  GetCPUsCount();
 
+	std::string  WStringToString(const std::wstring& wstr);
+	std::wstring StringToWString(const std::string& str);
+
 	/////////////////////////////////////////////////////////////////////////////////
 	// Threads
 	ThreadID GetCurrentThreadID();
@@ -119,6 +125,10 @@ namespace Platform {
 	bool   CreateDir(const char* path);
 	void   SetCurrentDir(const char* path);
 	void   GetCurrentDir(Span<char> path);
+	bool   StatFile(const char* path, FileInfo& fileInfo);
+	FileIterator* CreateFileIterator(const char* path, const char* ext = nullptr);
+	void DestroyFileIterator(FileIterator* it);
+	bool GetNextFile(FileIterator* it, ListEntry& info);
 
 	void DebugOutput(const char* msg);
 

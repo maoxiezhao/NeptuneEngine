@@ -13,11 +13,15 @@ namespace VulkanTest
 		char dir[MAX_PATH_LENGTH];
 	};
 
+	using MaxPathString = StaticString<MAX_PATH_LENGTH>;
+
 	class VULKAN_TEST_API Path
 	{
 	public:
 		static const char* INVALID_PATH;
+		static const char* PATH_SLASH;
 
+		static MaxPathString Join(Span<const char> base, Span<const char> path);
 		static void	Normalize(const char* path, Span<char> outPath);
 		static Span<const char> GetDir(const char* path);
 		static Span<const char> GetBaseName(const char* path);
@@ -29,10 +33,12 @@ namespace VulkanTest
 		explicit Path(const char* path_);
 		void operator=(const char* rhs);
 
+		void Join(const char* path_);
 		size_t Length()const;
 		const char* c_str()const { return path; }
 		unsigned int  GetHash()const { return hash; }
 		bool IsEmpty()const { return path[0] == '\0'; }
+		PathInfo GetPathInfo();
 		
 		bool operator==(const Path& rhs) const;
 		bool operator!=(const Path& rhs) const;

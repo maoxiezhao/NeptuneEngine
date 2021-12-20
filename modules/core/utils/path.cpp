@@ -5,6 +5,31 @@ namespace VulkanTest
 {
 	const char* Path::INVALID_PATH = "N/A";
 
+#ifdef CJING3D_PLATFORM_WIN32
+	const char* Path::PATH_SLASH = "/\\";
+#else
+	const char* Path::PATH_SLASH = "/";
+#endif
+
+	StaticString<MAX_PATH_LENGTH> Path::Join(Span<const char> base, Span<const char> path)
+	{
+		if (base.empty())
+			return path.data();
+		if (path.empty())
+			return base.data();
+
+		if (IsAbsolutePath(path.data()))
+			return path.data();
+
+		StaticString<MAX_PATH_LENGTH> ret(base.data());
+		int index = FindStringChar(base.data(), *Path::PATH_SLASH, 0);
+		if (index != base.length() - 1)
+			ret.append(Path::PATH_SLASH);
+
+		ret.append(path.data());
+		return ret;
+	}
+
 	void Path::Normalize(const char* path, Span<char> outPath)
 	{
 		if (path == nullptr) {
@@ -121,9 +146,21 @@ namespace VulkanTest
 		hash = CRC32(path);
 	}
 
+	void Path::Join(const char* path_)
+	{
+		auto newPath = Path::Join(path, Span(path_, StringLength(path_)));
+		Path::Normalize(newPath, path);
+		hash = CRC32(path);
+	}
+
 	size_t Path::Length() const
 	{
 		return StringLength(path);
+	}
+
+	PathInfo Path::GetPathInfo()
+	{
+		return PathInfo(path);
 	}
 
 	bool Path::operator==(const Path& rhs) const

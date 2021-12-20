@@ -5,7 +5,7 @@ namespace VulkanTest
 	class EngineImpl final : public Engine
 	{
 	public:
-		EngineImpl(const EngineInitConfig& initConfig)
+		EngineImpl(const InitConfig& initConfig)
 		{
 		}
 
@@ -14,7 +14,7 @@ namespace VulkanTest
 		}
 	};
 
-	UniquePtr<Engine> Engine::Create(const EngineInitConfig& initConfig)
+	UniquePtr<Engine> Engine::Create(const InitConfig& initConfig)
 	{
 		return CJING_MAKE_UNIQUE<EngineImpl>(initConfig);
 	}

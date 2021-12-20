@@ -169,6 +169,15 @@ namespace VulkanTest
 		}
 	}
 
+	bool EndsWith(const char* str, const char* substr)
+	{
+		int len = StringLength(str);
+		int len2 = StringLength(substr);
+		if (len2 > len)
+			return false;
+		return EqualString(str + len - len2, substr);
+	}
+
 	U32 HashFunc(U32 Input, const String& Data)
 	{
 		return SDBHash(Input, Data.data(), Data.size());

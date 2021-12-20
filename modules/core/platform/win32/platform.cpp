@@ -5,6 +5,7 @@
 #ifdef CJING3D_PLATFORM_WIN32
 
 #include "platform\platform.h"
+#include "core\utils\string.h"
 
 #include <array>
 
@@ -19,34 +20,6 @@
 
 namespace VulkanTest {
 namespace Platform {
-
-	namespace {
-		static const int MAX_PATH_LENGTH = 256;
-
-		size_t StringLength(const char* str)
-		{
-			return strlen(str);
-		}
-
-		bool CopyString(Span<char> dst, const char* source)
-		{
-			if (!source) {
-				return false;
-			}
-
-			size_t length = dst.length();
-			char* temp = dst.begin();
-			while (*source && length > 1)
-			{
-				*temp = *source;
-				length--;
-				temp++;
-				source++;
-			}
-			*temp = '\0';
-			return *source == '\0';
-		}
-	}
 
 	static void WCharToChar(Span<char> out, const WCHAR* in)
 	{
@@ -242,6 +215,24 @@ namespace Platform {
 		SYSTEM_INFO sys_info;
 		GetSystemInfo(&sys_info);
 		return sys_info.dwNumberOfProcessors > 0 ? sys_info.dwNumberOfProcessors : 1;
+	}
+
+	std::string WStringToString(const std::wstring& wstr)
+	{
+		if (wstr.empty()) return std::string();
+		int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+		std::string strTo(size_needed, 0);
+		WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+		return strTo;
+	}
+
+	std::wstring StringToWString(const std::string& str)
+	{
+		if (str.empty()) return std::wstring();
+		int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+		std::wstring wstrTo(size_needed, 0);
+		MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+		return wstrTo;
 	}
 
 	ThreadID GetCurrentThreadID()
@@ -475,12 +466,76 @@ namespace Platform {
 		return WCharToChar(path, tmp);
 	}
 
+	bool StatFile(const char* path, FileInfo& fileInfo)
+	{
+		struct __stat64 buf;
+		if (_wstat64(StringToWString(path).c_str(), &buf) < 0)
+			return false;
+
+		if (buf.st_mode & _S_IFREG)
+			fileInfo.type = PathType::File;
+		else if (buf.st_mode & _S_IFDIR)
+			fileInfo.type = PathType::Directory;
+		else
+			fileInfo.type = PathType::Special;
+
+		fileInfo.createdTime = buf.st_ctime;
+		fileInfo.modifiedTime = buf.st_mtime;
+		return true;
+	}
+
 	struct FileIterator
 	{
-		HANDLE mHandle;
-		WIN32_FIND_DATA mFFD;
-		bool mIsValid;
+		HANDLE handle;
+		WIN32_FIND_DATA ffd;
+		bool isValid;
 	};
+
+	FileIterator* CreateFileIterator(const char* path, const char* ext)
+	{
+		char tempPath[MAX_PATH_LENGTH] = { 0 };
+		CopyString(tempPath, path);
+		if (ext != nullptr)
+		{
+			CatString(tempPath, "/*.");
+			CatString(tempPath, ext);
+		}
+		else
+		{
+			CatString(tempPath, "/*");
+		}
+
+		WCharString<MAX_PATH_LENGTH> wTempPath(tempPath);
+		FileIterator* it = CJING_NEW(FileIterator);
+		it->handle = ::FindFirstFile(wTempPath, &it->ffd);
+		it->isValid = it->handle != INVALID_HANDLE_VALUE;
+		return it;
+	}
+
+	void DestroyFileIterator(FileIterator* it)
+	{
+		::FindClose(it->handle);
+		CJING_SAFE_DELETE(it);
+	}
+
+	bool GetNextFile(FileIterator* it, ListEntry& info)
+	{
+		if (!it->isValid) {
+			return false;
+		}
+
+		WIN32_FIND_DATA& data = it->ffd;
+		WCharToChar(info.filename, data.cFileName);
+		if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			info.type = PathType::Directory;
+		else if (data.dwFileAttributes & FILE_ATTRIBUTE_NORMAL)
+			info.type = PathType::File;
+		else
+			info.type = PathType::Special;
+
+		it->isValid = ::FindNextFile(it->handle, &it->ffd) != FALSE;
+		return true;
+	}
 
 	void DebugOutput(const char* msg)
 	{

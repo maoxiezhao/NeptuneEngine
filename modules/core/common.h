@@ -77,6 +77,29 @@ static_assert(sizeof(I32) == 4, "Incorrect size of i32");
 static_assert(sizeof(I16) == 2, "Incorrect size of i16");
 static_assert(sizeof(I8) == 1, "Incorrect size of i8");
 
+
+template<typename ENUM>
+constexpr inline bool FLAG_ALL(ENUM value, ENUM Flags)
+{
+	static_assert(sizeof(ENUM) <= sizeof(int), "Enum size too large.");
+	return ((int)value & (int)Flags) == (int)Flags;
+}
+
+constexpr inline bool FLAG_ALL(int value, int Flags) {
+	return ((int)value & (int)Flags) == (int)Flags;
+}
+
+template<typename ENUM>
+constexpr inline bool FLAG_ANY(ENUM value, ENUM Flags)
+{
+	static_assert(sizeof(ENUM) <= sizeof(int), "Enum size too large.");
+	return ((int)value & (int)Flags) != 0;
+}
+
+constexpr inline bool FLAG_ANY(int value, int Flags) {
+	return ((int)value & (int)Flags) != 0;
+}
+
 #ifdef __GNUC__
 
 #elif defined(_MSC_VER)
