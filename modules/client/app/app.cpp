@@ -6,7 +6,8 @@ namespace VulkanTest
 {
 static StdoutLoggerSink mStdoutLoggerSink;
 
-App::App()
+App::App(const InitConfig& initConfig_) :
+    initConfig(initConfig_)
 {
     if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
         AllocConsole();
@@ -24,12 +25,15 @@ App::~App()
 {
 }
 
-bool App::InitWSI(std::unique_ptr<WSIPlatform> platform_)
+void App::SetPlatform(std::unique_ptr<WSIPlatform> platform_)
 {
-	platform = std::move(platform_);
+    platform = std::move(platform_);
     wsi.SetPlatform(platform.get());
-    
-    if (!wsi.Initialize())
+}
+
+bool App::InitializeWSI()
+{
+    if (!wsi.Initialize(1))
         return false;
 
     return true;
@@ -37,12 +41,15 @@ bool App::InitWSI(std::unique_ptr<WSIPlatform> platform_)
 
 void App::Initialize()
 {
-    InitializeImpl();
+
 }
 
 void App::Uninitialize()
 {
-    UninitializeImpl();
+}
+
+void App::Render()
+{
 }
 
 bool App::Poll()

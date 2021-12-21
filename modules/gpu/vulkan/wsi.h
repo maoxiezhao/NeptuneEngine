@@ -56,7 +56,7 @@ public:
 	WSI();
 	~WSI();
 
-	bool Initialize();
+	bool Initialize(U32 numThread);
 	void Uninitialize();
 	void BeginFrame();
 	void EndFrame();

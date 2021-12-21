@@ -35,7 +35,7 @@ WSI::~WSI()
     Uninitialize();
 }
 
-bool WSI::Initialize()
+bool WSI::Initialize(U32 numThread)
 {
     if (platform == nullptr)
     {
@@ -44,10 +44,10 @@ bool WSI::Initialize()
     }
 
     // init vulkan context
-    vulkanContext = new GPU::VulkanContext();
-
     auto instanceExt = platform->GetRequiredExtensions(true);
     auto deviceExt = platform->GetRequiredDeviceExtensions();
+
+    vulkanContext = new GPU::VulkanContext();
     if (!vulkanContext->Initialize(instanceExt, deviceExt, true))
         return false;
 

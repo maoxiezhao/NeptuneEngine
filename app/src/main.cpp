@@ -7,16 +7,15 @@
 
 namespace VulkanTest
 {
-class TestApp : public App
-{
-public:
-};
 
 App* CreateApplication(int, char**)
 {
     try
     {
-        App* app = new TestApp();
+        App::InitConfig initConfig = {};
+        initConfig.windowTitle = "ParticleDream";
+
+        App* app = new App(initConfig);
         return app;
     }
     catch (const std::exception& e)

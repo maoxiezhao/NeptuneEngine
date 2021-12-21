@@ -38,7 +38,9 @@ namespace VulkanTest
         PushConstantImage push;
 
     public:
-        void InitializeImpl() override
+        TestApp(const InitConfig& initConfig_) : App(initConfig_) {}
+
+        void Initialize() override
         {
             GPU::TextureFormatLayout formatLayout;
             formatLayout.SetTexture2D(VK_FORMAT_R8G8B8A8_SRGB, 1, 1);
@@ -68,7 +70,7 @@ namespace VulkanTest
             device->SetName(*images[3], "ColorImg3");
         }
 
-        void UninitializeImpl() override
+        void Uninitialize() override
         {
             for (int i = 0; i < 4; i++)
             {
@@ -123,7 +125,10 @@ namespace VulkanTest
     {
         try
         {
-            App *app = new TestApp();
+            App::InitConfig initConfig = {};
+            initConfig.windowTitle = "TriangleTest";
+
+            App *app = new TestApp(initConfig);
             return app;
         }
         catch (const std::exception &e)

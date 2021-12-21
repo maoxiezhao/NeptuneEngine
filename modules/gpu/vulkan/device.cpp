@@ -272,6 +272,10 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     memory.Initialize(this);
     fencePoolManager.Initialize(*this);
     semaphoreManager.Initialize(*this);
+
+#ifdef VULKAN_TEST_FILESYSTEM
+    InitShaderManagerCache();
+#endif
 }
 
 void DeviceVulkan::InitFrameContext()
@@ -373,6 +377,15 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(SwapchainRenderPassType 
 
     return info;
 }
+
+#ifdef VULKAN_TEST_FILESYSTEM
+
+void DeviceVulkan::InitShaderManagerCache()
+{
+
+}
+
+#endif
 
 RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isCompatible)
 {

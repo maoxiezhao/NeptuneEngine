@@ -1,8 +1,6 @@
 
-//#include "app.h"
-//#include "wsi.h"
-
 #include "client\app\app.h"
+#include "client\app\engine.h"
 #include "gpu\vulkan\device.h"
 #include "math\math.hpp"
 #include "core\memory\memory.h"
@@ -11,6 +9,9 @@ namespace VulkanTest
 {
     class TestApp : public App
     {
+    private:
+        UniquePtr<Engine> engine;
+
     private:
         Vec2 vertices[6] = {
             Vec2(-0.5f, -0.5f),
@@ -39,7 +40,26 @@ namespace VulkanTest
         PushConstantImage push;
 
     public:
-        void InitializeImpl() override
+        TestApp(const InitConfig& initConfig_) : App(initConfig_) {}
+
+        void Initialize() override
+        {
+            // Initialize engine
+            engine = Engine::Create(*this);
+
+            // Initialize WSI
+            InitializeWSI();
+
+            OnStart();
+        }
+
+        void Uninitialize()
+        {
+            OnStop();
+        }
+
+    private:
+        void OnStart()
         {
             GPU::TextureFormatLayout formatLayout;
             formatLayout.SetTexture2D(VK_FORMAT_R8G8B8A8_SRGB, 1, 1);
@@ -69,7 +89,7 @@ namespace VulkanTest
             device->SetName(*images[3], "ColorImg3");
         }
 
-        void UninitializeImpl() override
+        void OnStop()
         {
             for (int i = 0; i < 4; i++)
             {
@@ -124,7 +144,10 @@ namespace VulkanTest
     {
         try
         {
-            App *app = new TestApp();
+            App::InitConfig initConfig = {};
+            initConfig.windowTitle = "ParticleDream";
+
+            App *app = new TestApp(initConfig);
             return app;
         }
         catch (const std::exception &e)

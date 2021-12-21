@@ -83,7 +83,7 @@ public:
 		}
 	}
 
-	bool Init(int width_, int height_)
+	bool Init(int width_, int height_, const char* title)
 	{
 		requestClose.store(false);
 
@@ -95,7 +95,7 @@ public:
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		// create window
-		window = glfwCreateWindow(width, height, "Vulkan Test", nullptr, nullptr);
+		window = glfwCreateWindow(width, height, title, nullptr, nullptr);
 		if (window == nullptr)
 			return false;
 
@@ -217,14 +217,11 @@ public:
 	{
 		Profiler::SetThreadName("AsyncMainThread");
 		app->Initialize();
+
 		while (app->Poll())
 			app->RunFrame();
 
 		app->Uninitialize();
-
-		PushEventTaskToMainThread([this]() {
-			asyncLoopAlive = false;
-		});
 	}
 };
 
@@ -249,11 +246,9 @@ int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, c
 
     std::unique_ptr<PlatformGFLW> platform = std::make_unique<PlatformGFLW>();
 	auto* platformHandle = platform.get();
-    if (!platform->Init(800, 600))
+    if (!platform->Init(app->GetDefaultWidth(), app->GetDefaultHeight(), app->GetInitConfig().windowTitle))
        return 1;
-
-    if (!app->InitWSI(std::move(platform)))
-       return 1;
+	app->SetPlatform(std::move(platform));
 
 	int ret = platformHandle->RunAsyncLoop(app.get());
     app.reset();

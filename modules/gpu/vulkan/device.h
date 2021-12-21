@@ -283,6 +283,11 @@ public:
     RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
     
 private:
+#ifdef VULKAN_TEST_FILESYSTEM
+    void InitShaderManagerCache();
+#endif
+
+private:
     friend class CommandList;
 
     // stock samplers

@@ -600,5 +600,10 @@ bool ShaderManager::ReflectShader(ShaderResourceLayout& layout, const U32* spirv
 
 	return true;
 }
+
+bool ShaderManager::LoadShaderCache(const char* path)
+{
+	return false;
+}
 }
 }

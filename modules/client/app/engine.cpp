@@ -1,11 +1,12 @@
 #include "engine.h"
+#include "app.h"
 
 namespace VulkanTest
 {
 	class EngineImpl final : public Engine
 	{
 	public:
-		EngineImpl(const InitConfig& initConfig)
+		EngineImpl(const App& app)
 		{
 		}
 
@@ -14,8 +15,8 @@ namespace VulkanTest
 		}
 	};
 
-	UniquePtr<Engine> Engine::Create(const InitConfig& initConfig)
+	UniquePtr<Engine> Engine::Create(App& app)
 	{
-		return CJING_MAKE_UNIQUE<EngineImpl>(initConfig);
+		return CJING_MAKE_UNIQUE<EngineImpl>(app);
 	}
 }

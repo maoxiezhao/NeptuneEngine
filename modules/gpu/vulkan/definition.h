@@ -9,6 +9,8 @@
 #include "math\hash.h"
 #include "vulkanCache.h"
 
+#define VULKAN_TEST_FILESYSTEM
+
 // platform win32
 #ifdef CJING3D_PLATFORM_WIN32
 #include <SDKDDKVer.h>
