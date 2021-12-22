@@ -4,6 +4,9 @@
 
 namespace VulkanTest
 {
+
+class FileSystem;
+
 namespace GPU
 {
 
@@ -59,6 +62,21 @@ public:
         return queueInfo;
     }
 
+    struct SystemHandles
+    {
+        FileSystem* fileSystem;
+    };
+
+    void SetSystemHandles(const SystemHandles& handles_)
+    {
+        handles = handles_;
+    }
+
+    const SystemHandles& GetSystemHandles()const
+    {
+        return handles;
+    }
+
 private:
     bool CreateInstance(std::vector<const char*> instanceExt);
     bool CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<const char*> deviceExt, std::vector<const char*> deviceLayers);
@@ -81,6 +99,7 @@ private:
     uint32_t width = 0;
     uint32_t height = 0;
     bool debugLayer = false;
+    SystemHandles handles;
 
     // core 
     VkDevice device;

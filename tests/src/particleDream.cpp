@@ -50,6 +50,7 @@ namespace VulkanTest
             // Initialize WSI
             InitializeWSI();
 
+            // App start
             OnStart();
         }
 
