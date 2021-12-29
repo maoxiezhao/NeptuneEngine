@@ -1,0 +1,37 @@
+add_executable(fossilize-test fossilize_test.cpp)
+target_link_libraries(fossilize-test fossilize)
+target_compile_options(fossilize-test PRIVATE ${FOSSILIZE_CXX_FLAGS})
+set_target_properties(fossilize-test PROPERTIES LINK_FLAGS "${FOSSILIZE_LINK_FLAGS}")
+add_test(NAME fossilize-system-test COMMAND fossilize-test)
+
+add_executable(varint-test varint_test.cpp)
+target_link_libraries(varint-test fossilize)
+target_compile_options(varint-test PRIVATE ${FOSSILIZE_CXX_FLAGS})
+set_target_properties(varint-test PROPERTIES LINK_FLAGS "${FOSSILIZE_LINK_FLAGS}")
+add_test(NAME varint-system-test COMMAND varint-test)
+
+add_executable(application-info-filter-test application_info_filter_test.cpp)
+target_link_libraries(application-info-filter-test fossilize)
+target_compile_options(application-info-filter-test PRIVATE ${FOSSILIZE_CXX_FLAGS})
+set_target_properties(application-info-filter-test PROPERTIES LINK_FLAGS "${FOSSILIZE_LINK_FLAGS}")
+add_test(NAME application-info-filter-test COMMAND application-info-filter-test)
+
+add_executable(multi-instance-and-device-test multi_instance_and_device_test.cpp)
+target_link_libraries(multi-instance-and-device-test cli-utils fossilize)
+set_target_properties(multi-instance-and-device-test PROPERTIES LINK_FLAGS "${FOSSILIZE_LINK_FLAGS}")
+
+add_executable(object-cache-test object_cache_test.cpp)
+target_link_libraries(object-cache-test fossilize)
+set_target_properties(object-cache-test PROPERTIES LINK_FLAGS "${FOSSILIZE_LINK_FLAGS}")
+add_test(NAME object-cache-test COMMAND object-cache-test)
+
+if (NOT WIN32)
+    add_executable(futex-test futex_test.cpp)
+    target_link_libraries(futex-test fossilize -pthread)
+    if (APPLE)
+        add_test(NAME spinlock-futex-test COMMAND futex-test)
+    else()
+        add_test(NAME linux-futex-test COMMAND futex-test)
+    endif()
+endif()
+

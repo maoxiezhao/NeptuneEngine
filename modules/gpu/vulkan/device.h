@@ -116,7 +116,11 @@ private:
     Util::TempHashMap<FrameBufferNode, 8, false> framebuffers;
 };
 
+#ifdef VULKAN_TEST_FOSSILIZE
 class DeviceVulkan
+#else
+class DeviceVulkan
+#endif
 {
 public:
     VkDevice device = VK_NULL_HANDLE;
@@ -285,6 +289,10 @@ public:
 private:
 #ifdef VULKAN_TEST_FILESYSTEM
     void InitShaderManagerCache();
+#endif
+
+#ifdef VULKAN_TEST_FOSSILIZE
+    
 #endif
 
 private:

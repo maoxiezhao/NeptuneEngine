@@ -27,6 +27,9 @@
 
 #define VULKAN_DEBUG
 
+//fossilize
+#define VULKAN_TEST_FOSSILIZE
+
 namespace VulkanTest
 {
 namespace GPU

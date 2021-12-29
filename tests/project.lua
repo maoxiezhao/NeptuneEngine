@@ -15,7 +15,8 @@ local function create_test_instance(name, source_files)
 end 
 
 group "tests"
-create_test_instance("bindlessTest", { "bindlessTest.cpp"} )
-create_test_instance("triangleTest", { "triangleTest.cpp"} )
+create_test_instance("bindlessTest",  { "bindlessTest.cpp"} )
+create_test_instance("triangleTest",  { "triangleTest.cpp"} )
 create_test_instance("particleDream", { "particleDream.cpp"} )
+create_test_instance("jobsystemTest", { "triangleTest.cpp"} )
 group ""
