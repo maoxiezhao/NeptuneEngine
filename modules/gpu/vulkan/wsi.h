@@ -5,7 +5,6 @@
 
 namespace VulkanTest
 {
-class Platform;
 
 enum class PresentMode
 {

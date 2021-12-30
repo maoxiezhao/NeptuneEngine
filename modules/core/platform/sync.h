@@ -33,7 +33,7 @@ namespace VulkanTest
 		U8 data[60];
 	};
 
-	class ScopedMutex
+	class VULKAN_TEST_API ScopedMutex
 	{
 	public:
 		ScopedMutex(Mutex& mutex_) :
@@ -54,7 +54,7 @@ namespace VulkanTest
 		Mutex& mutex;
 	};
 
-	class Semaphore
+	class VULKAN_TEST_API Semaphore
 	{
 	public:
 		Semaphore(I32 initialCount, I32 maximumCount, const char* debugName_ = nullptr);
@@ -73,5 +73,66 @@ namespace VulkanTest
 #ifdef DEBUG
 		const char* debugName = nullptr;
 #endif
+	};
+
+	// just used for ConditionVariable, use Mutex in general
+	class alignas(8) VULKAN_TEST_API ConditionMutex
+	{
+	public:
+		ConditionMutex();
+		~ConditionMutex();
+		ConditionMutex(ConditionMutex&& rhs);
+
+		void Enter();
+		void Exit();
+
+	private:
+		friend class ConditionVariable;
+
+		ConditionMutex(const ConditionMutex& rhs) = delete;
+		ConditionMutex& operator=(const ConditionMutex& rhs) = delete;
+
+		U8 implData[8];
+	};
+
+	class VULKAN_TEST_API ConditionVariable
+	{
+	public:
+		ConditionVariable();
+		ConditionVariable(ConditionVariable&& rhs);
+		~ConditionVariable();
+
+		void Sleep(ConditionMutex& lock);
+		void Wakeup();
+
+	private:
+		ConditionVariable(const ConditionVariable&) = delete;
+
+		U8 implData[64];
+	};
+
+	class VULKAN_TEST_API Thread
+	{
+	public:
+		static const I32 DEFAULT_STACK_SIZE = 0x8000;
+
+		Thread();
+		~Thread();
+
+		void SetAffinity(U64 mask);
+		bool IsValid()const;
+		void Sleep(ConditionMutex& lock);
+		void Wakeup();
+		bool IsFinished()const;
+		bool Create(const char* name);
+		void Destroy();
+
+		virtual int Task() { return 0; };
+
+	private:
+		Thread(const Thread& rhs) = delete;
+		Thread& operator=(const Thread& rhs) = delete;
+
+		struct ThreadImpl* impl = nullptr;
 	};
 }

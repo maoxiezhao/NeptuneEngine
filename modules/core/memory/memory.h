@@ -254,7 +254,6 @@ namespace VulkanTest
 	class LocalPtr
 	{
 	public:
-		LocalPtr(const LocalPtr&) = delete;
 		void operator =(const LocalPtr&) = delete;
 
 		~LocalPtr()

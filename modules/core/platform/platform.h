@@ -12,7 +12,7 @@
 #endif
 #endif
 
-#include "common.h"
+#include "core\common.h"
 #include "file.h"
 
 #include <string.h>
