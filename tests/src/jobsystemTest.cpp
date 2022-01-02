@@ -5,6 +5,7 @@
 #include "core\platform\platform.h"
 
 #include <coroutine>
+#include <chrono>
 
 using namespace VulkanTest;
 
@@ -24,8 +25,9 @@ int main()
     } 
     testData;
 
+    auto time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     Jobsystem::JobHandle handle = Jobsystem::INVALID_HANDLE;
-    for(int i = 0; i < 20; i++)
+    for(int i = 0; i < 200; i++)
     { 
         Jobsystem::JobInfo jobInfo = {};
         jobInfo.name = "Test";
@@ -34,17 +36,24 @@ int main()
         jobInfo.data = &testData;
         jobInfo.jobFunc = [](void* data) {
             TestData* testData = reinterpret_cast<TestData*>(data);
+            
+            Jobsystem::JobHandle handle = Jobsystem::INVALID_HANDLE;
+            Jobsystem::Run(testData, [](void* data) {
+                TestData* testData = reinterpret_cast<TestData*>(data);
+                testData->value-=2;
+            }, & handle);
+            Jobsystem::Wait(handle);
+
             testData->value++;
-            Platform::Sleep(1);
             return;
         };
         Jobsystem::Run(jobInfo, &handle);
     }
 
     Jobsystem::Wait(handle);
-
+    time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count() - time;
     std::cout << "Test value:" << testData.value << std::endl;
-
+    std::cout << "Wait time:" << time << std::endl;
     Jobsystem::ShowDebugInfo();
     Jobsystem::Uninitialize();
 	return 0;

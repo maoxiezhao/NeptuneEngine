@@ -70,7 +70,7 @@ namespace Jobsystem
 
         JobHandle AllocateHandle();
         void IncHandle(JobHandle* jobHandle);
-        void DecHandle(JobHandle* jobHandle);
+        void DecHandle(JobHandle jobHandle);
         bool IsHandleValid(JobHandle jobHandle)const;
         bool IsHandleZero(JobHandle jobHandle, bool isLock);
         void ReleaseHandle(JobHandle jobHandle, bool isLock);
@@ -163,15 +163,15 @@ namespace Jobsystem
             *jobHandle = AllocateHandle();
     }
 
-    void ManagerImpl::DecHandle(JobHandle* jobHandle)
+    void ManagerImpl::DecHandle(JobHandle jobHandle)
     {
-        ASSERT(jobHandle != nullptr);
         ScopedMutex lock(sync);
-        I32 value = AtomicDecrement(&handleCounters[*jobHandle & HANDLE_ID_MASK].value);
-        if (value > 0)
+        JobCounter& counter = handleCounters[jobHandle & HANDLE_ID_MASK];
+        counter.value--;
+        if (counter.value > 0)
             return;
 
-        ReleaseHandle(*jobHandle, false);
+        ReleaseHandle(jobHandle, false);
     }
 
     bool ManagerImpl::IsHandleValid(JobHandle jobHandle)const
@@ -201,14 +201,13 @@ namespace Jobsystem
             JobCounter& counter = handleCounters[iter & HANDLE_ID_MASK];
             if (counter.nextJob.task != nullptr)
             {
-                jobQueueLock.Enter();
+                ScopedConditionMutex lock(jobQueueLock);
                 PushJob(counter.nextJob);
-                jobQueueLock.Exit();
             }
 
-            counter.generation = ((counter.generation >> 16) & 0xffff + 1) << 16;
-            counter.nextJob.task = nullptr;
+            counter.generation = (((counter.generation >> 16) + 1) & 0xffff) << 16;
             handlePool.push_back(iter & HANDLE_ID_MASK | counter.generation);
+            counter.nextJob.task = nullptr;
             iter = counter.sibling;
         }
         if (isLock) sync.Unlock();
@@ -395,7 +394,6 @@ namespace Jobsystem
             }
 
             gManager->sync.Unlock();
-            return;
         }
         else
         {
@@ -504,7 +502,7 @@ namespace Jobsystem
                 currentFiber->currentJob.task = nullptr;
 
                 if (gManager->IsHandleValid(job.finishHandle))
-                    gManager->DecHandle(&job.finishHandle);
+                    gManager->DecHandle(job.finishHandle);
 
                 worker = GetWorker();
             }
