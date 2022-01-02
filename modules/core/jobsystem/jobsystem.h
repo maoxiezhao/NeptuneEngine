@@ -6,6 +6,8 @@ namespace VulkanTest
 {
 namespace Jobsystem
 {
+#define JOB_SYSTEM_DEBUG
+
     using JobHandle = U32;
     constexpr JobHandle INVALID_HANDLE = 0xFFFFFFFF;
 
@@ -41,5 +43,9 @@ namespace Jobsystem
     void Run(void*data, JobFunc func, JobHandle* handle);
     void RunEx(void* data, JobFunc func, JobHandle* handle, JobHandle precondition);
     void Wait(JobHandle handle);
+
+#ifdef JOB_SYSTEM_DEBUG
+    void ShowDebugInfo();
+#endif
 }
 }

@@ -309,6 +309,7 @@ namespace VulkanTest
 		{
 			::WaitForSingleObject(impl->threadHandle, INFINITE);
 			::CloseHandle(impl->threadHandle);
+			impl->threadHandle = nullptr;
 		}
 	}
 }

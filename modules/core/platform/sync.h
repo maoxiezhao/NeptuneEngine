@@ -95,6 +95,27 @@ namespace VulkanTest
 		U8 implData[8];
 	};
 
+	class VULKAN_TEST_API ScopedConditionMutex
+	{
+	public:
+		ScopedConditionMutex(ConditionMutex& mutex_) :
+			mutex(mutex_)
+		{
+			mutex.Enter();
+		}
+
+		~ScopedConditionMutex()
+		{
+			mutex.Exit();
+		}
+
+	private:
+		ScopedConditionMutex(const ConditionMutex& rhs) = delete;
+		ScopedConditionMutex(ConditionMutex&& rhs) = delete;
+
+		ConditionMutex& mutex;
+	};
+
 	class VULKAN_TEST_API ConditionVariable
 	{
 	public:
