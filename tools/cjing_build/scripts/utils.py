@@ -86,6 +86,13 @@ support_vs_version = [
     "vs2019"
 ]
 
+custom_vs_dir_path = ""
+
+def set_custom_vs_dir(path):
+    global custom_vs_dir_path
+    custom_vs_dir_path = path
+    print("set_custom_vs_dir:", path)
+
 def locate_msbuild():
     vs_root_dir = locate_vs_root()
     if len(vs_root_dir) <= 0:
@@ -116,6 +123,9 @@ def locate_laste_vs_version():
     return ret
 
 def locate_vs_root():
+    if custom_vs_dir_path != "":
+        return custom_vs_dir_path
+
     vs_root = ""
     vs_directory_name = "Microsoft Visual Studio"
     programfiles = [ "PROGRAMFILES", "PROGRAMFILES(X86)"]
@@ -124,6 +134,7 @@ def locate_vs_root():
         if env_dir:
             if vs_directory_name in os.listdir(env_dir):
                 vs_root = os.path.join(env_dir, vs_directory_name)
+
     return vs_root
     
 

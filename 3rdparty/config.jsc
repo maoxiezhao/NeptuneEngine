@@ -7,6 +7,9 @@
         cjing_build_dir : "../tools/cjing_build",
     },
 
+    // custom visual studio dir
+    custom_vs_dir_path : "C:\\Program Files (x86)\\Microsoft Visual Studio",
+
     ///////////////////////////////////////////////////////////////////
     // platform tools
     tools<Windows>: 

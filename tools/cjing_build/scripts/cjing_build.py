@@ -338,7 +338,6 @@ def set_user_config_vc_vars(config):
         return
     else:
         print("error:Cannot find vcvarsall.bat")
-        print("error:Some task is invalid")
         exit(1)
     
 # 构建user config，主要用于获取winsdk version和vs version
@@ -350,6 +349,9 @@ def set_user_config(config):
         user_cfg = json.loads(open("config_user.jsc", "r").read())
 
     if utils.get_platform_name() == "win32":
+        if "custom_vs_dir_path" in config.keys():
+            utils.set_custom_vs_dir(config["custom_vs_dir_path"])
+
         set_user_config_vs_version(user_cfg["user_vars"])
         set_user_config_vc_vars(user_cfg["user_vars"])
         set_user_config_winsdk_version(user_cfg["user_vars"])
@@ -358,7 +360,6 @@ def set_user_config(config):
     if os.path.exists("config_user.jsc"):
         user_cfg = json.loads(open("config_user.jsc", "r").read())
         utils.merge_dicts(config, user_cfg)
-
 
 def print_help(config):
     print("-----------------------------------------------------------------------")
