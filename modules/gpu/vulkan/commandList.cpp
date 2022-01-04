@@ -400,6 +400,7 @@ void CommandList::BeginGraphicsContext()
     dirtySets = ~0u;
     memset(bindings.cookies, 0, sizeof(bindings.cookies));
     memset(vbos.buffers, 0, sizeof(vbos.buffers));
+    memset(&indexState, 0, sizeof(indexState));
     pipelineState.shaderProgram = nullptr;
     currentPipeline = VK_NULL_HANDLE;
     currentPipelineLayout = VK_NULL_HANDLE;
@@ -413,6 +414,8 @@ void CommandList::EndCommandBuffer()
 
     if (vboBlock.mapped != nullptr)
         device.RequestVertexBufferBlock(vboBlock, 0);
+    if (iboBlock.mapped != nullptr)
+        device.RequestIndexBufferBlock(iboBlock, 0);
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
@@ -435,6 +438,22 @@ void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDevice
     }
 
     BindVertexBuffer(vboBlock.cpuBuffer, binding, data.offset, stride, inputRate);
+    return data.data;
+}
+
+void* CommandList::AllocateIndexBuffer(VkDeviceSize size, VkIndexType indexType)
+{
+    if (!iboBlock.IsAllocated())
+        device.RequestIndexBufferBlock(iboBlock, size);
+
+    auto data = iboBlock.Allocate(size);
+    if (data.data == nullptr)
+    {
+        device.RequestIndexBufferBlock(iboBlock, size);
+        data = iboBlock.Allocate(size);
+    }
+
+    BindIndexBuffer(iboBlock.cpuBuffer, data.offset, indexType);
     return data.data;
 }
 
@@ -466,8 +485,17 @@ void CommandList::BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDevic
     vbos.inputRate[binding] = inputRate;
 }
 
-void CommandList::BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset)
+void CommandList::BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset, VkIndexType indexType)
 {
+    if (indexState.buffer == buffer->GetBuffer() &&
+        indexState.offset == offset &&
+        indexState.indexType == indexType)
+        return;
+    
+    indexState.buffer = buffer->GetBuffer();
+    indexState.offset = offset;
+    indexState.indexType = indexType;
+    vkCmdBindIndexBuffer(cmd, indexState.buffer, indexState.offset, indexState.indexType);
 }
 
 void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range)
@@ -534,6 +562,7 @@ void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
 
 void CommandList::DrawIndexed(U32 indexCount, U32 firstIndex, U32 vertexOffset)
 {
+    ASSERT(indexState.buffer != VK_NULL_HANDLE);
     if (FlushRenderState())
     {
         vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);

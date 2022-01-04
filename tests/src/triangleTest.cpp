@@ -11,22 +11,23 @@ namespace VulkanTest
     class TestApp : public App
     {
     private:
-        Vec2 vertices[6] = {
+        Vec2 vertices[4] = {
             Vec2(-0.5f, -0.5f),
             Vec2(-0.5f, +0.5f),
             Vec2(+0.5f, +0.5f),
-            Vec2(+0.5f, +0.5f),
             Vec2(+0.5f, -0.5f),
-            Vec2(-0.5f, -0.5f)
         };
 
-        Vec2 uvs[6] = {
-            Vec2(0.0f,  0.0f),
+        Vec2 uvs[4] = {
+            Vec2(0.0f, 0.0f),
             Vec2(0.0f, 1.0f),
             Vec2(1.0f, 1.0f),
-            Vec2(1.0f, 1.0f),
             Vec2(1.0f, 0.0f),
-            Vec2(0.0f, 0.0f)
+        };
+
+        U32 indices[6] = {
+            0, 1, 2,
+            0, 2, 3 
         };
 
         GPU::ImagePtr images[4];
@@ -42,6 +43,9 @@ namespace VulkanTest
 
         void Initialize() override
         {
+            if (!wsi.Initialize(1))
+                return;
+
             GPU::TextureFormatLayout formatLayout;
             formatLayout.SetTexture2D(VK_FORMAT_R8G8B8A8_SRGB, 1, 1);
 
@@ -110,8 +114,11 @@ namespace VulkanTest
                     memcpy(uvBuf, uvs, sizeof(uvs));
                     cmd->SetVertexAttribute(0, 0, VK_FORMAT_R32G32_SFLOAT, 0);
                     cmd->SetVertexAttribute(1, 1, VK_FORMAT_R32G32_SFLOAT, 0);
+                    
+                    U32* indexBuffer = static_cast<U32*>(cmd->AllocateIndexBuffer(sizeof(indices), VK_INDEX_TYPE_UINT32));
+                    memcpy(indexBuffer, indices, sizeof(indices));
 
-                    cmd->Draw(6);
+                    cmd->DrawIndexed(6);
                 }
             }
             cmd->EndRenderPass();

@@ -45,6 +45,13 @@ struct VertexBindingState
     VkVertexInputRate inputRate[VULKAN_NUM_VERTEX_BUFFERS];
 };
 
+struct IndexBindingState
+{
+    VkBuffer buffer;
+	VkDeviceSize offset;
+	VkIndexType indexType;
+};
+
 struct CompiledPipelineState
 {
 	ShaderProgram* shaderProgram = nullptr;
@@ -105,6 +112,7 @@ private:
     VkPipelineStageFlags swapchainStages = 0;
     U32 activeVBOs = 0;
     VertexBindingState vbos;
+    IndexBindingState indexState;
 
     CompiledPipelineState pipelineState = {};
     PipelineLayout* currentLayout = nullptr;
@@ -115,6 +123,7 @@ private:
     U32 dirtyVbos = 0;
 
     BufferBlock vboBlock;
+    BufferBlock iboBlock;
 
     // render pass runtime 
     FrameBuffer* frameBuffer = nullptr;
@@ -130,9 +139,10 @@ public:
     void EndRenderPass();
     void BindPipelineState(const CompiledPipelineState& pipelineState_);
     void* AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate);
+    void* AllocateIndexBuffer(VkDeviceSize size, VkIndexType indexType);
     void SetVertexAttribute(U32 attribute, U32 binding, VkFormat format, VkDeviceSize offset);
     void BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride, VkVertexInputRate inputRate);
-    void BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset);
+    void BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset, VkIndexType indexType);
     
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
     void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);

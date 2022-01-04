@@ -173,6 +173,7 @@ public:
 
         // buffer blocks
         std::vector<BufferBlock> vboBlocks;
+        std::vector<BufferBlock> iboBlocks;
 
         FrameResource(DeviceVulkan& device_);
         ~FrameResource();
@@ -192,6 +193,7 @@ public:
 
     // buffer pools
     BufferPool vboPool;
+    BufferPool iboPool;
 
     // vulkan object cache
     VulkanCache<Shader> shaders;
@@ -239,6 +241,7 @@ public:
     ImmutableSampler* RequestImmutableSampler(const SamplerCreateInfo& createInfo);
     
     void RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size);
+    void RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);

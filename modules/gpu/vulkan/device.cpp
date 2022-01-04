@@ -260,7 +260,8 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     InitFrameContext();
 
     // Init buffer pools
-    vboPool.Init(this, 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
+    vboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
+    iboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 256);
 
     // Init bindless descriptor set allocator
     InitBindless();
@@ -647,6 +648,11 @@ ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo&
 void DeviceVulkan::RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size)
 {
     RequestBufferBlock(block, size, vboPool, CurrentFrameResource().vboBlocks);
+}
+
+void DeviceVulkan::RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size)
+{
+    RequestBufferBlock(block, size, iboPool, CurrentFrameResource().iboBlocks);
 }
 
 void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle)
@@ -1369,9 +1375,11 @@ void DeviceVulkan::WaitIdle()
 
     // Clear buffer pools
     vboPool.Reset();
+    iboPool.Reset();
     for (auto& frame : frameResources)
     {
         frame->vboBlocks.clear();
+        frame->iboBlocks.clear();
     }
 
     frameBufferAllocator.Clear();
@@ -1659,7 +1667,10 @@ void DeviceVulkan::FrameResource::Begin()
     // Recycle buffer blocks
     for (auto& block : vboBlocks)
         device.vboPool.RecycleBlock(block);
+    for (auto& block : iboBlocks)
+        device.iboPool.RecycleBlock(block);
     vboBlocks.clear();
+    iboBlocks.clear();
 
     // clear destroyed resources
     for (auto& buffer : destroyedFrameBuffers)
