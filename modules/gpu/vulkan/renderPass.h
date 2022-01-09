@@ -31,6 +31,9 @@ struct RenderPassInfo
     VkRect2D renderArea = { { 0, 0 }, { UINT32_MAX, UINT32_MAX } };
     RenderPassOpFlags opFlags = 0;
 
+    VkClearColorValue clearColor[VULKAN_NUM_ATTACHMENTS] = {};
+    VkClearDepthStencilValue clearDepthStencil = { 1.0f, 0 };
+
     struct SubPass
     {
         uint32_t colorAttachments[VULKAN_NUM_ATTACHMENTS] = {};

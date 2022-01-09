@@ -112,7 +112,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 {
 	uint32_t numAttachments = info.numColorAttachments + (info.depthStencil != nullptr ? 1 : 0);
 	U32 implicitTransitions = 0;
-	U32 implicitBottomOfPipe = 0;	// ���߽����׶ε���ʽת��
+	U32 implicitBottomOfPipe = 0;
 
 	// Color attachments
 	VkAttachmentDescription attachments[VULKAN_NUM_ATTACHMENTS + 1] = {};
@@ -139,7 +139,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 			attachment.finalLayout = image->GetSwapchainLayout();
 
-			// ������Ǵ�PRESENT_SRC_KHR��ʼTransition�������һ��external subpass dependency������BOTTOM_OF_PIPE.
+			// 如果我们从PRESENT_SRC_KHR开始Transition，会存在一个external subpass dependency发生在BOTTOM_OF_PIPE.
 			if (attachment.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
 				implicitBottomOfPipe |= 1u << i;
 
@@ -250,15 +250,15 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 	unsigned lastSubpassForAttachment[VULKAN_NUM_ATTACHMENTS + 1] = {};
 
-	// subpass���attchament������mask,���ڹ���subpass֮���dependency stageMask
+	// subpass相关attchament操作的mask,用于构建subpass之间的dependency stageMask
 	U32 colorAttachmentReadWriteSubpassMask = 0;
 	U32 inputAttachmentReadSubpassMask = 0;
 	U32 depthAttachmentWriteSubpassMask = 0;
 	U32 depthAttachmentReadSubpassMask = 0;
 
-	// ����ÿһ��Attachemnt������ص�Subpasses
-	// ����Attachment�ڶ�Ӧsubpass�׶���ʹ�õ�layout(AttachmentReference)
-	// ͬʱ��ȡ����ⲿ����(color,depth, input)
+	// 处理每一个Attachemnt及其相关的Subpasses
+	// 设置Attachment在对应subpass阶段所使用的layout(AttachmentReference)
+	// 同时获取相关外部依赖(color,depth, input)
 
 	U32 externalColorDependencies = 0;
 	U32 externalDepthDependencies = 0;
@@ -287,7 +287,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 				continue;
 			}
 
-			// attachment����TransientImage����SwapchainImage
+			// attachment属于TransientImage或者SwapchainImage
 			if (!used && (implicitTransitions & attachmenBit))
 			{
 				if (color != nullptr)
@@ -298,7 +298,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 					externalDepthDependencies |= 1u << subpass;
 			}
 
-			// ���ò���implicitBottomOfPipe��subpass
+			// 设置参与implicitBottomOfPipe的subpass
 			if (!used && (implicitBottomOfPipe & attachmenBit))
 				externalSubpassBottomOfPipeDependencies |= 1u << subpass;
 
@@ -312,7 +312,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 				if (!used && attachments[attachment].initialLayout != VK_IMAGE_LAYOUT_UNDEFINED)
 					attachments[attachment].initialLayout = currentLayout;
 
-				// ����ǵ�һ��ת��layout��subpass,������Ҫע��һ��external subpass dependency
+				// 如果是第一个转移layout的subpass,我们需要注入一个external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 				{
 					externalColorDependencies |= 1u << subpass;
@@ -330,7 +330,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 				color->layout = currentLayout;
 
-				// ����ǵ�һ��ת��layout��subpass,������Ҫע��һ��external subpass dependency
+				// 如果是第一个转移layout的subpass,我们需要注入一个external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 					externalColorDependencies |= 1u << subpass;
 
@@ -353,7 +353,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 						currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				}
 
-				// ����ǵ�һ��ת��layout��subpass,������Ҫע��һ��external subpass dependency
+				// 如果是第一个转移layout的subpass,我们需要注入一个external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 				{
 					externalDepthDependencies |= 1u << subpass;
@@ -380,7 +380,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 						currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				}
 
-				// ����ǵ�һ��ת��layout��subpass,������Ҫע��һ��external subpass dependency
+				// 如果是第一个转移layout的subpass,我们需要注入一个external subpass dependency
 				if (!used && attachments[attachment].initialLayout != currentLayout)
 					externalDepthDependencies |= 1u << subpass;
 
@@ -397,7 +397,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		}
 		assert(used);
 
-		// �����ǰattachmentδ����finalLayout����ʹ�þ���pass���currentLayout
+		// 如果当前attachment未设置finalLayout，则使用经过pass后的currentLayout
 		if (attachments[attachment].finalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		{
 			attachments[attachment].finalLayout = currentLayout;
