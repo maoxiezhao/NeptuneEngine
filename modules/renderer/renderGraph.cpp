@@ -6,35 +6,18 @@
 
 namespace VulkanTest
 {
-    struct ResourceDimensions
+    struct Barrier
     {
-        VkFormat format = VK_FORMAT_UNDEFINED;
-        U32 width = 0;
-        U32 height = 0;
-        U32 depth = 1;
-        U32 layers = 1;
-        U32 levels = 1;
-        U32 samples = 1;
-        String name;
-        U32 queues = 0;
-        VkImageUsageFlags imageUsage = 0;
-        bool isTransient = false;
-        BufferInfo bufferInfo = {};
+        U32 resIndex = 0;
+        VkPipelineStageFlags stages = 0;
+        VkAccessFlags access = 0;
+        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    };
 
-        bool operator==(const ResourceDimensions& other) const
-        {
-            return format == other.format &&
-                width == other.width &&
-                height == other.height &&
-                depth == other.depth &&
-                layers == other.layers &&
-                levels == other.levels;
-        }
-
-        bool operator!=(const ResourceDimensions& other) const
-        {
-            return !(*this == other);
-        }
+    struct PassBarrier
+    {
+        std::vector<Barrier> invalidate;
+        std::vector<Barrier> flush;
     };
 
     struct ColorClearRequest
@@ -76,6 +59,7 @@ namespace VulkanTest
 
         std::vector<U32> passStack;
         std::vector<std::unordered_set<U32>> passDependency;
+        std::vector<PassBarrier> passBarriers;
 
         void HandlePassRecursive(RenderPass& self, const std::unordered_set<U32>& writtenPass, U32 stackCount);
         void TraverseDependencies(RenderPass& renderPass, U32 stackCount);
@@ -86,9 +70,11 @@ namespace VulkanTest
         void BuildTransientResources();
         void BuildRenderPassInfo();
         void BuildBarriers();
+        void BuildPhysicalBarriers();
 
         std::vector<ResourceDimensions> physicalDimensions;
         ResourceDimensions swapchainDimensions;
+        U32 swapchainPhysicalIndex = 0;
         std::vector<PhysicalPass> physicalPasses;
 
         ResourceDimensions CreatePhysicalDimensions(const RenderTextureResource& res)
@@ -162,8 +148,8 @@ namespace VulkanTest
 
         for (auto res : renderPass.GetInputTextures())
         {
-            if (res != nullptr)
-                HandlePassRecursive(renderPass, res->GetWrittenPasses(), stackCount);
+            if (res.texture != nullptr)
+                HandlePassRecursive(renderPass, res.texture->GetWrittenPasses(), stackCount);
         }
     }
 
@@ -274,7 +260,7 @@ namespace VulkanTest
 
             for (auto& input : pass->GetInputTextures())
             {
-                AddImagePhysicalDimension(input);
+                AddImagePhysicalDimension(input.texture);
             }
 
             for (auto& output : pass->GetOutputColors())
@@ -333,9 +319,9 @@ namespace VulkanTest
             // Check dependency
             for (auto& input : nextPass.GetInputTextures())
             {
-                if (FindTexture(prevPass.GetOutputColors(), input))
+                if (FindTexture(prevPass.GetOutputColors(), input.texture))
                     return false;
-                if (prevPass.GetOutputDepthStencil() == input)
+                if (prevPass.GetOutputDepthStencil() == input.texture)
                     return false;
             }
             for (auto& input : nextPass.GetInputBuffers())
@@ -606,6 +592,141 @@ namespace VulkanTest
 
     void RenderGraphImpl::BuildBarriers()
     {
+        passBarriers.clear();
+        passBarriers.reserve(passStack.size());
+
+        auto GetAccessBarrier = [&](std::vector<Barrier> barriers, U32 index)->Barrier& {
+            auto it = std::find_if(barriers.begin(), barriers.end(), [&](const Barrier& barrier) {
+                return barrier.resIndex == index;
+            });
+            if (it != barriers.end())
+                return *it;
+
+            barriers.push_back({index, 0, 0, VK_IMAGE_LAYOUT_UNDEFINED });
+            return barriers.back();
+        };
+        for (auto& passIndex : passStack)
+        {
+            auto& pass = *renderPasses[passIndex];
+            PassBarrier passBarrier;
+
+            /////////////////////////////////////////////////////////////////////
+            // Input
+            // Push into validate list
+            auto GetInvalidateAccess = [&](U32 index)->Barrier& {
+                return GetAccessBarrier(passBarrier.invalidate, index);
+            };
+            for (auto& tex : pass.GetInputTextures())
+            {
+                Barrier& barrier = GetInvalidateAccess(tex.texture->GetPhysicalIndex());
+                barrier.access |= tex.access;
+                barrier.stages |= tex.stages;
+                barrier.layout = tex.layout;
+            }
+
+            /////////////////////////////////////////////////////////////////////
+            // Output
+            // Push into flush list
+            auto GetFlushAccess = [&](U32 index)->Barrier& {
+                return GetAccessBarrier(passBarrier.flush, index);
+            };
+            for (auto& color : pass.GetOutputColors())
+            {
+                Barrier& barrier = GetFlushAccess(color->GetPhysicalIndex());
+                barrier.access |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                barrier.stages |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+                // Set VK_IMAGE_LAYOUT_GENERAL if the attachment is also bound as an input attachment(ReadTexture)
+                if (barrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
+                    barrier.layout == VK_IMAGE_LAYOUT_GENERAL)
+                {
+                    barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
+                }
+                else if (barrier.layout == VK_IMAGE_LAYOUT_UNDEFINED)
+                {
+                    barrier.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                }
+            }
+
+            /////////////////////////////////////////////////////////////////////
+            // Depth stencil
+            auto* dsInput = pass.GetInputDepthStencil();
+            auto* dsOutput = pass.GetOutputDepthStencil();
+            if (dsInput && dsOutput)
+            {
+                Barrier& inputBarrier = GetInvalidateAccess(dsInput->GetPhysicalIndex());
+                if (inputBarrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                    inputBarrier.layout = VK_IMAGE_LAYOUT_GENERAL;
+                else
+                    inputBarrier.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                inputBarrier.access |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                inputBarrier.stages |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+
+                Barrier& outputBarrier = GetFlushAccess(dsOutput->GetPhysicalIndex());
+                outputBarrier.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                outputBarrier.access |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                outputBarrier.stages |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            }
+            else if (dsOutput)
+            {
+                Barrier& barrier = GetFlushAccess(dsOutput->GetPhysicalIndex());
+                if (barrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                    barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
+                else
+                    barrier.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                
+                barrier.access |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                barrier.stages |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            }
+            else if (dsInput)
+            {
+                Barrier& barrier = GetInvalidateAccess(dsInput->GetPhysicalIndex());
+                barrier.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+                barrier.access |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+                barrier.stages |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            }
+
+            passBarriers.push_back(std::move(passBarrier));
+        }
+    }
+
+    void RenderGraphImpl::BuildPhysicalBarriers()
+    {
+        struct ResourceState
+        {
+
+        };
+        std::vector<ResourceState> resourceStates;
+        resourceStates.resize(physicalDimensions.size());
+
+        for (U32 physicalPassIndex = 0; physicalPassIndex < physicalPasses.size(); physicalPassIndex++)
+        {
+            auto& physicalPass = physicalPasses[physicalPassIndex];
+            for (auto& subpass : physicalPass.passes)
+            {
+                auto& pass = renderPasses[subpass];
+                auto& passBarrier = passBarriers[subpass];
+                auto& invalidate = passBarrier.invalidate;
+                auto& flush = passBarrier.flush;
+
+                // Invalidate
+                for (auto& barrier : invalidate)
+                {
+
+                }
+
+                // Flush
+                for (auto& barrier : flush)
+                {
+
+                }
+            }
+        }
+
+        for (auto& resState : resourceStates)
+        {
+
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -621,18 +742,33 @@ namespace VulkanTest
     {
     }
 
-    RenderTextureResource& RenderPass::ReadTexture(const char* name)
+    RenderTextureResource& RenderPass::ReadTexture(const char* name, VkPipelineStageFlags stages)
     {
         auto& res = graph.GetOrCreateTexture(name);
         res.AddUsedQueue(queue);
         res.PassRead(index);
         res.SetImageUsage(VK_IMAGE_USAGE_SAMPLED_BIT);
 
-        auto it = std::find(inputTextures.begin(), inputTextures.end(), &res);
+        auto it = std::find_if(inputTextures.begin(), inputTextures.end(), 
+            [&](const AccessedTextureResource& a) {
+                return a.texture == &res;
+            });
         if (it != inputTextures.end())
             return res;
 
-        inputTextures.push_back(&res);
+        AccessedTextureResource acc = {};
+        acc.texture = &res;
+        acc.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        acc.access = VK_ACCESS_SHADER_READ_BIT;
+
+        if (stages != 0)
+            acc.stages = stages;
+        else if ((queue & (U32)RenderGraphQueueFlag::Compute) != 0)
+            acc.stages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        else
+            acc.stages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        inputTextures.push_back(acc);
         return res;
     }
 
@@ -767,7 +903,31 @@ namespace VulkanTest
 
         // Build transient resources which is only used in a single physical pass
         impl->BuildTransientResources();
-        
+
+        // Build GPU::RenderPassInfos
+        impl->BuildRenderPassInfo();
+
+        // Build logical barriers per pass
+        impl->BuildBarriers();
+
+        // Set swapchain physcical index
+        impl->swapchainPhysicalIndex = backbuffer.GetPhysicalIndex();
+        auto& backbufferDim = impl->physicalDimensions[impl->swapchainPhysicalIndex];
+        bool canAliasBackbuffer = (backbufferDim.queues & (U32)RenderGraphQueueFlag::Compute == 0) && backbufferDim.isTransient;
+        if (!canAliasBackbuffer || backbufferDim != impl->swapchainDimensions)
+        {
+            impl->swapchainPhysicalIndex = RenderResource::Unused;
+            backbufferDim.queues |= (U32)RenderGraphQueueFlag::Graphics;
+            backbufferDim.imageUsage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+            backbufferDim.isTransient = false;
+        }
+        else
+        {
+            backbufferDim.isTransient = true;
+        }
+
+        // Build physical barriers which we really need
+        impl->BuildPhysicalBarriers();
     }
     
     void RenderGraph::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)
@@ -806,6 +966,11 @@ namespace VulkanTest
         res.name = name;
         impl->nameToResourceIndex[name] = index;
         return *static_cast<RenderBufferResource*>(&res);
+    }
+
+    void RenderGraph::SetBackbufferDimension(const ResourceDimensions& dim)
+    {
+        impl->swapchainDimensions = dim;
     }
 
 }

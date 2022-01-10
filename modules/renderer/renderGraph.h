@@ -12,10 +12,10 @@ class RenderGraph;
 
 enum class RenderGraphQueueFlag
 {
-    Graphics,
-    Compute,
-    AsyncGraphcs,
-    AsyncCompute
+    Graphics = 1 << 0,
+    Compute = 1 << 1,
+    AsyncGraphcs = 1 << 2,
+    AsyncCompute = 1 << 3,
 };
 
 enum class AttachmentSizeType
@@ -46,6 +46,37 @@ struct BufferInfo
 {
     VkDeviceSize size = 0;
     VkBufferUsageFlags usage = 0;
+};
+
+struct ResourceDimensions
+{
+    VkFormat format = VK_FORMAT_UNDEFINED;
+    U32 width = 0;
+    U32 height = 0;
+    U32 depth = 1;
+    U32 layers = 1;
+    U32 levels = 1;
+    U32 samples = 1;
+    String name;
+    U32 queues = 0;
+    VkImageUsageFlags imageUsage = 0;
+    bool isTransient = false;
+    BufferInfo bufferInfo = {};
+
+    bool operator==(const ResourceDimensions& other) const
+    {
+        return format == other.format &&
+            width == other.width &&
+            height == other.height &&
+            depth == other.depth &&
+            layers == other.layers &&
+            levels == other.levels;
+    }
+
+    bool operator!=(const ResourceDimensions& other) const
+    {
+        return !(*this == other);
+    }
 };
 
 class VULKAN_TEST_API RenderResource
@@ -169,6 +200,19 @@ using ClearColorFunc = std::function<bool(U32 index, VkClearColorValue* value)>;
 class VULKAN_TEST_API RenderPass
 {
 public:
+    enum { Unused = ~0u };
+
+    struct AccessedResource
+    {
+        VkPipelineStageFlags stages = 0;
+        VkAccessFlags access = 0;
+        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    };
+    struct AccessedTextureResource : public AccessedResource
+    {
+        RenderTextureResource* texture = nullptr;
+    };
+
     RenderPass(RenderGraph& graph_, U32 index_, U32 queue_);
     ~RenderPass();
 
@@ -185,7 +229,7 @@ public:
         clearColorCallback = std::move(func);
     }
     
-    RenderTextureResource& ReadTexture(const char* name);
+    RenderTextureResource& ReadTexture(const char* name, VkPipelineStageFlags stages = 0);
     RenderTextureResource& ReadDepthStencil(const char* name);
     RenderTextureResource& WriteColor(const char* name, const AttachmentInfo& info);
     RenderTextureResource& WriteDepthStencil(const char* name, const AttachmentInfo& info);
@@ -197,7 +241,7 @@ public:
     const String& GetName()const { return name; }
     U32 GetIndex()const { return index; }
 
-    const std::vector<RenderTextureResource*>& GetInputTextures()const
+    const std::vector<AccessedTextureResource>& GetInputTextures()const
     {
         return inputTextures;
     }
@@ -261,8 +305,6 @@ public:
         return false;
     }
 
-    enum { Unused = ~0u };
-
     void SetPhysicalIndex(U32 index)
     {
         physicalIndex = index;
@@ -292,7 +334,7 @@ private:
 
     RenderTextureResource* inputDepthStencil;
     RenderTextureResource* outputDepthStencil;
-    std::vector<RenderTextureResource*> inputTextures;
+    std::vector<AccessedTextureResource> inputTextures;
     std::vector<RenderTextureResource*> outputColors;
     std::vector<RenderBufferResource*> inputBuffers;
     std::vector<RenderBufferResource*> outputBuffers;
@@ -316,6 +358,8 @@ public:
 
     RenderTextureResource& GetOrCreateTexture(const char* name);
     RenderBufferResource& GetOrCreateBuffer(const char* name);
+
+    void SetBackbufferDimension(const ResourceDimensions& dim);
 
 private:
     struct RenderGraphImpl* impl;
