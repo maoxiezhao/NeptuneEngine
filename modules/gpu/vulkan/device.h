@@ -15,6 +15,7 @@
 #include "descriptorSet.h"
 #include "TextureFormatLayout.h"
 #include "sampler.h"
+#include "event.h"
 
 #include <array>
 #include <set>
@@ -140,6 +141,7 @@ public:
     Util::ObjectPool<Buffer> buffers;
     Util::ObjectPool<BufferView> bufferViews;
     Util::ObjectPool<ImageView> imageViews;
+    Util::ObjectPool<Event> eventPool;
 
     // per frame resource
     struct FrameResource
@@ -157,6 +159,7 @@ public:
         std::vector<VkBufferView> destroyedBufferViews;
         std::vector<VkDescriptorPool> destroyedDescriptorPool;
         std::vector<VkSampler> destroyedSamplers;
+        std::vector<VkEvent> destroyedEvents;
 
         // memory
         std::vector<DeviceAllocation> destroyedAllocations;
@@ -208,6 +211,7 @@ public:
     // vulkan object managers
     FenceManager fencePoolManager;
     SemaphoreManager semaphoreManager;
+    EventManager eventManager;
     TransientAttachmentAllcoator transientAllocator;
     FrameBufferAllocator frameBufferAllocator;
     DeviceAllocator memory;
@@ -231,6 +235,7 @@ public:
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
     PipelineLayout& RequestPipelineLayout(const CombinedResourceLayout& resLayout);
     SemaphorePtr RequestSemaphore();
+    EventPtr RequestEvent();
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
@@ -263,6 +268,7 @@ public:
     void ReleaseDescriptorPool(VkDescriptorPool pool);
     void ReleaseSemaphore(VkSemaphore semaphore);
     void RecycleSemaphore(VkSemaphore semaphore);
+    void ReleaseEvent(VkEvent ent);
     void FreeMemory(const DeviceAllocation& allocation);
 
     void* MapBuffer(const Buffer& buffer, MemoryAccessFlags flags);

@@ -43,6 +43,18 @@ namespace VulkanTest
         std::vector<ColorClearRequest> colorClearRequests;
         DepthClearRequest depthClearRequest;
         U32 physicalDepthStencilAttachment = RenderResource::Unused;
+        std::vector<Barrier> invalidate;
+        std::vector<Barrier> flush;
+        std::vector<unsigned> discards;
+        std::vector<std::pair<U32, U32>> aliasTransfers;
+    };
+
+    struct GPUPassSubmissionState
+    {
+        bool active = false;
+        GPU::CommandListPtr cmd;
+
+        void Submit();
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -71,11 +83,15 @@ namespace VulkanTest
         void BuildRenderPassInfo();
         void BuildBarriers();
         void BuildPhysicalBarriers();
+        void BuildAliases();
+
+        void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
 
         std::vector<ResourceDimensions> physicalDimensions;
         ResourceDimensions swapchainDimensions;
         U32 swapchainPhysicalIndex = 0;
         std::vector<PhysicalPass> physicalPasses;
+        std::vector<GPUPassSubmissionState> submissionStates;
 
         ResourceDimensions CreatePhysicalDimensions(const RenderTextureResource& res)
         {
@@ -694,7 +710,12 @@ namespace VulkanTest
     {
         struct ResourceState
         {
-
+            VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            VkAccessFlags invalidatedTypes = 0;
+            VkAccessFlags flushedTypes = 0;
+            VkPipelineStageFlags invalidatedStages = 0;
+            VkPipelineStageFlags flushedStages = 0;
         };
         std::vector<ResourceState> resourceStates;
         resourceStates.resize(physicalDimensions.size());
@@ -712,21 +733,260 @@ namespace VulkanTest
                 // Invalidate
                 for (auto& barrier : invalidate)
                 {
+                    auto& resState = resourceStates[barrier.resIndex];
+                    auto& dim = physicalDimensions[barrier.resIndex];
+                    if (dim.isTransient || barrier.resIndex == swapchainPhysicalIndex)
+                        continue;
 
+                    // Find a physical pass first use of the resource
+                    if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+                    {
+                        resState.invalidatedTypes |= barrier.access;
+                        resState.invalidatedStages |= barrier.stages;
+
+                        if ((dim.imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0)
+                            resState.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+                        else
+                            resState.initialLayout = barrier.layout;
+                    }
+
+                    if ((dim.imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0)
+                        resState.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+                    else
+                        resState.finalLayout = barrier.layout;
+
+                    resState.flushedStages = 0;
+                    resState.flushedTypes = 0;
                 }
 
                 // Flush
                 for (auto& barrier : flush)
                 {
+                    auto& resState = resourceStates[barrier.resIndex];
+                    auto& dim = physicalDimensions[barrier.resIndex];
+                    if (dim.isTransient || barrier.resIndex == swapchainPhysicalIndex)
+                        continue;
 
+                    // Find a physical pass last use use of the resource
+                    resState.flushedTypes |= barrier.access;
+                    resState.flushedStages |= barrier.stages;
+
+                    if ((dim.imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0)
+                        resState.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+                    else
+                        resState.finalLayout = barrier.layout;
+
+                    // No invalidation before first flush, invalidate first.
+                    if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+                    {
+                        resState.initialLayout = barrier.layout;
+                        resState.invalidatedStages = barrier.stages;
+                        resState.invalidatedTypes = barrier.access;
+                    }
+
+                    // Resource is not used in current pass, so we discard the resource
+                    physicalPass.discards.push_back(barrier.resIndex);
+                }
+            }
+
+            for (auto& resState : resourceStates)
+            {
+                if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED && resState.finalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+                    continue;
+
+                U32 resIndex = U32(&resState - resourceStates.data());
+                physicalPass.invalidate.push_back({
+                    resIndex, resState.invalidatedStages, resState.invalidatedTypes, resState.initialLayout
+                });
+
+                if (resState.flushedTypes != 0)
+                {
+                    physicalPass.flush.push_back({
+                        resIndex, resState.flushedStages, resState.flushedTypes, resState.finalLayout
+                    });
+                }
+                else if (resState.invalidatedTypes)
+                {
+                    // Only read in this pass, add a flush with 0 access bits to protect before it can be written
+                    physicalPass.flush.push_back({
+                        resIndex, resState.invalidatedStages, 0, resState.finalLayout
+                    });
+                }
+            }
+        }
+    }
+
+    void RenderGraphImpl::BuildAliases()
+    {
+        struct ResourceRange
+        {
+            U32 firstReadPass = ~0;
+            U32 lastReadPass = 0;
+            U32 firstWritePass = ~0;
+            U32 lastWritePass = 0;
+
+            bool HasWriter() const
+            {
+                return firstWritePass <= lastWritePass;
+            }
+
+            bool HasReader() const
+            {
+                return firstReadPass <= lastReadPass;
+            }
+
+            bool IsUsed() const
+            {
+                return HasWriter() || HasReader();
+            }
+
+            bool CanAlias() const
+            {
+                // If we read before we have completely written to a resource we need to preserve it, so no alias is possible.
+                return !(HasReader() && HasWriter() && firstReadPass <= firstWritePass);
+            }
+
+            I32 GetLastUsedPass()
+            {
+                I32 lastUsedPass = -1;
+                lastUsedPass = HasWriter() ? std::max(lastUsedPass, (I32)lastWritePass) : lastUsedPass;
+                lastUsedPass = HasReader() ? std::max(lastUsedPass, (I32)lastReadPass) : lastUsedPass;
+                return lastUsedPass;
+            }
+
+            bool CheckDisjointRange(ResourceRange range)
+            {
+                if (!IsUsed() || !range.IsUsed())
+                    return false;
+
+                return false;
+            }
+        };
+        std::vector<ResourceRange> resourceRanges(physicalDimensions.size());
+
+        auto AddReaderPass = [&](const RenderTextureResource* res, U32 passIndex) {
+            if (res == nullptr || passIndex == RenderPass::Unused || res->GetPhysicalIndex() == RenderResource::Unused)
+                return;
+
+            auto range = resourceRanges[res->GetPhysicalIndex()];
+            range.firstReadPass = std::min(range.firstReadPass, passIndex);
+            range.lastReadPass = std::max(range.lastReadPass, passIndex);
+        
+        };
+        auto AddWriterPass = [&](const RenderTextureResource* res, U32 passIndex) {
+            if (res == nullptr || passIndex == RenderPass::Unused || res->GetPhysicalIndex() == RenderResource::Unused)
+                return;
+
+            auto range = resourceRanges[res->GetPhysicalIndex()];
+            range.firstWritePass = std::min(range.firstWritePass, passIndex);
+            range.lastWritePass = std::max(range.lastWritePass, passIndex);
+        };
+
+        // Add reader passes and writer passess
+        for (auto& passIndex : passStack)
+        {
+            auto& pass = renderPasses[passIndex];
+            for (auto& tex : pass->GetInputTextures())
+                AddReaderPass(tex.texture, pass->GetPhysicalIndex());
+
+            for (auto& output : pass->GetOutputColors())
+                AddWriterPass(output, pass->GetPhysicalIndex());
+        }
+
+        std::vector<std::vector<U32>> aliasChain(physicalDimensions.size());
+        for (int i = 0; i < physicalDimensions.size(); i++)
+        {
+            auto& physicalRes = physicalDimensions[i];
+            if (physicalRes.bufferInfo.size > 0)
+                continue;
+
+            auto& range = resourceRanges[i];
+            for (int j = 0; j < i; j++)
+            {
+                if (physicalDimensions[i] == physicalDimensions[j])
+                {
+                    if (physicalDimensions[i].queues != physicalDimensions[j].queues)
+                        continue;
+
+                    if (range.CheckDisjointRange(resourceRanges[j]))
+                    {
+                        if (aliasChain[j].empty())
+                            aliasChain[j].push_back(j);
+                        aliasChain[j].push_back(i);
+
+                        U32 mergedImageUsage = physicalDimensions[i].imageUsage | physicalDimensions[j].imageUsage;
+                        physicalDimensions[i].imageUsage |= mergedImageUsage;
+                        physicalDimensions[j].imageUsage |= mergedImageUsage;
+                    }
                 }
             }
         }
 
-        for (auto& resState : resourceStates)
+        for (auto& chain : aliasChain)
         {
+            if (chain.empty())
+                continue;
+
+            for (int i = 0; i < chain.size(); i++)
+            {
+                I32 lastUsedPass = resourceRanges[chain[i]].GetLastUsedPass();
+                if (lastUsedPass < 0)
+                    continue;
+
+                auto& physicalPass = physicalPasses[lastUsedPass];
+                if (i + 1 < (int)chain.size())
+                    physicalPass.aliasTransfers.push_back(std::make_pair(chain[i], chain[i + 1]));
+                else
+                    physicalPass.aliasTransfers.push_back(std::make_pair(chain[i], chain[0]));
+            }
+        }
+    }
+
+    void RenderGraphImpl::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)
+    {
+        submissionStates.clear();
+        submissionStates.resize(physicalPasses.size());
+
+        // Traverse physical passes to build GPUSubmissionInfos
+        for (auto& physicalPass : physicalPasses)
+        {
+            if (physicalPass.passes.empty())
+                continue;
+        }
+
+        // Assign GPU::CommandList for submission states
+        for (auto& state : submissionStates)
+        {
+            if (!state.active)
+                continue;
+
+
+
 
         }
+
+        Jobsystem::JobHandle stateHandle = Jobsystem::INVALID_HANDLE;
+        for (auto& state : submissionStates)
+        {
+            if (state.active)
+                continue;
+
+            Jobsystem::Run(&state, [](void* data)->void {
+                GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
+                if (state == nullptr || !state->cmd)
+                    return;
+
+                state->Submit();
+            }, &stateHandle);
+        }
+    }
+
+    void GPUPassSubmissionState::Submit()
+    {
+        auto& device = cmd->GetDevice();
+
+
+        device.Submit(cmd);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -932,7 +1192,7 @@ namespace VulkanTest
     
     void RenderGraph::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)
     {
-
+        impl->Render(device, jobHandle);
     }
     
     void RenderGraph::Log()

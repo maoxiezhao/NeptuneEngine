@@ -182,6 +182,11 @@ public:
         swapchainStages |= stages;
     }
 
+    DeviceVulkan& GetDevice()
+    {
+        return device;
+    }
+
 public:
     void ClearPipelineState();
     void SetDefaultOpaqueState();

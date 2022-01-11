@@ -273,6 +273,7 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     memory.Initialize(this);
     fencePoolManager.Initialize(*this);
     semaphoreManager.Initialize(*this);
+    eventManager.Initialize(*this);
 
 #ifdef VULKAN_TEST_FILESYSTEM
     InitShaderManagerCache();
@@ -468,6 +469,12 @@ SemaphorePtr DeviceVulkan::RequestSemaphore()
 {
     VkSemaphore semaphore = semaphoreManager.Requset();
     return SemaphorePtr(semaphorePool.allocate(*this, semaphore, false));
+}
+
+EventPtr DeviceVulkan::RequestEvent()
+{
+    VkEvent ent = eventManager.Requset();
+    return EventPtr(eventPool.allocate(*this, ent));
 }
 
 Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout)
@@ -1223,6 +1230,11 @@ void DeviceVulkan::RecycleSemaphore(VkSemaphore semaphore)
     CurrentFrameResource().recycledSemaphroes.push_back(semaphore);
 }
 
+void DeviceVulkan::ReleaseEvent(VkEvent ent)
+{
+    CurrentFrameResource().destroyedEvents.push_back(ent);
+}
+
 bool DeviceVulkan::IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling)
 {
     VkFormatProperties props;
@@ -1691,6 +1703,8 @@ void DeviceVulkan::FrameResource::Begin()
         vkDestroySemaphore(vkDevice, semaphore, nullptr);
     for (auto& pipeline : destroyedPipelines)
         vkDestroyPipeline(vkDevice, pipeline, nullptr);
+    for (auto& ent : destroyedEvents)
+        device.eventManager.Recyle(ent);
     for (auto& allocation : destroyedAllocations)
         allocation.Free(device.memory);
 
