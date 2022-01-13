@@ -77,6 +77,21 @@ struct ResourceDimensions
     {
         return !(*this == other);
     }
+
+    bool IsBuffer()const
+    {
+        return bufferInfo.size > 0;
+    }
+
+    bool IsStorageImage()const
+    {
+        return (imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0;
+    }
+
+    bool IsBufferLikeRes()const
+    {
+        return (imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0 || (bufferInfo.size > 0);
+    }
 };
 
 class VULKAN_TEST_API RenderResource

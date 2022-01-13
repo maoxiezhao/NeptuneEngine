@@ -49,10 +49,18 @@ namespace VulkanTest
         std::vector<std::pair<U32, U32>> aliasTransfers;
     };
 
+    struct RenderGraphEvent
+    {
+        GPU::EventPtr ent;
+        GPU::SemaphorePtr waitGraphicsSemaphore;
+    };
+
     struct GPUPassSubmissionState
     {
         bool active = false;
         GPU::CommandListPtr cmd;
+        bool isGraphics = true;
+        GPU::QueueType queueType = GPU::QueueType::QUEUE_TYPE_GRAPHICS;
 
         void Submit();
     };
@@ -85,12 +93,22 @@ namespace VulkanTest
         void BuildPhysicalBarriers();
         void BuildAliases();
 
+        void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchin);
+        void HandlePassSignal(GPU::DeviceVulkan& device, PhysicalPass& physicalPass, GPUPassSubmissionState& state);
+        void HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue);
+        void HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state);
+       
         void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
 
         std::vector<ResourceDimensions> physicalDimensions;
+        std::vector<U32> physicalAliases;
         ResourceDimensions swapchainDimensions;
         U32 swapchainPhysicalIndex = 0;
         std::vector<PhysicalPass> physicalPasses;
+        std::vector<RenderGraphEvent> physicalEvents;
+        std::vector<GPU::ImageView*> physicalAttachments;
+        std::vector<GPU::ImagePtr> physicalImages;
+        std::vector<GPU::BufferPtr> physicalBuffers;
         std::vector<GPUPassSubmissionState> submissionStates;
 
         ResourceDimensions CreatePhysicalDimensions(const RenderTextureResource& res)
@@ -415,7 +433,7 @@ namespace VulkanTest
         for (auto& res : physicalDimensions)
         {
             // Buffer are never transient
-            if ((res.imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) || res.bufferInfo.size != 0)
+            if (res.IsBufferLikeRes())
                 res.isTransient = false;
             else
                 res.isTransient = true;
@@ -893,14 +911,20 @@ namespace VulkanTest
                 AddWriterPass(output, pass->GetPhysicalIndex());
         }
 
+        physicalAliases.resize(physicalDimensions.size());
+        for (auto& v : physicalAliases)
+            v = RenderResource::Unused;
+
         std::vector<std::vector<U32>> aliasChain(physicalDimensions.size());
         for (int i = 0; i < physicalDimensions.size(); i++)
         {
             auto& physicalRes = physicalDimensions[i];
-            if (physicalRes.bufferInfo.size > 0)
+            if (physicalRes.IsBuffer())
                 continue;
 
             auto& range = resourceRanges[i];
+            
+            // Only alias with previous resource
             for (int j = 0; j < i; j++)
             {
                 if (physicalDimensions[i] == physicalDimensions[j])
@@ -910,6 +934,8 @@ namespace VulkanTest
 
                     if (range.CheckDisjointRange(resourceRanges[j]))
                     {
+                        physicalAliases[i] = j;
+
                         if (aliasChain[j].empty())
                             aliasChain[j].push_back(j);
                         aliasChain[j].push_back(i);
@@ -942,16 +968,191 @@ namespace VulkanTest
         }
     }
 
+    void RenderGraphImpl::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain)
+    {
+        // Build physical attachments/buffers from physical dimensions
+        physicalAttachments.clear();
+        physicalAttachments.resize(physicalDimensions.size());
+
+        // Try to reuse
+        physicalBuffers.resize(physicalDimensions.size());
+        physicalImages.resize(physicalDimensions.size());
+
+        auto SetupPhysicalImage = [&](U32 attachment) {
+        
+            // Check alias
+            if (physicalAliases[attachment] != RenderResource::Unused)
+            {
+                physicalImages[attachment] = physicalImages[physicalAliases[attachment]];
+                physicalAttachments[attachment] = &physicalImages[attachment]->GetImageView();
+                physicalEvents[attachment] = {};
+                return;
+            }
+
+            auto& physicalDim = physicalDimensions[attachment];
+            bool needToCreate = true;
+            VkImageUsageFlags usage = physicalDim.imageUsage;
+            VkImageCreateFlags flags = 0;
+
+            // Check previous image cache is same to new
+            if (physicalImages[attachment])
+            {
+                auto& imgInfo = physicalImages[attachment]->GetCreateInfo();
+                if ((imgInfo.width == physicalDim.width) &&
+                    (imgInfo.height == physicalDim.height) &&
+                    (imgInfo.format == physicalDim.format) &&
+                    (imgInfo.depth == physicalDim.depth) &&
+                    (imgInfo.samples == physicalDim.samples) &&
+                    ((imgInfo.usage & usage) == usage) &&
+                    ((imgInfo.flags & flags) == flags))
+                    needToCreate = false;
+            }
+
+            if (needToCreate)
+            {
+                GPU::ImageCreateInfo info = {};
+                info.width = physicalDim.width;
+                info.height = physicalDim.height;
+                info.depth = physicalDim.depth;
+                info.format = physicalDim.format;
+                info.levels = physicalDim.levels;
+                info.layers = physicalDim.layers;
+                info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                info.samples = (VkSampleCountFlagBits)physicalDim.samples;
+                info.domain = GPU::ImageDomain::Physical;
+                info.usage = usage;
+                info.flags = flags;
+
+                if (GPU::IsFormatHasDepthOrStencil(info.format))
+                    info.usage &= ~VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+                info.misc = 0;
+                if (physicalDim.queues & ((U32)RenderGraphQueueFlag::Graphics | (U32)RenderGraphQueueFlag::Compute))
+                    info.misc |= GPU::IMAGE_MISC_CONCURRENT_QUEUE_GRAPHICS_BIT;
+                if (physicalDim.queues & (U32)RenderGraphQueueFlag::AsyncCompute)
+                    info.misc |= GPU::IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT;
+                if (physicalDim.queues & (U32)RenderGraphQueueFlag::AsyncGraphcs)
+                    info.misc |= GPU::IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT;
+
+                physicalImages[attachment] = device.CreateImage(info, nullptr);
+                if (!physicalImages[attachment])
+                    Logger::Error("Faile to create image of render graph.");
+
+                physicalEvents[attachment] = {};
+            }
+
+            physicalAttachments[attachment] = &physicalImages[attachment]->GetImageView();
+        };
+
+        auto SetupPhysicalBuffers = [&](U32 attachment) {
+
+        };
+
+        for (int i = 0; i < physicalDimensions.size(); i++)
+        {
+            auto& physicalDim = physicalDimensions[i];
+            if (physicalDim.IsBuffer())
+            {
+                SetupPhysicalBuffers(i);
+            }
+            else if (physicalDim.IsStorageImage())
+            {
+                SetupPhysicalImage(i);
+            }
+            else if (i == swapchainPhysicalIndex)
+            {
+                physicalAttachments[i] = swapchain;
+            }
+            else
+            {
+                if (physicalDim.isTransient)
+                {
+                    physicalImages[i] = device.RequestTransientAttachment(
+                        physicalDim.width, physicalDim.height, physicalDim.format, i, physicalDim.samples, physicalDim.layers);
+                    physicalAttachments[i] = &physicalImages[i]->GetImageView();
+                }
+                else
+                {
+                    SetupPhysicalImage(i);
+                }
+            }
+        }
+    }
+
+    void RenderGraphImpl::HandlePassSignal(GPU::DeviceVulkan& device, PhysicalPass& physicalPass, GPUPassSubmissionState& state)
+    {
+    }
+
+    void RenderGraphImpl::HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue)
+    {
+        auto& ent = physicalEvents[barrier.resIndex];
+        auto& physicalRes = physicalDimensions[barrier.resIndex];
+        if (physicalRes.IsBuffer())
+        {
+        }
+        else
+        {
+
+        }
+    }
+    
+    void RenderGraphImpl::HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state)
+    {
+    }
+
     void RenderGraphImpl::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)
     {
         submissionStates.clear();
         submissionStates.resize(physicalPasses.size());
 
         // Traverse physical passes to build GPUSubmissionInfos
-        for (auto& physicalPass : physicalPasses)
+        for (int i = 0; i < physicalPasses.size(); i++)
         {
+            auto& physicalPass = physicalPasses[i];
             if (physicalPass.passes.empty())
                 continue;
+
+            auto& state = submissionStates[i];
+            U32 queueFlag = renderPasses[physicalPass.passes[0]]->GetQueue();
+            switch (queueFlag)
+            {
+            case (U32)RenderGraphQueueFlag::Graphics:
+                state.isGraphics = true;
+                state.queueType = GPU::QueueType::QUEUE_TYPE_GRAPHICS;
+                break;
+
+            case (U32)RenderGraphQueueFlag::Compute:
+                state.isGraphics = false;
+                state.queueType = GPU::QueueType::QUEUE_TYPE_GRAPHICS;
+                break;
+
+            case (U32)RenderGraphQueueFlag::AsyncCompute:
+                state.isGraphics = false;
+                state.queueType = GPU::QueueType::QUEUE_TYPE_ASYNC_COMPUTE;
+                break;
+
+            default:
+                ASSERT(0);
+                break;
+            }
+
+            // Handle invalidate barriers
+            for (auto& barrier : physicalPass.invalidate)
+                HandleInvalidateBarrier(barrier, state, state.isGraphics);
+
+            HandlePassSignal(device, physicalPass, state);
+
+            // Handle flush barriers
+            for (auto& barrier : physicalPass.flush)
+                HandleFlushBarrier(barrier, state);
+
+            // Handle alias transfer of physical pass
+            for (auto& transfer : physicalPass.aliasTransfers)
+            {
+                auto& ent = physicalEvents[transfer.second];
+                ent = physicalEvents[transfer.first];
+            }
+
         }
 
         // Assign GPU::CommandList for submission states

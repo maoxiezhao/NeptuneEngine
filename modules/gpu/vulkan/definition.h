@@ -122,6 +122,11 @@ namespace GPU
         }
     }
 
+    static inline bool IsFormatHasDepthOrStencil(VkFormat format)
+    {
+        return IsFormatHasDepth(format) || IsFormatHasStencil(format);
+    }
+
     static inline VkImageAspectFlags formatToAspectMask(VkFormat format)
     {
         switch (format)

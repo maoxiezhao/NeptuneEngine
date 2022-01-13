@@ -33,6 +33,7 @@ namespace GPU
 
 	void EventManager::Initialize(DeviceVulkan& device_)
 	{
+		device = &device_;
 	}
 
 	VkEvent EventManager::Requset()
