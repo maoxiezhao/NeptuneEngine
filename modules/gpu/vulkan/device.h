@@ -280,6 +280,7 @@ public:
 
     void NextFrameContext();
     void EndFrameContext();
+    void FlushFrames();
     void FlushFrame(QueueIndices queueIndex);
     void Submit(CommandListPtr& cmd, FencePtr* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphore = nullptr);
     void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);

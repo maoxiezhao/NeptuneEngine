@@ -22,6 +22,7 @@ namespace
 
 
 	static const QueueIndices QUEUE_FLUSH_ORDER[] = {
+        QUEUE_INDEX_TRANSFER,
 		QUEUE_INDEX_GRAPHICS,
 		QUEUE_INDEX_COMPUTE
 	};
@@ -1144,6 +1145,13 @@ void DeviceVulkan::EndFrameContext()
             queueDatas[queueIndex].needFence = false;
         }
     }
+}
+
+void DeviceVulkan::FlushFrames()
+{
+    LOCK();
+    for (auto& queue : QUEUE_FLUSH_ORDER)
+        FlushFrame(queue);
 }
 
 void DeviceVulkan::FlushFrame(QueueIndices queueIndex)

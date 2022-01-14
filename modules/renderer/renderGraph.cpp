@@ -65,11 +65,12 @@ namespace VulkanTest
         GPU::CommandListPtr cmd;
         bool isGraphics = true;
         GPU::QueueType queueType = GPU::QueueType::QUEUE_TYPE_GRAPHICS;
+        std::vector<VkBufferMemoryBarrier> eventBufferBarriers;
         std::vector<VkImageMemoryBarrier> eventImageBarriers;
         std::vector<VkImageMemoryBarrier> immediateImageBarriers;
         std::vector<VkImageMemoryBarrier> handoverBarriers;
         std::vector<VkEvent> events;
-        std::vector<VkSemaphore> waitSemaphores;
+        std::vector<GPU::SemaphorePtr> waitSemaphores;
         std::vector<VkPipelineStageFlags> waitSemaphoreStages;
 
         VkPipelineStageFlags srcStages = 0;
@@ -87,8 +88,6 @@ namespace VulkanTest
 
         void EmitPrePassBarriers();
         void EmitPostPassBarriers();
-        void DoGraphicsCommands();
-        void DoComputeCommands();
         void Submit();
     };
 
@@ -125,6 +124,8 @@ namespace VulkanTest
         void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchin);
         void HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue);
         void HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state);  
+        void DoGraphicsCommands(GPU::CommandList& cmd, PhysicalPass& physicalPass, GPUPassSubmissionState* state);
+        void DoComputeCommands(GPU::CommandList& cmd, PhysicalPass& physicalPass, GPUPassSubmissionState* state);
         void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
 
         std::vector<ResourceDimensions> physicalDimensions;
@@ -1209,7 +1210,7 @@ namespace VulkanTest
             GPU::SemaphorePtr waitSemaphore = isGraphicsQueue ? ent.waitGraphicsSemaphore : ent.waitComputeSemaphore;
             ASSERT(waitSemaphore);
 
-            state.waitSemaphores.push_back(waitSemaphore->GetSemaphore());
+            state.waitSemaphores.push_back(waitSemaphore);
             state.waitSemaphoreStages.push_back(barrier.stages);
         }
     }
@@ -1238,6 +1239,43 @@ namespace VulkanTest
         {
             ent.ent = state.signalEvent;
         }
+    }
+
+    void RenderGraphImpl::DoGraphicsCommands(GPU::CommandList& cmd, PhysicalPass& physicalPass, GPUPassSubmissionState* state)
+    {
+        // Clear colors
+        for (auto& colorClear : physicalPass.colorClearRequests)
+            colorClear.pass->GetClearColor(colorClear.index, colorClear.target);
+
+        // Clear depth stencil
+        if (physicalPass.depthClearRequest.target != nullptr)
+            physicalPass.depthClearRequest.pass->GetClearDepthStencil(physicalPass.depthClearRequest.target);
+
+        // Begin render pass
+        cmd.BeginEvent("BeginRenderPass");
+        cmd.BeginRenderPass(physicalPass.gpuRenderPassInfo);
+        cmd.EndEvent();
+
+        // Handle subpasses
+        for (U32 i = 0; i < physicalPass.passes.size(); i++)
+        {
+            auto& passIndex = physicalPass.passes[i];
+            cmd.BeginEvent("DoRenderPass");
+            renderPasses[passIndex]->BuildRenderPass(cmd);
+            cmd.EndEvent();
+
+            if (i < (physicalPass.passes.size() - 1))
+                cmd.NextSubpass(VK_SUBPASS_CONTENTS_INLINE);
+        }
+
+        // End render pass
+        cmd.BeginEvent("EndRenderPass");
+        cmd.EndRenderPass();
+        cmd.EndEvent();
+    }
+
+    void RenderGraphImpl::DoComputeCommands(GPU::CommandList& cmd, PhysicalPass& physicalPass, GPUPassSubmissionState* state)
+    {
     }
 
     void RenderGraphImpl::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)
@@ -1322,13 +1360,15 @@ namespace VulkanTest
         }
 
         // Do gpu behaviors
-        for (auto& state : submissionStates)
+        for (U32 i = 0; i < submissionStates.size(); i++)
         {
+            auto& state = submissionStates[i];
             if (!state.active)
                 continue;
 
+            auto& physicalPass = physicalPasses[i];
             Jobsystem::JobHandle renderHandle = Jobsystem::INVALID_HANDLE;
-            Jobsystem::Run(&state, [&device](void* data)->void {
+            Jobsystem::Run(&state, [this, &device, &physicalPass](void* data)->void {
                 GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
                 if (state == nullptr)
                     return;
@@ -1343,9 +1383,9 @@ namespace VulkanTest
                 state->EmitPrePassBarriers();
 
                 if (state->isGraphics)
-                    state->DoGraphicsCommands();
+                    DoGraphicsCommands(*cmd, physicalPass, state);
                 else
-                    state->DoComputeCommands();
+                    DoComputeCommands(*cmd, physicalPass, state);
 
                 state->EmitPostPassBarriers();
 
@@ -1357,17 +1397,24 @@ namespace VulkanTest
         Jobsystem::JobHandle stateHandle = Jobsystem::INVALID_HANDLE;
         for (auto& state : submissionStates)
         {
-            if (state.active)
+            if (state.active == false)
                 continue;
 
-            Jobsystem::Run(&state, [](void* data)->void {
+            Jobsystem::RunEx(&state, [](void* data)->void {
                 GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
                 if (state == nullptr || !state->cmd)
                     return;
 
                 state->Submit();
-            }, &stateHandle);
+            }, &stateHandle, state.renderingDependency);
+
+            state.renderingDependency = Jobsystem::INVALID_HANDLE;
         }
+
+        // Flush swapchain
+        Jobsystem::RunEx(nullptr, [&device](void* data)->void {
+            device.FlushFrames();
+        }, &jobHandle, stateHandle);
     }
 
     void GPUPassSubmissionState::EmitPrePassBarriers()
@@ -1391,8 +1438,15 @@ namespace VulkanTest
         }
 
         // Wait events
-        if (!eventImageBarriers.empty())
+        if (!eventImageBarriers.empty() || !eventBufferBarriers.empty())
         {
+            cmd->WaitEvents(
+                events.size(), events.data(),
+                srcStages, dstStages,
+                0, nullptr, 
+                eventBufferBarriers.size(), eventBufferBarriers.empty() ? nullptr : eventBufferBarriers.data(),
+                eventImageBarriers.size(), eventImageBarriers.empty() ? nullptr : eventImageBarriers.data()
+            );
         }
 
         cmd->EndEvent();
@@ -1401,24 +1455,36 @@ namespace VulkanTest
     void GPUPassSubmissionState::EmitPostPassBarriers()
     {
         cmd->BeginEvent("RenderGraphSyncPost");
-
+        if (signalEventStages != 0 && signalEvent)
+            cmd->SignalEvent(signalEvent->GetEvent(), signalEventStages);
         cmd->EndEvent();
     }
 
-    void GPUPassSubmissionState::DoGraphicsCommands()
-    {
-    }
-
-    void GPUPassSubmissionState::DoComputeCommands()
-    {
-    }
 
     void GPUPassSubmissionState::Submit()
     {
         auto& device = cmd->GetDevice();
+        
+        // Wait semaphores in queue
+        for (U32 i = 0; i < waitSemaphores.size(); i++)
+        {
+            auto& semaphore = waitSemaphores[i];
+            if (semaphore && semaphore->GetSemaphore() != VK_NULL_HANDLE)
+                device.AddWaitSemaphore(queueType, semaphore, waitSemaphoreStages[i], true);
+        }
 
+        if (needSubmissionSemaphore)
+        {
+            GPU::SemaphorePtr semaphores[2];
+            device.Submit(cmd, nullptr, 2, semaphores);
 
-        device.Submit(cmd);
+            *graphicsSemaphore = std::move(*semaphores[0]);
+            *computeSemaphore = std::move(*semaphores[1]);
+        }
+        else
+        {
+            device.Submit(cmd);
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -1605,7 +1671,7 @@ namespace VulkanTest
         // Set swapchain physcical index
         impl->swapchainPhysicalIndex = backbuffer.GetPhysicalIndex();
         auto& backbufferDim = impl->physicalDimensions[impl->swapchainPhysicalIndex];
-        bool canAliasBackbuffer = (backbufferDim.queues & (U32)RenderGraphQueueFlag::Compute == 0) && backbufferDim.isTransient;
+        bool canAliasBackbuffer = (backbufferDim.queues & (U32)RenderGraphQueueFlag::Compute) == 0 && backbufferDim.isTransient;
         if (!canAliasBackbuffer || backbufferDim != impl->swapchainDimensions)
         {
             impl->swapchainPhysicalIndex = RenderResource::Unused;

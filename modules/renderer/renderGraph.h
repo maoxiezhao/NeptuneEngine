@@ -252,6 +252,26 @@ public:
     {
         clearColorCallback = std::move(func);
     }
+
+    bool GetClearColor(U32 index, VkClearColorValue* value = nullptr)
+    {
+        if (clearColorCallback != nullptr)
+            return clearColorCallback(index, value);
+        return false;
+    }
+
+    bool GetClearDepthStencil(VkClearDepthStencilValue* value = nullptr)
+    {
+        if (clearDepthStencilCallback != nullptr)
+            return clearDepthStencilCallback(value);
+        return false;
+    }
+
+    void BuildRenderPass(GPU::CommandList& cmd)
+    {
+        if (buildRenderPassCallback != nullptr)
+            return buildRenderPassCallback(cmd);
+    }
     
     RenderTextureResource& ReadTexture(const char* name, VkPipelineStageFlags stages = 0);
     RenderTextureResource& ReadDepthStencil(const char* name);
@@ -313,20 +333,6 @@ public:
     const RenderTextureResource* GetOutputDepthStencil()const
     {
         return outputDepthStencil;
-    }
-
-    bool GetClearColor(U32 index, VkClearColorValue* value = nullptr)
-    {
-        if (clearColorCallback != nullptr)
-            return clearColorCallback(index, value);
-        return false;
-    }
-
-    bool GetClearDepthStencil(VkClearDepthStencilValue* value = nullptr)
-    {
-        if (clearDepthStencilCallback != nullptr)
-            return clearDepthStencilCallback(value);
-        return false;
     }
 
     void SetPhysicalIndex(U32 index)

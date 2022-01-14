@@ -130,12 +130,13 @@ private:
     const ImageView* frameBufferAttachments[VULKAN_NUM_ATTACHMENTS + 1] = {};
     RenderPass* renderPass = nullptr;
     const RenderPass* compatibleRenderPass = nullptr;
+    VkSubpassContents subpassContents;
 
 public:
     CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
     ~CommandList();
 
-    void BeginRenderPass(const RenderPassInfo& renderPassInfo);
+    void BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE);
     void EndRenderPass();
     void BindPipelineState(const CompiledPipelineState& pipelineState_);
     void* AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate);
@@ -152,6 +153,7 @@ public:
     void SetBindless(U32 set, VkDescriptorSet descriptorSet);
     void SetSampler(U32 set, U32 binding, const Sampler& sampler);
     void SetSampler(U32 set, U32 binding, StockSampler type);
+    void NextSubpass(VkSubpassContents contents);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
     void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);
@@ -159,6 +161,12 @@ public:
     void ImageBarrier(const ImagePtr& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
     void Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
     void Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers);
+    void SignalEvent(VkEvent ent, VkPipelineStageFlags stageMask);
+    void WaitEvents(U32 numEvents, VkEvent* events, 
+                   VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, 
+                   U32 memoryBarrierCount, const VkMemoryBarrier* pMemoryBarriers, 
+                   U32 bufferMemoryBarrierCount, const VkBufferMemoryBarrier* pBufferMemoryBarriers, 
+                   U32 imageMemoryBarrierCount, const VkImageMemoryBarrier* pImageMemoryBarriers);
     void BeginEvent(const char* name);
     void EndEvent();
 

@@ -190,7 +190,7 @@ CommandList::~CommandList()
 {
 }
 
-void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
+void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents)
 {
     assert(frameBuffer == nullptr);
     assert(compatibleRenderPass == nullptr);
@@ -258,6 +258,8 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo)
     beginInfo.pClearValues = clearColors;
 
     vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    subpassContents = contents;
 
     // begin graphics contexxt
     BeginGraphicsContext();
@@ -552,6 +554,14 @@ void CommandList::SetSampler(U32 set, U32 binding, StockSampler type)
         SetSampler(set, binding, sampler->GetSampler());
 }
 
+void CommandList::NextSubpass(VkSubpassContents contents)
+{
+    pipelineState.subpassIndex++;
+    vkCmdNextSubpass(cmd, contents);
+    subpassContents = contents;
+    BeginGraphicsContext();
+}
+
 void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
 {
     if (FlushRenderState())
@@ -594,6 +604,28 @@ void CommandList::Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess
 void CommandList::Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers)
 {
     vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, imageBarrierCount, imageBarriers);
+}
+
+void CommandList::SignalEvent(VkEvent ent, VkPipelineStageFlags stageMask)
+{
+    ASSERT(stageMask != 0);
+    vkCmdSetEvent(cmd, ent, stageMask);
+}
+
+void CommandList::WaitEvents(U32 numEvents, VkEvent* events,
+        VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
+        U32 memoryBarrierCount, const VkMemoryBarrier* pMemoryBarriers,
+        U32 bufferMemoryBarrierCount, const VkBufferMemoryBarrier* pBufferMemoryBarriers,
+        U32 imageMemoryBarrierCount, const VkImageMemoryBarrier* pImageMemoryBarriers)
+{
+    vkCmdWaitEvents(
+        cmd,
+        numEvents, events,
+        srcStageMask, dstStageMask,
+        memoryBarrierCount, pMemoryBarriers,
+        bufferMemoryBarrierCount, pBufferMemoryBarriers,
+        imageMemoryBarrierCount, pImageMemoryBarriers
+    );
 }
 
 void CommandList::BeginEvent(const char* name)

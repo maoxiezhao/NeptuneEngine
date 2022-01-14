@@ -63,6 +63,8 @@ public:
 
     void Recycle();
 
+    Semaphore& operator=(Semaphore&& other) noexcept;
+
 private:
     friend class DeviceVulkan;
     friend struct SemaphoreDeleter;

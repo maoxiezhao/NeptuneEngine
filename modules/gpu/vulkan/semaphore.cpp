@@ -34,6 +34,24 @@ void Semaphore::Recycle()
 	}
 }
 
+Semaphore& Semaphore::operator=(Semaphore&& other) noexcept
+{
+	if (this == &other)
+		return *this;
+
+	Recycle();
+
+	semaphore = other.semaphore;
+	timeline = other.timeline;
+	signalled = other.signalled;
+
+	other.semaphore = VK_NULL_HANDLE;
+	other.timeline = 0;
+	other.signalled = false;
+
+	return *this;
+}
+
 SemaphoreManager::~SemaphoreManager()
 {
 	for (auto& semaphore : seamphores)
