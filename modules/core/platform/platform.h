@@ -82,6 +82,8 @@ namespace Platform {
 	/////////////////////////////////////////////////////////////////////////////////
 	// Threads
 	ThreadID GetCurrentThreadID();
+	U32 GetCurrentThreadIndex();
+	void SetCurrentThreadIndex(U32 index);
 	I32 GetNumPhysicalCores();
 	U64 GetPhysicalCoreAffinityMask(I32 core);
 	void YieldCPU();

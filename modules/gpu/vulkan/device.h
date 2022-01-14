@@ -17,9 +17,13 @@
 #include "sampler.h"
 #include "event.h"
 
+#include "core\platform\sync.h"
+
 #include <array>
 #include <set>
 #include <unordered_map>
+
+#define VULKAN_MT
 
 namespace VulkanTest
 {
@@ -296,6 +300,9 @@ public:
     RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
     
 private:
+    CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
+
+private:
 #ifdef VULKAN_TEST_FILESYSTEM
     void InitShaderManagerCache();
 #endif
@@ -361,6 +368,12 @@ private:
 
     // shaders
     ShaderManager shaderManager;
+
+    // Sync
+    U32 numThreads = 1;
+#ifdef VULKAN_MT
+    Mutex mutex;
+#endif
 };
 }
 }

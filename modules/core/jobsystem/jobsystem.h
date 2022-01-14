@@ -12,9 +12,9 @@ namespace Jobsystem
     constexpr JobHandle INVALID_HANDLE = 0xFFFFFFFF;
 
 #ifdef CJING3D_PLATFORM_WIN32
-    using JobFunc = void(__stdcall *)(void*);
+    using JobFunc = std::function<void(void*)>; //void(__stdcall *)(void*);
 #else
-    using JobFunc = void (*)(void*);
+    using JobFunc = std::function<void(void*)>;
 #endif
     enum class Priority
     {

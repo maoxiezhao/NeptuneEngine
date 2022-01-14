@@ -19,6 +19,11 @@ public:
     Event(DeviceVulkan& device_, VkEvent ent_);
     ~Event();
 
+    VkEvent GetEvent()const
+    {
+        return ent;
+    }
+
 private:
     friend class DeviceVulkan;
     friend struct EventDeleter;

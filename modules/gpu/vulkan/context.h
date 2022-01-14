@@ -100,6 +100,7 @@ private:
     uint32_t height = 0;
     bool debugLayer = false;
     SystemHandles handles;
+    U32 numThreads = 1;
 
     // core 
     VkDevice device;

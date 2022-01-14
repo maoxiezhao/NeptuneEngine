@@ -2,6 +2,7 @@
 #include "math\hash.h"
 #include "memory.h"
 #include "TextureFormatLayout.h"
+#include "core\platform\platform.h"
 
 namespace VulkanTest
 {
@@ -9,6 +10,17 @@ namespace GPU
 {
 namespace 
 {
+#ifdef VULKAN_MT
+    U32 GetThreadIndex()
+    {
+        return Platform::GetCurrentThreadIndex();
+    }
+#define LOCK() ScopedMutex lock(mutex);
+#else
+#define LOCK() ((void)0)
+#endif
+
+
 	static const QueueIndices QUEUE_FLUSH_ORDER[] = {
 		QUEUE_INDEX_GRAPHICS,
 		QUEUE_INDEX_COMPUTE
@@ -256,6 +268,12 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     queueInfo = context.queueInfo;
     features = context.ext;
 
+#ifdef VULKAN_MT
+    numThreads = context.numThreads;
+#else
+    numThreads = 1;
+#endif
+
     // Create frame resources
     InitFrameContext();
 
@@ -335,10 +353,16 @@ void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, 
 
 Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queueType)
 {
-    return RequestCommandList(0, queueType);
+    return RequestCommandList(GetThreadIndex(), queueType);
 }
 
 Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(int threadIndex, QueueType queueType)
+{
+    LOCK();
+    return RequestCommandListNolock(threadIndex, queueType);
+}
+
+Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex, QueueType queueType)
 {
     // Only support main thread now
     auto& pools = CurrentFrameResource().cmdPools[(int)queueType];
@@ -935,6 +959,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             Submit(transitionCmd, nullptr, 0, nullptr);
         }
     }
+
     return imagePtr;
 }
 
@@ -1635,7 +1660,7 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
 
 DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_) : device(device_)
 {
-    const int THREAD_COUNT = 1;
+    const int THREAD_COUNT = device.numThreads;
     for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
     {
         cmdPools[queueIndex].reserve(THREAD_COUNT);

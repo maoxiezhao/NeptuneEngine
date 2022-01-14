@@ -52,7 +52,11 @@ namespace VulkanTest
     struct RenderGraphEvent
     {
         GPU::EventPtr ent;
+        VkPipelineStageFlags entStages = 0;
         GPU::SemaphorePtr waitGraphicsSemaphore;
+        GPU::SemaphorePtr waitComputeSemaphore;
+        U32 flushAccess = 0;
+        VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     };
 
     struct GPUPassSubmissionState
@@ -61,7 +65,30 @@ namespace VulkanTest
         GPU::CommandListPtr cmd;
         bool isGraphics = true;
         GPU::QueueType queueType = GPU::QueueType::QUEUE_TYPE_GRAPHICS;
+        std::vector<VkImageMemoryBarrier> eventImageBarriers;
+        std::vector<VkImageMemoryBarrier> immediateImageBarriers;
+        std::vector<VkImageMemoryBarrier> handoverBarriers;
+        std::vector<VkEvent> events;
+        std::vector<VkSemaphore> waitSemaphores;
+        std::vector<VkPipelineStageFlags> waitSemaphoreStages;
 
+        VkPipelineStageFlags srcStages = 0;
+        VkPipelineStageFlags dstStages = 0;
+        VkPipelineStageFlags immediateDstStages = 0;
+        VkPipelineStageFlags handoverStages = 0;
+
+        bool needSubmissionSemaphore = false;
+        VkPipelineStageFlags signalEventStages = 0;
+        GPU::EventPtr signalEvent;
+        GPU::SemaphorePtr graphicsSemaphore;
+        GPU::SemaphorePtr computeSemaphore;
+
+        Jobsystem::JobHandle renderingDependency = Jobsystem::INVALID_HANDLE;
+
+        void EmitPrePassBarriers();
+        void EmitPostPassBarriers();
+        void DoGraphicsCommands();
+        void DoComputeCommands();
         void Submit();
     };
 
@@ -81,6 +108,7 @@ namespace VulkanTest
         std::vector<std::unordered_set<U32>> passDependency;
         std::vector<PassBarrier> passBarriers;
 
+        // Bake methods
         void HandlePassRecursive(RenderPass& self, const std::unordered_set<U32>& writtenPass, U32 stackCount);
         void TraverseDependencies(RenderPass& renderPass, U32 stackCount);
         void ReorderRenderPasses(std::vector<U32>& passes);
@@ -93,11 +121,10 @@ namespace VulkanTest
         void BuildPhysicalBarriers();
         void BuildAliases();
 
+        // Runtime methods
         void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchin);
-        void HandlePassSignal(GPU::DeviceVulkan& device, PhysicalPass& physicalPass, GPUPassSubmissionState& state);
         void HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue);
-        void HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state);
-       
+        void HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state);  
         void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
 
         std::vector<ResourceDimensions> physicalDimensions;
@@ -629,7 +656,7 @@ namespace VulkanTest
         passBarriers.clear();
         passBarriers.reserve(passStack.size());
 
-        auto GetAccessBarrier = [&](std::vector<Barrier> barriers, U32 index)->Barrier& {
+        auto GetAccessBarrier = [&](std::vector<Barrier>& barriers, U32 index)->Barrier& {
             auto it = std::find_if(barriers.begin(), barriers.end(), [&](const Barrier& barrier) {
                 return barrier.resIndex == index;
             });
@@ -656,6 +683,7 @@ namespace VulkanTest
                 barrier.access |= tex.access;
                 barrier.stages |= tex.stages;
                 barrier.layout = tex.layout;
+                ASSERT(barrier.layout == VK_IMAGE_LAYOUT_UNDEFINED);
             }
 
             /////////////////////////////////////////////////////////////////////
@@ -671,13 +699,13 @@ namespace VulkanTest
                 barrier.stages |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
                 // Set VK_IMAGE_LAYOUT_GENERAL if the attachment is also bound as an input attachment(ReadTexture)
-                if (barrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
-                    barrier.layout == VK_IMAGE_LAYOUT_GENERAL)
+                if (barrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
                 {
                     barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
                 }
-                else if (barrier.layout == VK_IMAGE_LAYOUT_UNDEFINED)
+                else 
                 {
+                    ASSERT(barrier.layout == VK_IMAGE_LAYOUT_UNDEFINED);
                     barrier.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                 }
             }
@@ -743,7 +771,6 @@ namespace VulkanTest
             auto& physicalPass = physicalPasses[physicalPassIndex];
             for (auto& subpass : physicalPass.passes)
             {
-                auto& pass = renderPasses[subpass];
                 auto& passBarrier = passBarriers[subpass];
                 auto& invalidate = passBarrier.invalidate;
                 auto& flush = passBarrier.flush;
@@ -768,7 +795,7 @@ namespace VulkanTest
                             resState.initialLayout = barrier.layout;
                     }
 
-                    if ((dim.imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0)
+                    if (dim.IsStorageImage())
                         resState.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
                     else
                         resState.finalLayout = barrier.layout;
@@ -789,7 +816,7 @@ namespace VulkanTest
                     resState.flushedTypes |= barrier.access;
                     resState.flushedStages |= barrier.stages;
 
-                    if ((dim.imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0)
+                    if (dim.IsStorageImage())
                         resState.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
                     else
                         resState.finalLayout = barrier.layout;
@@ -800,10 +827,10 @@ namespace VulkanTest
                         resState.initialLayout = barrier.layout;
                         resState.invalidatedStages = barrier.stages;
                         resState.invalidatedTypes = barrier.access;
+                    
+                        // Resource is not used in current pass, so we discard the resource
+                        physicalPass.discards.push_back(barrier.resIndex);
                     }
-
-                    // Resource is not used in current pass, so we discard the resource
-                    physicalPass.discards.push_back(barrier.resIndex);
                 }
             }
 
@@ -975,6 +1002,7 @@ namespace VulkanTest
         physicalAttachments.resize(physicalDimensions.size());
 
         // Try to reuse
+        physicalEvents.resize(physicalDimensions.size());
         physicalBuffers.resize(physicalDimensions.size());
         physicalImages.resize(physicalDimensions.size());
 
@@ -1045,7 +1073,32 @@ namespace VulkanTest
         };
 
         auto SetupPhysicalBuffers = [&](U32 attachment) {
+            auto& physicalDim = physicalDimensions[attachment];
+            bool needToCreate = true;
+            VkBufferUsageFlags usage = physicalDim.bufferInfo.usage;
 
+            if (physicalBuffers[attachment])
+            {
+                auto& bufferInfo = physicalBuffers[attachment]->GetCreateInfo();
+                if ( bufferInfo.size == physicalDim.bufferInfo.size &&
+                    ((bufferInfo.usage & usage) == usage))
+                    needToCreate = false;
+            }
+
+            if (needToCreate)
+            {
+                GPU::BufferCreateInfo info = {};
+                info.domain = GPU::BufferDomain::Device;
+                info.size = physicalDim.bufferInfo.size;
+                info.usage = usage;
+                info.misc = GPU::BUFFER_MISC_ZERO_INITIALIZE_BIT;
+
+                physicalBuffers[attachment] = device.CreateBuffer(info, nullptr);
+                if (!physicalImages[attachment])
+                    Logger::Error("Faile to create buffer of render graph.");
+
+                physicalEvents[attachment] = {};
+            }
         };
 
         for (int i = 0; i < physicalDimensions.size(); i++)
@@ -1079,12 +1132,11 @@ namespace VulkanTest
         }
     }
 
-    void RenderGraphImpl::HandlePassSignal(GPU::DeviceVulkan& device, PhysicalPass& physicalPass, GPUPassSubmissionState& state)
-    {
-    }
-
     void RenderGraphImpl::HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue)
     {
+        bool useEvent = false;
+        bool useSempahore = false;
+
         auto& ent = physicalEvents[barrier.resIndex];
         auto& physicalRes = physicalDimensions[barrier.resIndex];
         if (physicalRes.IsBuffer())
@@ -1092,12 +1144,100 @@ namespace VulkanTest
         }
         else
         {
+            GPU::Image* image = physicalImages[barrier.resIndex].get();
+            if (image == nullptr)
+                return;
 
+            auto& imgInfo = image->GetCreateInfo();
+
+            VkImageMemoryBarrier b = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+            b.oldLayout = ent.imageLayout;
+            b.newLayout = barrier.layout;
+            b.image = image->GetImage();
+            b.srcAccessMask = ent.flushAccess;
+            b.dstAccessMask = barrier.access;
+            b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.subresourceRange.levelCount = imgInfo.levels;
+            b.subresourceRange.aspectMask = GPU::formatToAspectMask(imgInfo.format);
+            b.subresourceRange.layerCount = imgInfo.layers;
+
+            bool layoutChange = b.oldLayout != b.newLayout;
+            bool needSync = layoutChange || (ent.flushAccess != 0);
+            if (needSync)
+            {
+                if (ent.ent)
+                {
+                    state.eventImageBarriers.push_back(b);
+                    useEvent = true;
+                }
+                else
+                {
+                    GPU::SemaphorePtr waitSemaphore = isGraphicsQueue ? ent.waitGraphicsSemaphore : ent.waitComputeSemaphore;
+                    if (waitSemaphore)
+                    {
+                        if (layoutChange)
+                        {
+                            b.srcAccessMask = 0;
+                            state.handoverBarriers.push_back(b);
+                            state.handoverStages |= barrier.stages;
+                        }
+                        useSempahore = true;
+                    }
+                    else
+                    {
+                        // Is the first time to use the resource
+                        state.immediateImageBarriers.push_back(b);
+                        state.immediateDstStages |= barrier.stages;
+                    }
+                }
+            }
+        }
+
+        if (useEvent)
+        {
+            ASSERT(ent.ent);
+            auto it = std::find(state.events.begin(), state.events.end(), ent.ent->GetEvent());
+            if (it == state.events.end())
+                state.events.push_back(ent.ent->GetEvent());
+
+            state.srcStages |= ent.entStages;
+            state.dstStages |= barrier.stages;
+        }
+        else if (useSempahore)
+        {
+            GPU::SemaphorePtr waitSemaphore = isGraphicsQueue ? ent.waitGraphicsSemaphore : ent.waitComputeSemaphore;
+            ASSERT(waitSemaphore);
+
+            state.waitSemaphores.push_back(waitSemaphore->GetSemaphore());
+            state.waitSemaphoreStages.push_back(barrier.stages);
         }
     }
     
     void RenderGraphImpl::HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state)
     {
+        auto& ent = physicalEvents[barrier.resIndex];
+        auto& physicalRes = physicalDimensions[barrier.resIndex];
+        if (!physicalRes.IsBuffer())
+        {
+            GPU::Image* image = physicalImages[barrier.resIndex].get();
+            if (image == nullptr)
+                return;
+
+            ent.imageLayout = barrier.layout;
+        }
+
+        ent.flushAccess = barrier.access;
+
+        if (physicalRes.UseSemaphore())
+        {
+            ent.waitGraphicsSemaphore = state.graphicsSemaphore;
+            ent.waitComputeSemaphore = state.computeSemaphore;
+        }
+        else
+        {
+            ent.ent = state.signalEvent;
+        }
     }
 
     void RenderGraphImpl::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)
@@ -1136,11 +1276,35 @@ namespace VulkanTest
                 break;
             }
 
+            // Handle discard
+            for (auto& discard : physicalPass.discards)
+            {
+                if (!physicalDimensions[discard].IsBufferLikeRes())
+                    physicalEvents[discard].imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            }
+
             // Handle invalidate barriers
             for (auto& barrier : physicalPass.invalidate)
                 HandleInvalidateBarrier(barrier, state, state.isGraphics);
 
-            HandlePassSignal(device, physicalPass, state);
+            // Create signal events and semaphores
+            for (auto& barrier : physicalPass.flush)
+            {
+                auto& physicalDim = physicalDimensions[barrier.resIndex];
+                if (physicalDim.UseSemaphore())
+                    state.needSubmissionSemaphore = true;
+                else
+                    state.signalEventStages |= barrier.stages;
+            }
+            if (state.signalEventStages != 0)
+            {
+                state.signalEvent = device.RequestEvent();
+            }
+            if (state.needSubmissionSemaphore)
+            {
+                state.graphicsSemaphore = device.RequestSemaphore();
+                state.computeSemaphore = device.RequestSemaphore();
+            }
 
             // Handle flush barriers
             for (auto& barrier : physicalPass.flush)
@@ -1149,23 +1313,47 @@ namespace VulkanTest
             // Handle alias transfer of physical pass
             for (auto& transfer : physicalPass.aliasTransfers)
             {
+                // Wait on the event before we transfer to alias
                 auto& ent = physicalEvents[transfer.second];
                 ent = physicalEvents[transfer.first];
+                ent.flushAccess = 0;
+                ent.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             }
-
         }
 
-        // Assign GPU::CommandList for submission states
+        // Do gpu behaviors
         for (auto& state : submissionStates)
         {
             if (!state.active)
                 continue;
 
+            Jobsystem::JobHandle renderHandle = Jobsystem::INVALID_HANDLE;
+            Jobsystem::Run(&state, [&device](void* data)->void {
+                GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
+                if (state == nullptr)
+                    return;
 
+                GPU::CommandListPtr cmd = device.RequestCommandList(state->queueType);
+                if (!cmd)
+                {
+                    Logger::Error("Failed to create command list for render graph");
+                    return;
+                }
 
+                state->EmitPrePassBarriers();
 
+                if (state->isGraphics)
+                    state->DoGraphicsCommands();
+                else
+                    state->DoComputeCommands();
+
+                state->EmitPostPassBarriers();
+
+            }, &renderHandle);
+            state.renderingDependency = renderHandle;
         }
 
+        // Submit all states
         Jobsystem::JobHandle stateHandle = Jobsystem::INVALID_HANDLE;
         for (auto& state : submissionStates)
         {
@@ -1180,6 +1368,49 @@ namespace VulkanTest
                 state->Submit();
             }, &stateHandle);
         }
+    }
+
+    void GPUPassSubmissionState::EmitPrePassBarriers()
+    {
+        cmd->BeginEvent("RenderGraphSyncPre");
+
+        // Barriers
+        if (!immediateImageBarriers.empty() || !handoverBarriers.empty())
+        {
+            std::vector<VkImageMemoryBarrier> combinedBarriers;
+            combinedBarriers.reserve(handoverBarriers.size() + immediateImageBarriers.size());
+            combinedBarriers.insert(combinedBarriers.end(), handoverBarriers.begin(), handoverBarriers.end());
+            combinedBarriers.insert(combinedBarriers.end(), immediateImageBarriers.begin(), immediateImageBarriers.end());
+            
+            VkPipelineStageFlags src = handoverStages;
+            VkPipelineStageFlags dst = handoverStages | immediateDstStages;
+            if (src == 0)
+                src = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+            cmd->Barrier(src, dst, combinedBarriers.size(), combinedBarriers.empty() ? nullptr : combinedBarriers.data());
+        }
+
+        // Wait events
+        if (!eventImageBarriers.empty())
+        {
+        }
+
+        cmd->EndEvent();
+    }
+
+    void GPUPassSubmissionState::EmitPostPassBarriers()
+    {
+        cmd->BeginEvent("RenderGraphSyncPost");
+
+        cmd->EndEvent();
+    }
+
+    void GPUPassSubmissionState::DoGraphicsCommands()
+    {
+    }
+
+    void GPUPassSubmissionState::DoComputeCommands()
+    {
     }
 
     void GPUPassSubmissionState::Submit()

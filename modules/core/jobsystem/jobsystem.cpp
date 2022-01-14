@@ -30,7 +30,7 @@ namespace Jobsystem
 
     struct JobImpl
     {
-        void (*task)(void*) = nullptr;
+        JobFunc task = nullptr;
         void* data = nullptr;
         JobHandle finishHandle;
         JobHandle precondition;
@@ -113,6 +113,8 @@ namespace Jobsystem
 
         int Task() override
         {
+            Platform::SetCurrentThreadIndex(workderIndex + 1);
+
             gWorker = this;
             primaryFiber = Fiber::Create(Fiber::THIS_THREAD);
             gManager->sync.Lock();
@@ -234,6 +236,8 @@ namespace Jobsystem
 
     bool Initialize(U32 numWorkers)
     {
+        Platform::SetCurrentThreadIndex(0);
+
         gManager.Create();
 
         for (int i = 0; i < MAX_FIBER_COUNT; i++)
@@ -248,7 +252,7 @@ namespace Jobsystem
         gManager->workers.reserve(numWorkers);
         for (U32 i = 0; i < numWorkers; i++)
         {
-            WorkerThread* worker = CJING_NEW(WorkerThread)(*gManager, (U64)1u << i);
+            WorkerThread* worker = CJING_NEW(WorkerThread)(*gManager, i);
             if (worker->Create("Worker"))
             {
                 gManager->workers.push_back(worker);

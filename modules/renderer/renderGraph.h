@@ -92,6 +92,15 @@ struct ResourceDimensions
     {
         return (imageUsage & VK_IMAGE_USAGE_STORAGE_BIT) != 0 || (bufferInfo.size > 0);
     }
+
+    bool UseSemaphore()const
+    {
+        // Need to use emaphore when using muti queues
+        U32 tempQueues = queues;
+        if (tempQueues & (U32)RenderGraphQueueFlag::Compute)
+            tempQueues |= (U32)RenderGraphQueueFlag::Graphics;
+        return (tempQueues & (tempQueues - 1)) != 0;
+    }
 };
 
 class VULKAN_TEST_API RenderResource

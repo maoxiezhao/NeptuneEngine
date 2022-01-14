@@ -240,6 +240,22 @@ namespace Platform {
 		return ::GetCurrentThreadId();
 	}
 
+	static thread_local unsigned threadIndex = ~0u;
+	U32 GetCurrentThreadIndex() 
+	{
+		if (threadIndex == ~0u)
+		{
+			Logger::Error("Current thread dose not set thread index.");
+			return 0;
+		}
+		return threadIndex;
+	}
+
+	void SetCurrentThreadIndex(U32 index)
+	{
+		threadIndex = index;
+	}
+
 	I32 GetNumPhysicalCores()
 	{
 		I32 numCores = 0;
