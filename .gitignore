@@ -14,3 +14,4 @@ assets/.export
 
 # vscode
 .vscode
+app/config_user.jsc
