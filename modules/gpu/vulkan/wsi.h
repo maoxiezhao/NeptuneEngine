@@ -62,6 +62,7 @@ public:
 	void SetPlatform(WSIPlatform* platform_);
 
 	GPU::DeviceVulkan* GetDevice();
+	VkFormat GetSwapchainFormat()const;
 
 private:
 	bool InitSwapchain(U32 width, U32 height);

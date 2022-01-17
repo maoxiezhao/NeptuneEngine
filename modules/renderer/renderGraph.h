@@ -57,11 +57,11 @@ struct ResourceDimensions
     U32 layers = 1;
     U32 levels = 1;
     U32 samples = 1;
-    String name;
     U32 queues = 0;
     VkImageUsageFlags imageUsage = 0;
     bool isTransient = false;
     BufferInfo bufferInfo = {};
+    String name;
 
     bool operator==(const ResourceDimensions& other) const
     {
@@ -362,8 +362,8 @@ private:
     ClearDepthStencilFunc clearDepthStencilCallback;
     ClearColorFunc clearColorCallback;
 
-    RenderTextureResource* inputDepthStencil;
-    RenderTextureResource* outputDepthStencil;
+    RenderTextureResource* inputDepthStencil = nullptr;
+    RenderTextureResource* outputDepthStencil = nullptr;
     std::vector<AccessedTextureResource> inputTextures;
     std::vector<RenderTextureResource*> outputColors;
     std::vector<RenderBufferResource*> inputBuffers;

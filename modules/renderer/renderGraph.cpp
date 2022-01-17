@@ -42,7 +42,7 @@ namespace VulkanTest
         GPU::RenderPassInfo gpuRenderPassInfo = {};
         std::vector<ColorClearRequest> colorClearRequests;
         DepthClearRequest depthClearRequest;
-        U32 physicalDepthStencilAttachment = RenderResource::Unused;
+        U32 physicalDepthStencilAttachment = (U32)RenderResource::Unused;
         std::vector<Barrier> invalidate;
         std::vector<Barrier> flush;
         std::vector<unsigned> discards;
@@ -98,9 +98,9 @@ namespace VulkanTest
         GPU::DeviceVulkan* device;
         String backbufferSource;
 
-        std::unordered_map<const char*, U32> nameToRenderPassIndex;
+        std::unordered_map<String, U32> nameToRenderPassIndex;
         std::vector<UniquePtr<RenderPass>> renderPasses;
-        std::unordered_map<const char*, U32> nameToResourceIndex;
+        std::unordered_map<String, U32> nameToResourceIndex;
         std::vector<UniquePtr<RenderResource>> resources;
 
         std::vector<U32> passStack;
@@ -127,6 +127,10 @@ namespace VulkanTest
         void DoGraphicsCommands(GPU::CommandList& cmd, PhysicalPass& physicalPass, GPUPassSubmissionState* state);
         void DoComputeCommands(GPU::CommandList& cmd, PhysicalPass& physicalPass, GPUPassSubmissionState* state);
         void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
+
+        // Debug
+        void Log();
+        String DebugExportGraphviz();
 
         std::vector<ResourceDimensions> physicalDimensions;
         std::vector<U32> physicalAliases;
@@ -639,7 +643,7 @@ namespace VulkanTest
 
                 auto& inputAttachments = pass.GetInputAttachments();
                 subPass.numInputAttachments = inputAttachments.size();
-                for (int i = 0; i < subPass.numColorAattachments; i++)
+                for (int i = 0; i < subPass.numInputAttachments; i++)
                 {     
                     auto ret = AddInputAttachment(inputAttachments[i]->GetPhysicalIndex());
                     subPass.inputAttachments[i] = ret.first;
@@ -1417,6 +1421,87 @@ namespace VulkanTest
         }, &jobHandle, stateHandle);
     }
 
+
+    void RenderGraphImpl::Log()
+    {
+
+    }
+
+    String RenderGraphImpl::DebugExportGraphviz()
+    {
+        String ret;
+        ret += "digraph \"graph\" {\n";
+        ret += "rankdir = LR\n";
+        ret += "bgcolor = black\n";
+        ret += "node [shape=rectangle, fontname=\"helvetica\", fontsize=10]\n\n";
+    
+        // Physical passes
+        for (auto& physicalPass : physicalPasses)
+        {
+            for (U32 passIndex : physicalPass.passes)
+            {
+                auto& pass = renderPasses[passIndex];
+                std::string passIndexString = std::to_string(passIndex).c_str();
+
+                ret += "Pass_";
+                ret += passIndexString.c_str();
+                ret += " [label=\"";
+                ret += pass->GetName();
+                ret += ", id: ";
+                ret += passIndexString.c_str();
+                ret += "\", ";
+                ret += "style=filled, fillcolor=";
+                ret += pass->GetPhysicalIndex() != RenderPass::Unused ? "darkorange" : "darkorange4";
+                ret += "]\n";
+            }
+        }
+
+        // Physical resources
+        for (U32 resIndex = 0; resIndex < physicalDimensions.size(); resIndex++)
+        {
+            auto& res = physicalDimensions[resIndex];
+            std::string resIndexString = std::to_string(resIndex).c_str();
+
+            ret += "Res_";
+            ret += resIndexString.c_str();
+            ret += " [label=\"";
+            ret += res.name;
+            ret += ", id: ";
+            ret += resIndexString.c_str();
+            ret += "\", ";
+            ret += "style=filled, fillcolor=";
+            ret += "skyblue";
+            ret += "]\n";
+        }
+
+        // Add Edge
+        for (auto& physicalPass : physicalPasses)
+        {
+            for (U32 passIndex : physicalPass.passes)
+            {
+                auto& pass = renderPasses[passIndex];
+                // Outputs
+                for (auto& res : pass->GetOutputColors())
+                {
+                    U32 physicalIndex = res->GetPhysicalIndex();
+                    if (physicalIndex != RenderResource::Unused)
+                    {
+                        ret += "Pass_";
+                        ret += std::to_string(passIndex).c_str();
+                        ret += "-> ";
+                        ret += "Res_";
+                        ret += std::to_string(physicalIndex).c_str();
+                        ret += " [color=red2]\n";
+                    }
+                }
+            }
+        }
+
+        ret += "}\n";
+        Logger::Print(ret);
+        return ret;
+    }
+
     void GPUPassSubmissionState::EmitPrePassBarriers()
     {
         cmd->BeginEvent("RenderGraphSyncPre");
@@ -1695,7 +1780,8 @@ namespace VulkanTest
     
     void RenderGraph::Log()
     {
-        
+        impl->Log();
+        impl->DebugExportGraphviz();
     }
 
     RenderTextureResource& RenderGraph::GetOrCreateTexture(const char* name)

@@ -7,8 +7,12 @@ namespace VulkanTest
 {
 namespace GPU
 {
+    VulkanContext::VulkanContext(U32 numThreads_) :
+        numThreads(numThreads_)
+    {
+    }
 
-VulkanContext::~VulkanContext()
+    VulkanContext::~VulkanContext()
 {
 #ifdef VULKAN_DEBUG
     if (mDebugUtilsMessenger != VK_NULL_HANDLE) {

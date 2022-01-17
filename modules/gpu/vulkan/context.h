@@ -35,7 +35,7 @@ struct QueueInfo
 class VulkanContext
 {
 public:
-    VulkanContext() = default;
+    VulkanContext(U32 numThreads_);
     ~VulkanContext();
     VulkanContext(const VulkanContext&) = delete;
     void operator=(const VulkanContext&) = delete;

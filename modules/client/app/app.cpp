@@ -18,7 +18,7 @@ App::App(const InitConfig& initConfig_) :
     freopen("CONOUT$", "w", stderr);
 
     Logger::RegisterSink(mStdoutLoggerSink);
-    Logger::Info("App initialize.");
+    Logger::Info("App initialized.");
 }
 
 App::~App()

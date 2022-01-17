@@ -47,7 +47,7 @@ bool WSI::Initialize(U32 numThread)
     auto instanceExt = platform->GetRequiredExtensions(true);
     auto deviceExt = platform->GetRequiredDeviceExtensions();
 
-    vulkanContext = new GPU::VulkanContext();
+    vulkanContext = new GPU::VulkanContext(numThread);
     if (!vulkanContext->Initialize(instanceExt, deviceExt, true))
         return false;
 
@@ -199,6 +199,11 @@ void WSI::SetPlatform(WSIPlatform* platform_)
 GPU::DeviceVulkan* WSI::GetDevice()
 {
     return deviceVulkan;
+}
+
+VkFormat WSI::GetSwapchainFormat() const
+{
+    return swapchainFormat;
 }
 
 bool WSI::InitSwapchain(U32 width, U32 height)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\utils\crc32.h"
 
 #include <stdarg.h>
 #include <string_view>
@@ -294,6 +295,17 @@ namespace VulkanTest
 	using WString = std::wstring;
 	using StringView = std::string_view;
 #endif
-
-
 }
+
+namespace std
+{
+	template<>
+	class hash<VulkanTest::String>
+	{
+	public:
+		size_t operator()(const VulkanTest::String& str) const
+		{
+			return VulkanTest::CRC32(str.data());
+		}
+	};
+};

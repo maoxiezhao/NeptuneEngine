@@ -2,7 +2,7 @@
 
 namespace VulkanTest
 {
-    static U32 crcTable[256] =
+    static U32 crc32Table[256] =
     {
             0, 1996959894, 3993919788, 2567524794, 124634137, 1886057615, 3915621685, 2657392035, 249268274, 2044508324, 3772115230, 2547177864, 162941995, 2125561021, 3887607047, 2428444049,
             498536548, 1789927666, 4089016648, 2227061214, 450548861, 1843258603, 4107580753, 2211677639, 325883990, 1684777152, 4251122042, 2321926636, 335633487, 1661365465, 4195302755, 2366115317,
@@ -25,12 +25,12 @@ namespace VulkanTest
 
     U32 VulkanTest::CRC32(const char* str)
     {
-        U32 crc = 0XFFFFFFFF;
         const U8* c = reinterpret_cast<const U8*>(str);
-        while (c != nullptr)
+        U32 crc = 0xffffFFFF;
+        while (*c)
         {
-            crc = crcTable[(crc ^ *c) & 0XFF] ^ (crc >> 8);
-            c++;
+            crc = (crc >> 8) ^ crc32Table[(crc & 0xFF) ^ *c];
+            ++c;
         }
         return ~crc;
     }

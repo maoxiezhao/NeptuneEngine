@@ -126,7 +126,8 @@ namespace VulkanTest
 		if (size <= SMALL_ALLOC_MAX_SIZE)
 		{
 			U32 i = GetFreeListIndex(size);
-			if (allocator.freeList[i]->header.itemSize == page->header.itemSize)
+			DefaultAllocator::MemPage* newPage = allocator.freeList[i];
+			if (newPage != nullptr && newPage->header.itemSize == page->header.itemSize)
 				return mem;
 		}
 
