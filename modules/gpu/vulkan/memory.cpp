@@ -127,12 +127,42 @@ namespace GPU
 		device = device_;
 		allocator = VK_NULL_HANDLE;
 
+		VmaVulkanFunctions vmaVulkanFunc = {};
+		vmaVulkanFunc.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
+		vmaVulkanFunc.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
+		vmaVulkanFunc.vkAllocateMemory = vkAllocateMemory;
+		vmaVulkanFunc.vkFreeMemory = vkFreeMemory;
+		vmaVulkanFunc.vkMapMemory = vkMapMemory;
+		vmaVulkanFunc.vkUnmapMemory = vkUnmapMemory;
+		vmaVulkanFunc.vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges;
+		vmaVulkanFunc.vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges;
+		vmaVulkanFunc.vkBindBufferMemory = vkBindBufferMemory;
+		vmaVulkanFunc.vkBindImageMemory = vkBindImageMemory;
+		vmaVulkanFunc.vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements;
+		vmaVulkanFunc.vkGetImageMemoryRequirements = vkGetImageMemoryRequirements;
+		vmaVulkanFunc.vkCreateBuffer = vkCreateBuffer;
+		vmaVulkanFunc.vkDestroyBuffer = vkDestroyBuffer;
+		vmaVulkanFunc.vkCreateImage = vkCreateImage;
+		vmaVulkanFunc.vkDestroyImage = vkDestroyImage;
+		vmaVulkanFunc.vkCmdCopyBuffer = vkCmdCopyBuffer;
+
 		VmaAllocatorCreateInfo allocatorInfo = {};
 		allocatorInfo.physicalDevice = device->physicalDevice;
 		allocatorInfo.device = device->device;
 		allocatorInfo.instance = device->instance;
+
+		// 1.1
+		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT | VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+		vmaVulkanFunc.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2;
+		vmaVulkanFunc.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2;
+
 		if (device->features.features_1_2.bufferDeviceAddress)
+		{
 			allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+			vmaVulkanFunc.vkBindBufferMemory2KHR = vkBindBufferMemory2;
+			vmaVulkanFunc.vkBindImageMemory2KHR = vkBindImageMemory2;
+		}
+		allocatorInfo.pVulkanFunctions = &vmaVulkanFunc;
 
 		if (vmaCreateAllocator(&allocatorInfo, &allocator) != VK_SUCCESS)
 		{
