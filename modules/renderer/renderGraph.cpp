@@ -36,7 +36,7 @@ namespace VulkanTest
     struct PhysicalPass
     {
         std::vector<U32> passes;
-        std::vector<U32> physicalColorAttachments;
+        std::vector<U32> physicalColorAttachments;  // PhysicalResIndex
 
         std::vector<GPU::RenderPassInfo::SubPass> gpuSubPasses;
         GPU::RenderPassInfo gpuRenderPassInfo = {};
@@ -121,7 +121,7 @@ namespace VulkanTest
         void BuildAliases();
 
         // Runtime methods
-        void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchin);
+        void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain);
         void HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue);
         void HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state);  
         void DoGraphicsCommands(GPU::CommandList& cmd, PhysicalPass& physicalPass, GPUPassSubmissionState* state);
@@ -1135,6 +1135,18 @@ namespace VulkanTest
                 }
             }
         }
+
+        // Assign physical attachments to PhysicalPass::GPURenderPassInfo
+        for (auto& physicalPass : physicalPasses)
+        {
+            auto& gpuRenderPassInfo = physicalPass.gpuRenderPassInfo;
+            U32 numColorAttachments = physicalPass.physicalColorAttachments.size();
+            for (U32 i = 0; i < numColorAttachments; i++)
+            {
+                gpuRenderPassInfo.colorAttachments[i] = 
+                    physicalAttachments[physicalPass.physicalColorAttachments[i]];
+            }
+        }
     }
 
     void RenderGraphImpl::HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue)
@@ -1361,6 +1373,8 @@ namespace VulkanTest
                 ent.flushAccess = 0;
                 ent.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             }
+
+            state.active = true;
         }
 
         // Do gpu behaviors
@@ -1383,6 +1397,7 @@ namespace VulkanTest
                     Logger::Error("Failed to create command list for render graph");
                     return;
                 }
+                state->cmd = cmd;
 
                 state->EmitPrePassBarriers();
 
@@ -1771,6 +1786,11 @@ namespace VulkanTest
 
         // Build physical barriers which we really need
         impl->BuildPhysicalBarriers();
+    }
+
+    void RenderGraph::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain)
+    {
+        impl->SetupAttachments(device, swapchain);
     }
     
     void RenderGraph::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)

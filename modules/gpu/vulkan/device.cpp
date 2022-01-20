@@ -367,7 +367,7 @@ Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threa
 {
     // Only support main thread now
     auto& pools = CurrentFrameResource().cmdPools[(int)queueType];
-    assert(threadIndex == 0 && threadIndex < pools.size());
+    assert(threadIndex >= 0 && threadIndex < pools.size());
 
     CommandPool& pool = pools[threadIndex];
     VkCommandBuffer buffer = pool.RequestCommandBuffer();

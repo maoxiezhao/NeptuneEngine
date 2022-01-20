@@ -233,7 +233,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpas
     {
         if (renderPassInfo.clearAttachments & (1u << i))
         {
-            clearColors[i].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+            clearColors[i].color = renderPassInfo.clearColor[i];
             numClearColor = i + 1;
         }
 

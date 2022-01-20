@@ -383,6 +383,7 @@ public:
     RenderPass& AddRenderPass(const char* name, RenderGraphQueueFlag queueFlag);
     void SetBackBufferSource(const char* name);
     void Bake();
+    void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchin);
     void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
     void Log();
 

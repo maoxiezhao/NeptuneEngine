@@ -2,7 +2,7 @@
 #include "client\app\app.h"
 #include "gpu\vulkan\device.h"
 #include "renderer\renderGraph.h"
-
+#include "core\platform\platform.h"
 #include "core\events\event.h"
 #include "core\utils\intrusiveHashMap.hpp"
 
@@ -14,7 +14,15 @@ namespace VulkanTest
         RenderGraph graph;
 
     public:
-        TestApp(const InitConfig& initConfig_) : App(initConfig_) {}
+        TestApp(const InitConfig& initConfig_) : App(initConfig_) 
+        {
+            Jobsystem::Initialize(Platform::GetCPUsCount() - 1);
+        }
+
+        ~TestApp()
+        {
+            Jobsystem::Uninitialize();
+        }
 
         U32 GetDefaultWidth() override
         {
@@ -28,7 +36,7 @@ namespace VulkanTest
 
         void Initialize() override
         {
-            if (!wsi.Initialize(1))
+            if (!wsi.Initialize(Platform::GetCPUsCount() - 1))
                 return;
 
             GPU::DeviceVulkan* device = wsi.GetDevice();
@@ -47,6 +55,16 @@ namespace VulkanTest
 
             auto& finalPass = graph.AddRenderPass("Final", RenderGraphQueueFlag::Graphics);
             finalPass.WriteColor("back", back);
+            finalPass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
+                if (value != nullptr)
+                {
+                    value->float32[0] = 1.0f;
+                    value->float32[1] = 1.0f;
+                    value->float32[2] = 1.0f;
+                    value->float32[3] = 1.0f;
+                }
+                return true;
+            });
             finalPass.SetBuildCallback([&](GPU::CommandList& cmd) {
                 cmd.SetDefaultOpaqueState();
                 cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
@@ -66,6 +84,10 @@ namespace VulkanTest
         {
             GPU::DeviceVulkan* device = wsi.GetDevice();
             assert(device != nullptr);
+            graph.SetupAttachments(*device, &device->GetSwapchainView());
+            Jobsystem::JobHandle handle = Jobsystem::INVALID_HANDLE;
+            graph.Render(*device, handle);
+            Jobsystem::Wait(handle);
         }
     };
 
