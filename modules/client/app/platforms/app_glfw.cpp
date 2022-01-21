@@ -2,6 +2,7 @@
 #include "core\memory\memory.h"
 #include "core\utils\profiler.h"
 #include "core\platform\sync.h"
+#include "core\platform\platform.h"
 #include "gpu\vulkan\wsi.h"
 #include "GLFW\glfw3.h"
 
@@ -216,6 +217,8 @@ public:
 	void ThreadMainLoop(App* app)
 	{
 		Profiler::SetThreadName("AsyncMainThread");
+		Platform::SetCurrentThreadIndex(0);
+
 		app->Initialize();
 
 		while (app->Poll())

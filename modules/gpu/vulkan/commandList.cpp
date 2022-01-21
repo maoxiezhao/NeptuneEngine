@@ -1,5 +1,6 @@
 ﻿#include "commandList.h"
 #include "vulkan/device.h"
+#include "core\platform\platform.h"
 
 namespace VulkanTest
 {
@@ -169,7 +170,8 @@ void CommandPool::BeginFrame()
     if (usedIndex > 0)
     {
         usedIndex = 0;
-        vkResetCommandPool(device->device, pool, 0);
+        if (pool != VK_NULL_HANDLE)
+            vkResetCommandPool(device->device, pool, 0);
     }
 }
 
@@ -262,7 +264,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpas
     subpassContents = contents;
 
     // begin graphics contexxt
-    BeginGraphicsContext();
+    ResetCommandContext();
 }
 
 void CommandList::EndRenderPass()
@@ -273,6 +275,9 @@ void CommandList::EndRenderPass()
     frameBuffer = nullptr;
     renderPass = nullptr;
     compatibleRenderPass = nullptr;
+
+    // begin graphics contexxt
+    ResetCommandContext();
 }
 
 void CommandList::ClearPipelineState()
@@ -395,7 +400,7 @@ void CommandList::SetProgram(const std::string& vertex, const std::string& fragm
    SetProgram(variant->GetProgram());
 }
 
-void CommandList::BeginGraphicsContext()
+void CommandList::ResetCommandContext()
 {
     dirty = ~0u;  // set all things are dirty
     dirtyVbos = ~0u;
@@ -411,8 +416,15 @@ void CommandList::BeginGraphicsContext()
 
 void CommandList::EndCommandBuffer()
 {
-    VkResult res = vkEndCommandBuffer(cmd);
-    assert(res == VK_SUCCESS);
+    if (!isEnded)
+    {
+        isEnded = true;
+
+        U32 curretnThreadIndex = Platform::GetCurrentThreadIndex();
+        ASSERT(curretnThreadIndex == threadIndex);
+        VkResult res = vkEndCommandBuffer(cmd);
+        ASSERT(res == VK_SUCCESS);
+    }
 
     if (vboBlock.mapped != nullptr)
         device.RequestVertexBufferBlock(vboBlock, 0);
@@ -559,7 +571,7 @@ void CommandList::NextSubpass(VkSubpassContents contents)
     pipelineState.subpassIndex++;
     vkCmdNextSubpass(cmd, contents);
     subpassContents = contents;
-    BeginGraphicsContext();
+    ResetCommandContext();
 }
 
 void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
@@ -775,7 +787,7 @@ void CommandList::FlushDescriptorSet(U32 set)
         });
     }
 
-    auto allocated = allocator->GetOrAllocate(hasher.Get());
+    auto allocated = allocator->GetOrAllocate(threadIndex, hasher.Get());
     // The descriptor set was not successfully cached, rebuild.
 	if (!allocated.second)
 	{

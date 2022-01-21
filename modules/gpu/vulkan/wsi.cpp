@@ -110,8 +110,9 @@ void WSI::BeginFrame()
         return;
     }
 
+    // Resize frame buffer
     if (platform->ShouldResize() || isSwapchinSuboptimal)
-        int a = 0;
+        UpdateFrameBuffer(platform->GetWidth(), platform->GetHeight());
 
     // 当前swapchian已经Acquired
     if (swapchainIndexHasAcquired)

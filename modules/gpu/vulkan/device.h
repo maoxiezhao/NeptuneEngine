@@ -296,6 +296,7 @@ public:
     SemaphorePtr GetAndConsumeReleaseSemaphore();
     VkQueue GetPresentQueue()const;
     DeviceFeatures GetFeatures()const { return features; }
+    U32 GetNumThreads()const { return numThreads; }
 
     ImageView& GetSwapchainView();
     RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
@@ -342,7 +343,7 @@ private:
     {
         VkFence fence = VK_NULL_HANDLE;
     };
-    void SubmitImpl(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
+    void SubmitUnlock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
     void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphores = nullptr);
     void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores);
     VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);

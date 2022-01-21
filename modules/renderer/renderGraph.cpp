@@ -516,6 +516,8 @@ namespace VulkanTest
         for (auto& physicalPass : physicalPasses)
         {
             physicalPass.gpuSubPasses.resize(physicalPass.passes.size());
+            physicalPass.colorClearRequests.clear();
+            physicalPass.depthClearRequest = {};
 
             // Create render pass info
             auto& renderPassInfo = physicalPass.gpuRenderPassInfo;
@@ -523,7 +525,7 @@ namespace VulkanTest
             renderPassInfo.subPasses = physicalPass.gpuSubPasses.data();
             renderPassInfo.clearAttachments = 0;
             renderPassInfo.loadAttachments = 0;
-            renderPassInfo.storeAttachments = 0;
+            renderPassInfo.storeAttachments = ~0u;
 
             auto& colorAttachements = physicalPass.physicalColorAttachments;
             colorAttachements.clear();

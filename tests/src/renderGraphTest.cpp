@@ -59,7 +59,7 @@ namespace VulkanTest
                 if (value != nullptr)
                 {
                     value->float32[0] = 1.0f;
-                    value->float32[1] = 1.0f;
+                    value->float32[1] = 0.0f;
                     value->float32[2] = 1.0f;
                     value->float32[3] = 1.0f;
                 }
@@ -67,6 +67,7 @@ namespace VulkanTest
             });
             finalPass.SetBuildCallback([&](GPU::CommandList& cmd) {
                 cmd.SetDefaultOpaqueState();
+                cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
                 cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
                 cmd.Draw(3);
             });

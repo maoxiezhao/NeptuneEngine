@@ -94,14 +94,13 @@ namespace GPU
 			return setLayout;
 		}
 
-		std::pair<VkDescriptorSet, bool> GetOrAllocate(HashValue hash);
+		std::pair<VkDescriptorSet, bool> GetOrAllocate(U32 threadIndex, HashValue hash);
 		VkDescriptorPool AllocateBindlessPool(U32 numSets, U32 numDescriptors);
 
 	private:
 		DeviceVulkan& device;
 		DescriptorSetLayout layoutInfo;
 		VkDescriptorSetLayout setLayout;
-		std::vector<VkDescriptorPool> pools;
 		std::vector<VkDescriptorPoolSize> poolSize;
 
 		class DescriptorSetNode : public Util::TempHashMapItem<DescriptorSetNode>
@@ -110,9 +109,15 @@ namespace GPU
 			explicit DescriptorSetNode(VkDescriptorSet set_) : set(set_) {}
 			VkDescriptorSet set;
 		};
-		Util::TempHashMap<DescriptorSetNode, 8, true> descriptorSetNodes;
+		
+		struct PerThread
+		{
+			Util::TempHashMap<DescriptorSetNode, 8, true> descriptorSetNodes;
+			std::vector<VkDescriptorPool> pools;
+			bool shouldBegin = false;
+		};
+		std::vector<std::unique_ptr<PerThread>> perThreads;
 
-		bool shouldBegin = false;
 		bool isBindless = false;
 	};
 }

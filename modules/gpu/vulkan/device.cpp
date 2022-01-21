@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "TextureFormatLayout.h"
 #include "core\platform\platform.h"
+#include "core\platform\atomic.h"
 
 namespace VulkanTest
 {
@@ -32,7 +33,11 @@ namespace
         return static_cast<QueueIndices>(type);
     }
 
-    static uint64_t STATIC_COOKIE = 0;
+#ifdef VULKAN_MT
+    static std::atomic<U64> STATIC_COOKIE = 0;
+#else
+    static volatile U64 STATIC_COOKIE = 0;
+#endif
 
     static inline VkImageViewType GetImageViewType(const ImageCreateInfo& createInfo, const ImageViewCreateInfo* view)
     {
@@ -249,6 +254,9 @@ DeviceVulkan::DeviceVulkan() :
     transientAllocator(*this),
     frameBufferAllocator(*this)
 {
+#ifdef VULKAN_MT
+    STATIC_COOKIE.store(0);
+#endif
 }
 
 DeviceVulkan::~DeviceVulkan()
@@ -313,7 +321,7 @@ void DeviceVulkan::InitFrameContext()
     }
 }
 
-void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height)
+void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, U32 width, U32 height)
 {
     wsi.swapchainImages.clear();
 
@@ -379,7 +387,9 @@ Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threa
     VkResult res = vkBeginCommandBuffer(buffer, &info);
     assert(res == VK_SUCCESS);
 
-    return Util::IntrusivePtr<CommandList>(commandListPool.allocate(*this, buffer, queueType));
+    Util::IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, buffer, queueType));
+    cmdPtr->SetThreadIndex(threadIndex);
+    return cmdPtr;
 }
 
 ImageView& DeviceVulkan::GetSwapchainView()
@@ -421,7 +431,7 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
     VkFormat depthStencilFormat = VkFormat::VK_FORMAT_UNDEFINED;
 
     // Color attachments
-    for (uint32_t i = 0; i < renderPassInfo.numColorAttachments; i++)
+    for (U32 i = 0; i < renderPassInfo.numColorAttachments; i++)
     {
         const ImageView& imageView = *renderPassInfo.colorAttachments[i];
         colorFormats[i] = imageView.GetInfo().format;
@@ -434,26 +444,26 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
 
     // Subpasses
     hash.HashCombine(renderPassInfo.numSubPasses);
-    for (uint32_t i = 0; i < renderPassInfo.numSubPasses; i++)
+    for (U32 i = 0; i < renderPassInfo.numSubPasses; i++)
     {
         auto& subpassInfo = renderPassInfo.subPasses[i];
         hash.HashCombine(subpassInfo.numColorAattachments);
         hash.HashCombine(subpassInfo.numInputAttachments);
         hash.HashCombine(subpassInfo.numResolveAttachments);
-		for (uint32_t j = 0; j < subpassInfo.numColorAattachments; j++)
+		for (U32 j = 0; j < subpassInfo.numColorAattachments; j++)
             hash.HashCombine(subpassInfo.colorAttachments[j]);
-		for (uint32_t j = 0; j < subpassInfo.numInputAttachments; j++)
+		for (U32 j = 0; j < subpassInfo.numInputAttachments; j++)
             hash.HashCombine(subpassInfo.inputAttachments[j]);
-		for (uint32_t j = 0; j < subpassInfo.numResolveAttachments; j++)
+		for (U32 j = 0; j < subpassInfo.numResolveAttachments; j++)
             hash.HashCombine(subpassInfo.resolveAttachments[j]);
     }
 
     // Calculate hash
-	for (uint32_t i = 0; i < renderPassInfo.numColorAttachments; i++)
-        hash.HashCombine((uint32_t)colorFormats[i]);
+	for (U32 i = 0; i < renderPassInfo.numColorAttachments; i++)
+        hash.HashCombine((U32)colorFormats[i]);
 
     hash.HashCombine(renderPassInfo.numColorAttachments);
-    hash.HashCombine((uint32_t)depthStencilFormat);
+    hash.HashCombine((U32)depthStencilFormat);
 
     // Compatible render passes do not care about load/store
     if (!isCompatible)
@@ -505,7 +515,7 @@ EventPtr DeviceVulkan::RequestEvent()
 Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout)
 {
     HashCombiner hash;
-    hash.HashCombine(static_cast<const uint32_t*>(pShaderBytecode), bytecodeLength);
+    hash.HashCombine(static_cast<const U32*>(pShaderBytecode), bytecodeLength);
 
     auto findIt = shaders.find(hash.Get());
     if (findIt != shaders.end())
@@ -572,7 +582,7 @@ ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(Sha
 DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds)
 {
 	HashCombiner hasher;
-    hasher.HashCombine(reinterpret_cast<const uint32_t*>(&layout), sizeof(layout));
+    hasher.HashCombine(reinterpret_cast<const U32*>(&layout), sizeof(layout));
     hasher.HashCombine(stageForBinds, sizeof(U32) * VULKAN_NUM_BINDINGS);
 	
 	auto findIt = descriptorSetAllocators.find(hasher.Get());
@@ -838,7 +848,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
     }
 
     // Check concurrent
-    uint32_t queueFlags =createInfo.misc &
+    U32 queueFlags =createInfo.misc &
         (IMAGE_MISC_CONCURRENT_QUEUE_GRAPHICS_BIT |
         IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT |
         IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT |
@@ -1118,7 +1128,8 @@ void DeviceVulkan::NextFrameContext()
         kvp.second->BeginFrame();
 
     // update frameIndex
-    if (++frameIndex >= frameResources.size())
+    frameIndex++;
+    if (frameIndex >= frameResources.size())
         frameIndex = 0;
 
     // begin frame resources
@@ -1135,8 +1146,9 @@ void DeviceVulkan::EndFrameContext()
     {
         if (queueDatas[queueIndex].needFence || !submissionList[queueIndex].empty())
         {
-            SubmitQueue(queueIndex, &fence);
-           
+            SubmitQueue(queueIndex, &fence, 0, nullptr);
+            // SubmitQueue(queueIndex, nullptr, 0, nullptr);
+
             if (fence.fence != VK_NULL_HANDLE)
             {
                 frame.waitFences.push_back(fence.fence);
@@ -1157,17 +1169,16 @@ void DeviceVulkan::FlushFrames()
 void DeviceVulkan::FlushFrame(QueueIndices queueIndex)
 {
     if (queueInfo.queues[queueIndex] != VK_NULL_HANDLE)
-    {
-        SubmitQueue(queueIndex, nullptr);
-    }
+        SubmitQueue(queueIndex, nullptr, 0, nullptr);
 }
 
 void DeviceVulkan::Submit(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
-    SubmitImpl(cmd, fence, semaphoreCount, semaphore);
+    LOCK();
+    SubmitUnlock(cmd, fence, semaphoreCount, semaphore);
 }
 
-void DeviceVulkan::SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire)
+void DeviceVulkan::SetAcquireSemaphore(U32 index, SemaphorePtr acquire)
 {
     wsi.acquire = std::move(acquire);
     wsi.index = index;
@@ -1283,8 +1294,12 @@ ImmutableSampler* DeviceVulkan::GetStockSampler(StockSampler type)
 
 uint64_t DeviceVulkan::GenerateCookie()
 {
+#ifdef VULKAN_MT
+    return STATIC_COOKIE.fetch_add(16, std::memory_order_relaxed) + 16;
+#else
     STATIC_COOKIE += 16;
     return STATIC_COOKIE;
+#endif
 }
 
 ShaderManager& DeviceVulkan::GetShaderManager()
@@ -1349,7 +1364,7 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
                 resLayout.stagesForSets[set] |= stageMask;
 
                 // activate current bindings
-                ForEachBit(activeBinds, [&](uint32_t bit) 
+                ForEachBit(activeBinds, [&](U32 bit) 
                 {
                     resLayout.stagesForBindings[set][bit] |= stageMask; // set->binding->stages
 
@@ -1445,7 +1460,7 @@ bool DeviceVulkan::IsSwapchainTouched()
     return wsi.consumed;
 }
 
-void DeviceVulkan::SubmitImpl(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
+void DeviceVulkan::SubmitUnlock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
     cmd->EndCommandBuffer();
 
@@ -1562,6 +1577,9 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
     }
 
     submissions.clear();
+
+    // Very important! It will create a fence for current cmd in EndFrameContext
+    queueData.needFence = true;
 }
 
 void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores)
@@ -1619,7 +1637,7 @@ void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U3
 VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence)
 {
     auto& submits = composer.Bake();
-    return vkQueueSubmit(queue, (uint32_t)submits.size(), submits.data(), fence);
+    return vkQueueSubmit(queue, (U32)submits.size(), submits.data(), fence);
 }
 
 void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush)
@@ -1686,26 +1704,26 @@ void DeviceVulkan::FrameResource::Begin()
 {
     VkDevice vkDevice = device.device;
 
-    // wait for submiting
+    // Wait for submiting
     if (!waitFences.empty())
     {
-        vkWaitForFences(device.device, (uint32_t)waitFences.size(), waitFences.data(), VK_TRUE, UINT64_MAX);
+        vkWaitForFences(device.device, (U32)waitFences.size(), waitFences.data(), VK_TRUE, UINT64_MAX);
         waitFences.clear();
     }
 
-    // reset recyle fences
+    // Reset recyle fences
     if (!recyleFences.empty())
     {
-        vkResetFences(device.device, (uint32_t)recyleFences.size(), recyleFences.data());
+        vkResetFences(device.device, (U32)recyleFences.size(), recyleFences.data());
         for (auto& fence : recyleFences)
             device.fencePoolManager.Recyle(fence);
         recyleFences.clear();
     }
 
-    // reset command pools
-    for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
+    // Reset command pools
+    for (auto& cmdPool : cmdPools)
     {
-        for (auto& pool : cmdPools[queueIndex])
+        for (auto& pool : cmdPool)
             pool.BeginFrame();
     }
 
@@ -1717,7 +1735,7 @@ void DeviceVulkan::FrameResource::Begin()
     vboBlocks.clear();
     iboBlocks.clear();
 
-    // clear destroyed resources
+    // Clear destroyed resources
     for (auto& buffer : destroyedFrameBuffers)
         vkDestroyFramebuffer(vkDevice, buffer, nullptr);
     for (auto& sampler : destroyedSamplers)
@@ -1771,7 +1789,7 @@ void BatchComposer::BeginBatch()
     auto& submitInfo = submitInfos[submitIndex];
     if (!submitInfo.commandLists.empty() || !submitInfo.waitSemaphores.empty())
     {
-        submitIndex = (uint32_t)submits.size();
+        submitIndex = (U32)submits.size();
         submits.emplace_back();
     }
 }
@@ -1814,26 +1832,40 @@ void BatchComposer::AddCommandBuffer(VkCommandBuffer buffer)
 
 std::vector<VkSubmitInfo>& BatchComposer::Bake()
 {
-    // setup VKSubmitInfos
+    // Setup VKSubmitInfos
     for (size_t index = 0; index < submits.size(); index++)
     {
         auto& vkSubmitInfo = submits[index];
         auto& submitInfo = submitInfos[index];
         vkSubmitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-        vkSubmitInfo.commandBufferCount = (uint32_t)submitInfo.commandLists.size();
+        vkSubmitInfo.commandBufferCount = (U32)submitInfo.commandLists.size();
         vkSubmitInfo.pCommandBuffers = submitInfo.commandLists.data();
 
-        vkSubmitInfo.waitSemaphoreCount = (uint32_t)submitInfo.waitSemaphores.size();
+        vkSubmitInfo.waitSemaphoreCount = (U32)submitInfo.waitSemaphores.size();
         vkSubmitInfo.pWaitSemaphores = submitInfo.waitSemaphores.data();
         vkSubmitInfo.pWaitDstStageMask = submitInfo.waitStages.data();
 
-        vkSubmitInfo.signalSemaphoreCount = (uint32_t)submitInfo.signalSemaphores.size();
+        vkSubmitInfo.signalSemaphoreCount = (U32)submitInfo.signalSemaphores.size();
         vkSubmitInfo.pSignalSemaphores = submitInfo.signalSemaphores.data();
     }
 
+    // Remove empty submissions
+    size_t submitCount = 0;
+    for (size_t i = 0, n = submits.size(); i < n; i++)
+    {
+        if (submits[i].waitSemaphoreCount || 
+            submits[i].signalSemaphoreCount || 
+            submits[i].commandBufferCount)
+        {
+            if (i != submitCount)
+                submits[submitCount] = submits[i];
+
+            submitCount++;
+        }
+    }
+    submits.resize(submitCount);
     return submits;
 }
-
 
 void DeviceVulkan::InitStockSamplers()
 {
@@ -1881,7 +1913,7 @@ void DeviceVulkan::InitBindless()
     for (unsigned i = 1; i < VULKAN_NUM_BINDINGS; i++)
         layout.arraySize[i] = 1;
 
-    uint32_t stagesForSets[VULKAN_NUM_BINDINGS] = { VK_SHADER_STAGE_ALL };
+    U32 stagesForSets[VULKAN_NUM_BINDINGS] = { VK_SHADER_STAGE_ALL };
 
     if (features.features_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind == VK_TRUE)
     {
@@ -1958,7 +1990,7 @@ FrameBuffer& FrameBufferAllocator::RequestFrameBuffer(const RenderPassInfo& info
     hash.HashCombine(renderPass.GetHash());
 
     // Get color attachments hash
-    for (uint32_t i = 0; i < info.numColorAttachments; i++)
+    for (U32 i = 0; i < info.numColorAttachments; i++)
         hash.HashCombine(info.colorAttachments[i]->GetCookie());
 
     // Get depth stencil hash

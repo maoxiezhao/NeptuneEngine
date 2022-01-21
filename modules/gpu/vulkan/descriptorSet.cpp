@@ -171,9 +171,10 @@ namespace GPU
 
 	DescriptorSetAllocator::DescriptorSetAllocator(DeviceVulkan& device_, const DescriptorSetLayout& layout, const U32* stageForBinds) :
 		device(device_),
-		layoutInfo(layout)
+		layoutInfo(layout),
+		setLayout(VK_NULL_HANDLE)
 	{
-		// check bindless enable
+		// Check bindless enable
 		isBindless = layout.arraySize[0] == DescriptorSetLayout::UNSIZED_ARRAY;
 		if (isBindless && !CheckSupportBindless(device, layout.masks))
 		{
@@ -198,6 +199,11 @@ namespace GPU
 			bindingFlagsInfo.pBindingFlags = &bindingFlags;
 			info.pNext = &bindingFlagsInfo;
 		}
+		else
+		{
+			for (int i = 0; i < device.GetNumThreads(); i++)
+				perThreads.emplace_back(new PerThread());
+		}
 
 		std::vector<VkDescriptorSetLayoutBinding> bindings;
 		for(U32 i = 0; i < VULKAN_NUM_BINDINGS; i++)
@@ -206,13 +212,13 @@ namespace GPU
 			if (stages == 0)
 				continue;
 			
-			// create VkDescriptorSetLayoutBinding
+			// Create VkDescriptorSetLayoutBinding
 			U32 types = 0;
 			for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
             {
 				if (layout.masks[maskbit] & (1u << i))
 				{
-					// calculate array size and pool size
+					// Calculate array size and pool size
 					U32 arraySize = layout.arraySize[i];
 					U32 poolArraySize = 0;
 					if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY)
@@ -268,34 +274,42 @@ namespace GPU
 	void DescriptorSetAllocator::BeginFrame()
 	{
 		if (!isBindless)
-			shouldBegin = true;
+		{
+			for (auto& perThread : perThreads)
+				perThread->shouldBegin = true;
+		}
 	}
 
 	void DescriptorSetAllocator::Clear()
 	{
-		descriptorSetNodes.Clear();
-		for(auto& pool : pools)
+		for (auto& perThread : perThreads)
 		{
-			vkResetDescriptorPool(device.device, pool, 0);
-			vkDestroyDescriptorPool(device.device, pool, nullptr);
+			perThread->descriptorSetNodes.Clear();
+			for (auto& pool : perThread->pools)
+			{
+				vkResetDescriptorPool(device.device, pool, 0);
+				vkDestroyDescriptorPool(device.device, pool, nullptr);
+			}
+			perThread->pools.clear();
 		}
-		pools.clear();
 	}
 
-	std::pair<VkDescriptorSet, bool> DescriptorSetAllocator::GetOrAllocate(HashValue hash)
+	std::pair<VkDescriptorSet, bool> DescriptorSetAllocator::GetOrAllocate(U32 threadIndex, HashValue hash)
 	{
+		ASSERT(threadIndex >= 0 && threadIndex < perThreads.size());
+		PerThread& perThread = *perThreads[threadIndex];
 		// free set map and push them into setVacants
-		if (shouldBegin)
+		if (perThread.shouldBegin)
 		{
-			shouldBegin = false;
-			descriptorSetNodes.BeginFrame();
+			perThread.shouldBegin = false;
+			perThread.descriptorSetNodes.BeginFrame();
 		}
 
-		DescriptorSetNode* node = descriptorSetNodes.Requset(hash);
+		DescriptorSetNode* node = perThread.descriptorSetNodes.Requset(hash);
 		if (node != nullptr)
 			return { node->set, true };
 		
-		node = descriptorSetNodes.RequestVacant(hash);
+		node = perThread.descriptorSetNodes.RequestVacant(hash);
 		if (node && node->set != VK_NULL_HANDLE)
 			return { node->set, false };
 
@@ -314,7 +328,7 @@ namespace GPU
 			return { VK_NULL_HANDLE, false };
 		}
 
-		// create descriptor set
+		// create descriptor sets
 		// 一次性分配VULKAN_NUM_SETS_PER_POOL个descriptor set并缓存起来，以减少分配的次数
 		VkDescriptorSet sets[VULKAN_NUM_SETS_PER_POOL];
 		VkDescriptorSetLayout layouts[VULKAN_NUM_SETS_PER_POOL];
@@ -331,12 +345,11 @@ namespace GPU
 			return { VK_NULL_HANDLE, false };
 		}
 
-		// 缓存sets，并分配一个set返回
-		pools.push_back(pool);
+		perThread.pools.push_back(pool);
 		for(auto set : sets)
-			descriptorSetNodes.MakeVacant(set);
+			perThread.descriptorSetNodes.MakeVacant(set);
 
-		return { descriptorSetNodes.RequestVacant(hash)->set, false };
+		return { perThread.descriptorSetNodes.RequestVacant(hash)->set, false };
 	}
 
 	VkDescriptorPool DescriptorSetAllocator::AllocateBindlessPool(U32 numSets, U32 numDescriptors)

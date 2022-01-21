@@ -132,6 +132,9 @@ private:
     const RenderPass* compatibleRenderPass = nullptr;
     VkSubpassContents subpassContents;
 
+    U32 threadIndex = 0;
+    bool isEnded = false;
+
 public:
     CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
     ~CommandList();
@@ -170,6 +173,16 @@ public:
     void BeginEvent(const char* name);
     void EndEvent();
 
+    void SetThreadIndex(U32 threadIndex_)
+    {
+        threadIndex = threadIndex_;
+    }
+
+    U32 GetThreadIndex()const
+    {
+        return threadIndex;
+    }
+
     QueueType GetQueueType()const
     {
         return type;
@@ -205,7 +218,7 @@ public:
 private:
     friend class DeviceVulkan;
 
-    void BeginGraphicsContext();
+    void ResetCommandContext();
     void EndCommandBuffer();
 
     bool FlushRenderState();
