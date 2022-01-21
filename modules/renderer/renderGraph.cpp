@@ -1013,6 +1013,7 @@ namespace VulkanTest
         physicalBuffers.resize(physicalDimensions.size());
         physicalImages.resize(physicalDimensions.size());
 
+        // Func to create new image
         auto SetupPhysicalImage = [&](U32 attachment) {
         
             // Check alias
@@ -1073,12 +1074,16 @@ namespace VulkanTest
                 if (!physicalImages[attachment])
                     Logger::Error("Faile to create image of render graph.");
 
+                if (physicalDim.IsStorageImage())
+                    physicalImages[attachment]->SetLayoutType(GPU::ImageLayoutType::General);
+
                 physicalEvents[attachment] = {};
             }
 
             physicalAttachments[attachment] = &physicalImages[attachment]->GetImageView();
         };
 
+        // Func to create new buffer
         auto SetupPhysicalBuffers = [&](U32 attachment) {
             auto& physicalDim = physicalDimensions[attachment];
             bool needToCreate = true;
@@ -1738,6 +1743,9 @@ namespace VulkanTest
         std::vector<UniquePtr<RenderPass>>& renderPasses = impl->renderPasses;
         RenderResource& backbuffer = *impl->resources[it->second];
 
+        impl->passDependency.clear();
+        impl->passDependency.resize(impl->renderPasses.size());
+
         // Traverse graph dependices
         impl->passStack.clear();
         for (auto& passIndex : backbuffer.GetWrittenPasses())
@@ -1832,6 +1840,12 @@ namespace VulkanTest
         res.name = name;
         impl->nameToResourceIndex[name] = index;
         return *static_cast<RenderBufferResource*>(&res);
+    }
+
+    GPU::ImageView& RenderGraph::GetPhysicalTexture(const RenderTextureResource& res)
+    {
+        ASSERT(res.GetPhysicalIndex() != RenderResource::Unused);
+        return *impl->physicalAttachments[res.GetPhysicalIndex()];
     }
 
     void RenderGraph::SetBackbufferDimension(const ResourceDimensions& dim)

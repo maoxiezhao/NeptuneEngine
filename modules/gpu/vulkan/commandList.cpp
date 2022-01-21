@@ -566,6 +566,22 @@ void CommandList::SetSampler(U32 set, U32 binding, StockSampler type)
         SetSampler(set, binding, sampler->GetSampler());
 }
 
+void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
+{
+    ASSERT(imageView.GetImage()->GetCreateInfo().usage & VK_IMAGE_USAGE_SAMPLED_BIT);
+    if (imageView.GetCookie() == bindings.cookies[set][binding])
+        return;
+
+    ResourceBinding& resBinding = bindings.bindings[set][binding];
+    resBinding.image.imageView = imageView.GetImageView();
+    resBinding.image.imageLayout =
+        imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal ?
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+
+    dirtySets |= 1u << set;
+    bindings.cookies[set][binding] = imageView.GetCookie();
+}
+
 void CommandList::NextSubpass(VkSubpassContents contents)
 {
     pipelineState.subpassIndex++;

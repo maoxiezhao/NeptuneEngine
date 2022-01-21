@@ -156,6 +156,7 @@ public:
     void SetBindless(U32 set, VkDescriptorSet descriptorSet);
     void SetSampler(U32 set, U32 binding, const Sampler& sampler);
     void SetSampler(U32 set, U32 binding, StockSampler type);
+    void SetTexture(U32 set, U32 binding, const ImageView& imageView);
     void NextSubpass(VkSubpassContents contents);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);

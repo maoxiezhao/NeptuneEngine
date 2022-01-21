@@ -26,6 +26,12 @@ enum ImageMiscFlagBits
     IMAGE_MISC_NO_DEFAULT_VIEWS_BIT = 1 << 10
 };
 
+enum class ImageLayoutType
+{
+    Optimal,
+    General
+};
+
 struct ImageViewDeleter
 {
     void operator()(ImageView* imageView);
@@ -162,6 +168,16 @@ public:
         return stageFlags;
     }
 
+    ImageLayoutType GetLayoutType()const
+    {
+        return layoutType;
+    }
+
+    void SetLayoutType(const ImageLayoutType& layoutType_)
+    {
+        layoutType = layoutType_;
+    }
+
     static VkPipelineStageFlags ConvertUsageToPossibleStages(VkImageUsageFlags usage);
     static VkAccessFlags ConvertUsageToPossibleAccess(VkImageUsageFlags usage);
     static VkAccessFlags ConvertLayoutToPossibleAccess(VkImageLayout layout);
@@ -185,6 +201,7 @@ private:
 
     VkAccessFlags accessFlags = 0;
     VkPipelineStageFlags stageFlags = 0;
+    ImageLayoutType layoutType = ImageLayoutType::Optimal;
 };
 using ImagePtr = Util::IntrusivePtr<Image>;
 

@@ -390,6 +390,8 @@ public:
     RenderTextureResource& GetOrCreateTexture(const char* name);
     RenderBufferResource& GetOrCreateBuffer(const char* name);
 
+    GPU::ImageView& GetPhysicalTexture(const RenderTextureResource& res);
+
     void SetBackbufferDimension(const ResourceDimensions& dim);
 
 private:
