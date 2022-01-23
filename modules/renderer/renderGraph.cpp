@@ -423,7 +423,7 @@ namespace VulkanTest
         };
 
         PhysicalPass physicalPass = {};
-        for (U32 i = 0; i < passStack.size(); i++)
+        for (U32 i = 0; i < passStack.size();)
         {
             U32 mergeEnd = i + 1;
             for (; mergeEnd < passStack.size(); mergeEnd++)
@@ -689,8 +689,8 @@ namespace VulkanTest
                 Barrier& barrier = GetInvalidateAccess(tex.texture->GetPhysicalIndex());
                 barrier.access |= tex.access;
                 barrier.stages |= tex.stages;
-                barrier.layout = tex.layout;
                 ASSERT(barrier.layout == VK_IMAGE_LAYOUT_UNDEFINED);
+                barrier.layout = tex.layout;
             }
 
             /////////////////////////////////////////////////////////////////////
@@ -771,10 +771,14 @@ namespace VulkanTest
             VkPipelineStageFlags flushedStages = 0;
         };
         std::vector<ResourceState> resourceStates;
-        resourceStates.resize(physicalDimensions.size());
+        resourceStates.reserve(physicalDimensions.size());
 
         for (U32 physicalPassIndex = 0; physicalPassIndex < physicalPasses.size(); physicalPassIndex++)
         {
+            resourceStates.clear();
+            resourceStates.resize(physicalDimensions.size());
+
+            // In multipass, only the first and last barriers need to be considered externally.
             auto& physicalPass = physicalPasses[physicalPassIndex];
             for (auto& subpass : physicalPass.passes)
             {
@@ -898,6 +902,14 @@ namespace VulkanTest
                 return !(HasReader() && HasWriter() && firstReadPass <= firstWritePass);
             }
 
+            I32 GetFirstUsed()
+            {
+                I32 firstUsedPass = INT_MAX;
+                firstUsedPass = HasWriter() ? std::min(firstUsedPass, (I32)firstWritePass) : firstUsedPass;
+                firstUsedPass = HasReader() ? std::min(firstUsedPass, (I32)firstReadPass) : firstUsedPass;
+                return firstUsedPass;
+            }
+
             I32 GetLastUsedPass()
             {
                 I32 lastUsedPass = -1;
@@ -910,8 +922,11 @@ namespace VulkanTest
             {
                 if (!IsUsed() || !range.IsUsed())
                     return false;
+                if (!CanAlias() || !range.CanAlias())
+                    return false;
 
-                return false;
+                return (GetLastUsedPass() < range.GetFirstUsed() ||
+                        range.GetLastUsedPass() < GetFirstUsed());
             }
         };
         std::vector<ResourceRange> resourceRanges(physicalDimensions.size());
@@ -920,7 +935,7 @@ namespace VulkanTest
             if (res == nullptr || passIndex == RenderPass::Unused || res->GetPhysicalIndex() == RenderResource::Unused)
                 return;
 
-            auto range = resourceRanges[res->GetPhysicalIndex()];
+            auto& range = resourceRanges[res->GetPhysicalIndex()];
             range.firstReadPass = std::min(range.firstReadPass, passIndex);
             range.lastReadPass = std::max(range.lastReadPass, passIndex);
         
@@ -929,7 +944,7 @@ namespace VulkanTest
             if (res == nullptr || passIndex == RenderPass::Unused || res->GetPhysicalIndex() == RenderResource::Unused)
                 return;
 
-            auto range = resourceRanges[res->GetPhysicalIndex()];
+            auto& range = resourceRanges[res->GetPhysicalIndex()];
             range.firstWritePass = std::min(range.firstWritePass, passIndex);
             range.lastWritePass = std::max(range.lastWritePass, passIndex);
         };
@@ -1502,6 +1517,21 @@ namespace VulkanTest
             for (U32 passIndex : physicalPass.passes)
             {
                 auto& pass = renderPasses[passIndex];
+                // InputTextures
+                for (auto& tex : pass->GetInputTextures())
+                {
+                    auto& res = tex.texture;
+                    U32 physicalIndex = res->GetPhysicalIndex();
+                    if (physicalIndex != RenderResource::Unused)
+                    {      
+                        ret += "Res_";
+                        ret += std::to_string(physicalIndex).c_str();
+                        ret += "-> ";
+                        ret += "Pass_";
+                        ret += std::to_string(passIndex).c_str();
+                        ret += " [color=red2]\n";
+                    }
+                }
                 // Outputs
                 for (auto& res : pass->GetOutputColors())
                 {
@@ -1796,6 +1826,9 @@ namespace VulkanTest
 
         // Build physical barriers which we really need
         impl->BuildPhysicalBarriers();
+
+        // Build aliases
+        impl->BuildAliases();
     }
 
     void RenderGraph::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain)

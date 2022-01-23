@@ -427,9 +427,9 @@ void CommandList::EndCommandBuffer()
     }
 
     if (vboBlock.mapped != nullptr)
-        device.RequestVertexBufferBlock(vboBlock, 0);
+        device.RequestVertexBufferBlockNolock(vboBlock, 0);
     if (iboBlock.mapped != nullptr)
-        device.RequestIndexBufferBlock(iboBlock, 0);
+        device.RequestIndexBufferBlockNoLock(iboBlock, 0);
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)

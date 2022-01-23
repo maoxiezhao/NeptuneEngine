@@ -21,7 +21,6 @@ namespace
 #define LOCK() ((void)0)
 #endif
 
-
 	static const QueueIndices QUEUE_FLUSH_ORDER[] = {
         QUEUE_INDEX_TRANSFER,
 		QUEUE_INDEX_GRAPHICS,
@@ -362,10 +361,10 @@ void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, 
 
 Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queueType)
 {
-    return RequestCommandList(GetThreadIndex(), queueType);
+    return RequestCommandListForThread(GetThreadIndex(), queueType);
 }
 
-Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(int threadIndex, QueueType queueType)
+Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListForThread(int threadIndex, QueueType queueType)
 {
     LOCK();
     return RequestCommandListNolock(threadIndex, queueType);
@@ -502,6 +501,7 @@ PipelineLayout& DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout
 
 SemaphorePtr DeviceVulkan::RequestSemaphore()
 {
+    LOCK();
     VkSemaphore semaphore = semaphoreManager.Requset();
     return SemaphorePtr(semaphorePool.allocate(*this, semaphore, false));
 }
@@ -689,10 +689,22 @@ ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo&
 
 void DeviceVulkan::RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size)
 {
+    LOCK();
+    RequestVertexBufferBlockNolock(block, size);
+}
+
+void DeviceVulkan::RequestVertexBufferBlockNolock(BufferBlock& block, VkDeviceSize size)
+{
     RequestBufferBlock(block, size, vboPool, CurrentFrameResource().vboBlocks);
 }
 
 void DeviceVulkan::RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size)
+{
+    LOCK();
+    RequestIndexBufferBlockNoLock(block, size);
+}
+
+void DeviceVulkan::RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size)
 {
     RequestBufferBlock(block, size, iboPool, CurrentFrameResource().iboBlocks);
 }
@@ -960,7 +972,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             // Submit transfer cmd
             SemaphorePtr semaphore;
             Submit(transferCmd, nullptr, 1, &semaphore);
-            AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphore, imagePtr->GetStageFlags(), true);
+            AddWaitSemaphore(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphore, imagePtr->GetStageFlags(), true);
         
             transitionCmd = std::move(graphicsCmd);
         }
@@ -1068,7 +1080,10 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
         }
 
         if (cmd)
+        {
+            LOCK();
             SubmitStaging(cmd, info.usage, true);
+        }
     }
     else if (needInitialize)
     {
@@ -1175,7 +1190,7 @@ void DeviceVulkan::FlushFrame(QueueIndices queueIndex)
 void DeviceVulkan::Submit(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
     LOCK();
-    SubmitUnlock(cmd, fence, semaphoreCount, semaphore);
+    SubmitNolock(cmd, fence, semaphoreCount, semaphore);
 }
 
 void DeviceVulkan::SetAcquireSemaphore(U32 index, SemaphorePtr acquire)
@@ -1187,10 +1202,22 @@ void DeviceVulkan::SetAcquireSemaphore(U32 index, SemaphorePtr acquire)
 
 void DeviceVulkan::AddWaitSemaphore(QueueType queueType, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
 {
-    if (flush)
-        FlushFrame(GetQueueIndexFromQueueType(queueType));
+    LOCK();
+    AddWaitSemaphoreNolock(ConvertQueueTypeToIndices(queueType), semaphore, stages, flush);
+}
 
-    auto& queueData = queueDatas[(int)queueType];
+void DeviceVulkan::AddWaitSemaphore(QueueIndices queueIndex, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
+{
+    LOCK();
+    AddWaitSemaphoreNolock(queueIndex, semaphore, stages, flush);
+}
+
+void DeviceVulkan::AddWaitSemaphoreNolock(QueueIndices queueIndex, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
+{
+    if (flush)
+        FlushFrame(queueIndex);
+
+    auto& queueData = queueDatas[(int)queueIndex];
     queueData.waitSemaphores.push_back(semaphore);
     queueData.waitStages.push_back(stages);
     queueData.needFence = true;
@@ -1460,7 +1487,7 @@ bool DeviceVulkan::IsSwapchainTouched()
     return wsi.consumed;
 }
 
-void DeviceVulkan::SubmitUnlock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
+void DeviceVulkan::SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
     cmd->EndCommandBuffer();
 
@@ -1643,43 +1670,79 @@ VkResult DeviceVulkan::SubmitBatches(BatchComposer& composer, VkQueue queue, VkF
 void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush)
 {
     // Check source buffer's usage to decide which queues (Graphics/Compute) need to wait
+    VkAccessFlags access = Buffer::BufferUsageToPossibleAccess(usage);
     VkPipelineStageFlags stages = Buffer::BufferUsageToPossibleStages(usage);
     QueueIndices srcQueueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
+
+    auto computeStages = stages &
+            (VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+             VK_PIPELINE_STAGE_TRANSFER_BIT |
+             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+
+    auto computeAccess = access &
+            (VK_ACCESS_SHADER_READ_BIT |
+             VK_ACCESS_SHADER_WRITE_BIT |
+             VK_ACCESS_TRANSFER_READ_BIT |
+             VK_ACCESS_UNIFORM_READ_BIT |
+             VK_ACCESS_TRANSFER_WRITE_BIT |
+             VK_ACCESS_INDIRECT_COMMAND_READ_BIT);
+
     if (srcQueueIndex == QUEUE_INDEX_GRAPHICS)
     {
+        // While SyncBuffer in graphics queue 
+        cmd->Barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, stages, access);
+        if (computeStages != 0)
+        {
+            SemaphorePtr sem;
+            SubmitNolock(cmd, nullptr, 1, &sem);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_COMPUTE, sem, stages, flush);
+        }
+        else
+        {
+            SubmitNolock(cmd, nullptr, 0, nullptr);
+        }
     }
     else if (srcQueueIndex == QUEUE_INDEX_COMPUTE)
     {
+        // While SyncBuffer in Compute queue 
+        cmd->Barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, computeStages, computeAccess);
+        if (stages != 0)
+        {
+            SemaphorePtr sem;
+            SubmitNolock(cmd, nullptr, 1, &sem);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_GRAPHICS, sem, stages, flush);
+        }
+        else
+        {
+            SubmitNolock(cmd, nullptr, 0, nullptr);
+        }
     }
     else
     {
-        auto computeStages = stages &
-                (VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
-                 VK_PIPELINE_STAGE_TRANSFER_BIT |
-                 VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+        // While create staging buffer
 
         if (stages != 0 && computeStages != 0)
         {
             SemaphorePtr semaphores[2];
-            Submit(cmd, nullptr, 2, semaphores);
-            AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphores[0], stages, flush);
-            AddWaitSemaphore(QueueType::QUEUE_TYPE_ASYNC_COMPUTE, semaphores[1], computeStages, flush);
+            SubmitNolock(cmd, nullptr, 2, semaphores);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphores[0], stages, flush);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_COMPUTE, semaphores[1], computeStages, flush);
         }
         else if (stages != 0)
         {
             SemaphorePtr semaphores;
-            Submit(cmd, nullptr, 1, &semaphores);
-            AddWaitSemaphore(QueueType::QUEUE_TYPE_GRAPHICS, semaphores, stages, flush);
+            SubmitNolock(cmd, nullptr, 1, &semaphores);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphores, stages, flush);
         }
         else if (computeStages != 0)
         {
             SemaphorePtr semaphores;
-            Submit(cmd, nullptr, 1, &semaphores);
-            AddWaitSemaphore(QueueType::QUEUE_TYPE_ASYNC_COMPUTE, semaphores, stages, flush);
+            SubmitNolock(cmd, nullptr, 1, &semaphores);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_COMPUTE, semaphores, stages, flush);
         }
         else
         {
-            Submit(cmd, nullptr, 0, nullptr);
+            SubmitNolock(cmd, nullptr, 0, nullptr);
         }
     }
 }

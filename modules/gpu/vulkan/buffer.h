@@ -66,6 +66,7 @@ namespace GPU
         }
 
         static VkPipelineStageFlags BufferUsageToPossibleStages(VkBufferUsageFlags usage);
+        static VkAccessFlags BufferUsageToPossibleAccess(VkBufferUsageFlags usage);
 
     private:
         friend class DeviceVulkan;

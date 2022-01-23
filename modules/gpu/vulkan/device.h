@@ -234,7 +234,7 @@ public:
     bool IsSwapchainTouched();
 
     CommandListPtr RequestCommandList(QueueType queueType);
-    CommandListPtr RequestCommandList(int threadIndex, QueueType queueType);
+    CommandListPtr RequestCommandListForThread(int threadIndex, QueueType queueType);
     RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isCompatible = false);
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
     PipelineLayout& RequestPipelineLayout(const CombinedResourceLayout& resLayout);
@@ -250,7 +250,9 @@ public:
     ImmutableSampler* RequestImmutableSampler(const SamplerCreateInfo& createInfo);
     
     void RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size);
+    void RequestVertexBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
     void RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size);
+    void RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
     void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
@@ -285,6 +287,8 @@ public:
     void Submit(CommandListPtr& cmd, FencePtr* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphore = nullptr);
     void SetAcquireSemaphore(uint32_t index, SemaphorePtr acquire);
     void AddWaitSemaphore(QueueType queueType, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush);
+    void AddWaitSemaphore(QueueIndices queueIndex, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush);
+    void AddWaitSemaphoreNolock(QueueIndices queueType, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush);
     void SetName(const Image& image, const char* name);
     void SetName(const Buffer& buffer, const char* name);
 
@@ -301,8 +305,9 @@ public:
     ImageView& GetSwapchainView();
     RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
     
-private:
     CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
+
+private:
 
 private:
 #ifdef VULKAN_TEST_FILESYSTEM
@@ -343,7 +348,7 @@ private:
     {
         VkFence fence = VK_NULL_HANDLE;
     };
-    void SubmitUnlock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
+    void SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
     void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphores = nullptr);
     void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores);
     VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);

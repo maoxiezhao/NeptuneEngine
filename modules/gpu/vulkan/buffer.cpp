@@ -28,6 +28,29 @@ namespace GPU
 		return flags;
 	}
 
+	VkAccessFlags Buffer::BufferUsageToPossibleAccess(VkBufferUsageFlags usage)
+	{
+		VkAccessFlags flags = 0;
+		if (usage & (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT))
+			flags |= VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		if (usage & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+			flags |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+
+		if (usage & VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+			flags |= VK_ACCESS_INDEX_READ_BIT;
+
+		if (usage & VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT)
+			flags |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+
+		if (usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+			flags |= VK_ACCESS_UNIFORM_READ_BIT;
+
+		if (usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+			flags |= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+		return flags;
+	}
 
 	void BufferViewDeleter::operator()(BufferView* bufferView)
 	{

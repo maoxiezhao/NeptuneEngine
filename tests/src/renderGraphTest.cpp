@@ -73,10 +73,10 @@ namespace VulkanTest
             back.sizeY = dim.height;
 
             AttachmentInfo color;
-            back.format = VK_FORMAT_R8G8B8A8_SRGB;
-            back.sizeX = 1.0f;
-            back.sizeY = 1.0f;
-            back.samples = VK_SAMPLE_COUNT_1_BIT;
+            color.format = VK_FORMAT_R8G8B8A8_SRGB;
+            color.sizeX = 1.0f;
+            color.sizeY = 1.0f;
+            color.samples = VK_SAMPLE_COUNT_1_BIT;
 
             // Color pass
             RenderTextureResource* colors[4];
