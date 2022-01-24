@@ -156,4 +156,55 @@ namespace VulkanTest
 
 		struct ThreadImpl* impl = nullptr;
 	};
+
+	class VULKAN_TEST_API RWLock final
+	{
+	public:
+		RWLock();
+		~RWLock();
+
+		void BeginRead();
+		void EndRead();
+		void BeginWrite();
+		void EndWrite();
+
+	private:
+		friend class ConditionVariable;
+
+		RWLock(const RWLock&) = delete;
+
+		struct RWLockImpl* Get();
+		mutable U8 data[8];
+	};
+
+	class VULKAN_TEST_API ScopedReadLock final
+	{
+	public:
+		ScopedReadLock(RWLock& lock_)
+			: lock(lock_)
+		{
+			lock.BeginRead();
+		}
+
+		~ScopedReadLock() { lock.EndRead(); }
+
+	private:
+		RWLock& lock;
+	};
+
+	class VULKAN_TEST_API ScopedWriteLock final
+	{
+	public:
+		ScopedWriteLock(RWLock& lock_)
+			: lock(lock_)
+		{
+			lock.BeginWrite();
+		}
+
+		~ScopedWriteLock() { lock.EndWrite(); }
+
+	private:
+		RWLock& lock;
+	};
+
 }

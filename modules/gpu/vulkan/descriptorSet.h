@@ -45,7 +45,7 @@ namespace GPU
 	{
 		void operator()(BindlessDescriptorPool* buffer);
 	};
-	class BindlessDescriptorPool : public Util::IntrusivePtrEnabled<BindlessDescriptorPool, BindlessDescriptorPoolDeleter>
+	class BindlessDescriptorPool : public IntrusivePtrEnabled<BindlessDescriptorPool, BindlessDescriptorPoolDeleter>
 	{
 	public:
 		~BindlessDescriptorPool();
@@ -78,7 +78,7 @@ namespace GPU
 		U32 allocatedSets = 0;
 		U32 allocatedDescriptors = 0;
 	};
-	using BindlessDescriptorPoolPtr = Util::IntrusivePtr<BindlessDescriptorPool>;
+	using BindlessDescriptorPoolPtr = IntrusivePtr<BindlessDescriptorPool>;
 
 	class DescriptorSetAllocator : public HashedObject<DescriptorSetAllocator>
 	{

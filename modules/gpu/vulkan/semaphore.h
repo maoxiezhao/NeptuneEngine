@@ -14,7 +14,7 @@ struct SemaphoreDeleter
 {
     void operator()(Semaphore* semaphore);
 };
-class Semaphore : public Util::IntrusivePtrEnabled<Semaphore, SemaphoreDeleter>
+class Semaphore : public IntrusivePtrEnabled<Semaphore, SemaphoreDeleter>, public InternalSyncObject
 {
 public:
     Semaphore(DeviceVulkan& device_, VkSemaphore semaphore_, bool isSignalled_);
@@ -76,7 +76,7 @@ private:
     uint64_t timeline = 0;
     bool shouldDestroyOnConsume = false;
 };
-using SemaphorePtr = Util::IntrusivePtr<Semaphore>;
+using SemaphorePtr = IntrusivePtr<Semaphore>;
 
 class SemaphoreManager
 {

@@ -2,6 +2,7 @@
 
 #include "definition.h"
 #include "shader.h"
+#include "core\platform\sync.h"
 
 namespace VulkanTest
 {
@@ -67,6 +68,10 @@ private:
 	ShaderProgram* program = nullptr;
 	U32 shaderInstances[static_cast<U32>(ShaderStage::Count)] = {};
 	Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
+
+#ifdef VULKAN_MT
+	RWLock lock;
+#endif
 };
 
 class ShaderTemplateProgram
@@ -116,6 +121,7 @@ public:
 
 	bool ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, size_t spirvSize);
 	bool LoadShaderCache(const char* path);
+	void MoveToReadOnly();
 
 private:
 	ShaderTemplate* GetTemplate(ShaderStage stage, const std::string filePath);
@@ -124,6 +130,10 @@ private:
 	VulkanCache<ShaderTemplate> shaders;
 	VulkanCache<ShaderTemplateProgram> programs;
 	DeviceVulkan& device;
+
+#ifdef VULKAN_MT
+
+#endif
 };
 
 }

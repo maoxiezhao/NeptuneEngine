@@ -2,13 +2,14 @@
 
 #include "definition.h"
 #include "renderPass.h"
+#include "cookie.h"
 
 namespace VulkanTest
 {
 namespace GPU
 {
 
-class FrameBuffer
+class FrameBuffer : public GraphicsCookie, public InternalSyncObject
 {
 public:
 	FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass_, const RenderPassInfo& info_);
@@ -46,6 +47,5 @@ private:
 	uint32_t height = 0;
 	const RenderPass& renderPass;
 };
-
 }
 }

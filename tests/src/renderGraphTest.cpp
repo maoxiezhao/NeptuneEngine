@@ -55,7 +55,7 @@ namespace VulkanTest
 
         void Initialize() override
         {
-            if (!wsi.Initialize(Platform::GetCPUsCount() - 1))
+            if (!wsi.Initialize(Platform::GetCPUsCount()))
                 return;
 
             GPU::DeviceVulkan* device = wsi.GetDevice();
@@ -69,8 +69,8 @@ namespace VulkanTest
 
             AttachmentInfo back;
             back.format = dim.format;
-            back.sizeX = dim.width;
-            back.sizeY = dim.height;
+            back.sizeX = (F32)dim.width;
+            back.sizeY = (F32)dim.height;
 
             AttachmentInfo color;
             color.format = VK_FORMAT_R8G8B8A8_SRGB;

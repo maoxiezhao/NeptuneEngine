@@ -58,19 +58,33 @@ ShaderProgram::ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& inf
 
 ShaderProgram::~ShaderProgram()
 {
-	for (auto& kvp : pipelines)
+#ifdef VULKAN_MT
+	for (auto kvp : pipelines.GetReadOnly())
+		device->ReleasePipeline(*kvp.second);
+	for (auto kvp : pipelines.GetReadWrite())
+		device->ReleasePipeline(*kvp.second);
+#else
+	for (auto kvp : pipelines)
 		device->ReleasePipeline(kvp.second);
+#endif
 }
 
 void ShaderProgram::AddPipeline(HashValue hash, VkPipeline pipeline)
 {
-	pipelines.try_emplace(hash, pipeline);
+	pipelines.emplace(hash, pipeline);
 }
 
 VkPipeline ShaderProgram::GetPipeline(HashValue hash)
 {
 	auto it = pipelines.find(hash);
-	return it != pipelines.end() ? it->second : VK_NULL_HANDLE;
+	return it != nullptr ? *it : VK_NULL_HANDLE;
+}
+
+void ShaderProgram::MoveToReadOnly()
+{
+#ifdef VULKAN_MT
+	pipelines.MoveToReadOnly();
+#endif
 }
 
 void ShaderProgram::SetShader(ShaderStage stage, Shader* shader)

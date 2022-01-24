@@ -359,34 +359,35 @@ void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, 
     }
 }
 
-Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queueType)
+IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queueType)
 {
     return RequestCommandListForThread(GetThreadIndex(), queueType);
 }
 
-Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListForThread(int threadIndex, QueueType queueType)
+IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListForThread(int threadIndex, QueueType queueType)
 {
     LOCK();
     return RequestCommandListNolock(threadIndex, queueType);
 }
 
-Util::IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex, QueueType queueType)
+IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex, QueueType queueType)
 {
     // Only support main thread now
     auto& pools = CurrentFrameResource().cmdPools[(int)queueType];
-    assert(threadIndex >= 0 && threadIndex < pools.size());
+
+    ASSERT_MSG(threadIndex >= 0 && threadIndex < pools.size(), (std::string("Unknown thread index") + std::to_string(threadIndex)).c_str());
 
     CommandPool& pool = pools[threadIndex];
     VkCommandBuffer buffer = pool.RequestCommandBuffer();
     if (buffer == VK_NULL_HANDLE)
-        return Util::IntrusivePtr<CommandList>();
+        return IntrusivePtr<CommandList>();
 
     VkCommandBufferBeginInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
     info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     VkResult res = vkBeginCommandBuffer(buffer, &info);
     assert(res == VK_SUCCESS);
 
-    Util::IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, buffer, queueType));
+    IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, buffer, queueType));
     cmdPtr->SetThreadIndex(threadIndex);
     return cmdPtr;
 }
@@ -418,7 +419,6 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(SwapchainRenderPassType 
 
 void DeviceVulkan::InitShaderManagerCache()
 {
-
 }
 
 #endif
@@ -428,18 +428,28 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
     HashCombiner hash;
     VkFormat colorFormats[VULKAN_NUM_ATTACHMENTS];
     VkFormat depthStencilFormat = VkFormat::VK_FORMAT_UNDEFINED;
-
+    
+    U32 optimal = 0;
     // Color attachments
     for (U32 i = 0; i < renderPassInfo.numColorAttachments; i++)
     {
         const ImageView& imageView = *renderPassInfo.colorAttachments[i];
         colorFormats[i] = imageView.GetInfo().format;
+
+        if (imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal)
+            optimal |= 1u << i;
+
         hash.HashCombine(imageView.GetImage()->GetSwapchainLayout());
     }
 
     // Depth stencil
     if (renderPassInfo.depthStencil)
+    {
         depthStencilFormat = renderPassInfo.depthStencil->GetInfo().format;
+ 
+        if (renderPassInfo.depthStencil->GetImage()->GetLayoutType() == ImageLayoutType::Optimal)
+            optimal |= 1u << renderPassInfo.numColorAttachments;
+    }
 
     // Subpasses
     hash.HashCombine(renderPassInfo.numSubPasses);
@@ -470,11 +480,13 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
         hash.HashCombine(renderPassInfo.clearAttachments);
         hash.HashCombine(renderPassInfo.loadAttachments);
         hash.HashCombine(renderPassInfo.storeAttachments);
+        hash.HashCombine(optimal);
     }
 
+    LOCK();
     auto findIt = renderPasses.find(hash.Get());
-    if (findIt != renderPasses.end())
-        return *findIt->second;
+    if (findIt != nullptr)
+        return *findIt;
 
     RenderPass& renderPass = *renderPasses.emplace(hash.Get(), *this, renderPassInfo);
     renderPass.SetHash(hash.Get());
@@ -489,10 +501,9 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
 PipelineLayout& DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout& resLayout)
 {
     HashCombiner hash;
-
     auto findIt = pipelineLayouts.find(hash.Get());
-    if (findIt != pipelineLayouts.end())
-        return *findIt->second;
+    if (findIt != nullptr)
+        return *findIt;
 
     PipelineLayout& pipelineLayout = *pipelineLayouts.emplace(hash.Get(), *this, resLayout);
     pipelineLayout.SetHash(hash.Get());
@@ -518,8 +529,8 @@ Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderByteco
     hash.HashCombine(static_cast<const U32*>(pShaderBytecode), bytecodeLength);
 
     auto findIt = shaders.find(hash.Get());
-    if (findIt != shaders.end())
-        return *findIt->second;
+    if (findIt != nullptr)
+        return *findIt;
 
     Shader& shader = *shaders.emplace(hash.Get(), *this, stage, pShaderBytecode, bytecodeLength, layout);
     shader.SetHash(hash.Get());
@@ -564,8 +575,8 @@ ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(Sha
     }
 
     auto findIt = programs.find(hasher.Get());
-    if (findIt != programs.end())
-        return findIt->second;
+    if (findIt != nullptr)
+        return findIt;
 
     ShaderProgramInfo info = {};
     for (int i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
@@ -586,8 +597,8 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const Descri
     hasher.HashCombine(stageForBinds, sizeof(U32) * VULKAN_NUM_BINDINGS);
 	
 	auto findIt = descriptorSetAllocators.find(hasher.Get());
-	if (findIt != descriptorSetAllocators.end())
-		return *findIt->second;
+	if (findIt != nullptr)
+		return *findIt;
 
     DescriptorSetAllocator* allocator = descriptorSetAllocators.emplace(hasher.Get(), *this, layout, stageForBinds);
     allocator->SetHash(hasher.Get());
@@ -679,8 +690,8 @@ ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo&
     hash.HashCombine(createInfo.unnormalizedCoordinates);
 
     auto findIt = immutableSamplers.find(hash.Get());
-    if (findIt != immutableSamplers.end())
-        return findIt->second;
+    if (findIt != nullptr)
+        return findIt;
 
     ImmutableSampler* sampler = immutableSamplers.emplace(hash.Get(), *this, createInfo);
     sampler->SetHash(hash.Get());
@@ -1138,9 +1149,17 @@ void DeviceVulkan::NextFrameContext()
     transientAllocator.BeginFrame();
     frameBufferAllocator.BeginFrame();
 
+#ifdef VULKAN_MT
+    // descriptor set begin
+    for (auto& kvp : descriptorSetAllocators.GetReadOnly())
+        kvp.second->BeginFrame();
+    for (auto& kvp : descriptorSetAllocators.GetReadWrite())
+        kvp.second->BeginFrame();
+#else
     // descriptor set begin
     for (auto& kvp : descriptorSetAllocators)
         kvp.second->BeginFrame();
+#endif
 
     // update frameIndex
     frameIndex++;
@@ -1225,21 +1244,25 @@ void DeviceVulkan::AddWaitSemaphoreNolock(QueueIndices queueIndex, SemaphorePtr 
 
 void DeviceVulkan::ReleaseFrameBuffer(VkFramebuffer buffer)
 {
+    LOCK();
     CurrentFrameResource().destroyedFrameBuffers.push_back(buffer);
 }
 
 void DeviceVulkan::ReleaseImage(VkImage image)
 {
+    LOCK();
     CurrentFrameResource().destroyedImages.push_back(image);
 }
 
 void DeviceVulkan::ReleaseImageView(VkImageView imageView)
 {
+    LOCK();
     CurrentFrameResource().destroyedImageViews.push_back(imageView);
 }
 
 void DeviceVulkan::ReleaseFence(VkFence fence, bool isWait)
 {
+    LOCK();
     if (isWait)
     {
         vkResetFences(device, 1, &fence);
@@ -1253,32 +1276,56 @@ void DeviceVulkan::ReleaseFence(VkFence fence, bool isWait)
 
 void DeviceVulkan::ReleaseBuffer(VkBuffer buffer)
 {
+    LOCK();
     CurrentFrameResource().destroyedBuffers.push_back(buffer);
 }
 
 void DeviceVulkan::ReleaseBufferView(VkBufferView bufferView)
 {
+    LOCK();
     CurrentFrameResource().destroyedBufferViews.push_back(bufferView);
 }
 
 void DeviceVulkan::ReleaseSampler(VkSampler sampler)
 {
+    LOCK();
     CurrentFrameResource().destroyedSamplers.push_back(sampler);
 }
 
 void DeviceVulkan::ReleaseDescriptorPool(VkDescriptorPool pool)
 {
+    LOCK();
     CurrentFrameResource().destroyedDescriptorPool.push_back(pool);
 }
 
 void DeviceVulkan::ReleasePipeline(VkPipeline pipeline)
 {
+    LOCK();
     CurrentFrameResource().destroyedPipelines.push_back(pipeline);
 }
 
 void DeviceVulkan::FreeMemory(const DeviceAllocation& allocation)
 {
-    CurrentFrameResource().destroyedAllocations.push_back(std::move(allocation));
+    LOCK();
+    CurrentFrameResource().destroyedAllocations.push_back(allocation);
+}
+
+void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
+{
+    LOCK();
+    CurrentFrameResource().destroyeSemaphores.push_back(semaphore);
+}
+
+void DeviceVulkan::RecycleSemaphore(VkSemaphore semaphore)
+{
+    LOCK();
+    CurrentFrameResource().recycledSemaphroes.push_back(semaphore);
+}
+
+void DeviceVulkan::ReleaseEvent(VkEvent ent)
+{
+    LOCK();
+    CurrentFrameResource().destroyedEvents.push_back(ent);
 }
 
 void* DeviceVulkan::MapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
@@ -1289,21 +1336,6 @@ void* DeviceVulkan::MapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
 void DeviceVulkan::UnmapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
 {
     memory.UnmapMemory(buffer.allocation, flags, 0, buffer.GetCreateInfo().size);
-}
-
-void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
-{
-    CurrentFrameResource().destroyeSemaphores.push_back(semaphore);
-}
-
-void DeviceVulkan::RecycleSemaphore(VkSemaphore semaphore)
-{
-    CurrentFrameResource().recycledSemaphroes.push_back(semaphore);
-}
-
-void DeviceVulkan::ReleaseEvent(VkEvent ent)
-{
-    CurrentFrameResource().destroyedEvents.push_back(ent);
 }
 
 bool DeviceVulkan::IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling)
@@ -1472,8 +1504,16 @@ void DeviceVulkan::WaitIdle()
     frameBufferAllocator.Clear();
     transientAllocator.Clear();
 
+#ifdef VULKAN_MT
+    // descriptor set begin
+    for (auto& kvp : descriptorSetAllocators.GetReadOnly())
+        kvp.second->Clear();
+    for (auto& kvp : descriptorSetAllocators.GetReadWrite())
+        kvp.second->Clear();
+#else
     for (auto& allocator : descriptorSetAllocators)
         allocator.second->Clear();
+#endif
 
     for (auto& frame : frameResources)
     {
@@ -1485,6 +1525,22 @@ void DeviceVulkan::WaitIdle()
 bool DeviceVulkan::IsSwapchainTouched()
 {
     return wsi.consumed;
+}
+
+void DeviceVulkan::MoveReadWriteCachesToReadOnly()
+{
+#ifdef VULKAN_MT
+    descriptorSetAllocators.MoveToReadOnly();
+    pipelineLayouts.MoveToReadOnly();
+    shaders.MoveToReadOnly();
+    programs.MoveToReadOnly();
+    for (auto& kvp : programs.GetReadOnly())
+        kvp.second->MoveToReadOnly();   // ShaderProgram::Pipelines
+
+    renderPasses.MoveToReadOnly();
+    shaderManager.MoveToReadOnly();
+    immutableSamplers.MoveToReadOnly();
+#endif
 }
 
 void DeviceVulkan::SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
@@ -2024,6 +2080,7 @@ ImagePtr TransientAttachmentAllcoator::RequsetAttachment(U32 w, U32 h, VkFormat 
     hash.HashCombine(samples);
     hash.HashCombine(layers);
 
+    LOCK();
     auto* node = attachments.Requset(hash.Get());
     if (node != nullptr)
         return node->image;
@@ -2060,6 +2117,7 @@ FrameBuffer& FrameBufferAllocator::RequestFrameBuffer(const RenderPassInfo& info
     if (info.depthStencil)
         hash.HashCombine(info.depthStencil->GetCookie());
 
+    LOCK();
     FrameBufferNode* node = framebuffers.Requset(hash.Get());
     if (node != nullptr)
         return *node;

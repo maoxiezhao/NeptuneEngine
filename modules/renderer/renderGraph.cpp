@@ -1276,6 +1276,7 @@ namespace VulkanTest
         else
         {
             ent.ent = state.signalEvent;
+            ent.entStages = state.signalEventStages;
         }
     }
 
@@ -1375,6 +1376,7 @@ namespace VulkanTest
             if (state.signalEventStages != 0)
             {
                 state.signalEvent = device.RequestEvent();
+                
             }
             if (state.needSubmissionSemaphore)
             {

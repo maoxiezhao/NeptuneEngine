@@ -22,7 +22,7 @@ namespace GPU
 	}
 
 	Sampler::Sampler(DeviceVulkan& device_, VkSampler sampler_, const SamplerCreateInfo& createInfo_, bool isImmutable_) :
-		GraphicsCookie(device_.GenerateCookie()),
+		GraphicsCookie(device_),
 		device(device_),
 		sampler(sampler_),
 		createInfo(createInfo_),

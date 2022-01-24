@@ -142,8 +142,8 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 
 	HashValue hash = hasher.Get();
 	auto it = variants.find(hash);
-	if (it != variants.end())
-		return it->second;
+	if (it != nullptr)
+		return it;
 
 	ShaderTemplateVariant* ret = variants.allocate();
 	if (ret == nullptr)
@@ -231,10 +231,8 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 
 	HashValue hash = hasher.Get();
 	auto it = variantCache.find(hash);
-	if (it != variantCache.end())
-	{
-		return it->second;
-	}
+	if (it != nullptr)
+		return it;
 
 	ShaderTemplateProgramVariant* ret = variantCache.allocate(device);
 	if (ret == nullptr)
@@ -335,10 +333,8 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgram()
 
 ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 {
+	// Check shader program is dirty
 	bool isProgramDirty = false;
-	ShaderProgram* ret = nullptr;
-
-	// check shader program is dirty
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 	{
 		if (shaderVariants[i] != nullptr)
@@ -357,6 +353,9 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 	if (isProgramDirty == false)
 		return program;
 
+#ifdef VULKAN_MT
+	lock.BeginWrite();
+#endif
 	// Request shaders
 	Shader* shaders[static_cast<int>(ShaderStage::Count)] = {};
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
@@ -382,18 +381,21 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 
 	// Request program
 	ShaderProgram* newProgram = device.RequestProgram(shaders);
-	if (newProgram == nullptr)
-		return nullptr;
-
-	program = newProgram;
-
-	// Set shader instances
-	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	if (newProgram != nullptr)
 	{
-		if (shaderVariants[i] != nullptr)
-			shaderInstances[i] = shaderVariants[i]->instance;
+		program = newProgram;
+
+		// Set shader instances
+		for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+		{
+			if (shaderVariants[i] != nullptr)
+				shaderInstances[i] = shaderVariants[i]->instance;
+		}
 	}
 
+#ifdef VULKAN_MT
+	lock.EndWrite();
+#endif
 	return newProgram;
 }
 
@@ -433,8 +435,8 @@ ShaderTemplateProgram* ShaderManager::RegisterShader(ShaderStage stage, const st
 	HashCombiner hasher;
 	hasher.HashCombine(templ->GetPathHash());
 	auto it = programs.find(hasher.Get());
-	if (it != programs.end())
-		return it->second;
+	if (it != nullptr)
+		return it;
 
 	return programs.emplace(hasher.Get(), device, stage, templ);
 }
@@ -450,8 +452,8 @@ ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string& vertex
 	hasher.HashCombine(vertTempl->GetPathHash());
 	hasher.HashCombine(fragTempl->GetPathHash());
 	auto it = programs.find(hasher.Get());
-	if (it != programs.end())
-		return it->second;
+	if (it != nullptr)
+		return it;
 
 	std::vector<std::pair<ShaderStage, ShaderTemplate*>> templates;
 	templates.push_back(std::make_pair(ShaderStage::VS, vertTempl));
@@ -463,10 +465,8 @@ ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string 
 {
 	HashValue hash = GetPathHash(stage, filePath);
 	auto it = shaders.find(hash);
-	if (it != shaders.end())
-	{
-		return it->second;
-	}
+	if (it != nullptr)
+		return it;
 
 	ShaderTemplate* ret = shaders.allocate(device, stage, filePath, hash);
 	if (ret == nullptr || !ret->Initialize())
@@ -605,5 +605,14 @@ bool ShaderManager::LoadShaderCache(const char* path)
 {
 	return false;
 }
+
+void ShaderManager::MoveToReadOnly()
+{
+#ifdef VULKAN_MT
+	shaders.MoveToReadOnly();
+	programs.MoveToReadOnly();
+#endif
+}
+
 }
 }

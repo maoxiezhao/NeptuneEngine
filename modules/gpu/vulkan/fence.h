@@ -14,7 +14,7 @@ struct FenceDeleter
 {
     void operator()(Fence* fence);
 };
-class Fence : public Util::IntrusivePtrEnabled<Fence, FenceDeleter>
+class Fence : public IntrusivePtrEnabled<Fence, FenceDeleter>, public InternalSyncObject
 {
 public:
     Fence(DeviceVulkan& device_, VkFence fence_);
@@ -36,7 +36,7 @@ private:
     VkFence fence;
     bool isWait = false;
 };
-using FencePtr = Util::IntrusivePtr<Fence>;
+using FencePtr = IntrusivePtr<Fence>;
 
 class FenceManager
 {

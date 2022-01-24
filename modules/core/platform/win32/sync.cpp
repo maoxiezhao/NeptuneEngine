@@ -34,7 +34,6 @@ namespace VulkanTest
 	Mutex::~Mutex()
 	{
 		::DeleteCriticalSection(&Get()->critSec);
-		// Get()->~MutexImpl();
 	}
 
 	Mutex::Mutex(Mutex&& rhs)
@@ -311,6 +310,46 @@ namespace VulkanTest
 			::CloseHandle(impl->threadHandle);
 			impl->threadHandle = nullptr;
 		}
+	}
+
+	struct RWLockImpl
+	{
+		SRWLOCK lock = SRWLOCK_INIT;
+	};
+
+	RWLockImpl* RWLock::Get()
+	{
+		return reinterpret_cast<RWLockImpl*>(&data[0]);
+	}
+
+	RWLock::RWLock()
+	{
+		memset(data, 0, sizeof(data));
+		new(data) RWLockImpl();
+	}
+
+	RWLock::~RWLock()
+	{
+	}
+
+	void RWLock::BeginRead()
+	{
+		::AcquireSRWLockShared(&Get()->lock);
+	}
+
+	void RWLock::EndRead()
+	{
+		::ReleaseSRWLockShared(&Get()->lock);
+	}
+
+	void RWLock::BeginWrite()
+	{
+		::AcquireSRWLockExclusive(&Get()->lock);
+	}
+
+	void RWLock::EndWrite()
+	{
+		::ReleaseSRWLockExclusive(&Get()->lock);
 	}
 }
 

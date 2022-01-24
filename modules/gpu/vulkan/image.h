@@ -2,6 +2,7 @@
 
 #include "definition.h"
 #include "memory.h"
+#include "cookie.h"
 
 namespace VulkanTest
 {
@@ -36,7 +37,7 @@ struct ImageViewDeleter
 {
     void operator()(ImageView* imageView);
 };
-class ImageView : public Util::IntrusivePtrEnabled<ImageView, ImageViewDeleter>, public GraphicsCookie
+class ImageView : public IntrusivePtrEnabled<ImageView, ImageViewDeleter>, public GraphicsCookie, public InternalSyncObject
 {
 public:
     ImageView(DeviceVulkan& device_, VkImageView imageView_, const ImageViewCreateInfo& info_);
@@ -92,13 +93,13 @@ private:
     std::vector<VkImageView> rtViews;
     ImageViewCreateInfo info;
 };
-using ImageViewPtr = Util::IntrusivePtr<ImageView>;
+using ImageViewPtr = IntrusivePtr<ImageView>;
 
 struct ImageDeleter
 {
     void operator()(Image* image);
 };
-class Image : public Util::IntrusivePtrEnabled<Image, ImageDeleter>
+class Image : public IntrusivePtrEnabled<Image, ImageDeleter>, public GraphicsCookie, public InternalSyncObject
 {
 public:
     ~Image();
@@ -203,7 +204,7 @@ private:
     VkPipelineStageFlags stageFlags = 0;
     ImageLayoutType layoutType = ImageLayoutType::Optimal;
 };
-using ImagePtr = Util::IntrusivePtr<Image>;
+using ImagePtr = IntrusivePtr<Image>;
 
 }
 }

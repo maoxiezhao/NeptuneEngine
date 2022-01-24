@@ -6,8 +6,10 @@
 #include "core\utils\log.h"
 #include "core\utils\stackAllocator.h"
 #include "core\utils\tempHashMap.h"
+#include "core\utils\intrusiveHashMap.hpp"
 #include "math\hash.h"
-#include "vulkanCache.h"
+
+// #include "vulkanCache.h"
 
 #define VULKAN_TEST_FILESYSTEM
 
@@ -26,6 +28,7 @@
 #include "volk\volk.h"
 
 #define VULKAN_DEBUG
+#define VULKAN_MT
 
 //fossilize
 #define VULKAN_TEST_FOSSILIZE
@@ -34,6 +37,29 @@ namespace VulkanTest
 {
 namespace GPU
 {
+#ifdef VULKAN_MT
+    template<typename T>
+    using ObjectPool = Util::ThreadSafeObjectPool<T>;
+
+    template<typename T>
+    using VulkanCache = Util::ThreadSafeIntrusiveHashMapReadCached<T>;
+
+    template <typename T, typename Deleter = std::default_delete<T>>
+    using IntrusivePtrEnabled = Util::IntrusivePtrEnabled<T, Deleter, Util::MultiThreadCounter>;
+#else
+    template<typename T>
+    using ObjectPool = Util::ObjectPool;
+
+    template<typename T>
+    using VulkanCache = Util::IntrusiveHashMap<T>;
+
+    template <typename T, typename Deleter = std::default_delete<T>>
+    using IntrusivePtrEnabled = Util::IntrusivePtrEnabled<T, Deleter, Util::SingleThreadCounter>;
+#endif
+
+    template<typename T>
+    using IntrusivePtr = Util::IntrusivePtr<T>;
+
     static const U32 VULKAN_NUM_ATTACHMENTS = 8;
     static const U32 VULKAN_NUM_DESCRIPTOR_SETS = 4;
     static const U32 VULKAN_NUM_VERTEX_ATTRIBS = 16;
@@ -269,18 +295,16 @@ namespace GPU
         }
     };
 
-    class GraphicsCookie
+    class InternalSyncObject
     {
     public:
-        GraphicsCookie(uint64_t cookie) : cookie(cookie) {}
-
-        uint64_t GetCookie() const
+        void SetInternalSyncObject()
         {
-            return cookie;
+            internalSync = true;
         }
 
-    private:
-        uint64_t cookie;
+    protected:
+        bool internalSync = false;
     };
 
     struct VertexAttribState

@@ -74,7 +74,7 @@ namespace GPU
 	{
 		void operator()(DeviceAllocationOwner* owner);
 	};
-	class DeviceAllocationOwner : public Util::IntrusivePtrEnabled<DeviceAllocationOwner, DeviceAllocationOwnerDeleter>
+	class DeviceAllocationOwner : public IntrusivePtrEnabled<DeviceAllocationOwner, DeviceAllocationOwnerDeleter>
 	{
 	public:
 		~DeviceAllocationOwner();
@@ -90,7 +90,7 @@ namespace GPU
 		DeviceVulkan& device;
 		DeviceAllocation allocation;
 	};
-	using DeviceAllocationOwnerPtr = Util::IntrusivePtr<DeviceAllocationOwner>;
+	using DeviceAllocationOwnerPtr = IntrusivePtr<DeviceAllocationOwner>;
 
 	class DeviceAllocator
 	{

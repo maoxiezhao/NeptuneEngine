@@ -7,6 +7,7 @@ namespace GPU
 {
 
 FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass, const RenderPassInfo& info) :
+	GraphicsCookie(device_),
 	device(device_),
 	renderPass(renderPass)
 {

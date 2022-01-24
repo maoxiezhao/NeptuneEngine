@@ -58,6 +58,7 @@ namespace GPU
 	}
 
 	BufferView::BufferView(DeviceVulkan& device_, VkBufferView view_, const BufferViewCreateInfo& info_) :
+		GraphicsCookie(device_),
 		device(device_),
 		view(view_),
 		info(info_)
@@ -82,6 +83,7 @@ namespace GPU
 	}
 
 	Buffer::Buffer(DeviceVulkan& device_, VkBuffer buffer_, const DeviceAllocation& allocation_, const BufferCreateInfo& info_) :
+		GraphicsCookie(device_),
 		device(device_),
 		buffer(buffer_),
 		allocation(allocation_),

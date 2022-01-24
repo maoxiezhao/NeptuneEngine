@@ -1,6 +1,7 @@
 #pragma once
 
 #include "definition.h"
+#include "cookie.h"
 
 namespace VulkanTest
 {
@@ -20,7 +21,7 @@ namespace GPU
     {
         void operator()(Sampler* sampler);
     };
-    class Sampler : public Util::IntrusivePtrEnabled<Sampler, SamplerDeleter>, public GraphicsCookie
+    class Sampler : public IntrusivePtrEnabled<Sampler, SamplerDeleter>, public GraphicsCookie, public InternalSyncObject
     {
     public:
         ~Sampler();
@@ -48,7 +49,7 @@ namespace GPU
         SamplerCreateInfo createInfo;
         bool isImmutable;
     };
-    using SamplerPtr = Util::IntrusivePtr<Sampler>;
+    using SamplerPtr = IntrusivePtr<Sampler>;
 
     class ImmutableSampler : public HashedObject<ImmutableSampler>
     {

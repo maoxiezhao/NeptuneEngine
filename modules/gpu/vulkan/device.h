@@ -23,8 +23,6 @@
 #include <set>
 #include <unordered_map>
 
-#define VULKAN_MT
-
 namespace VulkanTest
 {
 namespace GPU
@@ -97,6 +95,10 @@ private:
 
     DeviceVulkan& device;
     Util::TempHashMap<ImageNode, 8, false> attachments;
+
+#ifdef VULKAN_MT
+    Mutex mutex;
+#endif
 };
 
 class FrameBufferAllocator
@@ -119,6 +121,10 @@ private:
 
     DeviceVulkan& device;
     Util::TempHashMap<FrameBufferNode, 8, false> framebuffers;
+
+#ifdef VULKAN_MT
+    Mutex mutex;
+#endif
 };
 
 #ifdef VULKAN_TEST_FOSSILIZE
@@ -136,16 +142,16 @@ public:
     DeviceFeatures features;
 
     // vulkan object pool, it is deleted last.
-    Util::ObjectPool<CommandList> commandListPool;
-    Util::ObjectPool<Image> imagePool;
-    Util::ObjectPool<ImageView> imageViewPool;
-    Util::ObjectPool<Fence> fencePool;
-    Util::ObjectPool<Semaphore> semaphorePool;
-    Util::ObjectPool<Sampler> samplers;
-    Util::ObjectPool<Buffer> buffers;
-    Util::ObjectPool<BufferView> bufferViews;
-    Util::ObjectPool<ImageView> imageViews;
-    Util::ObjectPool<Event> eventPool;
+    ObjectPool<CommandList> commandListPool;
+    ObjectPool<Image> imagePool;
+    ObjectPool<ImageView> imageViewPool;
+    ObjectPool<Fence> fencePool;
+    ObjectPool<Semaphore> semaphorePool;
+    ObjectPool<Sampler> samplers;
+    ObjectPool<Buffer> buffers;
+    ObjectPool<BufferView> bufferViews;
+    ObjectPool<ImageView> imageViews;
+    ObjectPool<Event> eventPool;
 
     // per frame resource
     struct FrameResource
@@ -232,6 +238,7 @@ public:
     void BakeShaderProgram(ShaderProgram& program);
     void WaitIdle();
     bool IsSwapchainTouched();
+    void MoveReadWriteCachesToReadOnly();
 
     CommandListPtr RequestCommandList(QueueType queueType);
     CommandListPtr RequestCommandListForThread(int threadIndex, QueueType queueType);

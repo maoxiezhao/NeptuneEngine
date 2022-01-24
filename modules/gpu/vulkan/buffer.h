@@ -2,6 +2,7 @@
 
 #include "definition.h"
 #include "memory.h"
+#include "cookie.h"
 
 namespace VulkanTest
 {
@@ -14,7 +15,7 @@ namespace GPU
     {
         void operator()(BufferView* bufferView);
     };
-    class BufferView : public Util::IntrusivePtrEnabled<BufferView, BufferViewDeleter>
+    class BufferView : public IntrusivePtrEnabled<BufferView, BufferViewDeleter>, public GraphicsCookie, public InternalSyncObject
     {
     public:
         BufferView(DeviceVulkan& device_, VkBufferView view_, const BufferViewCreateInfo& info_);
@@ -34,13 +35,13 @@ namespace GPU
         VkBufferView view;
         BufferViewCreateInfo info;
     };
-    using BufferViewPtr = Util::IntrusivePtr<BufferView>;
+    using BufferViewPtr = IntrusivePtr<BufferView>;
 
     struct BufferDeleter
     {
         void operator()(Buffer* buffer);
     };
-    class Buffer : public Util::IntrusivePtrEnabled<Buffer, BufferDeleter>
+    class Buffer : public IntrusivePtrEnabled<Buffer, BufferDeleter>, public GraphicsCookie, public InternalSyncObject
     {
     public:
         ~Buffer();
@@ -81,6 +82,6 @@ namespace GPU
         DeviceAllocation allocation;
         BufferCreateInfo info;
     };
-    using BufferPtr = Util::IntrusivePtr<Buffer>;
+    using BufferPtr = IntrusivePtr<Buffer>;
 }
 }

@@ -13,7 +13,7 @@ struct EventDeleter
 {
     void operator()(Event* ent);
 };
-class Event : public Util::IntrusivePtrEnabled<Event, EventDeleter>
+class Event : public IntrusivePtrEnabled<Event, EventDeleter>
 {
 public:
     Event(DeviceVulkan& device_, VkEvent ent_);
@@ -32,7 +32,7 @@ private:
     DeviceVulkan& device;
     VkEvent ent;
 };
-using EventPtr = Util::IntrusivePtr<Event>;
+using EventPtr = IntrusivePtr<Event>;
 
 class EventManager
 {

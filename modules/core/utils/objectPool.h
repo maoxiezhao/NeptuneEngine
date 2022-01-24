@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <stdlib.h>
 
+#include "core\platform\sync.h"
+
 namespace VulkanTest
 {
 namespace Util
@@ -14,8 +16,8 @@ namespace Util
 	class ObjectPool
 	{
 	public:
-		template<typename... P>
-		T* allocate(P &&... p)
+		template<typename... Args>
+		T* allocate(Args &&... args)
 		{
 #ifndef OBJECT_POOL_DEBUG
 			if (vacants.empty())
@@ -33,10 +35,10 @@ namespace Util
 
 			T* ptr = vacants.back();
 			vacants.pop_back();
-			new(ptr) T(std::forward<P>(p)...);
+			new(ptr) T(std::forward<Args>(args)...);
 			return ptr;
 #else
-			return new T(std::forward<P>(p)...);
+			return new T(std::forward<Args>(args)...);
 #endif
 		}
 
@@ -72,6 +74,34 @@ namespace Util
 
 		std::vector<std::unique_ptr<T, MallocDeleter>> memory;
 #endif
+	};
+
+	template<typename T>
+	class ThreadSafeObjectPool : private ObjectPool<T>
+	{
+	public:
+		template<typename... Args>
+		T* allocate(Args&&... args)
+		{
+			ScopedMutex lock(mutex);
+			return ObjectPool<T>::allocate(std::forward<Args>(args)...);
+		}
+
+		void free(T* ptr)
+		{
+			ptr->~T();
+			ScopedMutex lock(mutex);
+			this->vacants.push_back(ptr);
+		}
+
+		void clear()
+		{
+			ScopedMutex lock(mutex);
+			ObjectPool<T>::clear();
+		}
+
+	private:
+		 Mutex mutex;
 	};
 }
 }

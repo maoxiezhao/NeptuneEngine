@@ -95,7 +95,7 @@ struct CommandListDeleter
     void operator()(CommandList* cmd);
 };
 
-class CommandList : public Util::IntrusivePtrEnabled<CommandList, CommandListDeleter>
+class CommandList : public IntrusivePtrEnabled<CommandList, CommandListDeleter>
 {
 private:
     friend struct CommandListDeleter;
@@ -249,7 +249,7 @@ private:
         return ret;
     }
 };
-using CommandListPtr = Util::IntrusivePtr<CommandList>;
+using CommandListPtr = IntrusivePtr<CommandList>;
 
 }
 }

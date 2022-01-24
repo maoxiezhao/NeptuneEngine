@@ -7,7 +7,7 @@ namespace GPU
 {
 
 ImageView::ImageView(DeviceVulkan& device_, VkImageView imageView, const ImageViewCreateInfo& info) :
-	GraphicsCookie(device_.GenerateCookie()),
+	GraphicsCookie(device_),
 	device(device_),
 	imageView(imageView),
 	info(info)
@@ -125,6 +125,7 @@ VkAccessFlags Image::ConvertLayoutToPossibleAccess(VkImageLayout layout)
 }
 
 Image::Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const DeviceAllocation& allocation_, const ImageCreateInfo& info):
+	GraphicsCookie(device_),
 	device(device_),
 	image(image_),
 	allocation(allocation_),
