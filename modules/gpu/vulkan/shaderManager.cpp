@@ -156,47 +156,51 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 	ret->hash = hasher.Get();
 
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
-	std::string exportShaderPath = EXPORT_SHADER_PATH + path;
-	RegisterShader(exportShaderPath);
-
-	if (IsShaderOutdated(exportShaderPath))
 	{
-		std::string sourcedir = SOURCE_SHADER_PATH;
-		Helper::MakePathAbsolute(sourcedir);
+		ScopedMutex holder(lock);
 
-		CompilerInput input;
-		input.stage = stage;
-		input.includeDirectories.push_back(sourcedir);
-		input.defines = defines;
-		input.shadersourcefilename = Helper::ReplaceExtension(sourcedir + path, "hlsl");
+		std::string exportShaderPath = EXPORT_SHADER_PATH + path;
+		RegisterShader(exportShaderPath);
 
-		CompilerOutput output;
-		if (Compile(input, output))
+		if (IsShaderOutdated(exportShaderPath))
 		{
-			Logger::Info("Compile shader successfully:%d", path.c_str());
-			SaveShaderAndMetadata(exportShaderPath, output);
-			if (!output.errorMessage.empty())
-				Logger::Error(output.errorMessage.c_str());
+			std::string sourcedir = SOURCE_SHADER_PATH;
+			Helper::MakePathAbsolute(sourcedir);
 
-			ret->spirv.resize(output.shadersize);
-			memcpy(ret->spirv.data(), output.shaderdata, output.shadersize);
+			CompilerInput input;
+			input.stage = stage;
+			input.includeDirectories.push_back(sourcedir);
+			input.defines = defines;
+			input.shadersourcefilename = Helper::ReplaceExtension(sourcedir + path, "hlsl");
+
+			CompilerOutput output;
+			if (Compile(input, output))
+			{
+				Logger::Info("Compile shader successfully:%d", path.c_str());
+				SaveShaderAndMetadata(exportShaderPath, output);
+				if (!output.errorMessage.empty())
+					Logger::Error(output.errorMessage.c_str());
+
+				ret->spirv.resize(output.shadersize);
+				memcpy(ret->spirv.data(), output.shaderdata, output.shadersize);
+			}
+			else
+			{
+				Logger::Error("Compile shader fail:%d", path.c_str());
+				if (!output.errorMessage.empty())
+					Logger::Error(output.errorMessage.c_str());
+
+				variants.free(ret);
+				return nullptr;
+			}
 		}
 		else
 		{
-			Logger::Error("Compile shader fail:%d", path.c_str());
-			if (!output.errorMessage.empty())
-				Logger::Error(output.errorMessage.c_str());
-
-			variants.free(ret);
-			return nullptr;
-		}
-	}
-	else
-	{
-		if (!Helper::FileRead(exportShaderPath, ret->spirv))
-		{
-			Logger::Error("Failed to load export shader:%s", exportShaderPath.c_str());
-			return nullptr;
+			if (!Helper::FileRead(exportShaderPath, ret->spirv))
+			{
+				Logger::Error("Failed to load export shader:%s", exportShaderPath.c_str());
+				return nullptr;
+			}
 		}
 	}
 #endif

@@ -74,7 +74,7 @@ namespace GPU
 	{
 		void operator()(DeviceAllocationOwner* owner);
 	};
-	class DeviceAllocationOwner : public IntrusivePtrEnabled<DeviceAllocationOwner, DeviceAllocationOwnerDeleter>
+	class DeviceAllocationOwner : public HashedObject<DeviceAllocationOwner>, public IntrusivePtrEnabled<DeviceAllocationOwner, DeviceAllocationOwnerDeleter>
 	{
 	public:
 		~DeviceAllocationOwner();

@@ -102,7 +102,7 @@ namespace GPU
 		Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
 	};
 
-	struct ShaderProgram : public HashedObject<Shader>, public InternalSyncObject
+	struct ShaderProgram : public HashedObject<ShaderProgram>, public InternalSyncObject
 	{
 	public:
 		ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info);
@@ -139,7 +139,7 @@ namespace GPU
 		PipelineLayout* pipelineLayout = nullptr;
 		Shader* shaders[UINT(ShaderStage::Count)] = {};
 		U32 shaderCount = 0;
-		VulkanCache<VkPipeline> pipelines;
+		VulkanCache<Util::IntrusivePODWrapper<VkPipeline>> pipelines;
 	};
 
 }

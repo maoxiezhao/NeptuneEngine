@@ -45,7 +45,7 @@ namespace GPU
 	{
 		void operator()(BindlessDescriptorPool* buffer);
 	};
-	class BindlessDescriptorPool : public IntrusivePtrEnabled<BindlessDescriptorPool, BindlessDescriptorPoolDeleter>
+	class BindlessDescriptorPool : public HashedObject<BindlessDescriptorPool>, public IntrusivePtrEnabled<BindlessDescriptorPool, BindlessDescriptorPoolDeleter>
 	{
 	public:
 		~BindlessDescriptorPool();

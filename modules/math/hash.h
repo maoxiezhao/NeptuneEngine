@@ -119,21 +119,21 @@ class HashedObject
 public:
 	HashedObject() = default;
 	HashedObject(HashValue hash)
-		: mHashValue(hash)
+		: hashValue(hash)
 	{
 	}
 
 	void SetHash(HashValue hash)
 	{
-		mHashValue = hash;
+		hashValue = hash;
 	}
 
 	HashValue GetHash() const
 	{
-		return mHashValue;
+		return hashValue;
 	}
 
 private:
-	HashValue mHashValue = 0;
+	HashValue hashValue = 0;
 };
 }

@@ -315,14 +315,8 @@ public:
     CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
 
 private:
-
-private:
 #ifdef VULKAN_TEST_FILESYSTEM
     void InitShaderManagerCache();
-#endif
-
-#ifdef VULKAN_TEST_FOSSILIZE
-    
 #endif
 
 private:

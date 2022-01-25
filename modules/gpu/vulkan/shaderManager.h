@@ -45,6 +45,10 @@ private:
 	HashValue pathHash;
 	VulkanCache<ShaderTemplateVariant> variants;
 	ShaderStage stage;
+
+#ifdef VULKAN_MT
+	Mutex lock;
+#endif
 };
 
 class ShaderTemplateProgramVariant : public HashedObject<ShaderTemplateProgramVariant>
@@ -74,7 +78,7 @@ private:
 #endif
 };
 
-class ShaderTemplateProgram
+class ShaderTemplateProgram : public HashedObject<ShaderTemplateProgram>
 {
 public:
 	ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage stage, ShaderTemplate* shaderTemplate);

@@ -5,6 +5,7 @@
 #include "core\platform\platform.h"
 #include "core\events\event.h"
 #include "core\utils\intrusiveHashMap.hpp"
+#include "math\random.h"
 
 namespace VulkanTest
 {
@@ -126,6 +127,7 @@ namespace VulkanTest
                 cmd.SetDefaultOpaqueState();
                 cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
+                GPU::DeviceVulkan* device = GetWSI().GetDevice();
                 GPU::BindlessDescriptorPoolPtr bindlessPoolPtr = device->GetBindlessDescriptorPool(GPU::BindlessReosurceType::SampledImage, 1, 1024);
                 if (bindlessPoolPtr)
                 {
@@ -169,6 +171,8 @@ namespace VulkanTest
             Jobsystem::JobHandle handle = Jobsystem::INVALID_HANDLE;
             graph.Render(*device, handle);
             Jobsystem::Wait(handle);
+
+            device->MoveReadWriteCachesToReadOnly();
         }
     };
 
@@ -189,6 +193,8 @@ namespace VulkanTest
         }
     }
 }
+
+using namespace VulkanTest;
 
 int main(int argc, char* argv[])
 {
