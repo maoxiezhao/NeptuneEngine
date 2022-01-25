@@ -420,8 +420,8 @@ void CommandList::EndCommandBuffer()
     {
         isEnded = true;
 
-        U32 curretnThreadIndex = Platform::GetCurrentThreadIndex();
-        ASSERT(curretnThreadIndex == threadIndex);
+    /*    U32 curretnThreadIndex = Platform::GetCurrentThreadIndex();
+        ASSERT(curretnThreadIndex == threadIndex);*/
         VkResult res = vkEndCommandBuffer(cmd);
         ASSERT(res == VK_SUCCESS);
     }
@@ -908,14 +908,13 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
 
     // vertex input
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-    std::vector<VkVertexInputBindingDescription> bindings;
-    std::vector<VkVertexInputAttributeDescription> attributes;
-
     // attributes
+    U32 numAttributes = 0;
+    VkVertexInputAttributeDescription attributes[VULKAN_NUM_VERTEX_ATTRIBS];
     U32 bindingMask = 0;
     U32 attributeMask = pipelineState.shaderProgram->GetPipelineLayout()->GetResLayout().attributeInputMask;
     ForEachBit(attributeMask, [&](U32 attributeIndex){
-        VkVertexInputAttributeDescription& attr = attributes.emplace_back();
+        VkVertexInputAttributeDescription& attr = attributes[numAttributes++];
         attr.location = attributeIndex;
         attr.binding = pipelineState.attribs[attributeIndex].binding;
         attr.format = pipelineState.attribs[attributeIndex].format;
@@ -925,17 +924,19 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
     });
 
     // bindings
+    U32 numBindings = 0;
+    VkVertexInputBindingDescription bindings[VULKAN_NUM_VERTEX_BUFFERS];
     ForEachBit(bindingMask, [&](U32 binding) {
-        VkVertexInputBindingDescription& bind = bindings.emplace_back();
+        VkVertexInputBindingDescription& bind = bindings[numBindings++];
         bind.binding = binding;
         bind.inputRate = vbos.inputRate[binding];
         bind.stride = (U32)vbos.strides[binding];
      });
 
-    vertexInputInfo.vertexBindingDescriptionCount = static_cast<U32>(bindings.size());
-    vertexInputInfo.pVertexBindingDescriptions = bindings.data();
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<U32>(attributes.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attributes.data();
+    vertexInputInfo.vertexBindingDescriptionCount = numBindings;
+    vertexInputInfo.pVertexBindingDescriptions = bindings;
+    vertexInputInfo.vertexAttributeDescriptionCount = numAttributes;
+    vertexInputInfo.pVertexAttributeDescriptions = attributes;
 
     // input assembly
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };

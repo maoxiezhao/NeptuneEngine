@@ -18,19 +18,15 @@ namespace VulkanTest
 	public:
 		Mutex();
 		~Mutex();
-		Mutex(Mutex&& rhs);
-		void operator=(Mutex&& rhs);
 
 		void Lock();
-		bool TryLock();
 		void Unlock();
 
 	private:
 		Mutex(const Mutex& rhs) = delete;
 		Mutex& operator=(const Mutex& rhs) = delete;
 
-		struct MutexImpl* Get();
-		U8 data[48];
+		U8 data[8];
 	};
 
 	class VULKAN_TEST_API ScopedMutex

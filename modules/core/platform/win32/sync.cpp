@@ -11,73 +11,46 @@
 
 namespace VulkanTest
 {
-	struct MutexImpl
-	{
-		CRITICAL_SECTION critSec;
-	};
-
-	MutexImpl* Mutex::Get()
-	{
-		return reinterpret_cast<MutexImpl*>(&data[0]);
-	}
 
 	Mutex::Mutex()
 	{
-		static_assert(sizeof(MutexImpl) <= sizeof(data), "data too small for MutexImpl!");
+		static_assert(sizeof(data) >= sizeof(SRWLOCK), "Data is too small for SRWLOCK");
+		static_assert(alignof(Mutex) == alignof(SRWLOCK), "Alignment does not match");
 		memset(data, 0, sizeof(data));
-		new(data) MutexImpl();
-		::InitializeCriticalSection(&Get()->critSec);
+		SRWLOCK* lock = new(data) SRWLOCK;
+		::InitializeSRWLock(lock);
 	}
 
 	Mutex::~Mutex()
 	{
-		::DeleteCriticalSection(&Get()->critSec);
+		SRWLOCK* lock = (SRWLOCK*)data;
+		lock->~SRWLOCK();
 	}
 
-	Mutex::Mutex(Mutex&& rhs)
-	{
-		rhs.Lock();
-		std::swap(data, rhs.data);
-		Unlock();
-	}
+	//Mutex::Mutex(Mutex&& rhs)
+	//{
+	//	rhs.Lock();
+	//	std::swap(data, rhs.data);
+	//	Unlock();
+	//}
 
-	void Mutex::operator=(Mutex&& rhs)
-	{
-		rhs.Lock();
-		std::swap(data, rhs.data);
-		Unlock();
-	}
+	//void Mutex::operator=(Mutex&& rhs)
+	//{
+	//	rhs.Lock();
+	//	std::swap(data, rhs.data);
+	//	Unlock();
+	//}
 
 	void Mutex::Lock()
 	{
-		ASSERT(Get() != nullptr);
-		::EnterCriticalSection(&Get()->critSec);
-		//if (AtomicIncrement(&Get()->lockedCount) == 1) {
-		//	Get()->lockedThread = ::GetCurrentThread();
-		//}
-	}
-
-	bool Mutex::TryLock()
-	{
-		ASSERT(Get() != nullptr);
-		if (!!::TryEnterCriticalSection(&Get()->critSec))
-		{
-			//if (AtomicIncrement(&Get()->lockedCount) == 1) {
-			//	Get()->lockedThread = ::GetCurrentThread();
-			//}
-			return true;
-		}
-		return false;
+		SRWLOCK* lock = (SRWLOCK*)data;
+		::AcquireSRWLockExclusive(lock);
 	}
 
 	void Mutex::Unlock()
 	{
-		ASSERT(Get() != nullptr);
-		//ASSERT(Get()->lockedThread == ::GetCurrentThread());
-		//if (AtomicDecrement(&Get()->lockedCount) == 0) {
-		//	Get()->lockedThread = nullptr;
-		//}
-		::LeaveCriticalSection(&Get()->critSec);
+		SRWLOCK* lock = (SRWLOCK*)data;
+		::ReleaseSRWLockExclusive(lock);
 	}
 
 	struct SemaphoreImpl
