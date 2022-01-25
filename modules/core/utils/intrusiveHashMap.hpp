@@ -518,11 +518,17 @@ namespace Util
 
 		void clear()
 		{
+			auto ClearInnerList = [&](std::list<T*>& list) {
+				for (auto value : list)
+				{
+					if (value != nullptr)
+						pool.free(value);
+				}
+				list.clear();
+			};
 			ScopedWriteLock holder(lock);
-			for (auto& it : readOnly)
-				pool.free(it);
-			for (auto& it : readWrite)
-				pool.free(it);
+			ClearInnerList(readOnly.GetList());
+			ClearInnerList(readWrite.GetList());
 			readOnly.clear();
 			readWrite.clear();
 		}

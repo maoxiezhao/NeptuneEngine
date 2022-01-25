@@ -27,10 +27,20 @@ void Semaphore::Recycle()
 {
 	if (semaphore)
 	{
-		if (signalled)
-			device.ReleaseSemaphore(semaphore);
+		if (internalSync)
+		{
+			if (signalled)
+				device.ReleaseSemaphoreNolock(semaphore);
+			else
+				device.RecycleSemaphoreNolock(semaphore);
+		}
 		else
-			device.RecycleSemaphore(semaphore);
+		{
+			if (signalled)
+				device.ReleaseSemaphore(semaphore);
+			else
+				device.RecycleSemaphore(semaphore);
+		}
 	}
 }
 

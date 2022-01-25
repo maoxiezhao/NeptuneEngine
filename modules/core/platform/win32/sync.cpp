@@ -14,8 +14,6 @@ namespace VulkanTest
 	struct MutexImpl
 	{
 		CRITICAL_SECTION critSec;
-		HANDLE lockedThread;
-		volatile I32 lockedCount = 0;
 	};
 
 	MutexImpl* Mutex::Get()
@@ -54,9 +52,9 @@ namespace VulkanTest
 	{
 		ASSERT(Get() != nullptr);
 		::EnterCriticalSection(&Get()->critSec);
-		if (AtomicIncrement(&Get()->lockedCount) == 1) {
-			Get()->lockedThread = ::GetCurrentThread();
-		}
+		//if (AtomicIncrement(&Get()->lockedCount) == 1) {
+		//	Get()->lockedThread = ::GetCurrentThread();
+		//}
 	}
 
 	bool Mutex::TryLock()
@@ -64,9 +62,9 @@ namespace VulkanTest
 		ASSERT(Get() != nullptr);
 		if (!!::TryEnterCriticalSection(&Get()->critSec))
 		{
-			if (AtomicIncrement(&Get()->lockedCount) == 1) {
-				Get()->lockedThread = ::GetCurrentThread();
-			}
+			//if (AtomicIncrement(&Get()->lockedCount) == 1) {
+			//	Get()->lockedThread = ::GetCurrentThread();
+			//}
 			return true;
 		}
 		return false;
@@ -75,10 +73,10 @@ namespace VulkanTest
 	void Mutex::Unlock()
 	{
 		ASSERT(Get() != nullptr);
-		ASSERT(Get()->lockedThread == ::GetCurrentThread());
-		if (AtomicDecrement(&Get()->lockedCount) == 0) {
-			Get()->lockedThread = nullptr;
-		}
+		//ASSERT(Get()->lockedThread == ::GetCurrentThread());
+		//if (AtomicDecrement(&Get()->lockedCount) == 0) {
+		//	Get()->lockedThread = nullptr;
+		//}
 		::LeaveCriticalSection(&Get()->critSec);
 	}
 

@@ -153,6 +153,13 @@ public:
     ObjectPool<ImageView> imageViews;
     ObjectPool<Event> eventPool;
 
+    // Sync
+    U32 numThreads = 1;
+
+#ifdef VULKAN_MT
+    Mutex mutex;
+#endif
+
     // per frame resource
     struct FrameResource
     {
@@ -284,6 +291,20 @@ public:
     void ReleaseEvent(VkEvent ent);
     void FreeMemory(const DeviceAllocation& allocation);
 
+    void ReleaseFrameBufferNolock(VkFramebuffer buffer);
+    void ReleaseImageNolock(VkImage image);
+    void ReleaseImageViewNolock(VkImageView imageView);
+    void ReleaseFenceNolock(VkFence fence, bool isWait);
+    void ReleasePipelineNolock(VkPipeline pipeline);
+    void ReleaseBufferNolock(VkBuffer buffer);
+    void ReleaseBufferViewNolock(VkBufferView bufferView);
+    void ReleaseSamplerNolock(VkSampler sampler);
+    void ReleaseDescriptorPoolNolock(VkDescriptorPool pool);
+    void ReleaseSemaphoreNolock(VkSemaphore semaphore);
+    void RecycleSemaphoreNolock(VkSemaphore semaphore);
+    void ReleaseEventNolock(VkEvent ent);
+    void FreeMemoryNolock(const DeviceAllocation& allocation);
+
     void* MapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
     void UnmapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
 
@@ -376,12 +397,6 @@ private:
 
     // shaders
     ShaderManager shaderManager;
-
-    // Sync
-    U32 numThreads = 1;
-#ifdef VULKAN_MT
-    Mutex mutex;
-#endif
 };
 }
 }

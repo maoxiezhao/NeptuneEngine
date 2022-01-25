@@ -351,6 +351,8 @@ void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, 
         ImagePtr backbuffer = ImagePtr(imagePool.allocate(*this, images[i], imageView, DeviceAllocation(), imageCreateInfo));
         if (backbuffer)
         {
+            backbuffer->SetInternalSyncObject();
+            backbuffer->GetImageView().SetInternalSyncObject();
             backbuffer->DisownImge();
             backbuffer->SetSwapchainLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
             wsi.swapchainImages.push_back(backbuffer);
@@ -1215,6 +1217,9 @@ void DeviceVulkan::Submit(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCou
 void DeviceVulkan::SetAcquireSemaphore(U32 index, SemaphorePtr acquire)
 {
     wsi.acquire = std::move(acquire);
+    if (wsi.acquire)
+        wsi.acquire->SetInternalSyncObject();
+
     wsi.index = index;
     wsi.consumed = false;
 }
@@ -1327,6 +1332,80 @@ void DeviceVulkan::ReleaseEvent(VkEvent ent)
     LOCK();
     CurrentFrameResource().destroyedEvents.push_back(ent);
 }
+
+void DeviceVulkan::ReleaseFrameBufferNolock(VkFramebuffer buffer)
+{
+    CurrentFrameResource().destroyedFrameBuffers.push_back(buffer);
+}
+
+void DeviceVulkan::ReleaseImageNolock(VkImage image)
+{
+    CurrentFrameResource().destroyedImages.push_back(image);
+}
+
+void DeviceVulkan::ReleaseImageViewNolock(VkImageView imageView)
+{
+    CurrentFrameResource().destroyedImageViews.push_back(imageView);
+}
+
+void DeviceVulkan::ReleaseFenceNolock(VkFence fence, bool isWait)
+{
+    if (isWait)
+    {
+        vkResetFences(device, 1, &fence);
+        fencePoolManager.Recyle(fence);
+    }
+    else
+    {
+        CurrentFrameResource().recyleFences.push_back(fence);
+    }
+}
+
+void DeviceVulkan::ReleaseBufferNolock(VkBuffer buffer)
+{
+    CurrentFrameResource().destroyedBuffers.push_back(buffer);
+}
+
+void DeviceVulkan::ReleaseBufferViewNolock(VkBufferView bufferView)
+{
+    CurrentFrameResource().destroyedBufferViews.push_back(bufferView);
+}
+
+void DeviceVulkan::ReleaseSamplerNolock(VkSampler sampler)
+{
+    CurrentFrameResource().destroyedSamplers.push_back(sampler);
+}
+
+void DeviceVulkan::ReleaseDescriptorPoolNolock(VkDescriptorPool pool)
+{
+    CurrentFrameResource().destroyedDescriptorPool.push_back(pool);
+}
+
+void DeviceVulkan::ReleasePipelineNolock(VkPipeline pipeline)
+{
+    CurrentFrameResource().destroyedPipelines.push_back(pipeline);
+}
+
+void DeviceVulkan::FreeMemoryNolock(const DeviceAllocation& allocation)
+{
+    CurrentFrameResource().destroyedAllocations.push_back(allocation);
+}
+
+void DeviceVulkan::ReleaseSemaphoreNolock(VkSemaphore semaphore)
+{
+    CurrentFrameResource().destroyeSemaphores.push_back(semaphore);
+}
+
+void DeviceVulkan::RecycleSemaphoreNolock(VkSemaphore semaphore)
+{
+    CurrentFrameResource().recycledSemaphroes.push_back(semaphore);
+}
+
+void DeviceVulkan::ReleaseEventNolock(VkEvent ent)
+{
+    CurrentFrameResource().destroyedEvents.push_back(ent);
+}
+
 
 void* DeviceVulkan::MapBuffer(const Buffer& buffer, MemoryAccessFlags flags)
 {
@@ -1628,6 +1707,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
             // Release semaphore
             VkSemaphore release = semaphoreManager.Requset();
             wsi.release = SemaphorePtr(semaphorePool.allocate(*this, release, true));
+            wsi.release->SetInternalSyncObject();
             batchComposer.AddSignalSemaphore(release);
 
             wsi.presentQueue = queue;

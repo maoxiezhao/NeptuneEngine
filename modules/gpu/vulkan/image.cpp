@@ -16,7 +16,20 @@ ImageView::ImageView(DeviceVulkan& device_, VkImageView imageView, const ImageVi
 
 ImageView::~ImageView()
 {
-	device.ReleaseImageView(imageView);
+	auto ReleaseImageView = [&](VkImageView view) {
+		if (view == VK_NULL_HANDLE)
+			return;
+		if (internalSync)
+			device.ReleaseImageViewNolock(view);
+		else
+			device.ReleaseImageView(view);
+	};
+
+	ReleaseImageView(imageView);
+	ReleaseImageView(depthView);
+	ReleaseImageView(stencilView);
+	for (auto& v : rtViews)
+		ReleaseImageView(v);
 }
 
 VkImageView ImageView::GetRenderTargetView(uint32_t layer) const
@@ -142,11 +155,21 @@ Image::Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, cons
 
 Image::~Image()
 {
-	if (isOwnsImge)
-		device.ReleaseImage(image);
+	if (internalSync)
+	{
+		if (isOwnsImge)
+			device.ReleaseImageNolock(image);
+		if (isOwnsMemory)
+			device.FreeMemoryNolock(allocation);
+	}
+	else
+	{
+		if (isOwnsImge)
+			device.ReleaseImage(image);
+		if (isOwnsMemory)
+			device.FreeMemory(allocation);
+	}
 
-	if (isOwnsMemory)
-		device.FreeMemory(allocation);
 }
 
 }

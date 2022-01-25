@@ -1299,8 +1299,9 @@ namespace VulkanTest
         for (U32 i = 0; i < physicalPass.passes.size(); i++)
         {
             auto& passIndex = physicalPass.passes[i];
+            auto& pass = *renderPasses[passIndex];
             cmd.BeginEvent("DoRenderPass");
-            renderPasses[passIndex]->BuildRenderPass(cmd);
+            pass.BuildRenderPass(cmd);
             cmd.EndEvent();
 
             if (i < (physicalPass.passes.size() - 1))

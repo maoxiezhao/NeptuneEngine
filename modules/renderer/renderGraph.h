@@ -240,7 +240,7 @@ public:
     RenderPass(RenderGraph& graph_, U32 index_, U32 queue_);
     ~RenderPass();
 
-    void SetBuildCallback(BuildRenderPassFunc func)
+    void SetBuildCallback(std::function<void(GPU::CommandList&)> func)
     {
         buildRenderPassCallback = std::move(func);
     }
@@ -358,7 +358,7 @@ private:
     U32 index;
     U32 queue = 0;
     U32 physicalIndex = Unused;
-    BuildRenderPassFunc buildRenderPassCallback;
+    std::function<void(GPU::CommandList&)> buildRenderPassCallback;
     ClearDepthStencilFunc clearDepthStencilCallback;
     ClearColorFunc clearColorCallback;
 

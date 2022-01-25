@@ -53,7 +53,8 @@ namespace VulkanTest
         {
             return 720;
         }
-
+        
+        RenderTextureResource* colors[4];
         void Initialize() override
         {
             if (!wsi.Initialize(Platform::GetCPUsCount()))
@@ -80,7 +81,6 @@ namespace VulkanTest
             color.samples = VK_SAMPLE_COUNT_1_BIT;
 
             // Color pass
-            RenderTextureResource* colors[4];
             for (int i = 0; i < 4; i++)
             {
                 String colorName = "color" + std::to_string(i);

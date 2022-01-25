@@ -527,6 +527,7 @@ namespace {
 
 bool ShaderManager::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, size_t spirvSize)
 {
+	ScopedMutex holder(lock);
 	SpvReflectShaderModule module;
 	if (spvReflectCreateShaderModule(spirvSize, spirvData, &module) != SPV_REFLECT_RESULT_SUCCESS)
 	{

@@ -136,7 +136,7 @@ private:
 	DeviceVulkan& device;
 
 #ifdef VULKAN_MT
-
+	Mutex lock;
 #endif
 };
 

@@ -13,7 +13,7 @@
 
 namespace VulkanTest
 {
-	class VULKAN_TEST_API Mutex
+	struct alignas(8) VULKAN_TEST_API Mutex
 	{
 	public:
 		Mutex();
@@ -30,7 +30,7 @@ namespace VulkanTest
 		Mutex& operator=(const Mutex& rhs) = delete;
 
 		struct MutexImpl* Get();
-		U8 data[60];
+		U8 data[48];
 	};
 
 	class VULKAN_TEST_API ScopedMutex
