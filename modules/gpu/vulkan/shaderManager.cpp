@@ -1,6 +1,7 @@
 ﻿#include "shaderManager.h"
 #include "shaderCompiler.h"
 #include "device.h"
+#include "core\platform\atomic.h"
 #include "core\utils\archive.h"
 #include "core\utils\helper.h"
 #include "spriv_reflect\spirv_reflect.h"
@@ -234,6 +235,10 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 		hasher.HashCombine(define.c_str());
 
 	HashValue hash = hasher.Get();
+
+	// TODO: Mutex is necessary?
+	ScopedMutex hodler(lock);
+
 	auto it = variantCache.find(hash);
 	if (it != nullptr)
 		return it;
@@ -267,9 +272,10 @@ ShaderTemplateProgramVariant::ShaderTemplateProgramVariant(DeviceVulkan& device_
 {
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 	{
-		shaderInstances[i] = 0;
+		shaderInstances[i].store(0, std::memory_order_relaxed);
 		shaders[i] = nullptr;
 	}
+	program.store(nullptr, std::memory_order_relaxed);
 }
 
 ShaderTemplateProgramVariant::~ShaderTemplateProgramVariant()
@@ -343,7 +349,7 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 	{
 		if (shaderVariants[i] != nullptr)
 		{
-			if (shaderVariants[i]->instance != shaderInstances[i])
+			if (shaderVariants[i]->instance != shaderInstances[i].load(std::memory_order_acquire))
 			{
 				isProgramDirty = true;
 				break;
@@ -351,11 +357,8 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 		}
 	}
 
-	if (program == nullptr)
-		isProgramDirty = true;
-
 	if (isProgramDirty == false)
-		return program;
+		return program.load(std::memory_order_relaxed);
 
 #ifdef VULKAN_MT
 	lock.BeginWrite();
@@ -387,13 +390,13 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 	ShaderProgram* newProgram = device.RequestProgram(shaders);
 	if (newProgram != nullptr)
 	{
-		program = newProgram;
+		program.store(newProgram, std::memory_order_relaxed);
 
 		// Set shader instances
 		for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 		{
 			if (shaderVariants[i] != nullptr)
-				shaderInstances[i] = shaderVariants[i]->instance;
+				shaderInstances[i].store(shaderVariants[i]->instance, std::memory_order_release);
 		}
 	}
 

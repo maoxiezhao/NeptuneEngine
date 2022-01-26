@@ -97,7 +97,8 @@ private:
     Util::TempHashMap<ImageNode, 8, false> attachments;
 
 #ifdef VULKAN_MT
-    Mutex mutex;
+    // Mutex mutex;
+    std::mutex mutex;
 #endif
 };
 
@@ -123,7 +124,8 @@ private:
     Util::TempHashMap<FrameBufferNode, 8, false> framebuffers;
 
 #ifdef VULKAN_MT
-    Mutex mutex;
+    // Mutex mutex;
+    std::mutex mutex;
 #endif
 };
 
@@ -141,6 +143,14 @@ public:
     
     DeviceFeatures features;
 
+    // Sync
+    U32 numThreads = 1;
+#ifdef VULKAN_MT
+    std::mutex mutex;
+    std::condition_variable cond;
+    U32 frameCounter = 0;
+#endif
+
     // vulkan object pool, it is deleted last.
     ObjectPool<CommandList> commandListPool;
     ObjectPool<Image> imagePool;
@@ -152,13 +162,6 @@ public:
     ObjectPool<BufferView> bufferViews;
     ObjectPool<ImageView> imageViews;
     ObjectPool<Event> eventPool;
-
-    // Sync
-    U32 numThreads = 1;
-
-#ifdef VULKAN_MT
-    Mutex mutex;
-#endif
 
     // per frame resource
     struct FrameResource
@@ -244,6 +247,7 @@ public:
     void InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height);
     void BakeShaderProgram(ShaderProgram& program);
     void WaitIdle();
+    void WaitIdleNolock();
     bool IsSwapchainTouched();
     void MoveReadWriteCachesToReadOnly();
 
@@ -310,6 +314,7 @@ public:
 
     void NextFrameContext();
     void EndFrameContext();
+    void EndFrameContextNolock();
     void FlushFrames();
     void FlushFrame(QueueIndices queueIndex);
     void Submit(CommandListPtr& cmd, FencePtr* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphore = nullptr);
@@ -342,6 +347,9 @@ private:
 
 private:
     friend class CommandList;
+
+    void AddFrameCounter();
+    void DecrementFrameCounter();
 
     // stock samplers
     void InitStockSamplers();

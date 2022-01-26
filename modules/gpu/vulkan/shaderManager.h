@@ -19,7 +19,7 @@ struct ShaderTemplateVariant : public HashedObject<ShaderTemplateVariant>
 	HashValue spirvHash = 0;
 	std::vector<uint8_t> spirv;
 	ShaderVariantMap defines;
-	U32 instance = 0;
+	volatile U32 instance = 0;
 };
 
 class ShaderTemplate : public HashedObject<ShaderTemplate>
@@ -69,10 +69,9 @@ private:
 private:
 	DeviceVulkan& device;
 	const ShaderTemplateVariant* shaderVariants[static_cast<U32>(ShaderStage::Count)] = {};
-	ShaderProgram* program = nullptr;
-	U32 shaderInstances[static_cast<U32>(ShaderStage::Count)] = {};
+	std::atomic<ShaderProgram*> program = nullptr;
+	std::atomic<U32> shaderInstances[static_cast<U32>(ShaderStage::Count)] = {};
 	Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
-
 #ifdef VULKAN_MT
 	RWLock lock;
 #endif
@@ -93,6 +92,9 @@ private:
 	ShaderTemplate* shaderTemplates[static_cast<U32>(ShaderStage::Count)] = {};
 	VulkanCache<ShaderTemplateProgramVariant> variantCache;
 	ShaderProgram* shaderProgram = nullptr;
+#ifdef VULKAN_MT
+	Mutex lock;
+#endif
 };
 
 class ShaderManager

@@ -59,6 +59,7 @@ namespace GPU
 
         BufferBlock block;
         block.cpuBuffer = device->CreateBuffer(info, nullptr);
+        block.cpuBuffer->SetInternalSyncObject();
         device->SetName(*block.cpuBuffer, "Allocated_block_gpu");
         
         block.mapped = static_cast<U8*>(device->MapBuffer(*block.cpuBuffer, MEMORY_ACCESS_WRITE_BIT));

@@ -101,6 +101,7 @@ namespace VulkanTest
                     cmd.SetDefaultOpaqueState();
                     cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
                     cmd.Draw(3);
+                    Logger::Print("ColorPass");
                 });
             }
 

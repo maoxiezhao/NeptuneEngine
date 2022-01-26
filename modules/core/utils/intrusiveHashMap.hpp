@@ -474,12 +474,15 @@ namespace Util
 				hashMask = hashTable.size() - 1;
 				success = true;
 
-				for (auto item : list)
+				if (!list.empty())
 				{
-					if (!InsertHashTable(item))
+					for (auto item : list)
 					{
-						success = false;
-						break;
+						if (!InsertHashTable(item))
+						{
+							success = false;
+							break;
+						}
 					}
 				}
 			}
@@ -519,6 +522,9 @@ namespace Util
 		void clear()
 		{
 			auto ClearInnerList = [&](std::list<T*>& list) {
+				if (list.empty())
+					return;
+
 				for (auto value : list)
 				{
 					if (value != nullptr)

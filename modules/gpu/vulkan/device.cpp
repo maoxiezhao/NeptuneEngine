@@ -16,9 +16,15 @@ namespace
     {
         return Platform::GetCurrentThreadIndex();
     }
-#define LOCK() ScopedMutex lock(mutex);
+#define LOCK() std::lock_guard<std::mutex> holder_{mutex}
+#define DRAIN_FRAME_LOCK() \
+    std::unique_lock<std::mutex> holder_{ mutex }; \
+    cond.wait(holder_, [&]() { \
+        return frameCounter == 0; \
+    })
 #else
 #define LOCK() ((void)0)
+#define DRAIN_FRAME_LOCK()  ((void)0)
 #endif
 
 	static const QueueIndices QUEUE_FLUSH_ORDER[] = {
@@ -391,6 +397,7 @@ IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex
 
     IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, buffer, queueType));
     cmdPtr->SetThreadIndex(threadIndex);
+    AddFrameCounter();
     return cmdPtr;
 }
 
@@ -1145,8 +1152,10 @@ DeviceAllocationOwnerPtr DeviceVulkan::AllocateMemmory(const MemoryAllocateInfo&
 
 void DeviceVulkan::NextFrameContext()
 {
+    DRAIN_FRAME_LOCK();
+
     // submit remain queue
-    EndFrameContext();
+    EndFrameContextNolock();
 
     transientAllocator.BeginFrame();
     frameBufferAllocator.BeginFrame();
@@ -1173,6 +1182,12 @@ void DeviceVulkan::NextFrameContext()
 }
 
 void DeviceVulkan::EndFrameContext()
+{
+    DRAIN_FRAME_LOCK();
+    EndFrameContextNolock();
+}
+
+void DeviceVulkan::EndFrameContextNolock()
 {
     // flush queue
     InternalFence fence;
@@ -1562,13 +1577,30 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
 
 void DeviceVulkan::WaitIdle()
 {
-    EndFrameContext();
+    DRAIN_FRAME_LOCK();
+    WaitIdleNolock();
+}
+
+void DeviceVulkan::WaitIdleNolock()
+{
+    if (!frameResources.empty())
+        EndFrameContextNolock();
 
     if (device != VK_NULL_HANDLE)
     {
         auto ret = vkDeviceWaitIdle(device);
         if (ret != VK_SUCCESS)
             Logger::Error("vkDeviceWaitIdle failed:%d", ret);
+    }
+
+    // Clear wait semaphores
+    for (auto& queueData : queueDatas)
+    {
+        for (auto& sem : queueData.waitSemaphores)
+            vkDestroySemaphore(device, sem->GetSemaphore(), nullptr);
+
+        queueData.waitSemaphores.clear();
+        queueData.waitStages.clear();
     }
 
     // Clear buffer pools
@@ -1630,11 +1662,16 @@ void DeviceVulkan::SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaph
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
     submissions.push_back(std::move(cmd));
 
+    InternalFence signalledFence;
     if (fence != nullptr || (semaphoreCount > 0 && semaphore != nullptr))
     {
-        InternalFence signalledFence;
         SubmitQueue(queueIndex, fence != nullptr ? &signalledFence : nullptr, semaphoreCount, semaphore);
     }
+
+    if (fence)
+        *fence = FencePtr(fencePool.allocate(*this, signalledFence.fence));
+
+    DecrementFrameCounter();
 }
 
 void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores)
@@ -1663,9 +1700,9 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
         if (semaphore->GetTimeLine() <= 0)
         {
             if (semaphore->CanRecycle())
-                RecycleSemaphore(vkSemaphore);
+                RecycleSemaphoreNolock(vkSemaphore);
             else
-                ReleaseSemaphore(vkSemaphore);
+                ReleaseSemaphoreNolock(vkSemaphore);
 
             waitSemaphores.binaryWaits.push_back(vkSemaphore);
             waitSemaphores.binaryWaitStages.push_back(queueData.waitStages[i]);
@@ -1693,9 +1730,9 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
                 if (wsi.acquire->GetTimeLine() <= 0)
                 {
                     if (wsi.acquire->CanRecycle())
-                        RecycleSemaphore(wsi.acquire->GetSemaphore());
+                        RecycleSemaphoreNolock(wsi.acquire->GetSemaphore());
                     else 
-                        ReleaseSemaphore(wsi.acquire->GetSemaphore());
+                        ReleaseSemaphoreNolock(wsi.acquire->GetSemaphore());
                 }
 
                 wsi.acquire->Consume();
@@ -1735,7 +1772,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
     VkResult ret = SubmitBatches(batchComposer, queue, clearedFence);
     if (ret != VK_SUCCESS)
     {
-        Logger::Error("Submit queue failed: ");
+        Logger::Error("Submit queue failed: %d", ret);
         return;
     }
 
@@ -1759,9 +1796,9 @@ void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U3
         if (semaphore->GetTimeLine() <= 0)
         {
             if (semaphore->CanRecycle())
-                RecycleSemaphore(vkSemaphore);
+                RecycleSemaphoreNolock(vkSemaphore);
             else
-                ReleaseSemaphore(vkSemaphore);
+                ReleaseSemaphoreNolock(vkSemaphore);
 
             waitSemaphores.binaryWaits.push_back(vkSemaphore);
             waitSemaphores.binaryWaitStages.push_back(queueData.waitStages[i]);
@@ -2064,6 +2101,20 @@ std::vector<VkSubmitInfo>& BatchComposer::Bake()
     }
     submits.resize(submitCount);
     return submits;
+}
+
+void DeviceVulkan::AddFrameCounter()
+{
+    frameCounter++;
+}
+
+void DeviceVulkan::DecrementFrameCounter()
+{
+    ASSERT(frameCounter > 0);
+    frameCounter--;
+#ifdef VULKAN_MT
+    cond.notify_all();
+#endif
 }
 
 void DeviceVulkan::InitStockSamplers()
