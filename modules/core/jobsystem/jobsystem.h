@@ -41,7 +41,7 @@ namespace Jobsystem
 
     void Run(const JobInfo& jobInfo, JobHandle* handle);
     void Run(void*data, JobFunc func, JobHandle* handle);
-    void RunEx(void* data, JobFunc func, JobHandle* handle, JobHandle precondition);
+    void RunEx(void* data, JobFunc func, JobHandle* handle, JobHandle precondition, int workerIndex = ANY_WORKER);
     void Wait(JobHandle handle);
 
 #ifdef JOB_SYSTEM_DEBUG

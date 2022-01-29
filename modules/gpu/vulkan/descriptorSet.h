@@ -45,7 +45,7 @@ namespace GPU
 	{
 		void operator()(BindlessDescriptorPool* buffer);
 	};
-	class BindlessDescriptorPool : public HashedObject<BindlessDescriptorPool>, public IntrusivePtrEnabled<BindlessDescriptorPool, BindlessDescriptorPoolDeleter>
+	class BindlessDescriptorPool : public Util::IntrusiveHashMapEnabled<BindlessDescriptorPool>, public IntrusivePtrEnabled<BindlessDescriptorPool, BindlessDescriptorPoolDeleter>
 	{
 	public:
 		~BindlessDescriptorPool();
@@ -80,7 +80,7 @@ namespace GPU
 	};
 	using BindlessDescriptorPoolPtr = IntrusivePtr<BindlessDescriptorPool>;
 
-	class DescriptorSetAllocator : public HashedObject<DescriptorSetAllocator>
+	class DescriptorSetAllocator : public Util::IntrusiveHashMapEnabled<DescriptorSetAllocator>
 	{
 	public:
 		DescriptorSetAllocator(DeviceVulkan& device_, const DescriptorSetLayout& layout, const U32* stageForBinds);

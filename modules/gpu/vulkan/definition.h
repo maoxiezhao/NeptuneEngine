@@ -44,6 +44,9 @@ namespace GPU
     template<typename T>
     using VulkanCache = Util::ThreadSafeIntrusiveHashMapReadCached<T>;
 
+    template <typename T>
+    using VulkanCacheReadWrite = Util::ThreadSafeIntrusiveHashMap<T>;
+
     template <typename T, typename Deleter = std::default_delete<T>>
     using IntrusivePtrEnabled = Util::IntrusivePtrEnabled<T, Deleter, Util::MultiThreadCounter>;
 #else
@@ -52,6 +55,9 @@ namespace GPU
 
     template<typename T>
     using VulkanCache = Util::IntrusiveHashMap<T>;
+
+    template <typename T>
+    using VulkanCacheReadWrite = Util::IntrusiveHashMap<T>;
 
     template <typename T, typename Deleter = std::default_delete<T>>
     using IntrusivePtrEnabled = Util::IntrusivePtrEnabled<T, Deleter, Util::SingleThreadCounter>;

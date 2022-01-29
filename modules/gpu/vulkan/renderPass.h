@@ -48,7 +48,7 @@ struct RenderPassInfo
     unsigned numSubPasses = 0;
 };
 
-class RenderPass : public HashedObject<RenderPass>
+class RenderPass : public Util::IntrusiveHashMapEnabled<RenderPass>
 {
 private:
     DeviceVulkan& device;

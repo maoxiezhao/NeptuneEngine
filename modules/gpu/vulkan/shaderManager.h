@@ -13,7 +13,7 @@ class DeviceVulkan;
 
 using ShaderVariantMap = std::vector<std::string>;
 
-struct ShaderTemplateVariant : public HashedObject<ShaderTemplateVariant>
+struct ShaderTemplateVariant : public Util::IntrusiveHashMapEnabled<ShaderTemplateVariant>
 {
 	HashValue hash = 0;
 	HashValue spirvHash = 0;
@@ -22,7 +22,7 @@ struct ShaderTemplateVariant : public HashedObject<ShaderTemplateVariant>
 	volatile U32 instance = 0;
 };
 
-class ShaderTemplate : public HashedObject<ShaderTemplate>
+class ShaderTemplate : public Util::IntrusiveHashMapEnabled<ShaderTemplate>
 {
 public:
 	ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, const std::string& path_, HashValue pathHash_);
@@ -51,7 +51,7 @@ private:
 #endif
 };
 
-class ShaderTemplateProgramVariant : public HashedObject<ShaderTemplateProgramVariant>
+class ShaderTemplateProgramVariant : public Util::IntrusiveHashMapEnabled<ShaderTemplateProgramVariant>
 {
 public:
 	ShaderTemplateProgramVariant(DeviceVulkan& device_);
@@ -77,7 +77,7 @@ private:
 #endif
 };
 
-class ShaderTemplateProgram : public HashedObject<ShaderTemplateProgram>
+class ShaderTemplateProgram : public Util::IntrusiveHashMapEnabled<ShaderTemplateProgram>
 {
 public:
 	ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage stage, ShaderTemplate* shaderTemplate);
@@ -90,11 +90,7 @@ private:
 
 	DeviceVulkan& device;
 	ShaderTemplate* shaderTemplates[static_cast<U32>(ShaderStage::Count)] = {};
-	VulkanCache<ShaderTemplateProgramVariant> variantCache;
-	ShaderProgram* shaderProgram = nullptr;
-#ifdef VULKAN_MT
-	Mutex lock;
-#endif
+	VulkanCacheReadWrite<ShaderTemplateProgramVariant> variantCache;
 };
 
 class ShaderManager

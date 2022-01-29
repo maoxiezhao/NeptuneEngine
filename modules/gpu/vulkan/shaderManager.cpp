@@ -159,7 +159,7 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	{
 		ScopedMutex holder(lock);
-
+		Logger::Info("Load shader template: %s", path);
 		std::string exportShaderPath = EXPORT_SHADER_PATH + path;
 		RegisterShader(exportShaderPath);
 
@@ -235,10 +235,6 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 		hasher.HashCombine(define.c_str());
 
 	HashValue hash = hasher.Get();
-
-	// TODO: Mutex is necessary?
-	ScopedMutex hodler(lock);
-
 	auto it = variantCache.find(hash);
 	if (it != nullptr)
 		return it;
@@ -471,24 +467,22 @@ ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string& vertex
 ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string filePath)
 {
 	HashValue hash = GetPathHash(stage, filePath);
-	auto it = shaders.find(hash);
-	if (it != nullptr)
-		return it;
-
-	ShaderTemplate* ret = shaders.allocate(device, stage, filePath, hash);
-	if (ret == nullptr || !ret->Initialize())
+	ShaderTemplate* temp = shaders.find(hash);
+	if (temp == nullptr)
 	{
-		shaders.free(ret);
-		return nullptr;
+		ShaderTemplate* shader = shaders.allocate(device, stage, filePath, hash);
+		if (!shader->Initialize())
+		{
+			shaders.free(shader);
+			return nullptr;
+		}
+		temp = shaders.insert(hash, shader);
 	}
-
-	ret->SetHash(hash);
-	shaders.insert(hash, ret);
-	return ret;
+	return temp;
 }
 
-namespace {
-
+namespace 
+{
 	I32 GetMaskByDescriptorType(SpvReflectDescriptorType descriptorType)
 	{
 		I32 mask = -1;

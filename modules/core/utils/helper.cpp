@@ -1,4 +1,5 @@
 #include "helper.h"
+#include "platform\sync.h"
 
 #include <iostream>
 #include <fstream>

@@ -396,7 +396,7 @@ void CommandList::SetProgram(const std::string& vertex, const std::string& fragm
        return;
    }
 
-   auto variant = tempProgram->RegisterVariant(defines);
+   auto* variant = tempProgram->RegisterVariant(defines);
    SetProgram(variant->GetProgram());
 }
 

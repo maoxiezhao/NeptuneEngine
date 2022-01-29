@@ -1163,9 +1163,9 @@ void DeviceVulkan::NextFrameContext()
 #ifdef VULKAN_MT
     // descriptor set begin
     for (auto& set : descriptorSetAllocators.GetReadOnly())
-        set->BeginFrame();
+        set.BeginFrame();
     for (auto& set : descriptorSetAllocators.GetReadWrite())
-        set->BeginFrame();
+        set.BeginFrame();
 #else
     // descriptor set begin
     for (auto& kvp : descriptorSetAllocators)
@@ -1618,9 +1618,9 @@ void DeviceVulkan::WaitIdleNolock()
 #ifdef VULKAN_MT
     // descriptor set begin
     for (auto& set : descriptorSetAllocators.GetReadOnly())
-        set->Clear();
+        set.Clear();
     for (auto& set : descriptorSetAllocators.GetReadWrite())
-        set->Clear();
+        set.Clear();
 #else
     for (auto& allocator : descriptorSetAllocators)
         allocator.second->Clear();
@@ -1646,7 +1646,7 @@ void DeviceVulkan::MoveReadWriteCachesToReadOnly()
     shaders.MoveToReadOnly();
     programs.MoveToReadOnly();
     for (auto& program : programs.GetReadOnly())
-        program->MoveToReadOnly();   // ShaderProgram::Pipelines
+        program.MoveToReadOnly();   // ShaderProgram::Pipelines
 
     renderPasses.MoveToReadOnly();
     shaderManager.MoveToReadOnly();

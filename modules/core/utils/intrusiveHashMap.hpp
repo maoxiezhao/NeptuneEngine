@@ -12,6 +12,189 @@ namespace VulkanTest
 namespace Util
 {
 	template <typename T>
+	struct IntrusiveListNode
+	{
+		IntrusiveListNode<T>* prev = nullptr;
+		IntrusiveListNode<T>* next = nullptr;
+	};
+
+	template <typename T>
+	class IntrusiveList
+	{
+	public:
+		void clear()
+		{
+			head = nullptr;
+			tail = nullptr;
+		}
+
+		class Iterator
+		{
+		public:
+			friend class IntrusiveList<T>;
+			Iterator(IntrusiveListNode<T>* node_)
+				: node(node_)
+			{
+			}
+
+			Iterator() = default;
+
+			explicit operator bool() const
+			{
+				return node != nullptr;
+			}
+
+			bool operator==(const Iterator& other) const
+			{
+				return node == other.node;
+			}
+
+			bool operator!=(const Iterator& other) const
+			{
+				return node != other.node;
+			}
+
+			T& operator*()
+			{
+				return *static_cast<T*>(node);
+			}
+
+			const T& operator*() const
+			{
+				return *static_cast<T*>(node);
+			}
+
+			T* get()
+			{
+				return static_cast<T*>(node);
+			}
+
+			const T* get() const
+			{
+				return static_cast<const T*>(node);
+			}
+
+			T* operator->()
+			{
+				return static_cast<T*>(node);
+			}
+
+			const T* operator->() const
+			{
+				return static_cast<T*>(node);
+			}
+
+			Iterator& operator++()
+			{
+				node = node->next;
+				return *this;
+			}
+
+			Iterator& operator--()
+			{
+				node = node->prev;
+				return *this;
+			}
+
+		private:
+			IntrusiveListNode<T>* node = nullptr;
+		};
+
+		Iterator begin() const
+		{
+			return Iterator(head);
+		}
+
+		Iterator rbegin() const
+		{
+			return Iterator(tail);
+		}
+
+		Iterator end() const
+		{
+			return Iterator();
+		}
+
+		Iterator erase(Iterator itr)
+		{
+			auto* node = itr.get();
+			auto* next = node->next;
+			auto* prev = node->prev;
+
+			if (prev)
+				prev->next = next;
+			else
+				head = next;
+
+			if (next)
+				next->prev = prev;
+			else
+				tail = prev;
+
+			return next;
+		}
+
+		void insert_front(Iterator itr)
+		{
+			auto* node = itr.get();
+			if (head)
+				head->prev = node;
+			else
+				tail = node;
+
+			node->next = head;
+			node->prev = nullptr;
+			head = node;
+		}
+
+		void insert_back(Iterator itr)
+		{
+			auto* node = itr.get();
+			if (tail)
+				tail->next = node;
+			else
+				head = node;
+
+			node->prev = tail;
+			node->next = nullptr;
+			tail = node;
+		}
+
+		bool empty() const
+		{
+			return head == nullptr;
+		}
+
+	private:
+		IntrusiveListNode<T>* head = nullptr;
+		IntrusiveListNode<T>* tail = nullptr;
+	};
+
+	template <typename T>
+	class IntrusiveHashMapEnabled : public IntrusiveListNode<T>
+	{
+	public:
+		IntrusiveHashMapEnabled() = default;
+		IntrusiveHashMapEnabled(HashValue hash)
+			: hashValue(hash)
+		{
+		}
+
+		void SetHash(HashValue hash)
+		{
+			hashValue = hash;
+		}
+
+		HashValue GetHash() const
+		{
+			return hashValue;
+		}
+
+	private:
+		HashValue hashValue = 0;
+	};
+
+	template <typename T>
 	class IntrusiveHashMap
 	{
 	public:
@@ -131,93 +314,62 @@ namespace Util
 		void clear()
 		{
 			ScopedWriteLock holder(lock);
-			for (auto& kvp : hashmap)
-				pool.free(kvp.second);
 			hashmap.clear();
 		}
 
 		T* find(HashValue hash) const
 		{
 			ScopedReadLock holder(lock);
-			auto it = hashmap.find(hash);
-			if (it == hashmap.end())
-				return nullptr;
-
-			return it->second;
-		}
-
-		T& operator[](HashValue hash)
-		{
-			auto* t = find(hash);
-			if (!t)
-				t = emplace(hash);
-			return *t;
+			T* ret = hashmap.find(hash);
+			return ret;
 		}
 
 		void erase(T* value)
 		{
 			ScopedWriteLock holder(lock);
-			for (auto& kvp : hashmap)
-			{
-				if (kvp.second == value)
-				{
-					hashmap.erase(kvp.first);
-					pool.free(value);
-					break;
-				}
-			}
+			hashmap.erase(value);
 		}
 
 		void erase(HashValue hash)
 		{
 			ScopedWriteLock holder(lock);
-			auto it = hashmap.find(hash);
-			if (it != hashmap.end())
-			{
-				pool.free(it->second);
-				hashmap.erase(it);
-			}
-		}
-
-		template <typename... Args>
-		T* emplace(HashValue hash, Args&&... args)
-		{
-			T* t = allocate(std::forward<Args>(args)...);
-			return insert(hash, t);
+			hashmap.erase(hash);
 		}
 
 		template <typename... Args>
 		T* allocate(Args&&... args)
 		{
 			ScopedWriteLock holder(lock);
-			return pool.allocate(std::forward<Args>(args)...);
+			return hashmap.allocate(std::forward<Args>(args)...);
 		}
 
 		void free(T* value)
 		{
 			ScopedWriteLock holder(lock);
-			pool.free(value);
+			hashmap.free(value);
 		}
 
 		T* insert(HashValue hash, T* value)
 		{
 			ScopedWriteLock holder(lock);
-			auto it = hashmap.find(hash);
-			if (it != hashmap.end())
-				pool.free(it->second);
-
-			hashmap[hash] = value;
+			value = hashmap.insert(hash, value);
 			return value;
 		}
 
+		template <typename... Args>
+		T* emplace(HashValue hash, Args&&... args)
+		{
+			ScopedWriteLock holder(lock);
+			return hashmap.emplace(hash, std::forward<Args>(args)...);
+		}
+
 	private:
-		std::unordered_map<HashValue, T*> hashmap;
-		ObjectPool<T> pool;
+		IntrusiveHashMap<T> hashmap;
 		mutable RWLock lock;
 	};
 
 	template<typename T>
-	class IntrusivePODWrapper : public HashedObject<IntrusivePODWrapper<T>>
+	class IntrusivePODWrapper : public IntrusiveHashMapEnabled<IntrusivePODWrapper<T>>
 	{
 	public:
 		template<typename U>
@@ -287,29 +439,11 @@ namespace Util
 					// Insert stop while value already exsist
 					return hashTable[marked];
 				}
-
-				if (hashTable[marked] == nullptr)
+				else if (hashTable[marked] == nullptr)
 				{
 					hashTable[marked] = value;
-					list.push_front(value);
+					list.insert_front(value);
 					return nullptr;
-				}
-
-				if (i > 1)
-				{
-					U32 probeDist = ProbeDistanceHash(GetItemHash(hashTable[marked]), marked);
-					if (probeDist < (i - 1))
-					{
-						T* ret = hashTable[marked];
-						hashTable[marked] = value;
-						auto it = std::find(list.begin(), list.end(), ret);
-						if (it != list.end())
-							*it = value;
-
-						i = probeDist;
-						value = ret;
-						hash = GetItemHash(value);
-					}
 				}
 				marked = (marked + 1) & hashMask;
 			}
@@ -332,17 +466,15 @@ namespace Util
 					// New value will replace old value, then return old value
 					T* ret = hashTable[marked];
 					hashTable[marked] = value;
-					auto it = std::find(list.begin(), list.end(), ret);
-					if (it != list.end())
-						list.erase(it);
-					list.push_front(value);
+					list.erase(ret);
+					list.insert_front(value);
 					return ret;
 				}
 
 				if (hashTable[marked] == nullptr)
 				{
 					hashTable[marked] = value;
-					list.push_front(value);
+					list.insert_front(value);
 					return nullptr;
 				}
 
@@ -353,9 +485,7 @@ namespace Util
 					{
 						T* ret = hashTable[marked];
 						hashTable[marked] = value;
-						auto it = std::find(list.begin(), list.end(), ret);
-						if (it != list.end())
-							*it = value;
+						list.erase(ret);
 
 						i = probeDist;
 						value = ret;
@@ -381,9 +511,7 @@ namespace Util
 				{
 					T* ret = hashTable[marked];
 					hashTable[marked] = nullptr;
-					auto it = std::find(list.begin(), list.end(), ret);
-					if (it != list.end())
-						list.erase(it);
+					list.erase(ret);
 					return ret;
 				}
 				
@@ -397,29 +525,21 @@ namespace Util
 			return erase(GetItemHash(value));
 		}
 
-		const std::list<T*>& GetList()const
+		const IntrusiveList<T>& GetList()const
 		{
 			return list;
 		}
 
-		std::list<T*>& GetList()
+		IntrusiveList<T>& GetList()
 		{
 			return list;
 		}
 
-		typename std::list<T*>::const_iterator begin() const
+		typename IntrusiveList<T>::Iterator begin() const
 		{
 			return list.begin();
 		}
-		typename std::list<T*>::const_iterator end() const
-		{
-			return list.end();
-		}
-		typename std::list<T*>::iterator begin()
-		{
-			return list.begin();
-		}
-		typename std::list<T*> ::iterator end()
+		typename IntrusiveList<T>::Iterator end() const
 		{
 			return list.end();
 		}
@@ -432,33 +552,33 @@ namespace Util
 
 		inline HashValue GetItemHash(const T* value) const
 		{
-			return value != nullptr ? static_cast<const HashedObject<T> *>(value)->GetHash() : ~0u;
+			return value != nullptr ? static_cast<const IntrusiveHashMapEnabled<T> *>(value)->GetHash() : ~0u;
+		}
+
+		bool InsertInner(T* value)
+		{
+			HashValue hash = GetItemHash(value);
+			HashValue hashMask = hashTable.size() - 1;
+			HashValue marked = hash & hashMask;
+			for (U32 i = 0; i < depth; i++)
+			{
+				if (hashTable[marked] == nullptr)
+				{
+					hashTable[marked] = value;
+					return true;
+				}
+				marked = (hash + 1) & hashMask;
+			}
+			return false;
 		}
 
 		void Grow()
 		{
-			auto InsertHashTable = [&](T* value)->bool {
-
-				HashValue hash = GetItemHash(value);
-				HashValue hashMask = hashTable.size() - 1;
-				HashValue marked = hash & hashMask;
-				for (U32 i = 0; i < depth; i++)
-				{
-					if (hashTable[marked] == nullptr)
-					{
-						hashTable[marked] = value;
-						return true;
-					}
-					marked = (hash + 1) & hashMask;
-				}
-				return false;
-			};
-		
 			bool success = false;
 			while (success == false)
 			{
-				for (int i = 0; i < hashTable.size(); i++)
-					hashTable[i] = nullptr;
+				for (auto& v : hashTable)
+					v = nullptr;
 
 				if (hashTable.empty())
 				{
@@ -471,14 +591,14 @@ namespace Util
 					depth++;
 				}
 
-				hashMask = hashTable.size() - 1;
+				hashMask = (U32)hashTable.size() - 1;
 				success = true;
 
 				if (!list.empty())
 				{
-					for (auto item : list)
+					for (auto& item : list)
 					{
-						if (!InsertHashTable(item))
+						if (!InsertInner(&item))
 						{
 							success = false;
 							break;
@@ -489,7 +609,7 @@ namespace Util
 		}
 
 		std::vector<T*> hashTable;
-		std::list<T*> list;
+		IntrusiveList<T> list;
 		U32 depth = 0;
 		U32 hashMask = 0;
 	};
@@ -510,33 +630,38 @@ namespace Util
 		void MoveToReadOnly()
 		{
 			auto& list = readWrite.GetList();
-			for (auto value : list)
+			auto itr = list.begin();
+			while (itr != list.end())
 			{
-				T* old = readOnly.insertYield(value);
+				auto* toMove = itr.get();
+				readWrite.erase(toMove);
+
+				T* old = readOnly.insertYield(toMove);
 				if (old != nullptr)
 					pool.free(old);
+
+				itr = list.begin();
 			}
 			readWrite.clearAndKeepCapacity();
 		}
 
 		void clear()
 		{
-			auto ClearInnerList = [&](std::list<T*>& list) {
-				if (list.empty())
-					return;
-
-				for (auto value : list)
+			lock.BeginWrite();
+			auto ClearInnerList = [&](IntrusiveList<T>& list) {
+				auto itr = list.begin();
+				while (itr != list.end())
 				{
-					if (value != nullptr)
-						pool.free(value);
+					auto* toFree = itr.get();
+					itr = list.erase(itr);
+					pool.free(toFree);
 				}
-				list.clear();
 			};
-			ScopedWriteLock holder(lock);
 			ClearInnerList(readOnly.GetList());
 			ClearInnerList(readWrite.GetList());
 			readOnly.clear();
 			readWrite.clear();
+			lock.EndWrite();
 		}
 
 		T* find(HashValue hash) const
@@ -545,8 +670,10 @@ namespace Util
 			if (ret != nullptr)
 				return ret;
 
-			ScopedReadLock holder(lock);
-			return readWrite.find(hash);
+			lock.BeginRead();
+			ret = readWrite.find(hash);
+			lock.EndRead();
+			return ret;
 		}
 
 		T& operator[](HashValue hash)
@@ -555,31 +682,6 @@ namespace Util
 			if (!t)
 				t = emplace(hash);
 			return *t;
-		}
-
-		void erase(T* value)
-		{
-			ScopedWriteLock holder(lock);
-			for (auto& kvp : readWrite)
-			{
-				if (kvp.second == value)
-				{
-					readWrite.erase(kvp.first);
-					pool.free(value);
-					break;
-				}
-			}
-		}
-
-		void erase(HashValue hash)
-		{
-			ScopedWriteLock holder(lock);
-			auto it = readWrite.find(hash);
-			if (it != nullptr)
-			{
-				pool.free(it);
-				readWrite.erase(it);
-			}
 		}
 
 		template <typename... Args>
@@ -592,23 +694,27 @@ namespace Util
 		template <typename... Args>
 		T* allocate(Args&&... args)
 		{
-			ScopedWriteLock holder(lock);
-			return pool.allocate(std::forward<Args>(args)...);
+			lock.BeginWrite();
+			T* ret = pool.allocate(std::forward<Args>(args)...);
+			lock.EndWrite();
+			return ret;
 		}
 
 		void free(T* value)
 		{
-			ScopedWriteLock holder(lock);
+			lock.BeginWrite();
 			pool.free(value);
+			lock.EndWrite();
 		}
 
 		T* insert(HashValue hash, T* value)
 		{
-			ScopedWriteLock holder(lock);
 			SetItemHash(value, hash);
+			lock.BeginWrite();
 			T* old = readWrite.insertYield(value);
 			if (old != nullptr)
 				pool.free(old);
+			lock.EndWrite();
 			return value;
 		}
 		
@@ -625,7 +731,7 @@ namespace Util
 	private:
 		void SetItemHash(T* value, HashValue hash)
 		{
-			static_cast<HashedObject<T>*>(value)->SetHash(hash);
+			static_cast<IntrusiveHashMapEnabled<T>*>(value)->SetHash(hash);
 		}
 
 		IntrusiveHashMapHolder<T> readOnly;

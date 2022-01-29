@@ -45,7 +45,7 @@ namespace GPU
 		uint64_t cookies[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
 	};
 
-	class PipelineLayout : public HashedObject<PipelineLayout>
+	class PipelineLayout : public Util::IntrusiveHashMapEnabled<PipelineLayout>
 	{
 	public:
 		PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout resLayout_);
@@ -73,7 +73,7 @@ namespace GPU
 		DescriptorSetAllocator* descriptorSetAllocators[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 	};
 
-	class Shader : public HashedObject<Shader>
+	class Shader : public Util::IntrusiveHashMapEnabled<Shader>
 	{
 	public:
 		Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_, const ShaderResourceLayout* layout_ = nullptr);
@@ -102,7 +102,7 @@ namespace GPU
 		Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
 	};
 
-	struct ShaderProgram : public HashedObject<ShaderProgram>, public InternalSyncObject
+	struct ShaderProgram : public Util::IntrusiveHashMapEnabled<ShaderProgram>, public InternalSyncObject
 	{
 	public:
 		ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info);

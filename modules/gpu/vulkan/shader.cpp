@@ -60,9 +60,9 @@ ShaderProgram::~ShaderProgram()
 {
 #ifdef VULKAN_MT
 	for (auto it : pipelines.GetReadOnly())
-		device->ReleasePipeline(it->Get());
+		device->ReleasePipeline(it.Get());
 	for (auto it : pipelines.GetReadWrite())
-		device->ReleasePipeline(it->Get());
+		device->ReleasePipeline(it.Get());
 #else
 	for (auto kvp : pipelines)
 		device->ReleasePipeline(kvp.second);

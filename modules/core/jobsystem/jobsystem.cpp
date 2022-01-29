@@ -367,7 +367,7 @@ namespace Jobsystem
         );
     }
 
-    void RunEx(void* data, JobFunc func, JobHandle* handle, JobHandle precondition)
+    void RunEx(void* data, JobFunc func, JobHandle* handle, JobHandle precondition, int workerIndex)
     {
         RunInternal(
             func,
@@ -375,7 +375,7 @@ namespace Jobsystem
             true,
             precondition,
             handle,
-            ANY_WORKER
+            workerIndex
         );
     }
 

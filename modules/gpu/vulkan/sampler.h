@@ -51,7 +51,7 @@ namespace GPU
     };
     using SamplerPtr = IntrusivePtr<Sampler>;
 
-    class ImmutableSampler : public HashedObject<ImmutableSampler>
+    class ImmutableSampler : public Util::IntrusiveHashMapEnabled<ImmutableSampler>
     {
     public:
         ImmutableSampler(DeviceVulkan& device_, const SamplerCreateInfo& createInfo_);

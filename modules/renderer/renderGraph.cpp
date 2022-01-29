@@ -1411,7 +1411,7 @@ namespace VulkanTest
 
             auto& physicalPass = physicalPasses[i];
             Jobsystem::JobHandle renderHandle = Jobsystem::INVALID_HANDLE;
-            Jobsystem::Run(&state, [this, &device, &physicalPass](void* data)->void {
+            Jobsystem::RunEx(&state, [this, &device, &physicalPass](void* data)->void {
                 GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
                 if (state == nullptr)
                     return;
@@ -1433,7 +1433,7 @@ namespace VulkanTest
 
                 state->EmitPostPassBarriers();
 
-            }, &renderHandle);
+            }, &renderHandle, Jobsystem::INVALID_HANDLE, i);
             state.renderingDependency = renderHandle;
         }
 
