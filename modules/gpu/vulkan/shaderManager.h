@@ -3,6 +3,7 @@
 #include "definition.h"
 #include "shader.h"
 #include "core\platform\sync.h"
+#include "rwSpinLock.h"
 
 namespace VulkanTest
 {
@@ -12,7 +13,6 @@ namespace GPU
 class DeviceVulkan;
 
 using ShaderVariantMap = std::vector<std::string>;
-
 struct ShaderTemplateVariant : public Util::IntrusiveHashMapEnabled<ShaderTemplateVariant>
 {
 	HashValue hash = 0;
@@ -73,7 +73,7 @@ private:
 	std::atomic<U32> shaderInstances[static_cast<U32>(ShaderStage::Count)] = {};
 	Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
 #ifdef VULKAN_MT
-	RWLock lock;
+	Tools::RWSpinLock lock;
 #endif
 };
 

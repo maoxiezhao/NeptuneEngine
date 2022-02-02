@@ -296,7 +296,7 @@ namespace Jobsystem
         job.data = data;
         job.task = task;
         job.precondition = precondition;
-        job.workerIndex = workerIndex != ANY_WORKER ? workerIndex % gManager->workers.size() : ANY_WORKER;
+        job.workerIndex = U8(workerIndex != ANY_WORKER ? workerIndex % gManager->workers.size() : ANY_WORKER);
 
         if (doLock) gManager->sync.Lock();
         job.finishHandle = [&]() {

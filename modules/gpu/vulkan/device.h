@@ -117,7 +117,9 @@ private:
     public:
         explicit FrameBufferNode(DeviceVulkan& device_, RenderPass& renderPass_, const RenderPassInfo& info_) :
             FrameBuffer(device_, renderPass_, info_)
-        {}
+        {
+            SetInternalSyncObject();
+        }
     };
 
     DeviceVulkan& device;

@@ -78,8 +78,16 @@ namespace GPU
 
 	Buffer::~Buffer()
 	{
-		device.ReleaseBuffer(buffer);
-		device.FreeMemory(allocation);
+		if (internalSync)
+		{
+			device.ReleaseBufferNolock(buffer);
+			device.FreeMemoryNolock(allocation);
+		}
+		else
+		{
+			device.ReleaseBuffer(buffer);
+			device.FreeMemory(allocation);
+		}
 	}
 
 	Buffer::Buffer(DeviceVulkan& device_, VkBuffer buffer_, const DeviceAllocation& allocation_, const BufferCreateInfo& info_) :

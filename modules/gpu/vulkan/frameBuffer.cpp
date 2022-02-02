@@ -48,7 +48,10 @@ FrameBuffer::~FrameBuffer()
 {
 	if (frameBuffer != VK_NULL_HANDLE)
 	{
-		device.ReleaseFrameBuffer(frameBuffer);
+		if (internalSync)
+			device.ReleaseFrameBufferNolock(frameBuffer);
+		else
+			device.ReleaseFrameBuffer(frameBuffer);
 	}
 }
 

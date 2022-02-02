@@ -146,20 +146,16 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 	if (it != nullptr)
 		return it;
 
-	ShaderTemplateVariant* ret = variants.allocate();
-	if (ret == nullptr)
-	{
-		variants.free(ret);
-		return nullptr;
-	}
-
 	hasher.HashCombine(pathHash);
-	ret->hash = hasher.Get();
+	HashValue completeHash = hasher.Get();
+
+	ShaderTemplateVariant* ret = variants.allocate();
+	ret->hash = completeHash;
 
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	{
 		ScopedMutex holder(lock);
-		Logger::Info("Load shader template: %s", path);
+		Logger::Info("Load shader template: %s", path.c_str());
 		std::string exportShaderPath = EXPORT_SHADER_PATH + path;
 		RegisterShader(exportShaderPath);
 
@@ -239,23 +235,17 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 	if (it != nullptr)
 		return it;
 
-	ShaderTemplateProgramVariant* ret = variantCache.allocate(device);
-	if (ret == nullptr)
-	{
-		variantCache.free(ret);
-		return nullptr;
-	}
-
+	ShaderTemplateProgramVariant* newVariant = variantCache.allocate(device);
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 	{
 		if (shaderTemplates[i] != nullptr)
-			ret->shaderVariants[i] = shaderTemplates[i]->RegisterVariant(defines);
+			newVariant->shaderVariants[i] = shaderTemplates[i]->RegisterVariant(defines);
 	}
+	newVariant->GetProgram();
+	newVariant->SetHash(hash);
+	variantCache.insert(hash, newVariant);
 
-	ret->SetHash(hash);
-	variantCache.insert(hash, ret);
-
-	return ret;
+	return newVariant;
 }
 
 void ShaderTemplateProgram::SetShader(ShaderStage stage, ShaderTemplate* shader)
@@ -352,13 +342,27 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 			}
 		}
 	}
-
 	if (isProgramDirty == false)
 		return program.load(std::memory_order_relaxed);
 
 #ifdef VULKAN_MT
 	lock.BeginWrite();
 #endif
+	isProgramDirty = false;
+	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
+	{
+		if (shaderVariants[i] != nullptr)
+		{
+			if (shaderVariants[i]->instance != shaderInstances[i].load(std::memory_order_relaxed))
+			{
+				isProgramDirty = true;
+				break;
+			}
+		}
+	}
+	if (isProgramDirty == false)
+		return program.load(std::memory_order_relaxed);
+
 	// Request shaders
 	Shader* shaders[static_cast<int>(ShaderStage::Count)] = {};
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)

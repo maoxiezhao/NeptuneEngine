@@ -54,15 +54,45 @@ namespace VulkanTest
             return 720;
         }
         
-        RenderTextureResource* colors[4];
+        GPU::ImagePtr images[4];
+        // RenderTextureResource* colors[4];
         void Initialize() override
         {
             if (!wsi.Initialize(Platform::GetCPUsCount()))
                 return;
 
+
             GPU::DeviceVulkan* device = wsi.GetDevice();
             graph.SetDevice(device);
 
+            /// /////////////////////////////////////////////////
+            // Color images
+            GPU::TextureFormatLayout formatLayout;
+            formatLayout.SetTexture2D(VK_FORMAT_R8G8B8A8_SRGB, 1, 1);
+            GPU::ImageCreateInfo imageInfo = GPU::ImageCreateInfo::ImmutableImage2D(1, 1, VK_FORMAT_R8G8B8A8_SRGB);
+            GPU::SubresourceData data = {};
+            data.rowPitch = formatLayout.RowByteStride(1);
+
+            const uint8_t red[] = { 0xff, 0, 0, 0xff };
+            const uint8_t green[] = { 0, 0xff, 0, 0xff };
+            const uint8_t blue[] = { 0, 0, 0xff, 0xff };
+            const uint8_t black[] = { 0, 0, 0, 0xff };
+
+            data.data = red;
+            images[0] = device->CreateImage(imageInfo, &data);
+            data.data = green;
+            images[1] = device->CreateImage(imageInfo, &data);
+            data.data = blue;
+            images[2] = device->CreateImage(imageInfo, &data);
+            data.data = black;
+            images[3] = device->CreateImage(imageInfo, &data);
+
+            device->SetName(*images[0], "ColorImg0");
+            device->SetName(*images[1], "ColorImg1");
+            device->SetName(*images[2], "ColorImg2");
+            device->SetName(*images[3], "ColorImg3");
+
+            /// /////////////////////////////////////////////////
             ResourceDimensions dim;
             dim.width = 1280;
             dim.height = 720;
@@ -81,35 +111,35 @@ namespace VulkanTest
             color.samples = VK_SAMPLE_COUNT_1_BIT;
 
             // Color pass
-            for (int i = 0; i < 4; i++)
-            {
-                String colorName = "color" + std::to_string(i);
-                String passName = "ColorPass" + std::to_string(i);
-                auto& colorPass = graph.AddRenderPass(passName.c_str(), RenderGraphQueueFlag::Graphics);
-                colors[i] = &colorPass.WriteColor(colorName, color);
-                colorPass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
-                    if (value != nullptr)
-                    {
-                        value->float32[0] = 0.0f;
-                        value->float32[1] = 0.0f;
-                        value->float32[2] = 0.0f;
-                        value->float32[3] = 1.0f;
-                    }
-                    return true;
-                });
-                colorPass.SetBuildCallback([&](GPU::CommandList& cmd) {
-                    cmd.SetDefaultOpaqueState();
-                    cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
-                    cmd.Draw(3);
-                });
-            }
+            //for (int i = 0; i < 4; i++)
+            //{
+            //    String colorName = "color" + std::to_string(i);
+            //    String passName = "ColorPass" + std::to_string(i);
+            //    auto& colorPass = graph.AddRenderPass(passName.c_str(), RenderGraphQueueFlag::Graphics);
+            //    colors[i] = &colorPass.WriteColor(colorName, color);
+            //    colorPass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
+            //        if (value != nullptr)
+            //        {
+            //            value->float32[0] = 0.0f;
+            //            value->float32[1] = 0.0f;
+            //            value->float32[2] = 0.0f;
+            //            value->float32[3] = 1.0f;
+            //        }
+            //        return true;
+            //    });
+            //    colorPass.SetBuildCallback([&](GPU::CommandList& cmd) {
+            //        cmd.SetDefaultOpaqueState();
+            //        cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
+            //        cmd.Draw(3);
+            //    });
+            //}
 
             // Final pass
             auto& finalPass = graph.AddRenderPass("Final", RenderGraphQueueFlag::Graphics);
-            finalPass.ReadTexture("color0");
-            finalPass.ReadTexture("color1");
-            finalPass.ReadTexture("color2");
-            finalPass.ReadTexture("color3");
+            //finalPass.ReadTexture("color0");
+            //finalPass.ReadTexture("color1");
+            //finalPass.ReadTexture("color2");
+            //finalPass.ReadTexture("color3");
             finalPass.WriteColor("back", back);
             finalPass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
                 if (value != nullptr)
@@ -132,10 +162,12 @@ namespace VulkanTest
                 if (bindlessPoolPtr)
                 {
                     bindlessPoolPtr->AllocateDescriptors(16);
-                    bindlessPoolPtr->SetTexture(0, graph.GetPhysicalTexture(*colors[0]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                    bindlessPoolPtr->SetTexture(1, graph.GetPhysicalTexture(*colors[1]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                    bindlessPoolPtr->SetTexture(2, graph.GetPhysicalTexture(*colors[2]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                    bindlessPoolPtr->SetTexture(3, graph.GetPhysicalTexture(*colors[3]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    //bindlessPoolPtr->SetTexture(0, graph.GetPhysicalTexture(*colors[0]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    //bindlessPoolPtr->SetTexture(1, graph.GetPhysicalTexture(*colors[1]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    //bindlessPoolPtr->SetTexture(2, graph.GetPhysicalTexture(*colors[2]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    //bindlessPoolPtr->SetTexture(3, graph.GetPhysicalTexture(*colors[3]), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    for (int i = 0; i < 1024; i++)
+                        bindlessPoolPtr->SetTexture(i, images[i % 4]->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
                     cmd.SetBindless(1, bindlessPoolPtr->GetDescriptorSet());
                     cmd.SetSampler(0, 0, GPU::StockSampler::NearestClamp);
@@ -160,6 +192,12 @@ namespace VulkanTest
 
         void Uninitialize() override
         {
+            for (int i = 0; i < 4; i++)
+            {
+                if (images[i])
+                    images[i].reset();
+            }
+
             graph.Reset();
         }
 

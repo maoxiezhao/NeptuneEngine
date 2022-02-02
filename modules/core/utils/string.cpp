@@ -171,8 +171,8 @@ namespace VulkanTest
 
 	bool EndsWith(const char* str, const char* substr)
 	{
-		int len = StringLength(str);
-		int len2 = StringLength(substr);
+		int len = (int)StringLength(str);
+		int len2 = (int)StringLength(substr);
 		if (len2 > len)
 			return false;
 		return EqualString(str + len - len2, substr);
