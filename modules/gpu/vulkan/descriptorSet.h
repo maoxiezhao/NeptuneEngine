@@ -28,7 +28,7 @@ namespace GPU
 			COUNT,
 		};
 		U32 masks[static_cast<U32>(SetMask::COUNT)] = {};
-		uint8_t arraySize[VULKAN_NUM_BINDINGS] = {};
+		U8 arraySize[VULKAN_NUM_BINDINGS] = {};
 		enum { UNSIZED_ARRAY = 0xff };
 
 		DescriptorSetLayout()

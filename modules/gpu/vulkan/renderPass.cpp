@@ -110,6 +110,25 @@ void RenderPass::SetupSubPasses(const VkRenderPassCreateInfo& info)
 RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 	device(device_)
 {
+	// Fill color attachments
+	for (int i = 0; i < VULKAN_NUM_ATTACHMENTS; i++)
+		colorAttachments[i] = VK_FORMAT_UNDEFINED;
+
+	//  Setup default subpass info if we don't have it
+	uint32_t numSubpasses = info.numSubPasses;
+	const RenderPassInfo::SubPass* subpassInfos = info.subPasses;
+	RenderPassInfo::SubPass defaultSupassInfo;
+	if (!subpassInfos)
+	{
+		defaultSupassInfo.numColorAattachments = info.numColorAttachments;
+		defaultSupassInfo.depthStencilMode = DepthStencilMode::ReadWrite;
+		for (U32 i = 0; i < info.numColorAttachments; i++)
+			defaultSupassInfo.colorAttachments[i] = i;
+
+		numSubpasses = 1;
+		subpassInfos = &defaultSupassInfo;
+	}
+
 	uint32_t numAttachments = info.numColorAttachments + (info.depthStencil != nullptr ? 1 : 0);
 	U32 implicitTransitions = 0;
 	U32 implicitBottomOfPipe = 0;
@@ -121,6 +140,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		colorAttachments[i] = info.colorAttachments[i]->GetFormat();
 
 		auto& attachment = attachments[i];
+		attachment.flags = 0;
 		attachment.format = colorAttachments[i];
 		attachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		attachment.loadOp = CheckLoadOp(info, i);
@@ -131,7 +151,10 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		attachment.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 		const Image* image = info.colorAttachments[i]->GetImage();
-		if (image->IsSwapchainImage())
+		if (image->GetCreateInfo().domain == ImageDomain::Transient)
+		{
+		}
+		else if (image->IsSwapchainImage())
 		{
 			// Keep initial layout
 			if (attachment.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
@@ -147,13 +170,23 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		}
 		else
 		{
-			attachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+			attachment.initialLayout = 
+				info.colorAttachments[i]->GetImage()->GetLayoutType() == ImageLayoutType::Optimal ? 
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
 	
 	// Depth stencil
 	if (info.depthStencil)
 	{
+		VkImageLayout dsLayout = VK_IMAGE_LAYOUT_GENERAL;
+		if (info.depthStencil->GetImage()->GetLayoutType() == ImageLayoutType::Optimal)
+		{
+			bool dsReadOnly = (info.opFlags & RENDER_PASS_OP_DEPTH_STENCIL_READ_ONLY_BIT) != 0;
+			dsLayout = dsReadOnly ?
+				VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		}
+
 		depthStencil = info.depthStencil->GetFormat();
 
 		auto& attachment = attachments[info.numColorAttachments + 1];
@@ -164,41 +197,24 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;	// read/write
+		attachment.initialLayout = dsLayout;
 		attachment.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	}
 
-	// Subpasses
-	uint32_t numSubpasses = info.numSubPasses;
-	const RenderPassInfo::SubPass* subpassInfos = info.subPasses;
-	//  Setup default subpass info if dont have it
-	RenderPassInfo::SubPass defaultSupassInfo;
-	if (!subpassInfos)
-	{
-		defaultSupassInfo.numColorAattachments = info.numColorAttachments;
-		defaultSupassInfo.depthStencilMode = DepthStencilMode::ReadWrite;
-		for (U32 i = 0; i < info.numColorAttachments; i++)
-		{
-			defaultSupassInfo.colorAttachments[i] = i;
-		}
-
-		numSubpasses = 1;
-		subpassInfos = &defaultSupassInfo;
-	}
-
 	Util::StackAllocator<VkAttachmentReference, 512> attachmentRefAllocator;
+	Util::StackAllocator<U32, 1024> preserveAllocator;
+
 	std::vector< VkSubpassDescription> subpasses(numSubpasses);
 	for (uint32_t i = 0; i < numSubpasses; i++)
 	{
 		const RenderPassInfo::SubPass& subpassInfo = subpassInfos[i];
-		VkSubpassDescription& subpass = subpasses[i];
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-
 		VkAttachmentReference* colors = attachmentRefAllocator.Allocate(subpassInfo.numColorAattachments);
 		VkAttachmentReference* inputs = attachmentRefAllocator.Allocate(subpassInfo.numInputAttachments);
 		VkAttachmentReference* resolves = attachmentRefAllocator.Allocate(subpassInfo.numResolveAttachments);
 		VkAttachmentReference* depth = attachmentRefAllocator.Allocate();
 
+		VkSubpassDescription& subpass = subpasses[i];
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.inputAttachmentCount = subpassInfo.numInputAttachments;
 		subpass.pInputAttachments = inputs;
 		subpass.colorAttachmentCount = subpassInfo.numColorAattachments;
@@ -248,7 +264,9 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		}
 	}
 
-	unsigned lastSubpassForAttachment[VULKAN_NUM_ATTACHMENTS + 1] = {};
+	U32 lastSubpassForAttachment[VULKAN_NUM_ATTACHMENTS + 1] = {};
+	// 找到未在Subpass使用且需要保留的Attachment
+	uint32_t preserveMasks[VULKAN_NUM_ATTACHMENTS + 1] = {};
 
 	// subpass相关attchament操作的mask,用于构建subpass之间的dependency stageMask
 	U32 colorAttachmentReadWriteSubpassMask = 0;
@@ -266,8 +284,9 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 	U32 externalSubpassBottomOfPipeDependencies = 0;
 	for (U32 attachment = 0; attachment < numAttachments; attachment++)
 	{
-		U32 attachmenBit = 1u << attachment;
+		U32 attachmentBit = 1u << attachment;
 		bool used = false;
+
 		VkImageLayout currentLayout = attachments[attachment].initialLayout;
 		for (U32 subpass = 0; subpass < numSubpasses; subpass++)
 		{
@@ -281,14 +300,15 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 			if (color) assert(!depth);
 			if (depth) assert(!color && !resolve);
 			if (resolve) assert(!color && !depth);
-
 			if (!color && !resolve && !input && !depth)
 			{
+				if (used)
+					preserveMasks[attachment] |= 1u << subpass;
 				continue;
 			}
-
+			
 			// attachment属于TransientImage或者SwapchainImage
-			if (!used && (implicitTransitions & attachmenBit))
+			if (!used && (implicitTransitions & attachmentBit))
 			{
 				if (color != nullptr)
 					externalColorDependencies |= 1u << subpass;
@@ -299,7 +319,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 			}
 
 			// 设置参与implicitBottomOfPipe的subpass
-			if (!used && (implicitBottomOfPipe & attachmenBit))
+			if (!used && (implicitBottomOfPipe & attachmentBit))
 				externalSubpassBottomOfPipeDependencies |= 1u << subpass;
 
 			if (color && input)
@@ -400,8 +420,32 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		// 如果当前attachment未设置finalLayout，则使用经过pass后的currentLayout
 		if (attachments[attachment].finalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		{
+			ASSERT(currentLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 			attachments[attachment].finalLayout = currentLayout;
 		}
+	}
+
+	// Add preserve attachments
+	for (U32 attachment = 0; attachment < numAttachments; attachment++)
+		preserveMasks[attachment] &= ((1u << lastSubpassForAttachment[attachment]) - 1);
+
+	for (U32 subpass = 0; subpass < numSubpasses; subpass++)
+	{
+		auto& pass = subpasses[subpass];	
+		U32 preserveCount = 0;
+		for (U32 attachment = 0; attachment < numAttachments; attachment++)
+		{
+			if (preserveMasks[attachment] & (1u << subpass))
+				preserveCount++;
+		}
+
+		U32* data = preserveAllocator.Allocate(preserveCount);
+		for (U32 attachment = 0; attachment < numAttachments; attachment++)
+			if (preserveMasks[attachment] & (1u << subpass))
+				*data++ = attachment;
+
+		pass.pPreserveAttachments = data;
+		pass.preserveAttachmentCount = preserveCount;
 	}
 
 	// subpass dependencies

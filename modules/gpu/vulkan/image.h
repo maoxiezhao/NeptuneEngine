@@ -79,7 +79,7 @@ public:
         rtViews = views;
     }
 
-    VkImageView GetRenderTargetView(uint32_t layer)const;
+    VkImageView GetRenderTargetView(U32 layer)const;
 
 private:
     friend class DeviceVulkan;

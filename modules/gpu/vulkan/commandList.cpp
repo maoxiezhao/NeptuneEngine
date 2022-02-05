@@ -637,6 +637,7 @@ void CommandList::Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags ds
 void CommandList::SignalEvent(VkEvent ent, VkPipelineStageFlags stageMask)
 {
     ASSERT(stageMask != 0);
+    ASSERT(frameBuffer == nullptr);
     vkCmdSetEvent(cmd, ent, stageMask);
 }
 

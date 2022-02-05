@@ -121,7 +121,6 @@ public:
 	 */
 	ShaderTemplateProgram* RegisterGraphics(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines);
 
-	bool ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, size_t spirvSize);
 	bool LoadShaderCache(const char* path);
 	void MoveToReadOnly();
 

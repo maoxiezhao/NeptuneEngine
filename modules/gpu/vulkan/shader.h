@@ -91,6 +91,8 @@ namespace GPU
 		}
 
 	private:
+		bool ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, size_t spirvSize);
+		
 		DeviceVulkan& device;
 		ShaderStage shaderStage;
 		VkShaderModule shaderModule = VK_NULL_HANDLE;

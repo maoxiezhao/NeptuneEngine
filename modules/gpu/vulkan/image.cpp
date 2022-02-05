@@ -32,9 +32,16 @@ ImageView::~ImageView()
 		ReleaseImageView(v);
 }
 
-VkImageView ImageView::GetRenderTargetView(uint32_t layer) const
+VkImageView ImageView::GetRenderTargetView(U32 layer) const
 {
-	return imageView;
+	if (info.image->GetCreateInfo().domain == ImageDomain::Transient)
+		return imageView;
+
+	if (rtViews.empty())
+		return imageView;
+
+	ASSERT(layer < rtViews.size());
+	return rtViews[layer];
 }
 
 void ImageViewDeleter::operator()(ImageView* imageView)

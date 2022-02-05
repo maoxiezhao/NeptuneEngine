@@ -13,7 +13,7 @@ struct EventDeleter
 {
     void operator()(Event* ent);
 };
-class Event : public IntrusivePtrEnabled<Event, EventDeleter>
+class Event : public IntrusivePtrEnabled<Event, EventDeleter>, public InternalSyncObject
 {
 public:
     Event(DeviceVulkan& device_, VkEvent ent_);

@@ -181,7 +181,7 @@ public:
         std::vector<VkBufferView> destroyedBufferViews;
         std::vector<VkDescriptorPool> destroyedDescriptorPool;
         std::vector<VkSampler> destroyedSamplers;
-        std::vector<VkEvent> destroyedEvents;
+        std::vector<VkEvent> recyledEvents;
 
         // memory
         std::vector<DeviceAllocation> destroyedAllocations;
@@ -257,7 +257,7 @@ public:
     CommandListPtr RequestCommandListForThread(int threadIndex, QueueType queueType);
     RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isCompatible = false);
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
-    PipelineLayout& RequestPipelineLayout(const CombinedResourceLayout& resLayout);
+    PipelineLayout* RequestPipelineLayout(const CombinedResourceLayout& resLayout);
     SemaphorePtr RequestSemaphore();
     EventPtr RequestEvent();
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);

@@ -21,14 +21,20 @@ namespace GPU
 	{
 		if (ent != VK_NULL_HANDLE)
 		{
-			device.ReleaseEvent(ent);
+			if (internalSync)
+				device.ReleaseEventNolock(ent);
+			else
+				device.ReleaseEvent(ent);
 		}
 	}
 
 	EventManager::~EventManager()
 	{
 		for (auto& ent : events)
-			vkDestroyEvent(device->device, ent, nullptr);
+		{
+			if (ent != VK_NULL_HANDLE)
+				vkDestroyEvent(device->device, ent, nullptr);
+		}
 	}
 
 	void EventManager::Initialize(DeviceVulkan& device_)

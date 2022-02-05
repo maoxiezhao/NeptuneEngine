@@ -507,16 +507,21 @@ FrameBuffer& DeviceVulkan::RequestFrameBuffer(const RenderPassInfo& renderPassIn
     return frameBufferAllocator.RequestFrameBuffer(renderPassInfo);
 }
 
-PipelineLayout& DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout& resLayout)
+PipelineLayout* DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout& resLayout)
 {
+    // Calculate hash for ShaderResLayout
     HashCombiner hash;
+    hash.HashCombine(reinterpret_cast<const U32*>(resLayout.sets), sizeof(resLayout.sets));
+    hash.HashCombine(&resLayout.stagesForBindings[0][0], sizeof(resLayout.stagesForBindings));
+    hash.HashCombine(resLayout.pushConstantHash);
+    hash.HashCombine(resLayout.attributeInputMask);
+    hash.HashCombine(resLayout.renderTargetMask);
+
     auto findIt = pipelineLayouts.find(hash.Get());
     if (findIt != nullptr)
-        return *findIt;
+        return findIt;
 
-    PipelineLayout& pipelineLayout = *pipelineLayouts.emplace(hash.Get(), *this, resLayout);
-    pipelineLayout.SetHash(hash.Get());
-    return pipelineLayout;
+    return pipelineLayouts.emplace(hash.Get(), *this, resLayout);
 }
 
 SemaphorePtr DeviceVulkan::RequestSemaphore()
@@ -879,15 +884,15 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             return ImagePtr();
     }
 
-    // Check concurrent
+    // Check is concurrent queue
     U32 queueFlags =createInfo.misc &
         (IMAGE_MISC_CONCURRENT_QUEUE_GRAPHICS_BIT |
-        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT |
-        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT |
-        IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_TRANSFER_BIT);
+         IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT |
+         IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT |
+         IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_TRANSFER_BIT);
     bool concurrentQueue = queueFlags != 0;
 
-    //VkBuffer buffer;
+    // Create VKImage by allocator
     VkImage image = VK_NULL_HANDLE;
     DeviceAllocation allocation;
     if (!memory.CreateImage(info, createInfo.domain, image, &allocation))
@@ -1345,7 +1350,7 @@ void DeviceVulkan::RecycleSemaphore(VkSemaphore semaphore)
 void DeviceVulkan::ReleaseEvent(VkEvent ent)
 {
     LOCK();
-    CurrentFrameResource().destroyedEvents.push_back(ent);
+    CurrentFrameResource().recyledEvents.push_back(ent);
 }
 
 void DeviceVulkan::ReleaseFrameBufferNolock(VkFramebuffer buffer)
@@ -1418,7 +1423,7 @@ void DeviceVulkan::RecycleSemaphoreNolock(VkSemaphore semaphore)
 
 void DeviceVulkan::ReleaseEventNolock(VkEvent ent)
 {
-    CurrentFrameResource().destroyedEvents.push_back(ent);
+    CurrentFrameResource().recyledEvents.push_back(ent);
 }
 
 
@@ -1570,9 +1575,7 @@ void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
     hasher.HashCombine(resLayout.pushConstantRange.stageFlags);
     hasher.HashCombine(resLayout.pushConstantRange.size);
     resLayout.pushConstantHash = hasher.Get();
-    
-    auto& piplineLayout = RequestPipelineLayout(resLayout);
-    program.SetPipelineLayout(&piplineLayout);
+    program.SetPipelineLayout(RequestPipelineLayout(resLayout));
 }
 
 void DeviceVulkan::WaitIdle()
@@ -1990,7 +1993,7 @@ void DeviceVulkan::FrameResource::Begin()
         vkDestroySemaphore(vkDevice, semaphore, nullptr);
     for (auto& pipeline : destroyedPipelines)
         vkDestroyPipeline(vkDevice, pipeline, nullptr);
-    for (auto& ent : destroyedEvents)
+    for (auto& ent : recyledEvents)
         device.eventManager.Recyle(ent);
     for (auto& allocation : destroyedAllocations)
         allocation.Free(device.memory);
@@ -2004,6 +2007,7 @@ void DeviceVulkan::FrameResource::Begin()
     destroyedDescriptorPool.clear();
     destroyeSemaphores.clear();
     destroyedPipelines.clear();
+    recyledEvents.clear();
     destroyedAllocations.clear();
 
     // reset recyle semaphores
