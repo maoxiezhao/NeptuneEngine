@@ -17,7 +17,7 @@ int main()
         return 0;
     }
 
-    Jobsystem::ShowDebugInfo();
+   /* Jobsystem::ShowDebugInfo();
 
     struct TestData
     {
@@ -54,7 +54,7 @@ int main()
     time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count() - time;
     std::cout << "Test value:" << testData.value << std::endl;
     std::cout << "Wait time:" << time << std::endl;
-    Jobsystem::ShowDebugInfo();
+    Jobsystem::ShowDebugInfo();*/
     Jobsystem::Uninitialize();
 	return 0;
 }

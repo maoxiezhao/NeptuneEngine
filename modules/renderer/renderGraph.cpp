@@ -1429,7 +1429,7 @@ namespace VulkanTest
 
             auto& physicalPass = physicalPasses[i];
             Jobsystem::JobHandle renderHandle = Jobsystem::INVALID_HANDLE;
-            Jobsystem::RunEx(&state, [this, &device, &physicalPass](void* data)->void {
+            Jobsystem::Run(&state, [this, &device, &physicalPass](void* data)->void {
                 GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
                 if (state == nullptr)
                     return;
@@ -1451,7 +1451,7 @@ namespace VulkanTest
 
                 state->EmitPostPassBarriers();
 
-            }, &renderHandle, Jobsystem::INVALID_HANDLE, i);
+            }, &renderHandle, i);
             state.renderingDependency = renderHandle;
         }
 
@@ -1462,23 +1462,26 @@ namespace VulkanTest
             if (state.active == false)
                 continue;
 
-            Jobsystem::RunEx(&state, [](void* data)->void {
+            Jobsystem::JobHandle dependency = state.renderingDependency;
+            state.renderingDependency = Jobsystem::INVALID_HANDLE;
+
+            Jobsystem::Run(&state, [dependency](void* data)->void
+            {
+                Jobsystem::Wait(dependency);
                 GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
                 if (state == nullptr || !state->cmd)
                     return;
 
                 state->Submit();
-            }, &stateHandle, state.renderingDependency);
-
-            state.renderingDependency = Jobsystem::INVALID_HANDLE;
+            }, &stateHandle);
         }
+        Jobsystem::Wait(stateHandle);
 
         // Flush swapchain
-        Jobsystem::RunEx(nullptr, [&device](void* data)->void {
+        Jobsystem::Run(nullptr, [&device](void* data)->void {
             device.FlushFrames();
-        }, &jobHandle, stateHandle);
+        }, &jobHandle);
     }
-
 
     void RenderGraphImpl::Log()
     {

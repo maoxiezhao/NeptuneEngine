@@ -5,6 +5,7 @@
 
 namespace VulkanTest
 {
+class WSI;
 
 enum class PresentMode
 {
@@ -26,10 +27,10 @@ public:
 	}
 	virtual VkSurfaceKHR CreateSurface(VkInstance instance) = 0;
 
+	virtual bool IsAlived(WSI& wsi) = 0;
 	virtual void PollInput() = 0;
 	virtual U32 GetWidth() = 0;
 	virtual U32 GetHeight() = 0;
-	virtual bool IsAlived() = 0;
 
 	bool ShouldResize()const 
 	{

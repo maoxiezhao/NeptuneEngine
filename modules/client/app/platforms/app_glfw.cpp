@@ -87,11 +87,15 @@ public:
 	bool Init(int width_, int height_, const char* title)
 	{
 		requestClose.store(false);
-
 		width = width_;
 		height = height_;
 
-		glfwInit();
+		if (!glfwInit())
+		{
+			Logger::Error("Failed to initialize GLFW");
+			return false;
+		}
+		
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
@@ -179,10 +183,20 @@ public:
 		requestClose.store(true);
 	}
 
-	bool IsAlived()override
+	bool IsAlived(WSI& wsi)override
 	{
 		ProcessEventsAsyncThread();
 		return !requestClose.load();
+	}
+
+	static void DispatchRunningEvents()
+	{
+
+	}
+
+	static void DispatchStoppedEvents()
+	{
+
 	}
 
 	int RunMainLoop()
@@ -201,12 +215,10 @@ public:
 	{
 		Profiler::SetThreadName("MainThread");
 		asyncLoopAlive = true;
-		mainLoop = std::thread(&PlatformGFLW::ThreadMainLoop, this, app);
+		mainLoop = std::thread(&PlatformGFLW::ThreadMain, this, app);
 
 		int ret = RunMainLoop();
-
-		glfwSetWindowShouldClose(window, GLFW_TRUE);
-		requestClose.store(true);
+		NotifyClose();
 
 		if (mainLoop.joinable())
 			mainLoop.join();
@@ -214,10 +226,11 @@ public:
 		return ret;
 	}
 
-	void ThreadMainLoop(App* app)
+	void ThreadMain(App* app)
 	{
 		Profiler::SetThreadName("AsyncMainThread");
 		Platform::SetCurrentThreadIndex(0);
+		DispatchRunningEvents();
 
 		app->Initialize();
 
@@ -225,6 +238,9 @@ public:
 			app->RunFrame();
 
 		app->Uninitialize();
+		DispatchStoppedEvents();
+
+		PushEventTaskToMainThread([this]() { asyncLoopAlive = false; });
 	}
 };
 

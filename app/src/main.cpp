@@ -1,30 +1,76 @@
 
-//#include "app.h"
-//#include "wsi.h"
-
 #include "client\app\app.h"
+#include "client\app\engine.h"
+#include "core\platform\platform.h"
+#include "core\memory\memory.h"
+#include "core\jobsystem\jobsystem.h"
 #include "gpu\vulkan\device.h"
+#include "math\math.hpp"
 
 namespace VulkanTest
 {
-
-App* CreateApplication(int, char**)
-{
-    try
+    class SceneViewerApp : public App
     {
-        App::InitConfig initConfig = {};
-        initConfig.windowTitle = "ParticleDream";
+    private:
+        U32 numThreads = 1;
 
-        App* app = new App(initConfig);
-        return app;
-    }
-    catch (const std::exception& e)
+    public:
+        SceneViewerApp(const InitConfig& initConfig_) : App(initConfig_)
+        {
+            numThreads = Platform::GetCPUsCount();
+            Jobsystem::Initialize(numThreads - 1);
+        }
+
+        ~SceneViewerApp()
+        {
+            Jobsystem::Uninitialize();
+        }
+
+        U32 GetDefaultWidth() override
+        {
+            return 1280;
+        }
+
+        U32 GetDefaultHeight() override
+        {
+            return 720;
+        }
+
+        void Initialize() override
+        {
+            if (!wsi.Initialize(numThreads))
+                return;
+        }
+
+        void Uninitialize() override
+        {
+           
+        }
+
+        void Render() override
+        {
+        }
+    };
+
+    App* CreateApplication(int, char**)
     {
-        Logger::Error("CreateApplication() threw exception: %s\n", e.what());
-        return nullptr;
+        try
+        {
+            App::InitConfig initConfig = {};
+            initConfig.windowTitle = "SceneViewer";
+
+            App* app = new SceneViewerApp(initConfig);
+            return app;
+        }
+        catch (const std::exception& e)
+        {
+            Logger::Error("CreateApplication() threw exception: %s\n", e.what());
+            return nullptr;
+        }
     }
 }
-}
+
+using namespace VulkanTest;
 
 int main(int argc, char* argv[])
 {

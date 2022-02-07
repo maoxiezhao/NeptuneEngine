@@ -54,7 +54,7 @@ void App::Render()
 
 bool App::Poll()
 {
-    if (!platform->IsAlived())
+    if (!platform->IsAlived(wsi))
         return false;
 
     if (requestedShutdown)
