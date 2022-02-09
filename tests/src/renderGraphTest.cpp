@@ -34,7 +34,7 @@ namespace VulkanTest
         };
 
     public:
-        TestApp(const InitConfig& initConfig_) : App(initConfig_) 
+        TestApp()
         {
             Jobsystem::Initialize(Platform::GetCPUsCount() - 1);
         }
@@ -188,10 +188,7 @@ namespace VulkanTest
     {
         try
         {
-            App::InitConfig initConfig = {};
-            initConfig.windowTitle = "RenderGraphTest";
-
-            App* app = new TestApp(initConfig);
+            App* app = new TestApp();
             return app;
         }
         catch (const std::exception& e)

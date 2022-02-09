@@ -19,7 +19,9 @@ namespace VulkanTest
         PushConstantImage push;
 
     public:
-        TestApp(const InitConfig& initConfig_) : App(initConfig_) {}
+        TestApp() 
+        {
+        }
 
         void Initialize() override
         {
@@ -101,10 +103,7 @@ namespace VulkanTest
     {
         try
         {
-            App::InitConfig initConfig = {};
-            initConfig.windowTitle = "BindlessTest";
-
-            App *app = new TestApp(initConfig);
+            App *app = new TestApp();
             return app;
         }
         catch (const std::exception &e)

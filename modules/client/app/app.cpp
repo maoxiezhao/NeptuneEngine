@@ -6,8 +6,7 @@ namespace VulkanTest
 {
 static StdoutLoggerSink mStdoutLoggerSink;
 
-App::App(const InitConfig& initConfig_) :
-    initConfig(initConfig_)
+App::App()
 {
     if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
         AllocConsole();

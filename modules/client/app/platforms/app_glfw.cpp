@@ -265,7 +265,7 @@ int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, c
 
     std::unique_ptr<PlatformGFLW> platform = std::make_unique<PlatformGFLW>();
 	auto* platformHandle = platform.get();
-    if (!platform->Init(app->GetDefaultWidth(), app->GetDefaultHeight(), app->GetInitConfig().windowTitle))
+    if (!platform->Init(app->GetDefaultWidth(), app->GetDefaultHeight(), app->GetWindowTitle()))
        return 1;
 	app->SetPlatform(std::move(platform));
 

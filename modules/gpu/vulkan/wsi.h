@@ -44,6 +44,11 @@ public:
 		isResize = false;
 	}
 
+	virtual void OnDeviceCreated(GPU::DeviceVulkan* device);
+	virtual void OnDeviceDestroyed();
+	virtual void OnSwapchainCreated(GPU::DeviceVulkan* device, U32 width, U32 height, float aspectRatio, size_t numSwapchainImages, VkFormat format, VkSurfaceTransformFlagBitsKHR preRotate);
+	virtual void OnSwapchainDestroyed();
+
 protected:
 	U32 swapchainWidth = 0;
 	U32 swapchainHeight = 0;

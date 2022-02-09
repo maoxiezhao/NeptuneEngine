@@ -9,14 +9,7 @@ namespace VulkanTest
 class App
 {
 public:
-	struct InitConfig
-	{
-		const char* workingDir = nullptr;
-		const char* windowTitle = "VULKAN_TEST";
-		Span<const char*> plugins;
-	};
-
-	App(const InitConfig& initConfig_);
+	App();
 	virtual ~App();
 
 	void SetPlatform(std::unique_ptr<WSIPlatform> platform_);
@@ -38,11 +31,6 @@ public:
 		return *platform;
 	}
 
-	InitConfig GetInitConfig()const
-	{
-		return initConfig;
-	}
-
 	virtual U32 GetDefaultWidth()
 	{
 		return 1280;
@@ -51,6 +39,11 @@ public:
 	virtual U32 GetDefaultHeight()
 	{
 		return 720;
+	}
+
+	virtual const char* GetWindowTitle()
+	{
+		return "VULKAN_TEST";
 	}
 
 protected:
@@ -64,7 +57,6 @@ protected:
 	std::unique_ptr<WSIPlatform> platform;
 	WSI wsi;
 	bool requestedShutdown = false;
-	InitConfig initConfig;
 };
 
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[]);

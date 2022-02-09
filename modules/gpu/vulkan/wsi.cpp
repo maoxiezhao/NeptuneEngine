@@ -426,4 +426,9 @@ void WSI::TeardownSwapchain()
         swapchain = VK_NULL_HANDLE;
     }
 }
+
+void WSIPlatform::OnDeviceCreated(GPU::DeviceVulkan* device) {}
+void WSIPlatform::OnDeviceDestroyed() {}
+void WSIPlatform::OnSwapchainCreated(GPU::DeviceVulkan* device, U32 width, U32 height, float aspectRatio, size_t numSwapchainImages, VkFormat format, VkSurfaceTransformFlagBitsKHR preRotate) {}
+void WSIPlatform::OnSwapchainDestroyed() {}
 }

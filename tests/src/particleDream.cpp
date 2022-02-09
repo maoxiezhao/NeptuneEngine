@@ -40,13 +40,10 @@ namespace VulkanTest
         PushConstantImage push;
 
     public:
-        TestApp(const InitConfig& initConfig_) : App(initConfig_) {}
+        TestApp() : App() {}
 
         void Initialize() override
         {
-            // Initialize engine
-            engine = Engine::Create(*this);
-
             // Initialize WSI
             InitializeWSI();
 
@@ -145,10 +142,7 @@ namespace VulkanTest
     {
         try
         {
-            App::InitConfig initConfig = {};
-            initConfig.windowTitle = "ParticleDream";
-
-            App *app = new TestApp(initConfig);
+            App *app = new TestApp();
             return app;
         }
         catch (const std::exception &e)

@@ -15,7 +15,7 @@ namespace VulkanTest
         U32 numThreads = 1;
 
     public:
-        SceneViewerApp(const InitConfig& initConfig_) : App(initConfig_)
+        SceneViewerApp()
         {
             numThreads = Platform::GetCPUsCount();
             Jobsystem::Initialize(numThreads - 1);
@@ -56,10 +56,7 @@ namespace VulkanTest
     {
         try
         {
-            App::InitConfig initConfig = {};
-            initConfig.windowTitle = "SceneViewer";
-
-            App* app = new SceneViewerApp(initConfig);
+            App* app = new SceneViewerApp();
             return app;
         }
         catch (const std::exception& e)
