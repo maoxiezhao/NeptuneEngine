@@ -1,6 +1,5 @@
 
 #include "client\app\app.h"
-#include "client\app\engine.h"
 #include "gpu\vulkan\device.h"
 #include "math\math.hpp"
 #include "core\memory\memory.h"
@@ -41,20 +40,6 @@ namespace VulkanTest
 
     public:
         TestApp() : App() {}
-
-        void Initialize() override
-        {
-            // Initialize WSI
-            InitializeWSI();
-
-            // App start
-            OnStart();
-        }
-
-        void Uninitialize()
-        {
-            OnStop();
-        }
 
     private:
         void OnStart()

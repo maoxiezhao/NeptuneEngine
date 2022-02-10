@@ -1,6 +1,7 @@
 #include "app.h"
 #include "core\utils\log.h"
 #include "core\utils\profiler.h"
+#include "core\events\event.h"
 
 namespace VulkanTest
 {
@@ -24,14 +25,11 @@ App::~App()
 {
 }
 
-void App::SetPlatform(std::unique_ptr<WSIPlatform> platform_)
+bool App::InitializeWSI(std::unique_ptr<WSIPlatform> platform_)
 {
     platform = std::move(platform_);
     wsi.SetPlatform(platform.get());
-}
 
-bool App::InitializeWSI()
-{
     if (!wsi.Initialize(1))
         return false;
 
@@ -40,7 +38,6 @@ bool App::InitializeWSI()
 
 void App::Initialize()
 {
-
 }
 
 void App::Uninitialize()
@@ -59,6 +56,8 @@ bool App::Poll()
     if (requestedShutdown)
         return false;
     
+    EventManager::Instance().Dispatch();
+
     return true;
 }
 

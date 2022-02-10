@@ -18,7 +18,16 @@ static void WindowCloseCallback(GLFWwindow* window);
 
 class PlatformGFLW : public WSIPlatform
 {
+public:
+	struct Options
+	{
+		U32 overrideWidth = 0;
+		U32 overrideHeight = 0;
+		bool fullscreen = false;
+	};
+
 private:
+    Options options;
 	uint32_t width = 0;
 	uint32_t height = 0;
 	GLFWwindow* window = nullptr;
@@ -73,7 +82,10 @@ private:
 	}
 
 public:
-	PlatformGFLW() = default;
+	PlatformGFLW(const Options &options_) :
+        options(options_)
+    {
+    }
 
 	virtual ~PlatformGFLW()
 	{
@@ -89,6 +101,11 @@ public:
 		requestClose.store(false);
 		width = width_;
 		height = height_;
+
+		if (options.overrideWidth > 0)
+			width = options.overrideWidth;
+		if (options.overrideHeight > 0)
+			height = options.overrideHeight;
 
 		if (!glfwInit())
 		{
@@ -107,12 +124,9 @@ public:
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
 		glfwSetWindowCloseCallback(window, WindowCloseCallback);
+        glfwShowWindow(window);
 
 		return true;
-	}
-
-	void PollInput() override
-	{
 	}
 
 	U32 GetWidth() override
@@ -189,16 +203,6 @@ public:
 		return !requestClose.load();
 	}
 
-	static void DispatchRunningEvents()
-	{
-
-	}
-
-	static void DispatchStoppedEvents()
-	{
-
-	}
-
 	int RunMainLoop()
 	{
 		while (!glfwWindowShouldClose(window))
@@ -230,15 +234,13 @@ public:
 	{
 		Profiler::SetThreadName("AsyncMainThread");
 		Platform::SetCurrentThreadIndex(0);
-		DispatchRunningEvents();
 
 		app->Initialize();
-
 		while (app->Poll())
+		{
 			app->RunFrame();
-
+		}
 		app->Uninitialize();
-		DispatchStoppedEvents();
 
 		PushEventTaskToMainThread([this]() { asyncLoopAlive = false; });
 	}
@@ -259,15 +261,19 @@ static void WindowCloseCallback(GLFWwindow* window)
 
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[])
 {
+    PlatformGFLW::Options options = {};
+
 	std::unique_ptr<App> app = std::unique_ptr<App>(createAppFunc(argc, argv));
     if (app == nullptr)
        return 1;
 
-    std::unique_ptr<PlatformGFLW> platform = std::make_unique<PlatformGFLW>();
+    std::unique_ptr<PlatformGFLW> platform = std::make_unique<PlatformGFLW>(options);
 	auto* platformHandle = platform.get();
     if (!platform->Init(app->GetDefaultWidth(), app->GetDefaultHeight(), app->GetWindowTitle()))
        return 1;
-	app->SetPlatform(std::move(platform));
+
+	if (!app->InitializeWSI(std::move(platform)))
+        return 1;
 
 	int ret = platformHandle->RunAsyncLoop(app.get());
     app.reset();

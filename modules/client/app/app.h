@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\engine.h"
 #include "gpu\vulkan\wsi.h"
 
 namespace VulkanTest
@@ -9,11 +10,13 @@ namespace VulkanTest
 class App
 {
 public:
+    const U32 DEFAULT_WIDTH = 1280;
+    const U32 DEFAULT_HEIGHT = 720;
+
 	App();
 	virtual ~App();
 
-	void SetPlatform(std::unique_ptr<WSIPlatform> platform_);
-	bool InitializeWSI();
+	bool InitializeWSI(std::unique_ptr<WSIPlatform> platform_);
 	bool Poll();
 	void RunFrame();
 
@@ -33,12 +36,12 @@ public:
 
 	virtual U32 GetDefaultWidth()
 	{
-		return 1280;
+		return DEFAULT_WIDTH;
 	}
 
 	virtual U32 GetDefaultHeight()
 	{
-		return 720;
+		return DEFAULT_HEIGHT;
 	}
 
 	virtual const char* GetWindowTitle()
