@@ -8,6 +8,7 @@ set_third_party_location(module_env .. "3rdparty")
 -- definitions
 PROJECT_MATH_NAME       = "math"
 PROJECT_CORE_NAME       = "core"
+PROJECT_ECS_NAME        = "ecs"
 PROJECT_GPU_NAME        = "gpu"
 PROJECT_RENDERER_NAME   = "renderer"
 PROJECT_CLIENT_NAME     = "client"
@@ -15,8 +16,9 @@ PROJECT_CLIENT_NAME     = "client"
 register_module(PROJECT_MATH_NAME)
 register_module(PROJECT_CORE_NAME,     { PROJECT_MATH_NAME })
 register_module(PROJECT_GPU_NAME,      { PROJECT_CORE_NAME })
-register_module(PROJECT_RENDERER_NAME, { PROJECT_GPU_NAME  })
-register_module(PROJECT_CLIENT_NAME,   { PROJECT_GPU_NAME  })
+register_module(PROJECT_ECS_NAME,      { PROJECT_CORE_NAME })
+register_module(PROJECT_RENDERER_NAME, { PROJECT_GPU_NAME, PROJECT_ECS_NAME })
+register_module(PROJECT_CLIENT_NAME,   { PROJECT_RENDERER_NAME })
 
 print("---------------------------------------------------")
 print("Create modules")

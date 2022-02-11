@@ -20,4 +20,5 @@ create_test_instance("triangleTest",  { "triangleTest.cpp"} )
 create_test_instance("particleDream", { "particleDream.cpp"} )
 create_test_instance("jobsystemTest", { "jobsystemTest.cpp"} )
 create_test_instance("renderGraphTest", { "renderGraphTest.cpp"} )
+create_test_instance("ecsTest", { "ecsTest.cpp"} )
 group ""

@@ -278,4 +278,45 @@ namespace VulkanTest
 	{
 		return std::numeric_limits<size_t>::max();
 	}
+
+	LinearAllocator::LinearAllocator()
+	{
+	}
+
+	LinearAllocator::~LinearAllocator()
+	{
+	}
+
+	void* LinearAllocator::Allocate(size_t size, const char* filename, int line)
+	{
+		return nullptr;
+	}
+
+	void* LinearAllocator::Allocate(size_t size)
+	{
+		return nullptr;
+	}
+
+	void* LinearAllocator::Reallocate(void* ptr, size_t newBytes, const char* filename, int line)
+	{
+		return nullptr;
+	}
+
+	void LinearAllocator::Free(void* ptr)
+	{
+	}
+
+	void* LinearAllocator::AllocateAligned(size_t size, size_t align, const char* filename, int line)
+	{
+		return nullptr;
+	}
+
+	void* LinearAllocator::ReallocateAligned(void* ptr, size_t newBytes, size_t align, const char* filename, int line)
+	{
+		return nullptr;
+	}
+
+	void LinearAllocator::FreeAligned(void* ptr)
+	{
+	}
 }

@@ -43,9 +43,6 @@ namespace VulkanTest
 
         void Initialize() override
         {
-            if (!wsi.Initialize(1))
-                return;
-
             GPU::TextureFormatLayout formatLayout;
             formatLayout.SetTexture2D(VK_FORMAT_R8G8B8A8_SRGB, 1, 1);
 
