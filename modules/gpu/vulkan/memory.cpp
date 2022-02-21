@@ -41,6 +41,11 @@ namespace GPU
 				ret |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 				break;
 			}
+			if (domain == BufferDomain::Device)
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+			else if (domain == BufferDomain::CachedHost)
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+
 			return ret;
 		}
 
@@ -74,6 +79,10 @@ namespace GPU
 				ret |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 				break;
 			}
+			if (domain == ImageDomain::Physical)
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+			else if (domain == ImageDomain::LinearHostCached)
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 			return ret;
 		}
 	}
@@ -175,7 +184,7 @@ namespace GPU
 	{
 		VmaAllocationInfo allocInfo;
 		VmaAllocationCreateInfo createInfo = {};
-		createInfo.usage = GetMemoryUsage(domain);
+		createInfo.usage = VMA_MEMORY_USAGE_AUTO; // GetMemoryUsage(domain);
 		createInfo.flags = GetCreateFlags(domain);
 		bool ret = vmaCreateBuffer(allocator, &bufferInfo, &createInfo, &buffer, &allocation->allocation, &allocInfo) == VK_SUCCESS;
 		if (ret == true)
@@ -194,7 +203,7 @@ namespace GPU
 	{
 		VmaAllocationInfo allocInfo;
 		VmaAllocationCreateInfo createInfo = {};
-		createInfo.usage = GetMemoryUsage(domain);
+		createInfo.usage = VMA_MEMORY_USAGE_AUTO; // GetMemoryUsage(domain);
 		createInfo.flags = GetCreateFlags(domain);
 		bool ret = vmaCreateImage(allocator, &imageInfo, &createInfo, &image, &allocation->allocation, &allocInfo) == VK_SUCCESS;
 		if (ret == true)
