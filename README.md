@@ -45,9 +45,9 @@ v0.0.0-v0.1.0
 
 ## Dependencies
 ****
-* ### dxcompiler
-* ### glfw
-* ### glm
-* ### spriv_reflect
-* ### std
-* ### volk
+* dxcompiler
+* glfw
+* glm
+* spriv_reflect
+* stb
+* volk
