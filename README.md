@@ -7,7 +7,6 @@ Vulkan-test is a vulkan rendering sandbox.It's used to understand how things wor
   - [Roadmaps](#Roadmap)
 
 ## How to build
-****
 ### Windows
 #### 1. Setting up the environment
 Vulkan-Test currently uses Vulkan as a rendering backend.
@@ -21,7 +20,6 @@ Is very easy to build.
 2. Then open "VulkanTest.sln"
 
 ## Features
-****
 * Vulkan backend
 * Render graph
 * Fiber based jobsystem
@@ -30,7 +28,6 @@ Is very easy to build.
 * Easy to build (use custom build system)
 
 ## Roadmap
-****
 v0.0.0-v0.1.0
 | Feature  | Completion | Notes |
 | :-----| ----: | :----: |
@@ -44,7 +41,6 @@ v0.0.0-v0.1.0
 | Editor | 0% | todo. Based on imgui | 
 
 ## Dependencies
-****
 * dxcompiler
 * glfw
 * glm
