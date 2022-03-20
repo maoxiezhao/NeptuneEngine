@@ -2,7 +2,7 @@
 add_module_lib(PROJECT_ECS_NAME) 
 
 -- Includedirs
-includedirs { "ecs" }
+includedirs { "" }
 
 -- Files
 files 
@@ -12,16 +12,6 @@ files
     "**.hpp",
     "**.h",
     "**.inl",
-}
-
-vpaths { 
-    [""] = {
-        "**.c",
-        "**.cpp",
-        "**.hpp",
-        "**.h",
-        "**.inl",
-    }
 }
 
 -- ignore

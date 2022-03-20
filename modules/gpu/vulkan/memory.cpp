@@ -137,6 +137,8 @@ namespace GPU
 		allocator = VK_NULL_HANDLE;
 
 		VmaVulkanFunctions vmaVulkanFunc = {};
+		vmaVulkanFunc.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+		vmaVulkanFunc.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
 		vmaVulkanFunc.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
 		vmaVulkanFunc.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
 		vmaVulkanFunc.vkAllocateMemory = vkAllocateMemory;

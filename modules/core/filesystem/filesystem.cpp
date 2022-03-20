@@ -103,7 +103,7 @@ namespace VulkanTest
 	UniquePtr<FileSystem> FileSystem::Create(const char* basePath)
 	{
 		UniquePtr<DefaultFileSystemBackend> backend = CJING_MAKE_UNIQUE<DefaultFileSystemBackend>(basePath);
-		return  UniquePtr<FileSystem>(new FileSystem(std::move(backend)));
+		return UniquePtr<FileSystem>(new FileSystem(std::move(backend)));
 	}
 
 	bool FileSystem::MoveFile(const char* from, const char* to)

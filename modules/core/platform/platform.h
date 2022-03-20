@@ -75,6 +75,7 @@ namespace Platform {
 	void CopyToClipBoard(const char* txt);
 	bool OpenExplorer(const char* path);
 	I32  GetCPUsCount();
+	void Exit();
 
 	std::string  WStringToString(const std::wstring& wstr);
 	std::wstring StringToWString(const std::string& str);

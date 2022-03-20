@@ -2,6 +2,8 @@
 #include "core\utils\log.h"
 #include "core\utils\profiler.h"
 #include "core\events\event.h"
+#include "core\platform\platform.h"
+#include "core\jobsystem\jobsystem.h"
 
 namespace VulkanTest
 {
@@ -19,10 +21,13 @@ App::App()
 
     Logger::RegisterSink(mStdoutLoggerSink);
     Logger::Info("App initialized.");
+     
+    Jobsystem::Initialize(Platform::GetCPUsCount());
 }
 
 App::~App()
 {
+    Jobsystem::Uninitialize();
 }
 
 bool App::InitializeWSI(std::unique_ptr<WSIPlatform> platform_)
@@ -30,7 +35,7 @@ bool App::InitializeWSI(std::unique_ptr<WSIPlatform> platform_)
     platform = std::move(platform_);
     wsi.SetPlatform(platform.get());
 
-    if (!wsi.Initialize(1))
+    if (!wsi.Initialize(Platform::GetCPUsCount() + 1))
         return false;
 
     return true;
@@ -57,7 +62,6 @@ bool App::Poll()
         return false;
     
     EventManager::Instance().Dispatch();
-
     return true;
 }
 

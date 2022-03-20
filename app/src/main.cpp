@@ -10,21 +10,7 @@ namespace VulkanTest
 {
     class SceneViewerApp : public App
     {
-    private:
-        U32 numThreads = 1;
-
     public:
-        SceneViewerApp()
-        {
-            numThreads = Platform::GetCPUsCount();
-            Jobsystem::Initialize(numThreads - 1);
-        }
-
-        ~SceneViewerApp()
-        {
-            Jobsystem::Uninitialize();
-        }
-
         U32 GetDefaultWidth() override
         {
             return 1280;
@@ -37,13 +23,10 @@ namespace VulkanTest
 
         void Initialize() override
         {
-            if (!wsi.Initialize(numThreads))
-                return;
         }
 
         void Uninitialize() override
-        {
-           
+        {       
         }
 
         void Render() override

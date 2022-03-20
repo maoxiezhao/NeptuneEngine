@@ -1,4 +1,4 @@
-#include "engine.h"
+#include "core\engine.h"
 
 namespace VulkanTest
 {
@@ -14,7 +14,7 @@ namespace VulkanTest
 		}
 	};
 
-	UniquePtr<Engine> Engine::Create(const InitConfig& config)
+	UniquePtr<Engine> Create(const Engine::InitConfig& config)
 	{
 		return CJING_MAKE_UNIQUE<EngineImpl>(config);
 	}

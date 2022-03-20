@@ -217,6 +217,11 @@ namespace Platform {
 		return sys_info.dwNumberOfProcessors > 0 ? sys_info.dwNumberOfProcessors : 1;
 	}
 
+	void Exit()
+	{
+		PostQuitMessage(0);
+	}
+
 	std::string WStringToString(const std::wstring& wstr)
 	{
 		if (wstr.empty()) return std::string();

@@ -2,6 +2,6 @@
     "user_vars": {
         "vs_version": "vs2019",
         "vcvarsall_dir": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build",
-        "windows_sdk_version": "10.0.19041.0"
+        "windows_sdk_version": "10.0.18362.0"
     }
 }
