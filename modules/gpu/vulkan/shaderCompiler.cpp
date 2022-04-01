@@ -72,6 +72,7 @@ namespace ShaderCompiler
 			}
 			return hr;
 		}
+
 		HRESULT STDMETHODCALLTYPE QueryInterface(
 			/* [in] */ REFIID riid,
 			/* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR* __RPC_FAR* ppvObject) override
