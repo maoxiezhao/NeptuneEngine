@@ -104,41 +104,60 @@ void WSI::BeginFrame()
 {
     deviceVulkan->NextFrameContext();
 
-    if (swapchain == VK_NULL_HANDLE)
-    {
-        std::cout << "Lost swapchain." << std::endl;
-        return;
-    }
-
     // Resize frame buffer
-    if (platform->ShouldResize() || isSwapchinSuboptimal)
+    if (swapchain == VK_NULL_HANDLE || platform->ShouldResize() || isSwapchinSuboptimal)
         UpdateFrameBuffer(platform->GetWidth(), platform->GetHeight());
 
     // 当前swapchian已经Acquired
     if (swapchainIndexHasAcquired)
         return;
 
-    GPU::SemaphorePtr acquire = deviceVulkan->RequestSemaphore();
-
-    // acquire next image index
-    VkResult res = vkAcquireNextImageKHR(
-        deviceVulkan->device,
-        swapchain,
-        0xFFFFFFFFFFFFFFFF,
-        acquire->GetSemaphore(),
-        VK_NULL_HANDLE,
-        &swapchainImageIndex
-    );
-    if (res >= 0)
+    VkResult result;
+    do
     {
-        swapchainIndexHasAcquired = true;
+        GPU::SemaphorePtr acquire = deviceVulkan->RequestSemaphore();
 
-        // acquire image to render
-        acquire->Signal();
+        // acquire next image index
+        result = vkAcquireNextImageKHR(
+            deviceVulkan->device,
+            swapchain,
+            0xFFFFFFFFFFFFFFFF,
+            acquire->GetSemaphore(),
+            VK_NULL_HANDLE,
+            &swapchainImageIndex
+        );
 
-        // set swapchain acquire semaphore and image index
-        deviceVulkan->SetAcquireSemaphore(swapchainImageIndex, acquire);
-    }
+        if (result == VK_SUBOPTIMAL_KHR)
+            isSwapchinSuboptimal = true;
+
+        if (result >= 0)
+        {
+            swapchainIndexHasAcquired = true;
+            acquire->Signal();
+
+            // Poll after acquire as well for optimal latency
+            platform->PollInput();
+
+            // Set swapchain acquire semaphore and image index
+            deviceVulkan->SetAcquireSemaphore(swapchainImageIndex, acquire);
+        }
+        else if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+        {
+            ASSERT(swapchainWidth != 0);
+            ASSERT(swapchainHeight != 0);
+
+            TeardownSwapchain();
+
+            if (!InitSwapchain(swapchainWidth, swapchainHeight))
+                return;
+            deviceVulkan->InitSwapchain(swapchianImages, swapchainFormat, swapchainWidth, swapchainHeight);
+        }
+        else
+        {
+            return;
+        }
+
+    } while (result < 0);
 }
 
 void WSI::EndFrame()
@@ -153,13 +172,17 @@ void WSI::EndFrame()
 
     // release在EndFrameContext中设置,确保image已经释放
     GPU::SemaphorePtr release = deviceVulkan->GetAndConsumeReleaseSemaphore();
+    assert(release);
     assert(release->IsSignalled());
+
+    VkSemaphore releaseSemaphore = release->GetSemaphore();
+    assert(releaseSemaphore != VK_NULL_HANDLE);
 
     // present 
     VkResult result = VK_SUCCESS;
     VkPresentInfoKHR info = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
     info.waitSemaphoreCount = 1;
-    info.pWaitSemaphores = &release->GetSemaphore();
+    info.pWaitSemaphores = &releaseSemaphore;
     info.swapchainCount = 1;
     info.pSwapchains = &swapchain;
     info.pImageIndices = &swapchainImageIndex;
@@ -186,7 +209,6 @@ void WSI::EndFrame()
     else
     {
         release->WaitExternal();
-
         // 暂时先不释放releaseSemaphore，直到Image再次等待
         releaseSemaphores[swapchainImageIndex] = release;
     }

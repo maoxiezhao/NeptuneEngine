@@ -158,9 +158,9 @@ namespace VulkanTest
             switch (info.sizeType)
             {
             case AttachmentSizeType::Absolute:
-                newDim.width = info.sizeX;
-                newDim.height = info.sizeY;
-                newDim.depth = info.sizeZ;
+                newDim.width = (U32)info.sizeX;
+                newDim.height = (U32)info.sizeY;
+                newDim.depth = (U32)info.sizeZ;
                 break;
 
             case AttachmentSizeType::SwapchainRelative:

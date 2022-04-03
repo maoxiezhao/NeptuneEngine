@@ -1196,19 +1196,17 @@ void DeviceVulkan::EndFrameContextNolock()
 {
     // flush queue
     InternalFence fence;
-    auto& frame = CurrentFrameResource();
-    auto submissionList = frame.submissions;
+    auto& curFrame = CurrentFrameResource();
     for (auto& queueIndex : QUEUE_FLUSH_ORDER)
     {
-        if (queueDatas[queueIndex].needFence || !submissionList[queueIndex].empty())
+        if (queueDatas[queueIndex].needFence || !curFrame.submissions[queueIndex].empty())
         {
             SubmitQueue(queueIndex, &fence, 0, nullptr);
-            // SubmitQueue(queueIndex, nullptr, 0, nullptr);
 
             if (fence.fence != VK_NULL_HANDLE)
             {
-                frame.waitFences.push_back(fence.fence);
-                frame.recyleFences.push_back(fence.fence);
+                curFrame.waitFences.push_back(fence.fence);
+                curFrame.recyleFences.push_back(fence.fence);
             }
             queueDatas[queueIndex].needFence = false;
         }

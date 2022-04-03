@@ -48,6 +48,20 @@ namespace VulkanTest
 		ThreadLocalContext* ctx = gImpl.GetThreadLocalContext();
 		ctx->name = name;
 	}
+
+	void Profiler::BeginFrame()
+	{
+	}
+
+	void Profiler::EndFrame()
+	{
+	}
+	void Profiler::BeginBlock(const char* name)
+	{
+	}
+	void Profiler::EndBlock()
+	{
+	}
 }
 
 

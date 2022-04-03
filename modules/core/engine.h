@@ -16,7 +16,7 @@ namespace VulkanTest
 		};
 
 		virtual ~Engine() {}
-	};
 
-	static UniquePtr<Engine> Create(const Engine::InitConfig& config);
+		virtual void Update(F32 dt) {};
+	};
 }

@@ -43,10 +43,14 @@ bool App::InitializeWSI(std::unique_ptr<WSIPlatform> platform_)
 
 void App::Initialize()
 {
+    Engine::InitConfig config = {};
+    config.windowTitle = GetWindowTitle();
+    engine = CreateEngine(config);
 }
 
 void App::Uninitialize()
 {
+    engine.Reset();
 }
 
 void App::Render()
@@ -67,8 +71,19 @@ bool App::Poll()
 
 void App::RunFrame()
 {
+    Profiler::BeginFrame();
+
+    deltaTime = timer.Tick();
+    float dt = framerateLock ? (1.0f / targetFrameRate) : deltaTime;
+
+    // Update engine
+    engine->Update(dt);
+
+    // Render frame
     wsi.BeginFrame();
     Render();
     wsi.EndFrame();
+
+    Profiler::EndFrame();
 }
 }

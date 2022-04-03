@@ -10,79 +10,27 @@ namespace GPU
 {
 	namespace {
 	
-		VmaMemoryUsage GetMemoryUsage(BufferDomain domain)
-		{
-			VmaMemoryUsage ret = VMA_MEMORY_USAGE_UNKNOWN;
-			switch (domain)
-			{
-			case BufferDomain::Device:
-				ret = VMA_MEMORY_USAGE_GPU_ONLY;
-				break;
-			case BufferDomain::LinkedDeviceHost:
-				ret = VMA_MEMORY_USAGE_CPU_TO_GPU;
-				break;
-			case BufferDomain::Host:
-				ret = VMA_MEMORY_USAGE_CPU_ONLY;
-				break;
-			case BufferDomain::CachedHost:
-				ret = VMA_MEMORY_USAGE_GPU_TO_CPU;
-				break;
-			}
-			return ret;
-		}
-		VmaAllocationCreateFlags GetCreateFlags(BufferDomain domain)
+		VmaAllocationCreateFlags GetCreateFlags(BufferDomain domain, const VkBufferCreateInfo& bufferInfo)
 		{
 			VmaAllocationCreateFlags ret = 0;
-			switch (domain)
-			{
-			case BufferDomain::Host:
-			case BufferDomain::CachedHost:
-			case BufferDomain::LinkedDeviceHost:
-				ret |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-				break;
-			}
 			if (domain == BufferDomain::Device)
-				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 			else if (domain == BufferDomain::CachedHost)
-				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+			if (bufferInfo.usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
 			return ret;
 		}
 
-		VmaMemoryUsage GetMemoryUsage(ImageDomain domain)
-		{
-			VmaMemoryUsage ret = VMA_MEMORY_USAGE_UNKNOWN;
-			switch (domain)
-			{
-			case ImageDomain::Physical:
-				ret = VMA_MEMORY_USAGE_GPU_ONLY;
-				break;
-			case ImageDomain::Transient:
-				ret = VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
-				break;
-			case ImageDomain::LinearHostCached:
-				ret = VMA_MEMORY_USAGE_GPU_TO_CPU;
-				break;
-			case ImageDomain::LinearHost:
-				ret = VMA_MEMORY_USAGE_CPU_ONLY;
-				break;
-			}
-			return ret;
-		}
 		VmaAllocationCreateFlags GetCreateFlags(ImageDomain domain)
 		{
 			VmaAllocationCreateFlags ret = 0;
-			switch (domain)
-			{
-			case ImageDomain::LinearHost:
-			case ImageDomain::LinearHostCached:
-				ret |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-				break;
-			}
-			if (domain == ImageDomain::Physical)
-				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+			if (domain == ImageDomain::LinearHost)
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 			else if (domain == ImageDomain::LinearHostCached)
-				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 			return ret;
 		}
 	}
@@ -187,7 +135,7 @@ namespace GPU
 		VmaAllocationInfo allocInfo;
 		VmaAllocationCreateInfo createInfo = {};
 		createInfo.usage = VMA_MEMORY_USAGE_AUTO; // GetMemoryUsage(domain);
-		createInfo.flags = GetCreateFlags(domain);
+		createInfo.flags = GetCreateFlags(domain, bufferInfo);
 		bool ret = vmaCreateBuffer(allocator, &bufferInfo, &createInfo, &buffer, &allocation->allocation, &allocInfo) == VK_SUCCESS;
 		if (ret == true)
 		{

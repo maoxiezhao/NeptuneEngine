@@ -30,6 +30,7 @@ public:
 	virtual bool IsAlived(WSI& wsi) = 0;
 	virtual U32 GetWidth() = 0;
 	virtual U32 GetHeight() = 0;
+	virtual void PollInput() = 0;
 
 	bool ShouldResize()const 
 	{

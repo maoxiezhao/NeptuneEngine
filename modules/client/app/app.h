@@ -2,6 +2,7 @@
 
 #include "core\common.h"
 #include "core\engine.h"
+#include "core\platform\timer.h"
 #include "gpu\vulkan\wsi.h"
 
 namespace VulkanTest
@@ -49,8 +50,12 @@ public:
 		return "VULKAN_TEST";
 	}
 
-protected:
-	
+	F32 GetDeltaTime()const
+	{
+		return deltaTime;
+	}
+
+protected:	
 	void request_shutdown()
 	{
 		requestedShutdown = true;
@@ -58,9 +63,15 @@ protected:
 
 protected:
 	std::unique_ptr<WSIPlatform> platform;
+	UniquePtr<Engine> engine;
 	WSI wsi;
+	Timer timer;
+	F32 deltaTime = 0.0f;
+	F32 targetFrameRate = 60;
+	bool framerateLock = false;
 	bool requestedShutdown = false;
 };
 
+UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config);
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[]);
 }

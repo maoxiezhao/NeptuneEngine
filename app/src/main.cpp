@@ -8,7 +8,7 @@
 
 namespace VulkanTest
 {
-    class SceneViewerApp : public App
+    class MainApp : public App
     {
     public:
         U32 GetDefaultWidth() override
@@ -23,14 +23,27 @@ namespace VulkanTest
 
         void Initialize() override
         {
+            App::Initialize();
         }
 
         void Uninitialize() override
         {       
+            App::Uninitialize();
         }
 
         void Render() override
         {
+            //GPU::DeviceVulkan* device = wsi.GetDevice();
+            //assert(device != nullptr);
+
+            //GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
+            //GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+            //cmd->BeginEvent("Fullscreen");
+            //cmd->BeginRenderPass(rp);
+
+            //cmd->EndRenderPass();
+            //cmd->EndEvent();
+            //device->Submit(cmd);
         }
     };
 
@@ -38,7 +51,7 @@ namespace VulkanTest
     {
         try
         {
-            App* app = new SceneViewerApp();
+            App* app = new MainApp();
             return app;
         }
         catch (const std::exception& e)

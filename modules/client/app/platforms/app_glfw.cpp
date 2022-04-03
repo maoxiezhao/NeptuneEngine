@@ -1,4 +1,5 @@
 #include "app\app.h"
+#include "core\jobsystem\jobsystem.h"
 #include "core\memory\memory.h"
 #include "core\utils\profiler.h"
 #include "core\platform\sync.h"
@@ -33,7 +34,7 @@ private:
 	GLFWwindow* window = nullptr;
 	bool asyncLoopAlive = true;
 	std::atomic_bool requestClose;
-	std::thread mainLoop;
+	// std::thread mainLoop;
 
 private:
 	struct EventList
@@ -139,6 +140,11 @@ public:
 		return height;
 	}
 
+	void PollInput() override
+	{
+		ProcessEventsAsyncThread();
+	}
+
 	GLFWwindow* GetWindow() {
 		return window;
 	}
@@ -219,30 +225,54 @@ public:
 	{
 		Profiler::SetThreadName("MainThread");
 		asyncLoopAlive = true;
-		mainLoop = std::thread(&PlatformGFLW::ThreadMain, this, app);
+		// mainLoop = std::thread(&PlatformGFLW::ThreadMain, this, app);
+		struct Data 
+		{
+			Data(App* app_, PlatformGFLW* platform_) :
+				semaphore(0, 1),
+				app(app_),
+				platform(platform_)
+			{}
 
-		int ret = RunMainLoop();
+			App* app;
+			PlatformGFLW* platform;
+			Semaphore semaphore;
+		} data(app, this);
+
+		// Async loop
+		Jobsystem::Run(&data, [](void* ptr) {
+			Profiler::SetThreadName("AsyncMainThread");
+			Platform::SetCurrentThreadIndex(0);
+
+			Data* data = static_cast<Data*>(ptr);
+			data->app->Initialize();
+			while (data->app->Poll()) {
+				data->app->RunFrame();
+			}
+			data->app->Uninitialize();
+
+			PlatformGFLW* platform = data->platform;
+			platform->PushEventTaskToMainThread([platform]() { platform->asyncLoopAlive = false; });
+		
+			data->semaphore.Signal(1);
+		}, nullptr);
+
+		// Main loop
+		while (!glfwWindowShouldClose(window))
+		{
+			glfwWaitEvents();
+			ProcessEventsMainThread();
+			if (!asyncLoopAlive)
+				glfwSetWindowShouldClose(window, GLFW_TRUE);
+		}
 		NotifyClose();
 
-		if (mainLoop.joinable())
-			mainLoop.join();
+		//if (mainLoop.joinable())
+		//	mainLoop.join();
+		PROFILE_BLOCK("Sleeping");
+		data.semaphore.Wait();
 
-		return ret;
-	}
-
-	void ThreadMain(App* app)
-	{
-		Profiler::SetThreadName("AsyncMainThread");
-		Platform::SetCurrentThreadIndex(0);
-
-		app->Initialize();
-		while (app->Poll())
-		{
-			app->RunFrame();
-		}
-		app->Uninitialize();
-
-		PushEventTaskToMainThread([this]() { asyncLoopAlive = false; });
+		return 0;
 	}
 };
 

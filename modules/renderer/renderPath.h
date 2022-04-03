@@ -10,8 +10,11 @@ namespace VulkanTest
 		RenderPath() = default;
 		virtual ~RenderPath() = default;
 
-		virtual void Update(float dt) = 0;
-		virtual void FixedUpdate()  = 0;
-		virtual void Render() const = 0;
+		virtual void Start() {};
+		virtual void Stop() {};
+		virtual void Update(float dt) {};
+		virtual void FixedUpdate() {};
+		virtual void Render() const {};
+		virtual void Compose(GPU::CommandList cmd)const {};
 	};
 }

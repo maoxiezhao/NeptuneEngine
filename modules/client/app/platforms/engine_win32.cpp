@@ -1,4 +1,5 @@
 #include "core\engine.h"
+#include "app\app.h"
 
 namespace VulkanTest
 {
@@ -12,9 +13,13 @@ namespace VulkanTest
 		virtual ~EngineImpl()
 		{
 		}
+
+		void Update(F32 dt) override
+		{
+		}
 	};
 
-	UniquePtr<Engine> Create(const Engine::InitConfig& config)
+	UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config)
 	{
 		return CJING_MAKE_UNIQUE<EngineImpl>(config);
 	}
