@@ -202,6 +202,8 @@ namespace VulkanTest
 		UniquePtr(const UniquePtr& rhs) = delete;
 		UniquePtr& operator=(const UniquePtr& rhs) = delete;
 
+		UniquePtr&& Move() { return static_cast<UniquePtr&&>(*this); }
+
 		T* Detach()
 		{
 			T* ret = mPtr;

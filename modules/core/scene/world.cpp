@@ -61,8 +61,8 @@ namespace VulkanTest
 	{
 	}
 
-	std::vector<UniquePtr<IScene>> World::GetScenes()
+	std::vector<UniquePtr<IScene>>& World::GetScenes()
 	{
-		return std::vector<UniquePtr<IScene>>();
+		return scenes;
 	}
 }

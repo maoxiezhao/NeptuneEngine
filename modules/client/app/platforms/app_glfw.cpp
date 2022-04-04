@@ -34,7 +34,6 @@ private:
 	GLFWwindow* window = nullptr;
 	bool asyncLoopAlive = true;
 	std::atomic_bool requestClose;
-	// std::thread mainLoop;
 
 private:
 	struct EventList
@@ -225,7 +224,6 @@ public:
 	{
 		Profiler::SetThreadName("MainThread");
 		asyncLoopAlive = true;
-		// mainLoop = std::thread(&PlatformGFLW::ThreadMain, this, app);
 		struct Data 
 		{
 			Data(App* app_, PlatformGFLW* platform_) :
@@ -267,8 +265,6 @@ public:
 		}
 		NotifyClose();
 
-		//if (mainLoop.joinable())
-		//	mainLoop.join();
 		PROFILE_BLOCK("Sleeping");
 		data.semaphore.Wait();
 

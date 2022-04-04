@@ -37,7 +37,7 @@ solution (sln_name)
     filter { }
     
     dofile "../modules/modules.lua"
-    dofile "../tests/project.lua"
+    -- dofile "../tests/project.lua"
 
     create_example_app(
         "app",                          -- project_name

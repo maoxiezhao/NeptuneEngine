@@ -4,7 +4,7 @@
 #include "core\engine.h"
 #include "core\plugin\plugin.h"
 #include "core\memory\memory.h"
-#include "ecs\ecs.h"
+#include "ecs\ecs\ecs.h"
 
 namespace VulkanTest
 {
@@ -63,7 +63,7 @@ namespace VulkanTest
 
 		IScene* GetScene(const char* name)const;
 		void AddScene(UniquePtr<IScene>&& scene);
-		std::vector<UniquePtr<IScene>> GetScenes();
+		std::vector<UniquePtr<IScene>>& GetScenes();
 
 	private:
 		Engine* engine;

@@ -4,6 +4,10 @@
 
 namespace VulkanTest
 {
+	template <typename T> struct TMat2;
+	template <typename T> struct TMat3;
+	template <typename T> struct TMat4;
+
 	template<typename T>
 	struct TVec2
 	{
@@ -160,15 +164,146 @@ namespace VulkanTest
 		}
 	};
 
-	using Vec2 = TVec2<F32>;
-	using Vec3 = TVec3<F32>;
-	using Vec4 = TVec4<F32>;
 
-	using IVec2 = TVec2<I32>;
-	using IVec3 = TVec3<I32>;
-	using IVec4 = TVec4<I32>;
+	template <typename T>
+	struct TMat2
+	{
+		TMat2() = default;
 
-	using DVec2 = TVec2<F64>;
-	using DVec3 = TVec3<F64>;
-	using DVec4 = TVec4<F64>;
+		explicit inline TMat2(T v) noexcept
+		{
+			vec[0] = TVec2<T>(v, T(0));
+			vec[1] = TVec2<T>(T(0), v);
+		}
+
+		inline TMat2(const TVec2<T>& a, const TVec2<T>& b) noexcept
+		{
+			vec[0] = a;
+			vec[1] = b;
+		}
+
+		inline TVec2<T>& operator[](int index)
+		{
+			return vec[index];
+		}
+
+		inline const TVec2<T>& operator[](int index) const
+		{
+			return vec[index];
+		}
+
+	private:
+		TVec2<T> vec[2];
+	};
+
+	template <typename T>
+	struct TMat3
+	{
+		TMat3() = default;
+
+		explicit inline TMat3(T v) noexcept
+		{
+			vec[0] = TVec3<T>(v, T(0), T(0));
+			vec[1] = TVec3<T>(T(0), v, T(0));
+			vec[2] = TVec3<T>(T(0), T(0), v);
+		}
+
+		inline TMat3(const TVec3<T>& a, const TVec3<T>& b, const TVec3<T>& c) noexcept
+		{
+			vec[0] = a;
+			vec[1] = b;
+			vec[2] = c;
+		}
+
+		explicit inline TMat3(const TMat4<T>& m) noexcept
+		{
+			for (int col = 0; col < 3; col++)
+				for (int row = 0; row < 3; row++)
+					vec[col][row] = m[col][row];
+		}
+
+		inline TVec3<T>& operator[](int index)
+		{
+			return vec[index];
+		}
+
+		inline const TVec3<T>& operator[](int index) const
+		{
+			return vec[index];
+		}
+
+	private:
+		TVec3<T> vec[3];
+	};
+
+	template <typename T>
+	struct TMat4
+	{
+		TMat4() = default;
+
+		explicit inline TMat4(T v) noexcept
+		{
+			vec[0] = TVec4<T>(v, T(0), T(0), T(0));
+			vec[1] = TVec4<T>(T(0), v, T(0), T(0));
+			vec[2] = TVec4<T>(T(0), T(0), v, T(0));
+			vec[3] = TVec4<T>(T(0), T(0), T(0), v);
+		}
+
+		explicit inline TMat4(const TMat3<T>& m) noexcept
+		{
+			vec[0] = TVec4<T>(m[0], T(0));
+			vec[1] = TVec4<T>(m[1], T(0));
+			vec[2] = TVec4<T>(m[2], T(0));
+			vec[3] = TVec4<T>(T(0), T(0), T(0), T(1));
+		}
+
+		inline TMat4(const TVec4<T>& a, const TVec4<T>& b, const TVec4<T>& c, const TVec4<T>& d) noexcept
+		{
+			vec[0] = a;
+			vec[1] = b;
+			vec[2] = c;
+			vec[3] = d;
+		}
+
+		inline TVec4<T>& operator[](int index)
+		{
+			return vec[index];
+		}
+
+		inline const TVec4<T>& operator[](int index) const
+		{
+			return vec[index];
+		}
+
+	private:
+		TVec4<T> vec[4];
+	};
+
+	using F32x2 = TVec2<F32>;
+	using F32x3 = TVec3<F32>;
+	using F32x4 = TVec4<F32>;
+
+	using I32x2 = TVec2<I32>;
+	using I32x3 = TVec3<I32>;
+	using I32x4 = TVec4<I32>;
+
+	using U32x2 = TVec2<U32>;
+	using U32x3 = TVec3<U32>;
+	using U32x4 = TVec4<U32>;
+
+	using D32x2 = TVec2<F64>;
+	using D32x3 = TVec3<F64>;
+	using D32x4 = TVec4<F64>;
+
+	using FMat2x2 = TMat2<F32>;
+	using FMat3x3 = TMat3<F32>;
+	using FMat4x4 = TMat4<F32>;
+
+	using IMat2x2 = TMat2<I32>;
+	using IMat3x3 = TMat3<I32>;
+	using IMat4x4 = TMat4<I32>;
+
+	using UMat2x2 = TMat2<U32>;
+	using UMat3x3 = TMat3<U32>;
+	using UMat4x4 = TMat4<U32>;
 }

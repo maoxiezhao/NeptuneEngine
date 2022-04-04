@@ -43,14 +43,24 @@ bool App::InitializeWSI(std::unique_ptr<WSIPlatform> platform_)
 
 void App::Initialize()
 {
+    // Create game engine
     Engine::InitConfig config = {};
     config.windowTitle = GetWindowTitle();
     engine = CreateEngine(config);
+
+    // Create game world
+    world = &engine->CreateWorld();
+
+    // Start game
+    engine->Start(*world);
 }
 
 void App::Uninitialize()
 {
+    engine->Stop(*world);
+    engine->DestroyWorld(*world);
     engine.Reset();
+    world = nullptr;
 }
 
 void App::Render()
@@ -77,7 +87,7 @@ void App::RunFrame()
     float dt = framerateLock ? (1.0f / targetFrameRate) : deltaTime;
 
     // Update engine
-    engine->Update(dt);
+    engine->Update(*world, dt);
 
     // Render frame
     wsi.BeginFrame();

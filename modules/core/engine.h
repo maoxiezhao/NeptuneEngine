@@ -17,6 +17,11 @@ namespace VulkanTest
 
 		virtual ~Engine() {}
 
-		virtual void Update(F32 dt) {};
+		virtual class World& CreateWorld() = 0;
+		virtual void DestroyWorld(World& world) = 0;
+
+		virtual void Start(World& world) {};
+		virtual void Update(World& world, F32 dt) {};
+		virtual void Stop(World& world) {};
 	};
 }

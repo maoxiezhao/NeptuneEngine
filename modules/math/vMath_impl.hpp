@@ -46,4 +46,14 @@ template <typename T> inline T dot(const TVec4<T> &a, const TVec4<T> &b) { retur
 template <typename T> 
 inline float length(const T &v) { return sqrt(dot(v, v)); }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define VMATH_DEFINE_MATRIX_SCALAR_OP(op) \
+template <typename T> inline TMat2<T> operator op(const TMat2<T> &m, T s) { return TMat2<T>(m[0] op s, m[1] op s); } \
+template <typename T> inline TMat3<T> operator op(const TMat3<T> &m, T s) { return TMat3<T>(m[0] op s, m[1] op s, m[2] op s); } \
+template <typename T> inline TMat4<T> operator op(const TMat4<T> &m, T s) { return TMat4<T>(m[0] op s, m[1] op s, m[2] op s, m[3] op s); }
+VMATH_DEFINE_MATRIX_SCALAR_OP(+)
+VMATH_DEFINE_MATRIX_SCALAR_OP(-)
+VMATH_DEFINE_MATRIX_SCALAR_OP(*)
+VMATH_DEFINE_MATRIX_SCALAR_OP(/ )
 }

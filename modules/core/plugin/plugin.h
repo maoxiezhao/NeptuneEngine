@@ -2,6 +2,7 @@
 
 #include "core\common.h"
 #include "core\memory\memory.h"
+#include "core\scene\world.h"
 
 namespace VulkanTest
 {
@@ -17,11 +18,14 @@ namespace VulkanTest
 		virtual void OnAdded(IPlugin& plugin) {}
 		virtual void OnGameStart() {}
 		virtual void OnGameStop() {}
+		virtual void CreateScene(World& world) {}
 	};
 
 	class VULKAN_TEST_API PluginManager
 	{
 	public:
 		static UniquePtr<PluginManager> Create(Engine& engine);
+
+		virtual const std::vector<IPlugin*>& GetPlugins()const = 0;
 	};
 }

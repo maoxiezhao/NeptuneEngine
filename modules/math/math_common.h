@@ -20,4 +20,10 @@ using I64 = __int64;
 using F32 = float;
 using F64 = double;
 
+#ifdef _WIN32
+#define CJING_FORCE_INLINE __forceinline
+#endif
+
+// Use directXMath temporarily
+#define USE_DIRECTX_MATH
 }

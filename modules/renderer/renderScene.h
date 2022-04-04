@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\common.h"
-#include "ecs\world.h"
+#include "core\scene\world.h"
 
 namespace VulkanTest
 {

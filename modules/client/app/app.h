@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\engine.h"
 #include "core\platform\timer.h"
+#include "core\scene\world.h"
 #include "gpu\vulkan\wsi.h"
 
 namespace VulkanTest
@@ -70,6 +71,7 @@ protected:
 	F32 targetFrameRate = 60;
 	bool framerateLock = false;
 	bool requestedShutdown = false;
+	World* world = nullptr;
 };
 
 UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config);
