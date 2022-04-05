@@ -100,10 +100,15 @@ namespace VulkanTest
 		}
 	};
 
+	FileSystem::~FileSystem()
+	{
+		backend.Reset();
+	}
+
 	UniquePtr<FileSystem> FileSystem::Create(const char* basePath)
 	{
 		UniquePtr<DefaultFileSystemBackend> backend = CJING_MAKE_UNIQUE<DefaultFileSystemBackend>(basePath);
-		return UniquePtr<FileSystem>(new FileSystem(std::move(backend)));
+		return UniquePtr<FileSystem>(CJING_NEW(FileSystem)(backend.Move()));
 	}
 
 	bool FileSystem::MoveFile(const char* from, const char* to)
@@ -156,8 +161,8 @@ namespace VulkanTest
 		return backend->GetBasePath();
 	}
 
-	FileSystem::FileSystem(UniquePtr<FileSystemBackend> backend_) :
-		backend(std::move(backend_))
+	FileSystem::FileSystem(UniquePtr<FileSystemBackend>&& backend_) :
+		backend(backend_.Move())
 	{
 	}
 }

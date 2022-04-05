@@ -66,7 +66,7 @@ namespace Platform {
 	};
 
 	void Initialize();
-
+	void LogPlatformInfo();
 	void SetLoggerConsoleFontColor(ConsoleFontColor fontColor);
 	bool ShellExecuteOpen(const char* path, const char* args);
 	bool ShellExecuteOpenAndWait(const char* path, const char* args);
@@ -113,6 +113,8 @@ namespace Platform {
 	void SetSimpleWindowRect(WindowType window, const WindowRect& rect);
 	WindowRect GetSimpleWindowRect(WindowType window);
 	WindowPoint ToScreen(WindowType window, I32 x, I32 y);
+
+	void ShowMessageBox(const char* msg);
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// File 

@@ -38,7 +38,7 @@ namespace VulkanTest
 	class VULKAN_TEST_API FileSystem
 	{
 	public:
-		virtual ~FileSystem() = default;
+		virtual ~FileSystem();
 
 		static UniquePtr<FileSystem> Create(const char* basePath);
 
@@ -56,7 +56,7 @@ namespace VulkanTest
 		bool HasWork()const;
 
 	private:
-		FileSystem(UniquePtr<FileSystemBackend> backend_);
+		FileSystem(UniquePtr<FileSystemBackend>&& backend_);
 
 		UniquePtr<FileSystemBackend> backend = nullptr;
 	};

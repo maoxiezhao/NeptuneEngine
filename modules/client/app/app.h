@@ -62,6 +62,9 @@ protected:
 		requestedShutdown = true;
 	}
 
+	void Update(F32 deltaTime);
+	void FixedUpdate();
+
 protected:
 	std::unique_ptr<WSIPlatform> platform;
 	UniquePtr<Engine> engine;
@@ -69,11 +72,13 @@ protected:
 	Timer timer;
 	F32 deltaTime = 0.0f;
 	F32 targetFrameRate = 60;
+	F32 deltaTimeAcc = 0;
+	bool frameskip = true;
 	bool framerateLock = false;
 	bool requestedShutdown = false;
 	World* world = nullptr;
 };
 
-UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config);
+UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config, App& app);
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[]);
 }

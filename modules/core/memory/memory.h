@@ -246,7 +246,7 @@ namespace VulkanTest
 	UniquePtr<T> CJING_MAKE_UNIQUE(Args&&... args)
 	{
 		return UniquePtr<T>(
-			CJING_NEW(T) { std::forward<Args>(args)... }
+			CJING_NEW(T) { static_cast<Args&&>(args)... }
 		);
 	}
 

@@ -86,16 +86,25 @@ namespace Platform {
 			HCURSOR mTextInput;
 		} mCursors;
 	};
-	static PlatformImpl mImpl;
+	static PlatformImpl impl;
 
 	void Initialize()
 	{
-		mImpl.mCursors.mArrow = LoadCursor(NULL, IDC_ARROW);
-		mImpl.mCursors.mSizeALL = LoadCursor(NULL, IDC_SIZEALL);
-		mImpl.mCursors.mSizeNS = LoadCursor(NULL, IDC_SIZENS);
-		mImpl.mCursors.mSizeWE = LoadCursor(NULL, IDC_SIZEWE);
-		mImpl.mCursors.mSizeNWSE = LoadCursor(NULL, IDC_SIZENWSE);
-		mImpl.mCursors.mTextInput = LoadCursor(NULL, IDC_IBEAM);
+		impl.mCursors.mArrow = LoadCursor(NULL, IDC_ARROW);
+		impl.mCursors.mSizeALL = LoadCursor(NULL, IDC_SIZEALL);
+		impl.mCursors.mSizeNS = LoadCursor(NULL, IDC_SIZENS);
+		impl.mCursors.mSizeWE = LoadCursor(NULL, IDC_SIZEWE);
+		impl.mCursors.mSizeNWSE = LoadCursor(NULL, IDC_SIZENWSE);
+		impl.mCursors.mTextInput = LoadCursor(NULL, IDC_IBEAM);
+	}
+
+	void LogPlatformInfo()
+	{
+		Logger::Info("Platform info:");
+		SYSTEM_INFO sysInfo;
+		GetSystemInfo(&sysInfo);
+		Logger::Info("Page size:%d", U32(sysInfo.dwPageSize));
+		Logger::Info("Num processors:%d", U32(sysInfo.dwNumberOfProcessors));
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////
@@ -334,17 +343,17 @@ namespace Platform {
 		switch (cursorType)
 		{
 		case CursorType::DEFAULT: 
-			SetCursor(mImpl.mCursors.mArrow); break;
+			SetCursor(impl.mCursors.mArrow); break;
 		case CursorType::SIZE_ALL: 
-			SetCursor(mImpl.mCursors.mSizeALL); break;
+			SetCursor(impl.mCursors.mSizeALL); break;
 		case CursorType::SIZE_NS:
-			SetCursor(mImpl.mCursors.mSizeNS); break;
+			SetCursor(impl.mCursors.mSizeNS); break;
 		case CursorType::SIZE_WE: 
-			SetCursor(mImpl.mCursors.mSizeWE); break;
+			SetCursor(impl.mCursors.mSizeWE); break;
 		case CursorType::SIZE_NWSE: 
-			SetCursor(mImpl.mCursors.mSizeNWSE); break;
+			SetCursor(impl.mCursors.mSizeNWSE); break;
 		case CursorType::TEXT_INPUT: 
-			SetCursor(mImpl.mCursors.mTextInput); break;
+			SetCursor(impl.mCursors.mTextInput); break;
 		default: 
 			break;
 		}
@@ -367,6 +376,13 @@ namespace Platform {
 		p.y = y;
 		::ClientToScreen((HWND)window, &p);
 		return { p.x, p.y };
+	}
+
+	void ShowMessageBox(const char* msg)
+	{
+		WCHAR tmp[2048];
+		CharToWChar(tmp, msg);
+		MessageBox(NULL, tmp, L"Message", MB_OK);
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////

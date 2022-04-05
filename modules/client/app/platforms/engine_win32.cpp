@@ -1,6 +1,11 @@
 #include "core\engine.h"
+#include "core\platform\platform.h"
+#include "core\platform\debug.h"
 #include "core\scene\world.h"
+#include "core\filesystem\filesystem.h"
+#include "core\utils\profiler.h"
 #include "app\app.h"
+#include "renderer\renderer.h"
 
 namespace VulkanTest
 {
@@ -8,16 +13,66 @@ namespace VulkanTest
 	{
 	private:
 		UniquePtr<PluginManager> pluginManager;
+		UniquePtr<FileSystem> fileSystem;
+		WSIPlatform* platform;
+		bool isGameRunning = false;
+		bool isPaused = false;
+		F32 lastTimeDeltas[11] = {};
+		U32 lastTimeFrames = 0;
 
 	public:
-		EngineImpl(const InitConfig& initConfig)
+		EngineImpl(const InitConfig& initConfig, App& app)
 		{
+			Logger::Info("Create game engine...");
+
+			Platform::Initialize();
+			Platform::LogPlatformInfo();
+			platform = &app.GetPlatform();
+			SetupUnhandledExceptionHandler();
+
+			// Create filesystem
+			if (initConfig.workingDir != nullptr) {
+				fileSystem = FileSystem::Create(initConfig.workingDir);
+			}
+			else
+			{
+				char currentDir[MAX_PATH_LENGTH];
+				Platform::GetCurrentDir(currentDir);
+				fileSystem = FileSystem::Create(currentDir);
+			}
+
+			// Create pluginManager
 			pluginManager = PluginManager::Create(*this);
+			// Builtin plugins
+			pluginManager->AddPlugin(Renderer::CreatePlugin(*this));
+
+#ifdef VULKAN_TEST_PLUGINS
+			const char* plugins[] = { VULKAN_TEST_PLUGINS };
+			Span<const char*> pluginSpan = Span(plugins);
+			for (const char* plugin : pluginSpan) 
+			{
+				if (plugin == nullptr && !pluginManager->LoadPlugin(plugin))
+					Logger::Info("Failed to load plugin:%s", plugin);
+			}
+#endif
+			for (const char* plugin : initConfig.plugins)
+			{
+				if (plugin == nullptr && !pluginManager->LoadPlugin(plugin))
+					Logger::Info("Failed to load plugin:%s", plugin);
+			}
+
+			pluginManager->InitPlugins();
+
+			Logger::Info("Game engine created.");
 		}
 
 		virtual ~EngineImpl()
 		{
 			pluginManager.Reset();
+			fileSystem.Reset();
+			platform = nullptr;
+
+			Logger::Info("Game engine released.");
 		}
 
 		World& CreateWorld() override
@@ -49,19 +104,51 @@ namespace VulkanTest
 
 		void Start(World& world) override
 		{
+			ASSERT(isGameRunning == false);
+			isGameRunning = true;
+
+			for (auto plugin : pluginManager->GetPlugins())
+				plugin->OnGameStart();
+		}
+
+		void FixedUpdate(World& world) override
+		{
+			pluginManager->FixedUpdatePlugins();
 		}
 
 		void Update(World& world, F32 dt) override
 		{
+			lastTimeDeltas[(lastTimeFrames++) % ARRAYSIZE(lastTimeDeltas)] = dt;
+			{
+				PROFILE_BLOCK("Update scenes");
+				for (auto& scene : world.GetScenes())
+					scene->Update(dt, isPaused);
+			}
+			pluginManager->UpdatePlugins(dt);
 		}
 
 		void Stop(World& world) override
 		{
+			ASSERT(isGameRunning == true);
+			isGameRunning = false;
+
+			for (auto plugin : pluginManager->GetPlugins())
+				plugin->OnGameStop();
+		}
+
+		FileSystem& GetFileSystem() override
+		{
+			return *fileSystem.Get();
+		}
+
+		PluginManager& GetPluginManager() override
+		{
+			return *pluginManager.Get();
 		}
 	};
 
-	UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config)
+	UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config, App& app)
 	{
-		return CJING_MAKE_UNIQUE<EngineImpl>(config);
+		return CJING_MAKE_UNIQUE<EngineImpl>(config, app);
 	}
 }

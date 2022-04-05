@@ -1,13 +1,18 @@
 #pragma once
 
 #include "gpu\vulkan\device.h"
-#include "renderer\renderScene.h"
+#include "core\plugin\plugin.h"
 
 namespace VulkanTest
 {
-namespace Renderer
-{
-	void Initialize();
-	UniquePtr<RenderScene> CreateScene(World& world);
-}
+	class RenderPath;
+
+	namespace Renderer
+	{
+		void Initialize();
+		void Uninitialize();
+		void ActiveRenderPath(Engine& engine, RenderPath* renderPath);
+
+		IPlugin* CreatePlugin(Engine& engine);
+	}
 }

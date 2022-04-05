@@ -113,6 +113,20 @@ namespace VulkanTest
 			return StringLength(data);
 		}
 
+		template <int Size> 
+		StaticString& operator<<(StaticString<Size>& value)
+		{
+			append(value);
+			return *this;
+		}
+
+		template <typename T> 
+		StaticString& operator<<(T value)
+		{
+			append(value);
+			return *this;
+		}
+
 		void operator=(const char* str) {
 			CatString(data, str);
 		}

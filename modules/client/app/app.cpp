@@ -46,7 +46,7 @@ void App::Initialize()
     // Create game engine
     Engine::InitConfig config = {};
     config.windowTitle = GetWindowTitle();
-    engine = CreateEngine(config);
+    engine = CreateEngine(config, *this);
 
     // Create game world
     world = &engine->CreateWorld();
@@ -65,6 +65,17 @@ void App::Uninitialize()
 
 void App::Render()
 {
+}
+
+void App::Update(F32 deltaTime)
+{
+    PROFILE_BLOCK("Update");
+    engine->Update(*world, deltaTime);
+}
+
+void App::FixedUpdate()
+{
+    engine->FixedUpdate(*world);
 }
 
 bool App::Poll()
@@ -86,8 +97,30 @@ void App::RunFrame()
     deltaTime = timer.Tick();
     float dt = framerateLock ? (1.0f / targetFrameRate) : deltaTime;
 
+    // FixedUpdate engine
+    Profiler::BeginBlock("FixedUpdate");
+    {
+        if (frameskip)
+        {
+            deltaTimeAcc += dt;
+            if (deltaTimeAcc >= 8.0f)
+                deltaTimeAcc = 0.0f;
+
+            const F32 invTargetFrameRate = 1.0f / targetFrameRate;
+            while (deltaTimeAcc >= invTargetFrameRate)
+            {
+                FixedUpdate();
+                deltaTimeAcc -= invTargetFrameRate;
+            }
+        }
+        else {
+            FixedUpdate();
+        }
+    }
+    Profiler::EndBlock();
+
     // Update engine
-    engine->Update(*world, dt);
+    Update(dt);
 
     // Render frame
     wsi.BeginFrame();

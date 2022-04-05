@@ -1,5 +1,6 @@
 #include "plugin.h"
 #include "core\engine.h"
+#include "utils\string.h"
 
 namespace VulkanTest
 {
@@ -10,9 +11,57 @@ namespace VulkanTest
 			engine(engine_)
 		{}
 
+		~PluginManagerImpl()
+		{
+			for (auto plugin : plugins) {
+				CJING_DELETE(plugin);
+			}
+		}
+
+		void AddPlugin(IPlugin* plugin) override
+		{
+			plugins.push_back(plugin);
+		}
+
+		IPlugin* LoadPlugin(const char* name) override
+		{
+			return nullptr;
+		}
+
+		IPlugin* GetPlugin(const char* name) override
+		{
+			for (auto plugin : plugins)
+			{
+				if (EqualString(plugin->GetName(), name))
+					return plugin;
+			}
+			return nullptr;
+		}
+
 		const std::vector<IPlugin*>& GetPlugins()const override
 		{
 			return plugins;
+		}
+
+		void InitPlugins() override
+		{
+			for (auto plugin : plugins) {
+				plugin->Initialize();
+			}
+		}
+		
+		void UpdatePlugins(F32 deltaTime) override
+		{
+			for (auto plugin : plugins) {
+				plugin->Update(deltaTime);
+			}
+		}
+
+		void FixedUpdatePlugins() override
+		{
+			for (auto plugin : plugins) {
+				plugin->FixedUpdate();
+			}
 		}
 
 	private:
