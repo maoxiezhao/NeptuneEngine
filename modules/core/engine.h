@@ -27,5 +27,6 @@ namespace VulkanTest
 
 		virtual class FileSystem& GetFileSystem() = 0;
 		virtual class PluginManager& GetPluginManager() = 0;
+		virtual class WSI& GetWSI() = 0;
 	};
 }

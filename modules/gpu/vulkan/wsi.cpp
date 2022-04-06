@@ -208,8 +208,8 @@ void WSI::EndFrame()
     }
     else
     {
-        release->WaitExternal();
         // 暂时先不释放releaseSemaphore，直到Image再次等待
+        release->WaitExternal();
         releaseSemaphores[swapchainImageIndex] = release;
     }
 }
@@ -217,6 +217,11 @@ void WSI::EndFrame()
 void WSI::SetPlatform(WSIPlatform* platform_)
 {
 	platform = platform_;
+}
+
+WSIPlatform* WSI::GetPlatform()
+{
+    return platform;
 }
 
 GPU::DeviceVulkan* WSI::GetDevice()

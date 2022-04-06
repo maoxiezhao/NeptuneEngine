@@ -1,20 +1,21 @@
 #include "renderer.h"
 #include "renderer\renderScene.h"
 #include "renderer\renderPath3D.h"
+#include "gpu\vulkan\wsi.h"
 #include "core\utils\profiler.h"
 
 namespace VulkanTest
 {
 
-struct RendererPlugin : IPlugin
+struct RendererPluginImpl : public RendererPlugin
 {
 public:
-	RendererPlugin(Engine& engine_)
+	RendererPluginImpl(Engine& engine_)
 		: engine(engine_)
 	{
 	}
 
-	virtual ~RendererPlugin()
+	virtual ~RendererPluginImpl()
 	{
 		Renderer::Uninitialize();
 	}
@@ -25,7 +26,7 @@ public:
 
 		// Activate the default render path if no custom path is set
 		if (GetActivePath() == nullptr) {
-			ActivatePath(&defaultPath);
+			ActivePath(&defaultPath);
 		}
 	}
 	
@@ -43,16 +44,36 @@ public:
 
 	void FixedUpdate() override
 	{
-		PROFILE_BLOCK("RenderFixedUpdate");
+		PROFILE_BLOCK("RendererFixedUpdate");
 		if (activePath != nullptr)
 			activePath->FixedUpdate();
 	}
 
 	void Update(F32 delta) override
 	{
-		PROFILE_BLOCK("RenderUpdate");
+		PROFILE_BLOCK("RendererUpdate");
 		if (activePath != nullptr)
 			activePath->Update(delta);
+	}
+
+	void Render() override
+	{
+		if (activePath != nullptr)
+		{
+			// Render
+			Profiler::BeginBlock("RendererRender");
+			activePath->Render();
+			Profiler::EndBlock();
+
+			// Compose
+			Profiler::BeginBlock("RendererCompose");
+			GPU::DeviceVulkan* device = engine.GetWSI().GetDevice();
+			ASSERT(device != nullptr);
+			auto cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+			activePath->Compose(cmd.get());
+			device->Submit(cmd);
+			Profiler::EndBlock();
+		}
 	}
 
 	const char* GetName() const override
@@ -65,9 +86,10 @@ public:
 		world.AddScene(scene.Move());
 	}
 
-	void ActivatePath(RenderPath* renderPath)
+	void ActivePath(RenderPath* renderPath) override
 	{
 		activePath = renderPath;
+		activePath->SetDevice(engine.GetWSI().GetDevice());
 	}
 
 	RenderPath* GetActivePath()
@@ -81,25 +103,21 @@ private:
 	RenderPath3D defaultPath;
 };
 
-IPlugin* Renderer::CreatePlugin(Engine& engine)
+namespace Renderer
 {
-	return CJING_NEW(RendererPlugin)(engine);
-}
+	RendererPlugin* CreatePlugin(Engine& engine)
+	{
+		return CJING_NEW(RendererPluginImpl)(engine);
+	}
 
-void Renderer::Initialize()
-{
-	Logger::Info("Render initialized");
-}
+	void Renderer::Initialize()
+	{
+		Logger::Info("Render initialized");
+	}
 
-void Renderer::Uninitialize()
-{
-	Logger::Info("Render uninitialized");
-}
-
-void Renderer::ActiveRenderPath(Engine& engine, RenderPath* renderPath)
-{
-	RendererPlugin* plugin = static_cast<RendererPlugin*>(engine.GetPluginManager().GetPlugin("Renderer"));
-	ASSERT(plugin != nullptr);
-	plugin->ActivatePath(renderPath);
+	void Renderer::Uninitialize()
+	{
+		Logger::Info("Render uninitialized");
+	}
 }
 }

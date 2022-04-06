@@ -15,7 +15,7 @@ enum class PresentMode
 	UnlockedNoTearing     // Force MAILBOX
 };
 
-class WSIPlatform
+class VULKAN_TEST_API WSIPlatform
 {
 public:
 	virtual ~WSIPlatform() = default;
@@ -55,7 +55,7 @@ protected:
 	bool isResize = false;
 };
 
-class WSI
+class VULKAN_TEST_API WSI
 {
 public:
 	WSI();
@@ -66,6 +66,7 @@ public:
 	void BeginFrame();
 	void EndFrame();
 	void SetPlatform(WSIPlatform* platform_);
+	WSIPlatform* GetPlatform();
 
 	GPU::DeviceVulkan* GetDevice();
 	VkFormat GetSwapchainFormat()const;

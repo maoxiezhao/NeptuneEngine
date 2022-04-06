@@ -7,12 +7,17 @@ namespace VulkanTest
 {
 	class RenderPath;
 
+	struct VULKAN_TEST_API RendererPlugin : public IPlugin
+	{
+		virtual void ActivePath(RenderPath* renderPath) = 0;
+		virtual void Render() = 0;
+	};
+
 	namespace Renderer
 	{
 		void Initialize();
 		void Uninitialize();
-		void ActiveRenderPath(Engine& engine, RenderPath* renderPath);
 
-		IPlugin* CreatePlugin(Engine& engine);
+		RendererPlugin* CreatePlugin(Engine& engine);
 	}
 }

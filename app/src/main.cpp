@@ -31,8 +31,8 @@ namespace VulkanTest
             App::Uninitialize();
         }
 
-        void Render() override
-        {
+        //void Render() override
+        //{
             //GPU::DeviceVulkan* device = wsi.GetDevice();
             //assert(device != nullptr);
 
@@ -44,7 +44,7 @@ namespace VulkanTest
             //cmd->EndRenderPass();
             //cmd->EndEvent();
             //device->Submit(cmd);
-        }
+        //}
     };
 
     App* CreateApplication(int, char**)

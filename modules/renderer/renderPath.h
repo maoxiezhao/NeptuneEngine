@@ -1,10 +1,11 @@
 #pragma once
 
 #include "gpu\vulkan\device.h"
+#include "gpu\vulkan\wsi.h"
 
 namespace VulkanTest
 {
-	class RenderPath
+	class VULKAN_TEST_API RenderPath
 	{
 	public:
 		RenderPath() = default;
@@ -14,7 +15,17 @@ namespace VulkanTest
 		virtual void Stop() {};
 		virtual void Update(float dt) {};
 		virtual void FixedUpdate() {};
-		virtual void Render() const {};
-		virtual void Compose(GPU::CommandList cmd)const {};
+		virtual void Render() {};
+		virtual void Compose(GPU::CommandList* cmd)const {};
+
+		void SetDevice(GPU::DeviceVulkan* device_) {
+			device = device_;
+		}
+
+		void SetPlatform(WSIPlatform* platform) {
+		}
+
+	protected:
+		GPU::DeviceVulkan* device = nullptr;
 	};
 }

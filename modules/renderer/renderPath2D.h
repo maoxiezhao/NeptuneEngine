@@ -1,14 +1,16 @@
 #pragma once
 
-#include "renderPath.h"
+#include "renderPathGraph.h"
 
 namespace VulkanTest
 {
-	class RenderPath2D : public RenderPath
+	class VULKAN_TEST_API RenderPath2D : public RenderPathGraph
 	{
 	public:
 		void Update(float dt) override;
 		void FixedUpdate() override;
-		void Render() const override;
+
+	protected:
+		void SetupRenderGraph(RenderGraph& renderGraph) override;
 	};
 }

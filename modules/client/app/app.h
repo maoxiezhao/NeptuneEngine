@@ -9,7 +9,7 @@
 namespace VulkanTest
 {
 
-class App
+class VULKAN_TEST_API App
 {
 public:
     const U32 DEFAULT_WIDTH = 1280;
@@ -77,6 +77,7 @@ protected:
 	bool framerateLock = false;
 	bool requestedShutdown = false;
 	World* world = nullptr;
+	struct RendererPlugin* renderer = nullptr;
 };
 
 UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config, App& app);

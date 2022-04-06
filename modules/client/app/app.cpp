@@ -4,6 +4,7 @@
 #include "core\events\event.h"
 #include "core\platform\platform.h"
 #include "core\jobsystem\jobsystem.h"
+#include "renderer\renderer.h"
 
 namespace VulkanTest
 {
@@ -51,6 +52,10 @@ void App::Initialize()
     // Create game world
     world = &engine->CreateWorld();
 
+    // Get renderer
+    renderer = static_cast<RendererPlugin*>(engine->GetPluginManager().GetPlugin("Renderer"));
+    ASSERT(renderer != nullptr);
+
     // Start game
     engine->Start(*world);
 }
@@ -65,6 +70,8 @@ void App::Uninitialize()
 
 void App::Render()
 {
+    PROFILE_BLOCK("Renderer");
+    renderer->Render();
 }
 
 void App::Update(F32 deltaTime)

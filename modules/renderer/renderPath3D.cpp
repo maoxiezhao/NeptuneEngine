@@ -10,7 +10,7 @@ namespace VulkanTest
 	{
 	}
 
-	void RenderPath3D::Render() const
+	void RenderPath3D::SetupRenderGraph(RenderGraph& renderGraph)
 	{
 	}
 }

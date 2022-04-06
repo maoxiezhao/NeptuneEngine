@@ -15,9 +15,10 @@ namespace VulkanTest
 		UniquePtr<PluginManager> pluginManager;
 		UniquePtr<FileSystem> fileSystem;
 		WSIPlatform* platform;
+		WSI* wsi;
 		bool isGameRunning = false;
 		bool isPaused = false;
-		F32 lastTimeDeltas[11] = {};
+		F32 lastTimeDeltas[8] = {};
 		U32 lastTimeFrames = 0;
 
 	public:
@@ -28,6 +29,7 @@ namespace VulkanTest
 			Platform::Initialize();
 			Platform::LogPlatformInfo();
 			platform = &app.GetPlatform();
+			wsi = &app.GetWSI();
 			SetupUnhandledExceptionHandler();
 
 			// Create filesystem
@@ -144,6 +146,11 @@ namespace VulkanTest
 		PluginManager& GetPluginManager() override
 		{
 			return *pluginManager.Get();
+		}
+
+		WSI& GetWSI() override
+		{
+			return *wsi;
 		}
 	};
 

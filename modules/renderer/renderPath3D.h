@@ -4,11 +4,13 @@
 
 namespace VulkanTest
 {
-	class RenderPath3D : public RenderPath2D
+	class VULKAN_TEST_API RenderPath3D : public RenderPath2D
 	{
 	public:
 		void Update(float dt) override;
 		void FixedUpdate() override;
-		void Render() const override;
+
+	protected:
+		void SetupRenderGraph(RenderGraph& renderGraph) override;
 	};
 }

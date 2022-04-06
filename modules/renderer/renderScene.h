@@ -5,7 +5,7 @@
 
 namespace VulkanTest
 {
-	class RenderScene : public IScene
+	class VULKAN_TEST_API RenderScene : public IScene
 	{
 	public:
 		static UniquePtr<RenderScene> CreateScene(Engine& engine, World& world);
