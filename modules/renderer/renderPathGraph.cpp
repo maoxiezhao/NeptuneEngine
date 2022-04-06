@@ -15,7 +15,10 @@ namespace VulkanTest
 
 	void RenderPathGraph::Update(float dt)
 	{
-		
+		U32 width = platform->GetWidth();
+		U32 height = platform->GetHeight();
+		if (currentBufferSize.x != width || currentBufferSize.y != height)
+			ResizeBuffers();
 
 		RenderPath::Update(dt);
 	}
@@ -32,8 +35,14 @@ namespace VulkanTest
 
 	void RenderPathGraph::ResizeBuffers()
 	{
+		currentBufferSize = U32x2(
+			platform->GetWidth(),
+			platform->GetHeight()
+		);
+
 		renderGraph.Reset();
 		renderGraph.SetDevice(device);
 		SetupRenderGraph(renderGraph);
+		renderGraph.Bake();
 	}
 }

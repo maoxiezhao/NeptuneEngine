@@ -22,10 +22,12 @@ namespace VulkanTest
 			device = device_;
 		}
 
-		void SetPlatform(WSIPlatform* platform) {
+		void SetPlatform(WSIPlatform* platform_) {
+			platform = platform_;
 		}
 
 	protected:
 		GPU::DeviceVulkan* device = nullptr;
+		WSIPlatform* platform = nullptr;
 	};
 }

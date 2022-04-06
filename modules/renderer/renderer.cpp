@@ -90,6 +90,7 @@ public:
 	{
 		activePath = renderPath;
 		activePath->SetDevice(engine.GetWSI().GetDevice());
+		activePath->SetPlatform(engine.GetWSI().GetPlatform());
 	}
 
 	RenderPath* GetActivePath()
