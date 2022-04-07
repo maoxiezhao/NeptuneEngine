@@ -259,6 +259,7 @@ public:
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
     PipelineLayout* RequestPipelineLayout(const CombinedResourceLayout& resLayout);
     SemaphorePtr RequestSemaphore();
+    SemaphorePtr RequestEmptySemaphore();
     EventPtr RequestEvent();
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);

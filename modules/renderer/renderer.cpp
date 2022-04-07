@@ -64,15 +64,6 @@ public:
 			Profiler::BeginBlock("RendererRender");
 			activePath->Render();
 			Profiler::EndBlock();
-
-			// Compose
-			Profiler::BeginBlock("RendererCompose");
-			GPU::DeviceVulkan* device = engine.GetWSI().GetDevice();
-			ASSERT(device != nullptr);
-			auto cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
-			activePath->Compose(cmd.get());
-			device->Submit(cmd);
-			Profiler::EndBlock();
 		}
 	}
 
@@ -89,8 +80,7 @@ public:
 	void ActivePath(RenderPath* renderPath) override
 	{
 		activePath = renderPath;
-		activePath->SetDevice(engine.GetWSI().GetDevice());
-		activePath->SetPlatform(engine.GetWSI().GetPlatform());
+		activePath->SetWSI(&engine.GetWSI());
 	}
 
 	RenderPath* GetActivePath()

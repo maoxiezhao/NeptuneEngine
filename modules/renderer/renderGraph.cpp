@@ -1267,6 +1267,7 @@ namespace VulkanTest
         {
             GPU::SemaphorePtr waitSemaphore = isGraphicsQueue ? ent.waitGraphicsSemaphore : ent.waitComputeSemaphore;
             ASSERT(waitSemaphore);
+            ASSERT(waitSemaphore->IsSignalled());
 
             state.waitSemaphores.push_back(waitSemaphore);
             state.waitSemaphoreStages.push_back(barrier.stages);
@@ -1399,8 +1400,9 @@ namespace VulkanTest
                 
             if (state.needSubmissionSemaphore)
             {
-                state.graphicsSemaphore = device.RequestSemaphore();
-                state.computeSemaphore = device.RequestSemaphore();
+                state.graphicsSemaphore = device.RequestEmptySemaphore();
+                state.computeSemaphore = device.RequestEmptySemaphore();
+                ASSERT(state.graphicsSemaphore->IsSignalled());
             }
 
             // Handle flush barriers
@@ -1630,7 +1632,7 @@ namespace VulkanTest
         for (U32 i = 0; i < waitSemaphores.size(); i++)
         {
             auto& semaphore = waitSemaphores[i];
-            if (semaphore && semaphore->GetSemaphore() != VK_NULL_HANDLE)
+            if (semaphore->GetSemaphore() != VK_NULL_HANDLE && !semaphore->IsPendingWait())
                 device.AddWaitSemaphore(queueType, semaphore, waitSemaphoreStages[i], true);
         }
 

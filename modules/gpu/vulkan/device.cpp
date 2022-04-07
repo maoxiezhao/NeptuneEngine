@@ -531,8 +531,15 @@ SemaphorePtr DeviceVulkan::RequestSemaphore()
     return SemaphorePtr(semaphorePool.allocate(*this, semaphore, false));
 }
 
+SemaphorePtr DeviceVulkan::RequestEmptySemaphore()
+{
+    LOCK();
+    return SemaphorePtr(semaphorePool.allocate(*this));
+}
+
 EventPtr DeviceVulkan::RequestEvent()
 {
+    LOCK();
     VkEvent ent = eventManager.Requset();
     return EventPtr(eventPool.allocate(*this, ent));
 }
@@ -1259,6 +1266,7 @@ void DeviceVulkan::AddWaitSemaphoreNolock(QueueIndices queueIndex, SemaphorePtr 
     if (flush)
         FlushFrame(queueIndex);
 
+    semaphore->SignalPendingWait();
     auto& queueData = queueDatas[(int)queueIndex];
     queueData.waitSemaphores.push_back(semaphore);
     queueData.waitStages.push_back(stages);
@@ -1664,8 +1672,7 @@ void DeviceVulkan::SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaph
     submissions.push_back(std::move(cmd));
 
     InternalFence signalledFence;
-    if (fence != nullptr || (semaphoreCount > 0 && semaphore != nullptr))
-    {
+    if (fence != nullptr || (semaphoreCount > 0 && semaphore != nullptr)) {
         SubmitQueue(queueIndex, fence != nullptr ? &signalledFence : nullptr, semaphoreCount, semaphore);
     }
 
@@ -1691,13 +1698,13 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
 
     BatchComposer batchComposer;
 
-    // Colloect wait semaphores
+    // Collect wait semaphores
     WaitSemaphores waitSemaphores = {};
     QueueData& queueData = queueDatas[queueIndex];
     for (int i = 0; i < queueData.waitSemaphores.size(); i++)
     {
         SemaphorePtr& semaphore = queueData.waitSemaphores[i];
-        VkSemaphore vkSemaphore = semaphore->Consume();
+        VkSemaphore vkSemaphore = semaphore->Consume(); // Semaphore is signalled
         if (semaphore->GetTimeLine() <= 0)
         {
             if (semaphore->CanRecycle())

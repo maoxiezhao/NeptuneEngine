@@ -17,7 +17,7 @@ struct SemaphoreDeleter
 class Semaphore : public IntrusivePtrEnabled<Semaphore, SemaphoreDeleter>, public InternalSyncObject
 {
 public:
-    Semaphore(DeviceVulkan& device_, VkSemaphore semaphore_, bool isSignalled_);
+    Semaphore(DeviceVulkan& device_, VkSemaphore semaphore_ = VK_NULL_HANDLE, bool isSignalled_ = true);
     ~Semaphore();
 
     const VkSemaphore& GetSemaphore()const
@@ -38,8 +38,8 @@ public:
     VkSemaphore Consume()
     {
         auto oldSemaphore = semaphore;
-        assert(semaphore);
-        assert(signalled);
+        ASSERT(semaphore);
+        ASSERT(signalled);
         semaphore = VK_NULL_HANDLE;
         signalled = false;
         return oldSemaphore;
@@ -47,13 +47,25 @@ public:
 
     void WaitExternal()
     {
+        ASSERT(signalled);
         signalled = false;
     }
 
     void Signal()
     {
-        assert(!signalled);
+        ASSERT(!signalled);
         signalled = true;
+    }
+
+    void SignalPendingWait()
+    {
+        ASSERT(isPendingWait == false);
+        isPendingWait = true;
+    }
+
+    bool IsPendingWait()const
+    {
+        return isPendingWait;
     }
 
     bool CanRecycle()const
@@ -74,6 +86,7 @@ private:
     VkSemaphore semaphore;
     bool signalled = true;
     uint64_t timeline = 0;
+    bool isPendingWait = false;
     bool shouldDestroyOnConsume = false;
 };
 using SemaphorePtr = IntrusivePtr<Semaphore>;

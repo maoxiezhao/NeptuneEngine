@@ -11,6 +11,7 @@ namespace VulkanTest
 		void FixedUpdate() override;
 
 	protected:
-		void SetupRenderGraph(RenderGraph& renderGraph) override;
+		void Setup(RenderGraph& renderGraph) override;
+		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
 	};
 }

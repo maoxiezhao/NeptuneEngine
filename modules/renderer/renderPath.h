@@ -16,18 +16,12 @@ namespace VulkanTest
 		virtual void Update(float dt) {};
 		virtual void FixedUpdate() {};
 		virtual void Render() {};
-		virtual void Compose(GPU::CommandList* cmd)const {};
 
-		void SetDevice(GPU::DeviceVulkan* device_) {
-			device = device_;
-		}
-
-		void SetPlatform(WSIPlatform* platform_) {
-			platform = platform_;
+		void SetWSI(WSI* wsi_) {
+			wsi = wsi_;
 		}
 
 	protected:
-		GPU::DeviceVulkan* device = nullptr;
-		WSIPlatform* platform = nullptr;
+		WSI* wsi = nullptr;
 	};
 }

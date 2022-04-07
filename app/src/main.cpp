@@ -5,9 +5,13 @@
 #include "core\jobsystem\jobsystem.h"
 #include "gpu\vulkan\device.h"
 #include "math\math.hpp"
+#include "renderer\renderPath3D.h"
+#include "renderer\renderer.h"
 
 namespace VulkanTest
 {
+    class MainRenderer : public RenderPath3D {};
+
     class MainApp : public App
     {
     public:
@@ -24,27 +28,11 @@ namespace VulkanTest
         void Initialize() override
         {
             App::Initialize();
+            renderer->ActivePath(&mainRenderer);
         }
 
-        void Uninitialize() override
-        {       
-            App::Uninitialize();
-        }
-
-        //void Render() override
-        //{
-            //GPU::DeviceVulkan* device = wsi.GetDevice();
-            //assert(device != nullptr);
-
-            //GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
-            //GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
-            //cmd->BeginEvent("Fullscreen");
-            //cmd->BeginRenderPass(rp);
-
-            //cmd->EndRenderPass();
-            //cmd->EndEvent();
-            //device->Submit(cmd);
-        //}
+    private:
+        MainRenderer mainRenderer;
     };
 
     App* CreateApplication(int, char**)

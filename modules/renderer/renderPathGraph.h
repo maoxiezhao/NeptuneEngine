@@ -18,10 +18,17 @@ namespace VulkanTest
 
 	protected:
 		virtual void ResizeBuffers();
-		virtual void SetupRenderGraph(RenderGraph& renderGraph) = 0;
+		virtual void Setup(RenderGraph& renderGraph) = 0;
+		virtual void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) = 0;
+
+		void AddOutputColor(const char* name) {
+			outputColors.push_back(String(name));
+		}
 
 	private:
 		RenderGraph renderGraph;
 		U32x2 currentBufferSize {};
+		AttachmentInfo backInfo;
+		std::vector<String> outputColors;
 	};
 }

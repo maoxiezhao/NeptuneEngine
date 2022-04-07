@@ -12,7 +12,11 @@ namespace VulkanTest
 		RenderPathGraph::FixedUpdate();
 	}
 
-	void RenderPath2D::SetupRenderGraph(RenderGraph& renderGraph)
+	void RenderPath2D::Setup(RenderGraph& renderGraph)
+	{
+	}
+
+	void RenderPath2D::Compose(RenderGraph& renderGraph, GPU::CommandList* cmd)
 	{
 	}
 }
