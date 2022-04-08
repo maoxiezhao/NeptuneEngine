@@ -5,10 +5,10 @@ SamplerState sam : register(s0);
 struct Input
 {
 	float4 pos : SV_POSITION;
-	float2 tex : TEXCOORD0;
+	float2 uv : TEXCOORD0;
 };
 
 float4 main(Input input) : SV_TARGET
 {
-    return image.Sample(sam, input.tex);
+    return image.Sample(sam, input.uv);
 }

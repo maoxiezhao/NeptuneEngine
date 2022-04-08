@@ -52,7 +52,6 @@ namespace VulkanTest
     struct RenderGraphEvent
     {
         GPU::EventPtr ent;
-        VkPipelineStageFlags entStages = 0;
         GPU::SemaphorePtr waitGraphicsSemaphore;
         GPU::SemaphorePtr waitComputeSemaphore;
         VkAccessFlags invalidatedInStages[32] = {};
@@ -784,62 +783,62 @@ namespace VulkanTest
             for (auto& subpass : physicalPass.passes)
             {
                 auto& passBarrier = passBarriers[subpass];
-                auto& invalidate = passBarrier.invalidate;
-                auto& flush = passBarrier.flush;
+                auto& invalidates = passBarrier.invalidate;
+                auto& flushes = passBarrier.flush;
 
                 // Invalidate
-                for (auto& barrier : invalidate)
+                for (auto& invalidate : invalidates)
                 {
-                    auto& resState = resourceStates[barrier.resIndex];
-                    auto& dim = physicalDimensions[barrier.resIndex];
-                    if (dim.isTransient || barrier.resIndex == swapchainPhysicalIndex)
+                    auto& resState = resourceStates[invalidate.resIndex];
+                    auto& dim = physicalDimensions[invalidate.resIndex];
+                    if (dim.isTransient || invalidate.resIndex == swapchainPhysicalIndex)
                         continue;
 
                     // Find a physical pass first use of the resource
                     if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
                     {
-                        resState.invalidatedTypes |= barrier.access;
-                        resState.invalidatedStages |= barrier.stages;
+                        resState.invalidatedTypes |= invalidate.access;
+                        resState.invalidatedStages |= invalidate.stages;
 
                         if (dim.IsStorageImage())
                             resState.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
                         else
-                            resState.initialLayout = barrier.layout;
+                            resState.initialLayout = invalidate.layout;
                     }
 
                     if (dim.IsStorageImage())
                         resState.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
                     else
-                        resState.finalLayout = barrier.layout;
+                        resState.finalLayout = invalidate.layout;
 
                     resState.flushedStages = 0;
                     resState.flushedTypes = 0;
                 }
 
                 // Flush
-                for (auto& barrier : flush)
+                for (auto& flush : flushes)
                 {
-                    auto& resState = resourceStates[barrier.resIndex];
-                    auto& dim = physicalDimensions[barrier.resIndex];
-                    if (dim.isTransient || barrier.resIndex == swapchainPhysicalIndex)
+                    auto& resState = resourceStates[flush.resIndex];
+                    auto& dim = physicalDimensions[flush.resIndex];
+                    if (dim.isTransient || flush.resIndex == swapchainPhysicalIndex)
                         continue;
 
                     // Find a physical pass last use use of the resource
-                    resState.flushedTypes |= barrier.access;
-                    resState.flushedStages |= barrier.stages;
+                    resState.flushedTypes |= flush.access;
+                    resState.flushedStages |= flush.stages;
 
                     if (dim.IsStorageImage())
                         resState.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
                     else
-                        resState.finalLayout = barrier.layout;
+                        resState.finalLayout = flush.layout;
 
                     // No invalidation before first flush, invalidate first.
                     if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
                     {
-                        resState.initialLayout = barrier.layout;
-                        resState.invalidatedStages = barrier.stages;
+                        resState.initialLayout = flush.layout;
+                        resState.invalidatedStages = flush.stages;
 
-                        VkAccessFlags flags = barrier.access;
+                        VkAccessFlags flags = flush.access;
                         if (flags & VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
                             flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
                         if (flags & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
@@ -849,14 +848,16 @@ namespace VulkanTest
                         resState.invalidatedTypes = flags;
 
                         // Resource is not used in current pass, so we discard the resource
-                        physicalPass.discards.push_back(barrier.resIndex);
+                        physicalPass.discards.push_back(flush.resIndex);
                     }
                 }
             }
 
             for (auto& resState : resourceStates)
             {
-                if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED && resState.finalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+                // Resource was not used in the pass
+                if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED && 
+                    resState.finalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
                     continue;
 
                 U32 resIndex = U32(&resState - resourceStates.data());
@@ -1054,7 +1055,6 @@ namespace VulkanTest
             {
                 physicalImages[attachment] = physicalImages[physicalAliases[attachment]];
                 physicalAttachments[attachment] = &physicalImages[attachment]->GetImageView();
-                physicalEvents[attachment] = {};
                 return;
             }
 
@@ -1111,7 +1111,6 @@ namespace VulkanTest
                     physicalImages[attachment]->SetLayoutType(GPU::ImageLayoutType::General);
 
                 device.SetName(*physicalImages[attachment], physicalDim.name);
-                physicalEvents[attachment] = {};
             }
 
             physicalAttachments[attachment] = &physicalImages[attachment]->GetImageView();
@@ -1142,8 +1141,6 @@ namespace VulkanTest
                 physicalBuffers[attachment] = device.CreateBuffer(info, nullptr);
                 if (!physicalImages[attachment])
                     Logger::Error("Faile to create buffer of render graph.");
-
-                physicalEvents[attachment] = {};
             }
         };
 
@@ -1192,8 +1189,8 @@ namespace VulkanTest
 
     void RenderGraphImpl::HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue)
     {
-        bool useEvent = false;
-        bool useSempahore = false;
+        bool needEventBarrier = false;
+        bool needSempahore = false;
 
         auto& ent = physicalEvents[barrier.resIndex];
         auto& physicalRes = physicalDimensions[barrier.resIndex];
@@ -1206,8 +1203,7 @@ namespace VulkanTest
             if (image == nullptr)
                 return;
 
-            auto& imgInfo = image->GetCreateInfo();
-
+            // Create image memory barrier
             VkImageMemoryBarrier b = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
             b.image = image->GetImage();
             b.oldLayout = ent.imageLayout;
@@ -1216,9 +1212,12 @@ namespace VulkanTest
             b.dstAccessMask = barrier.access;
             b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
             b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            b.subresourceRange.levelCount = imgInfo.levels;
-            b.subresourceRange.aspectMask = GPU::formatToAspectMask(imgInfo.format);
-            b.subresourceRange.layerCount = imgInfo.layers;
+            b.subresourceRange.levelCount = image->GetCreateInfo().levels;
+            b.subresourceRange.layerCount = image->GetCreateInfo().layers;
+            b.subresourceRange.aspectMask = GPU::formatToAspectMask(image->GetCreateInfo().format);
+            
+            // Update image layout of event
+            ent.imageLayout = barrier.layout;
 
             bool layoutChange = b.oldLayout != b.newLayout;
             bool needSync = layoutChange || (ent.flushAccess != 0);
@@ -1227,7 +1226,7 @@ namespace VulkanTest
                 if (ent.ent)
                 {
                     state.eventImageBarriers.push_back(b);
-                    useEvent = true;
+                    needEventBarrier = true;
                 }
                 else
                 {
@@ -1240,7 +1239,7 @@ namespace VulkanTest
                             state.handoverBarriers.push_back(b);
                             state.handoverStages |= barrier.stages;
                         }
-                        useSempahore = true;
+                        needSempahore = true;
                     }
                     else
                     {
@@ -1253,17 +1252,17 @@ namespace VulkanTest
             }
         }
 
-        if (useEvent)
+        if (needEventBarrier)
         {
             ASSERT(ent.ent);
             auto it = std::find(state.events.begin(), state.events.end(), ent.ent->GetEvent());
             if (it == state.events.end())
                 state.events.push_back(ent.ent->GetEvent());
 
-            state.srcStages |= ent.entStages;
+            state.srcStages |= ent.ent->GetStages();
             state.dstStages |= barrier.stages;
         }
-        else if (useSempahore)
+        else if (needSempahore)
         {
             GPU::SemaphorePtr waitSemaphore = isGraphicsQueue ? ent.waitGraphicsSemaphore : ent.waitComputeSemaphore;
             ASSERT(waitSemaphore);
@@ -1296,8 +1295,8 @@ namespace VulkanTest
         }
         else
         {
+            ASSERT(state.signalEvent);
             ent.ent = state.signalEvent;
-            ent.entStages = state.signalEventStages;
         }
     }
 
@@ -1396,7 +1395,7 @@ namespace VulkanTest
                     state.signalEventStages |= barrier.stages;
             }
             if (state.signalEventStages != 0)
-                state.signalEvent = device.RequestEvent();
+                state.signalEvent = device.RequestSignalEvent(state.signalEventStages);
                 
             if (state.needSubmissionSemaphore)
             {
@@ -1620,7 +1619,7 @@ namespace VulkanTest
     {
         cmd->BeginEvent("RenderGraphSyncPost");
         if (signalEventStages != 0)
-            cmd->SignalEvent(signalEvent->GetEvent(), signalEventStages);
+            cmd->CompleteEvent(*signalEvent);
         cmd->EndEvent();
     }
 

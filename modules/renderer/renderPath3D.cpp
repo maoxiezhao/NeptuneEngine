@@ -20,7 +20,7 @@ namespace VulkanTest
 		color.sizeY = 1.0f;
 		color.samples = VK_SAMPLE_COUNT_1_BIT;
 
-		auto& pass3D = renderGraph.AddRenderPass("Pass3D", RenderGraphQueueFlag::Compute);
+		auto& pass3D = renderGraph.AddRenderPass("Pass3D", RenderGraphQueueFlag::Graphics);
 		pass3D.WriteColor("rtFinal3D", color);
 		pass3D.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
 			if (value != nullptr)
@@ -48,6 +48,8 @@ namespace VulkanTest
 
 		cmd->SetDefaultOpaqueState();
 		cmd->SetProgram("test/blitVS.hlsl", "test/blitPS.hlsl");
+		cmd->SetSampler(0, 0, GPU::StockSampler::NearestClamp);
+		cmd->SetTexture(1, 0, color);
 		cmd->Draw(3);
 
 		RenderPath2D::Compose(renderGraph, cmd);

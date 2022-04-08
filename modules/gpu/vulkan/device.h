@@ -261,6 +261,7 @@ public:
     SemaphorePtr RequestSemaphore();
     SemaphorePtr RequestEmptySemaphore();
     EventPtr RequestEvent();
+    EventPtr RequestSignalEvent(VkPipelineStageFlags stages);
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
@@ -381,11 +382,12 @@ private:
     {
         VkFence fence = VK_NULL_HANDLE;
     };
-    void SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
+    void SubmitNolock(CommandListPtr cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
     void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphores = nullptr);
     void SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores);
     VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);
     void SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush);
+    void LogDeviceLost();
 
     // internal wsi
     struct InternalWSI

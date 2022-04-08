@@ -167,12 +167,12 @@ VkCommandBuffer CommandPool::RequestCommandBuffer()
 
 void CommandPool::BeginFrame()
 {
+    if (pool == VK_NULL_HANDLE)
+        return;
+
     if (usedIndex > 0)
-    {
-        usedIndex = 0;
-        if (pool != VK_NULL_HANDLE)
-            vkResetCommandPool(device->device, pool, 0);
-    }
+        vkResetCommandPool(device->device, pool, 0);
+    usedIndex = 0;
 }
 
 void CommandListDeleter::operator()(CommandList* cmd)
@@ -186,6 +186,7 @@ CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueTy
     cmd(buffer_),
     type(type_)
 {
+    memset(&bindings, 0, sizeof(bindings));
 }
 
 CommandList::~CommandList()
@@ -555,8 +556,8 @@ void CommandList::SetSampler(U32 set, U32 binding, const Sampler& sampler)
 
     ResourceBinding& resBinding = bindings.bindings[set][binding];
     resBinding.image.sampler = sampler.GetSampler();
-    dirtySets |= 1u << set;
     bindings.cookies[set][binding] = sampler.GetCookie();
+    dirtySets |= 1u << set;
 }
 
 void CommandList::SetSampler(U32 set, U32 binding, StockSampler type)
@@ -574,12 +575,11 @@ void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
 
     ResourceBinding& resBinding = bindings.bindings[set][binding];
     resBinding.image.imageView = imageView.GetImageView();
-    resBinding.image.imageLayout =
-        imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal ?
+    resBinding.image.imageLayout = imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal ?
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 
-    dirtySets |= 1u << set;
     bindings.cookies[set][binding] = imageView.GetCookie();
+    dirtySets |= 1u << set;
 }
 
 void CommandList::NextSubpass(VkSubpassContents contents)
@@ -634,11 +634,11 @@ void CommandList::Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags ds
     vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, imageBarrierCount, imageBarriers);
 }
 
-void CommandList::SignalEvent(VkEvent ent, VkPipelineStageFlags stageMask)
+void CommandList::CompleteEvent(const Event& ent)
 {
-    ASSERT(stageMask != 0);
     ASSERT(frameBuffer == nullptr);
-    vkCmdSetEvent(cmd, ent, stageMask);
+    ASSERT(ent.GetStages() != 0);
+    vkCmdSetEvent(cmd, ent.GetEvent(), ent.GetStages());
 }
 
 void CommandList::WaitEvents(U32 numEvents, VkEvent* events,
@@ -787,7 +787,7 @@ void CommandList::FlushDescriptorSet(U32 set)
     }
 
     // allocator new descriptor set
-    auto allocator = currentLayout->GetAllocator(set);
+    DescriptorSetAllocator* allocator = currentLayout->GetAllocator(set);
     if (allocator == nullptr)
         return;
     
@@ -797,17 +797,16 @@ void CommandList::FlushDescriptorSet(U32 set)
     for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
     {
         ForEachBit(setLayout.masks[maskbit], [&](U32 binding) {
-            for (U8 i = 0; i < setLayout.arraySize[binding]; i++)
-            {
+            for (U8 i = 0; i < setLayout.arraySize[binding]; i++) {
                 hasher.HashCombine(bindings.cookies[set][binding + i]);
             }
         });
     }
 
     auto allocated = allocator->GetOrAllocate(threadIndex, hasher.Get());
-    // The descriptor set was not successfully cached, rebuild.
-	if (!allocated.second)
-	{
+	if (!allocated.second) 
+    {
+        // allocated.first -> VkDescriptorSet, rebuild descriptor set
         UpdateDescriptorSet(device, allocated.first, resLayout.sets[set], bindings.bindings[set]);
     }
 
@@ -815,7 +814,7 @@ void CommandList::FlushDescriptorSet(U32 set)
         cmd, 
         VK_PIPELINE_BIND_POINT_GRAPHICS, 
         currentPipelineLayout,
-        0, 
+        set, 
         1, 
         &allocated.first,
         0,

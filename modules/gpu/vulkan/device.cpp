@@ -381,23 +381,23 @@ IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListForThread(int threadIn
 IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex, QueueType queueType)
 {
     // Only support main thread now
-    auto& pools = CurrentFrameResource().cmdPools[(int)queueType];
+    QueueIndices queueIndex = GetQueueIndexFromQueueType(queueType);
+    auto& pools = CurrentFrameResource().cmdPools[(int)queueIndex];
 
     ASSERT_MSG(threadIndex >= 0 && threadIndex < pools.size(), (std::string("Unknown thread index") + std::to_string(threadIndex)).c_str());
-
     CommandPool& pool = pools[threadIndex];
-    VkCommandBuffer buffer = pool.RequestCommandBuffer();
-    if (buffer == VK_NULL_HANDLE)
+    VkCommandBuffer cmd = pool.RequestCommandBuffer();
+    if (cmd == VK_NULL_HANDLE)
         return IntrusivePtr<CommandList>();
 
     VkCommandBufferBeginInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
     info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    VkResult res = vkBeginCommandBuffer(buffer, &info);
+    VkResult res = vkBeginCommandBuffer(cmd, &info);
     assert(res == VK_SUCCESS);
-
-    IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, buffer, queueType));
-    cmdPtr->SetThreadIndex(threadIndex);
     AddFrameCounter();
+
+    IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, cmd, queueType));
+    cmdPtr->SetThreadIndex(threadIndex);
     return cmdPtr;
 }
 
@@ -542,6 +542,14 @@ EventPtr DeviceVulkan::RequestEvent()
     LOCK();
     VkEvent ent = eventManager.Requset();
     return EventPtr(eventPool.allocate(*this, ent));
+}
+
+EventPtr DeviceVulkan::RequestSignalEvent(VkPipelineStageFlags stages)
+{
+    VkEvent ent = eventManager.Requset();
+    EventPtr ret = EventPtr(eventPool.allocate(*this, ent));
+    ret->SetStages(stages);
+    return ret;
 }
 
 Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout)
@@ -1236,7 +1244,7 @@ void DeviceVulkan::FlushFrame(QueueIndices queueIndex)
 void DeviceVulkan::Submit(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
     LOCK();
-    SubmitNolock(cmd, fence, semaphoreCount, semaphore);
+    SubmitNolock(std::move(cmd), fence, semaphoreCount, semaphore);
 }
 
 void DeviceVulkan::SetAcquireSemaphore(U32 index, SemaphorePtr acquire)
@@ -1663,7 +1671,7 @@ void DeviceVulkan::MoveReadWriteCachesToReadOnly()
 #endif
 }
 
-void DeviceVulkan::SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
+void DeviceVulkan::SubmitNolock(CommandListPtr cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
     cmd->EndCommandBuffer();
 
@@ -1672,12 +1680,18 @@ void DeviceVulkan::SubmitNolock(CommandListPtr& cmd, FencePtr* fence, U32 semaph
     submissions.push_back(std::move(cmd));
 
     InternalFence signalledFence;
-    if (fence != nullptr || (semaphoreCount > 0 && semaphore != nullptr)) {
-        SubmitQueue(queueIndex, fence != nullptr ? &signalledFence : nullptr, semaphoreCount, semaphore);
+    if (fence != nullptr || semaphoreCount > 0) 
+    {
+        SubmitQueue(queueIndex, 
+            fence != nullptr ? &signalledFence : nullptr, 
+            semaphoreCount, semaphore);
     }
 
     if (fence)
+    {
+        ASSERT(!(*fence)); // Fence must be empty
         *fence = FencePtr(fencePool.allocate(*this, signalledFence.fence));
+    }
 
     DecrementFrameCounter();
 }
@@ -1779,10 +1793,9 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
 
     VkResult ret = SubmitBatches(batchComposer, queue, clearedFence);
     if (ret != VK_SUCCESS)
-    {
-        Logger::Error("Submit queue failed: %d", ret);
-        return;
-    }
+        Logger::Error("Submit queue failed (code: %d)", (int)ret);
+    if (ret == VK_ERROR_DEVICE_LOST)
+        LogDeviceLost();
 
     submissions.clear();
 
@@ -1926,6 +1939,10 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
             SubmitNolock(cmd, nullptr, 0, nullptr);
         }
     }
+}
+
+void DeviceVulkan::LogDeviceLost()
+{
 }
 
 DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_) : device(device_)

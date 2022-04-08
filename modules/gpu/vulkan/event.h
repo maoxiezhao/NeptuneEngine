@@ -24,6 +24,16 @@ public:
         return ent;
     }
 
+    VkPipelineStageFlags GetStages()const
+    {
+        return stages;
+    }
+
+    void SetStages(VkPipelineStageFlags stages_)
+    {
+        stages = stages_;
+    }
+
 private:
     friend class DeviceVulkan;
     friend struct EventDeleter;
@@ -31,6 +41,7 @@ private:
 
     DeviceVulkan& device;
     VkEvent ent;
+    VkPipelineStageFlags stages = 0;
 };
 using EventPtr = IntrusivePtr<Event>;
 
