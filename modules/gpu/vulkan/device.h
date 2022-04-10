@@ -354,6 +354,7 @@ private:
 
     void AddFrameCounter();
     void DecrementFrameCounter();
+    void SyncBufferBlocks();
 
     // stock samplers
     void InitStockSamplers();
@@ -388,6 +389,7 @@ private:
     VkResult SubmitBatches(BatchComposer& composer, VkQueue queue, VkFence fence);
     void SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush);
     void LogDeviceLost();
+    void CollectWaitSemaphores(QueueData& data, WaitSemaphores& waitSemaphores);
 
     // internal wsi
     struct InternalWSI

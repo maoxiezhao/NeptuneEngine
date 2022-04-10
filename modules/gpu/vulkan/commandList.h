@@ -175,6 +175,9 @@ public:
     void BeginEvent(const char* name);
     void EndEvent();
 
+    // Used to end command buffer in a thread, and submitting in a different thread.
+    void EndCommandBufferForThread();
+
     void SetThreadIndex(U32 threadIndex_)
     {
         threadIndex = threadIndex_;

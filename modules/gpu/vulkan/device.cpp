@@ -1237,8 +1237,13 @@ void DeviceVulkan::FlushFrames()
 
 void DeviceVulkan::FlushFrame(QueueIndices queueIndex)
 {
-    if (queueInfo.queues[queueIndex] != VK_NULL_HANDLE)
-        SubmitQueue(queueIndex, nullptr, 0, nullptr);
+    if (queueInfo.queues[queueIndex] == VK_NULL_HANDLE)
+        return;
+
+    if (queueIndex == QueueIndices::QUEUE_INDEX_TRANSFER)
+        SyncBufferBlocks();
+
+    SubmitQueue(queueIndex, nullptr, 0, nullptr);
 }
 
 void DeviceVulkan::Submit(CommandListPtr& cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
@@ -1705,7 +1710,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
     if (submissions.empty())
     {
-        if (fence != nullptr || (semaphoreCount > 0 && semaphores != nullptr))
+        if (fence != nullptr || semaphoreCount > 0)
             SubmitEmpty(queueIndex, fence, semaphoreCount, semaphores);
         return;
     }
@@ -1715,23 +1720,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
     // Collect wait semaphores
     WaitSemaphores waitSemaphores = {};
     QueueData& queueData = queueDatas[queueIndex];
-    for (int i = 0; i < queueData.waitSemaphores.size(); i++)
-    {
-        SemaphorePtr& semaphore = queueData.waitSemaphores[i];
-        VkSemaphore vkSemaphore = semaphore->Consume(); // Semaphore is signalled
-        if (semaphore->GetTimeLine() <= 0)
-        {
-            if (semaphore->CanRecycle())
-                RecycleSemaphoreNolock(vkSemaphore);
-            else
-                ReleaseSemaphoreNolock(vkSemaphore);
-
-            waitSemaphores.binaryWaits.push_back(vkSemaphore);
-            waitSemaphores.binaryWaitStages.push_back(queueData.waitStages[i]);
-        }
-    }
-    queueData.waitSemaphores.clear();
-    queueData.waitStages.clear();
+    CollectWaitSemaphores(queueData, waitSemaphores);
     batchComposer.AddWaitSemaphores(waitSemaphores);
 
     // Compose submit batches
@@ -1739,24 +1728,23 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
     for (int i = 0; i < submissions.size(); i++)
     {
         auto& cmd = submissions[i];
-        VkPipelineStageFlags stages = cmd->GetSwapchainStages();  
+        VkPipelineStageFlags wsiStages = cmd->GetSwapchainStages();  
 
         // For first command buffer which uses WSI, need to emit WSI acquire wait 
-        if (stages != 0 && !wsi.consumed)
+        if (wsiStages != 0 && !wsi.consumed)
         {
             // Acquire semaphore
             if (wsi.acquire && wsi.acquire->GetSemaphore() != VK_NULL_HANDLE)
             {
                 ASSERT(wsi.acquire->IsSignalled());
-                batchComposer.AddWaitSemaphore(wsi.acquire, stages);
+                batchComposer.AddWaitSemaphore(wsi.acquire, wsiStages);
                 if (wsi.acquire->GetTimeLine() <= 0)
                 {
                     if (wsi.acquire->CanRecycle())
-                        RecycleSemaphoreNolock(wsi.acquire->GetSemaphore());
-                    else 
-                        ReleaseSemaphoreNolock(wsi.acquire->GetSemaphore());
+                        CurrentFrameResource().recycledSemaphroes.push_back(wsi.acquire->GetSemaphore());
+                    else
+                        CurrentFrameResource().destroyeSemaphores.push_back(wsi.acquire->GetSemaphore());
                 }
-
                 wsi.acquire->Consume();
                 wsi.acquire.reset();
             }
@@ -1774,6 +1762,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
         }
         else
         {
+            ASSERT(wsiStages == 0);
             batchComposer.AddCommandBuffer(cmd->GetCommandBuffer());
         }
     }
@@ -1810,23 +1799,7 @@ void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U3
     // Colloect wait semaphores
     WaitSemaphores waitSemaphores = {};
     QueueData& queueData = queueDatas[queueIndex];
-    for (int i = 0; i < queueData.waitSemaphores.size(); i++)
-    {
-        SemaphorePtr& semaphore = queueData.waitSemaphores[i];
-        VkSemaphore vkSemaphore = semaphore->Consume();
-        if (semaphore->GetTimeLine() <= 0)
-        {
-            if (semaphore->CanRecycle())
-                RecycleSemaphoreNolock(vkSemaphore);
-            else
-                ReleaseSemaphoreNolock(vkSemaphore);
-
-            waitSemaphores.binaryWaits.push_back(vkSemaphore);
-            waitSemaphores.binaryWaitStages.push_back(queueData.waitStages[i]);
-        }
-    }
-    queueData.waitSemaphores.clear();
-    queueData.waitStages.clear();
+    CollectWaitSemaphores(queueData, waitSemaphores);
 
     BatchComposer batchComposer;
     batchComposer.AddWaitSemaphores(waitSemaphores);
@@ -1945,6 +1918,27 @@ void DeviceVulkan::LogDeviceLost()
 {
 }
 
+void DeviceVulkan::CollectWaitSemaphores(QueueData& data, WaitSemaphores& waitSemaphores)
+{
+    for (int i = 0; i < data.waitSemaphores.size(); i++)
+    {
+        SemaphorePtr& semaphore = data.waitSemaphores[i];
+        VkSemaphore vkSemaphore = semaphore->Consume(); // Semaphore is signalled
+        if (semaphore->GetTimeLine() <= 0)
+        {
+            if (semaphore->CanRecycle())
+                RecycleSemaphoreNolock(vkSemaphore);
+            else
+                ReleaseSemaphoreNolock(vkSemaphore);
+
+            waitSemaphores.binaryWaits.push_back(vkSemaphore);
+            waitSemaphores.binaryWaitStages.push_back(data.waitStages[i]);
+        }
+    }
+    data.waitSemaphores.clear();
+    data.waitStages.clear();
+}
+
 DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_) : device(device_)
 {
     const int THREAD_COUNT = device.numThreads;
@@ -2056,6 +2050,19 @@ void BatchComposer::BeginBatch()
     }
 }
 
+void BatchComposer::AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages)
+{
+    if (!sem)
+        return;
+
+    // 添加wait semaphores时先将之前的cmds batch
+    if (!submitInfos[submitIndex].commandLists.empty())
+        BeginBatch();
+
+    submitInfos[submitIndex].waitSemaphores.push_back(sem->GetSemaphore());
+    submitInfos[submitIndex].waitStages.push_back(stages);
+}
+
 void BatchComposer::AddWaitSemaphores(WaitSemaphores& semaphores)
 {
     if (!semaphores.binaryWaits.empty())
@@ -2063,19 +2070,9 @@ void BatchComposer::AddWaitSemaphores(WaitSemaphores& semaphores)
         for (int i = 0; i < semaphores.binaryWaits.size(); i++)
         {
             submitInfos[submitIndex].waitSemaphores.push_back(semaphores.binaryWaits[i]);
-            submitInfos[submitIndex].waitStages.push_back(semaphores.binaryWaitStages[i]);    
+            submitInfos[submitIndex].waitStages.push_back(semaphores.binaryWaitStages[i]);
         }
     }
-}
-
-void BatchComposer::AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages)
-{
-    // 添加wait semaphores时先将之前的cmds batch
-    if (!submitInfos[submitIndex].commandLists.empty())
-        BeginBatch();
-
-    submitInfos[submitIndex].waitSemaphores.push_back(sem->GetSemaphore());
-    submitInfos[submitIndex].waitStages.push_back(stages);
 }
 
 void BatchComposer::AddSignalSemaphore(VkSemaphore sem)
@@ -2141,6 +2138,10 @@ void DeviceVulkan::DecrementFrameCounter()
 #ifdef VULKAN_MT
     cond.notify_all();
 #endif
+}
+
+void DeviceVulkan::SyncBufferBlocks()
+{
 }
 
 void DeviceVulkan::InitStockSamplers()

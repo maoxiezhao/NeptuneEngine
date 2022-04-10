@@ -417,15 +417,7 @@ void CommandList::ResetCommandContext()
 
 void CommandList::EndCommandBuffer()
 {
-    if (!isEnded)
-    {
-        isEnded = true;
-
-    /*    U32 curretnThreadIndex = Platform::GetCurrentThreadIndex();
-        ASSERT(curretnThreadIndex == threadIndex);*/
-        VkResult res = vkEndCommandBuffer(cmd);
-        ASSERT(res == VK_SUCCESS);
-    }
+    EndCommandBufferForThread();
 
     if (vboBlock.mapped != nullptr)
         device.RequestVertexBufferBlockNolock(vboBlock, 0);
@@ -647,6 +639,10 @@ void CommandList::WaitEvents(U32 numEvents, VkEvent* events,
         U32 bufferMemoryBarrierCount, const VkBufferMemoryBarrier* pBufferMemoryBarriers,
         U32 imageMemoryBarrierCount, const VkImageMemoryBarrier* pImageMemoryBarriers)
 {
+    ASSERT(frameBuffer == nullptr);
+    ASSERT(srcStageMask != 0);
+    ASSERT(dstStageMask != 0);
+
     vkCmdWaitEvents(
         cmd,
         numEvents, events,
@@ -680,6 +676,19 @@ void CommandList::EndEvent()
         if (vkCmdEndDebugUtilsLabelEXT)
             vkCmdEndDebugUtilsLabelEXT(cmd);
     }
+}
+
+void CommandList::EndCommandBufferForThread()
+{
+    if (isEnded)
+        return;
+    isEnded = true;
+
+    // Must end a cmd on a same thread we requested it on
+    ASSERT(Platform::GetCurrentThreadIndex() == threadIndex);
+
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
+        Logger::Error("Failed to end command buffer");
 }
 
 bool CommandList::FlushRenderState()

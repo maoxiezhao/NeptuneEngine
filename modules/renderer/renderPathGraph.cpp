@@ -28,9 +28,9 @@ namespace VulkanTest
 	{
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		renderGraph.SetupAttachments(*device, &device->GetSwapchainView());
-		Jobsystem::JobHandle handle = Jobsystem::INVALID_HANDLE;
+		Jobsystem::JobHandle handle;
 		renderGraph.Render(*device, handle);
-		Jobsystem::Wait(handle);
+		Jobsystem::Wait(&handle);
 
 		device->MoveReadWriteCachesToReadOnly();
 	}

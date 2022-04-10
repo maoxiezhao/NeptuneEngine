@@ -32,7 +32,7 @@ namespace Jobsystem
     {
         JobFunc task = nullptr;
         void* data = nullptr;
-        JobHandle finishHandle;
+        JobHandle* onFinishedHandle;
         U8 workerIndex;
     };
 
@@ -56,27 +56,18 @@ namespace Jobsystem
         U32 generation = 0;	// use for check
     };
 
+    static volatile I32 gGeneration = 0;
+
     struct ManagerImpl
     {
-    public:
         Mutex sync;
         ConditionMutex jobQueueLock;
-        JobCounter handleCounters[MAX_JOB_HANDLE_COUNT];
-        std::vector<U32> handlePool;
+
         std::vector<WorkerFiber*> readyFibers;
         std::vector<WorkerFiber*> freeFibers;
         WorkerFiber fiberPool[MAX_FIBER_COUNT];
         std::vector<WorkerThread*> workers;
         std::vector<JobImpl> jobQueue;
-
-    public:
-        ManagerImpl();
-
-        JobHandle AllocateHandle();
-        bool IsHandleValid(JobHandle jobHandle)const;
-        bool IsHandleZero(JobHandle jobHandle);
-        bool Trigger(JobHandle jobHandle);
-        void PushJob(JobImpl job);
     };
 
     static LocalPtr<ManagerImpl> gManager;
@@ -127,89 +118,6 @@ namespace Jobsystem
             return 0;
         }
     };
-
-    ManagerImpl::ManagerImpl()
-    {
-        handlePool.resize(MAX_JOB_HANDLE_COUNT);
-        for (int i = 0; i < MAX_JOB_HANDLE_COUNT; i++)
-            handlePool[i] = i;
-    }
-
-    JobHandle ManagerImpl::AllocateHandle()
-    {
-        if (handlePool.empty())
-            return INVALID_HANDLE;
-
-        U32 handle = handlePool.back();
-        handlePool.pop_back();
-        JobCounter& counter = handleCounters[handle & HANDLE_ID_MASK];
-        counter.value = 1;
-        counter.waitor = nullptr;
-        return (handle & HANDLE_ID_MASK) | counter.generation;
-    }
-
-    bool ManagerImpl::IsHandleValid(JobHandle jobHandle)const
-    {
-        return jobHandle != INVALID_HANDLE;
-    }
-
-    bool ManagerImpl::IsHandleZero(JobHandle jobHandle)
-    {
-        if (!IsHandleValid(jobHandle))
-            return false;
-
-        const U32 id = jobHandle & HANDLE_ID_MASK;
-        const U32 generation = jobHandle & HANDLE_GENERATION_MASK;
-        return handleCounters[id].value == 0 || handleCounters[id].generation != generation;
-    }
-
-    bool ManagerImpl::Trigger(JobHandle jobHandle)
-    {
-        ScopedMutex lock(sync);
-        JobCounter& counter = handleCounters[jobHandle & HANDLE_ID_MASK];
-        counter.value--;
-        if (counter.value > 0)
-            return false;
-
-        JobWaitor* waitor = counter.waitor;
-        while (waitor != nullptr)
-        {
-            JobWaitor* next = waitor->next;
-            U8 workerIndex = waitor->fiber->currentJob.workerIndex;
-            ScopedConditionMutex lock(jobQueueLock);
-            if (workerIndex == ANY_WORKER)
-            {
-                readyFibers.push_back(waitor->fiber);
-                for (auto worker : workers)
-                    worker->Wakeup();
-            }
-            else
-            {
-                WorkerThread* worker = gManager->workers[workerIndex % gManager->workers.size()];
-                worker->readyFibers.push_back(waitor->fiber);
-                worker->Wakeup();
-            }
-            waitor = next;
-        }
-        counter.waitor = nullptr;
-        return true;
-    }
-
-    void ManagerImpl::PushJob(JobImpl job)
-    {
-        if (job.workerIndex == ANY_WORKER)
-        {
-            jobQueue.push_back(job);
-            for (auto worker : workers)
-                worker->Wakeup();
-        }
-        else
-        {
-            WorkerThread* worker = gManager->workers[job.workerIndex % gManager->workers.size()];
-            worker->jobQueue.push_back(job);
-            worker->Wakeup();
-        }
-    }
 
     //////////////////////////////////////////////////////////////
     // Methods
@@ -276,27 +184,35 @@ namespace Jobsystem
         job.data = data;
         job.task = task;
         job.workerIndex = U8(workerIndex != ANY_WORKER ? workerIndex % gManager->workers.size() : ANY_WORKER);
-
-        ScopedMutex guard(gManager->sync);
-        job.finishHandle = [&]() 
-        {
-            if (handle == nullptr)
-                return INVALID_HANDLE;
-
-            if (gManager->IsHandleValid(*handle) && !gManager->IsHandleZero(*handle))
-            {
-                gManager->handleCounters[*handle & HANDLE_ID_MASK].value++;
-                return *handle;
-            }
-
-            return gManager->AllocateHandle();
-        }();
+        job.onFinishedHandle = handle;
 
         if (handle != nullptr)
-            *handle = job.finishHandle;
+        {
+            ScopedMutex guard(gManager->sync);
+            handle->counter++;
+            if (handle->counter == 1)
+                handle->generation = AtomicIncrement(&gGeneration);
+        }
 
-        ScopedConditionMutex lock(gManager->jobQueueLock);
-        gManager->PushJob(job);
+        // Push job for worker
+        if (job.workerIndex == ANY_WORKER)
+        {
+            {
+                ScopedConditionMutex lock(gManager->jobQueueLock);
+                gManager->jobQueue.push_back(job);
+            }
+            for (auto worker : gManager->workers)
+                worker->Wakeup();
+        }
+        else
+        {
+            WorkerThread* worker = gManager->workers[job.workerIndex % gManager->workers.size()];
+            {
+                ScopedConditionMutex lock(gManager->jobQueueLock);
+                worker->jobQueue.push_back(job);
+            }
+            worker->Wakeup();
+        }
     }
 
     void Run(void*data, JobFunc func, JobHandle* handle, U8 workerIndex)
@@ -309,35 +225,37 @@ namespace Jobsystem
         );
     }
 
-    void Wait(JobHandle handle)
+    void Wait(JobHandle* handle)
     {
+        if (handle == nullptr || handle->counter == 0)
+            return;
+
         gManager->sync.Lock();
-        if (gManager->IsHandleZero(handle))
+        if (handle->counter == 0)
         {
             gManager->sync.Unlock();
             return;
         }
     
+        // No worker, just sleep
         if (GetWorker() == nullptr)
         {
-            while (!gManager->IsHandleZero(handle))
+            while (handle->counter > 0)
             {
                 gManager->sync.Unlock();
                 Platform::Sleep(1);
                 gManager->sync.Lock();
             }
-
             gManager->sync.Unlock();
             return;
         }
 
-        JobCounter& counter = gManager->handleCounters[handle & HANDLE_ID_MASK];
+        // Set the current fiber as the next waitor of the pending handle
         WorkerFiber* currentFiber = GetWorker()->currentFiber;
-
         JobWaitor waitor = {};
         waitor.fiber = currentFiber;
-        waitor.next = counter.waitor;
-        counter.waitor = &waitor;
+        waitor.next = handle->waitor;
+        handle->waitor = &waitor;
             
         // Get free fiber
         WorkerFiber* newFiber = gManager->freeFibers.back();
@@ -349,6 +267,56 @@ namespace Jobsystem
         Fiber::SwitchTo(currentFiber->handle, newFiber->handle);
         GetWorker()->currentFiber = currentFiber;
         gManager->sync.Unlock();
+    }
+
+    bool Trigger(JobHandle* jobHandle)
+    {
+        JobWaitor* waitor = nullptr;
+        {
+            ScopedMutex lock(gManager->sync);
+            jobHandle->counter--;
+            ASSERT(jobHandle->counter >= 0);
+            if (jobHandle->counter > 0)
+                return false;
+
+            waitor = jobHandle->waitor;
+            jobHandle->waitor = nullptr;
+        }
+
+        if (waitor == nullptr)
+            return false;
+
+        bool needWakeAll = false;
+        {
+            ScopedConditionMutex lock(gManager->jobQueueLock);
+            while (waitor != nullptr)
+            {
+                JobWaitor* next = waitor->next;
+                U8 workerIndex = waitor->fiber->currentJob.workerIndex; 
+                if (workerIndex == ANY_WORKER)
+                {
+                    gManager->readyFibers.push_back(waitor->fiber);
+                    needWakeAll = true;
+
+                }
+                else
+                {
+                    WorkerThread* worker = gManager->workers[workerIndex % gManager->workers.size()];
+                    worker->readyFibers.push_back(waitor->fiber);
+                    if (!needWakeAll)
+                        worker->Wakeup();
+                }
+                waitor = next;
+            }
+        }
+
+        if (needWakeAll)
+        {
+            for (auto worker : gManager->workers)
+                worker->Wakeup();
+        }
+
+        return true;
     }
 
 #ifdef _WIN32
@@ -421,8 +389,8 @@ namespace Jobsystem
                 job.task(job.data);
                 currentFiber->currentJob.task = nullptr;
 
-                if (gManager->IsHandleValid(job.finishHandle))
-                    gManager->Trigger(job.finishHandle);
+                if (job.onFinishedHandle)
+                    Trigger(job.onFinishedHandle);
 
                 worker = GetWorker();
             }

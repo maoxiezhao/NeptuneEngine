@@ -290,6 +290,11 @@ public:
         return inputTextures;
     }
 
+    const std::vector<RenderTextureResource*>& GetInputColors()const
+    {
+        return inputColors;
+    }
+
     const std::vector<RenderTextureResource*>& GetOutputColors()const
     {
         return outputColors;
@@ -365,6 +370,7 @@ private:
     RenderTextureResource* inputDepthStencil = nullptr;
     RenderTextureResource* outputDepthStencil = nullptr;
     std::vector<AccessedTextureResource> inputTextures;
+    std::vector<RenderTextureResource*> inputColors;
     std::vector<RenderTextureResource*> outputColors;
     std::vector<RenderBufferResource*> inputBuffers;
     std::vector<RenderBufferResource*> outputBuffers;

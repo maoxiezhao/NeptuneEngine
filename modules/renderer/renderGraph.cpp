@@ -1,11 +1,15 @@
 #include "renderer.h"
 #include "renderGraph.h"
+#include "gpu\vulkan\typeToString.h"
 #include "core\memory\memory.h"
+#include "core\jobsystem\jobsystem.h"
 
 #include <stack>
 
 namespace VulkanTest
 {
+#define RENDER_GRAPH_LOGGING_LEVEL (0)
+
     struct Barrier
     {
         U32 resIndex = 0;
@@ -61,6 +65,7 @@ namespace VulkanTest
 
     struct GPUPassSubmissionState
     {
+        const char* name = nullptr;
         bool active = false;
         GPU::CommandListPtr cmd;
         bool isGraphics = true;
@@ -84,7 +89,8 @@ namespace VulkanTest
         GPU::SemaphorePtr graphicsSemaphore;
         GPU::SemaphorePtr computeSemaphore;
 
-        Jobsystem::JobHandle renderingDependency = Jobsystem::INVALID_HANDLE;
+        Jobsystem::JobHandle renderingDependency;
+        Jobsystem::JobHandle submissionHandle;
 
         void EmitPrePassBarriers();
         void EmitPostPassBarriers();
@@ -551,8 +557,8 @@ namespace VulkanTest
                     subPass.colorAttachments[i] = ret.first;
                     if (ret.second)
                     {
-                        // This is the first tiem to use color attachment
-                        bool hasColorInput = false;
+                        // This is the first time to use color attachment
+                        bool hasColorInput = !pass.GetInputColors().empty() && pass.GetInputColors()[i] != nullptr;
                         if (hasColorInput)
                         {
                             renderPassInfo.loadAttachments |= 1u << ret.first;
@@ -1255,12 +1261,12 @@ namespace VulkanTest
         if (needEventBarrier)
         {
             ASSERT(ent.ent);
+            state.srcStages |= ent.ent->GetStages();
+            state.dstStages |= barrier.stages;
+
             auto it = std::find(state.events.begin(), state.events.end(), ent.ent->GetEvent());
             if (it == state.events.end())
                 state.events.push_back(ent.ent->GetEvent());
-
-            state.srcStages |= ent.ent->GetStages();
-            state.dstStages |= barrier.stages;
         }
         else if (needSempahore)
         {
@@ -1351,6 +1357,9 @@ namespace VulkanTest
                 continue;
 
             auto& state = submissionStates[i];
+#ifdef DEBUG
+            state.name = renderPasses[physicalPass.passes[0]]->GetName().c_str();
+#endif
             U32 queueFlag = renderPasses[physicalPass.passes[0]]->GetQueue();
             switch (queueFlag)
             {
@@ -1401,7 +1410,6 @@ namespace VulkanTest
             {
                 state.graphicsSemaphore = device.RequestEmptySemaphore();
                 state.computeSemaphore = device.RequestEmptySemaphore();
-                ASSERT(state.graphicsSemaphore->IsSignalled());
             }
 
             // Handle flush barriers
@@ -1421,15 +1429,16 @@ namespace VulkanTest
             state.active = true;
         }
 
-        // Do gpu behaviors
+        // Do gpu behaviors, could be run in parallel.
         for (U32 i = 0; i < submissionStates.size(); i++)
         {
             auto& state = submissionStates[i];
             if (!state.active)
                 continue;
 
+            ASSERT(state.renderingDependency.counter == 0);
+
             auto& physicalPass = physicalPasses[i];
-            Jobsystem::JobHandle renderHandle = Jobsystem::INVALID_HANDLE;
             Jobsystem::Run(&state, [this, &device, &physicalPass](void* data)->void {
                 GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
                 if (state == nullptr)
@@ -1452,41 +1461,158 @@ namespace VulkanTest
 
                 state->EmitPostPassBarriers();
 
-            }, &renderHandle, i);
-            state.renderingDependency = renderHandle;
+                // We end this cmd on a same thread we requested it on
+                cmd->EndCommandBufferForThread();
+
+#if RENDER_GRAPH_LOGGING_LEVEL >= 1
+                Logger::Print("Pass %s execute", state->name);
+#endif
+
+            }, & state.renderingDependency);
+
+            ASSERT(state.renderingDependency.counter > 0);
         }
 
-        // Submit all states
-        Jobsystem::JobHandle stateHandle = Jobsystem::INVALID_HANDLE;
+        // Sequential submit all states
+        Jobsystem::JobHandle* lastSubmissionHandle = nullptr;
         for (auto& state : submissionStates)
         {
             if (state.active == false)
                 continue;
 
-            Jobsystem::JobHandle dependency = state.renderingDependency;
-            state.renderingDependency = Jobsystem::INVALID_HANDLE;
+            Jobsystem::JobHandle* renderingDependency = nullptr;
+            if (state.renderingDependency)
+                renderingDependency = &state.renderingDependency;
+          
+            Jobsystem::Run(&state, [lastSubmissionHandle, renderingDependency](void* data)->void {
+                // Wait previous submission
+                Jobsystem::Wait(lastSubmissionHandle);
+                // Wait GPU behavior
+                Jobsystem::Wait(renderingDependency);
 
-            Jobsystem::Run(&state, [dependency](void* data)->void
-            {
-                Jobsystem::Wait(dependency);
                 GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
                 if (state == nullptr || !state->cmd)
                     return;
 
                 state->Submit();
-            }, &stateHandle);
+
+#if RENDER_GRAPH_LOGGING_LEVEL >= 1
+                Logger::Print("Pass %s submit", state->name);
+#endif
+            }, &state.submissionHandle);
+
+            lastSubmissionHandle = &state.submissionHandle;
         }
-        Jobsystem::Wait(stateHandle);
 
         // Flush swapchain
-        Jobsystem::Run(nullptr, [&device](void* data)->void {
+        Jobsystem::Run(nullptr, [&device, lastSubmissionHandle](void* data)->void {
+            Jobsystem::Wait(lastSubmissionHandle);
             device.FlushFrames();
+
+#if RENDER_GRAPH_LOGGING_LEVEL >= 1
+            Logger::Print("FlushFrames");
+#endif
         }, &jobHandle);
     }
 
     void RenderGraphImpl::Log()
     {
+        Logger::Info("----------------------------------------------------");
+        Logger::Info("RenderGraph");
+        Logger::Info("----------------------------------------------------");
+        // Resources
+        Logger::Info("Resource:");
+        for (auto& res : physicalDimensions)
+        {
+            if (res.bufferInfo.size)
+            {
+                Logger::Info("Resource #%u (%s): size: %u",
+                    U32(&res - physicalDimensions.data()),
+                    res.name.c_str(),
+                    U32(res.bufferInfo.size));
+            }
+            else
+            {
+                Logger::Info("Resource #%u (%s): %u x %u (fmt: %u), samples: %u, transient: %s%s",
+                    U32(&res - physicalDimensions.data()),
+                    res.name.c_str(),
+                    res.width, res.height, unsigned(res.format), res.samples,
+                    res.isTransient  ? "yes" : "no",
+                    U32(&res - physicalDimensions.data()) == swapchainPhysicalIndex ? " (swapchain)" : "");
+            }
+        }
 
+        auto IsSwapChainString = [this](const Barrier& barrier) {
+            return barrier.resIndex == swapchainPhysicalIndex ? " (swapchain)" : "";
+        };
+
+        
+        U32 passBarrierIndex = 0;
+        Logger::Info("Render passes:");
+        for (auto& pass : physicalPasses)
+        {
+            Logger::Info("Physical pass #%u:", unsigned(&pass - physicalPasses.data()));
+
+            // Invalidates
+            for (auto& barrier : pass.invalidate)
+            {
+                Logger::Info("  Invalidate: %u%s, layout: %s, access: %s, stages: %s",
+                    barrier.resIndex,
+                    IsSwapChainString(barrier),
+                    GPU::LayoutToString(barrier.layout),
+                    GPU::AccessFlagsToString(barrier.access).c_str(),
+                    GPU::StageFlagsToString(barrier.stages).c_str());
+            }
+
+            // Subpasses
+            for (auto& subpass : pass.passes)
+            {
+                Logger::Info("    Subpass #%u (%s):", unsigned(&subpass - pass.passes.data()), renderPasses[subpass]->GetName().c_str());
+                RenderPass& renderPass = *renderPasses[subpass];
+                PassBarrier& passBarrier = passBarriers[passBarrierIndex];
+                // Invalidate
+                for (auto& barrier : passBarrier.invalidate)
+                {
+                    if (!physicalDimensions[barrier.resIndex].isTransient)
+                    {
+                        Logger::Info("      Invalidate: %u%s, layout: %s, access: %s, stages: %s",
+                            barrier.resIndex,
+                            IsSwapChainString(barrier),
+                            GPU::LayoutToString(barrier.layout),
+                            GPU::AccessFlagsToString(barrier.access).c_str(),
+                            GPU::StageFlagsToString(barrier.stages).c_str());
+                    }
+                }
+
+                // Flush
+                for (auto& barrier : passBarrier.flush)
+                {
+                    if (!physicalDimensions[barrier.resIndex].isTransient && barrier.resIndex != swapchainPhysicalIndex)
+                    {
+                        Logger::Info("      Flush: %u, layout: %s, access: %s, stages: %s",
+                            barrier.resIndex,
+                            GPU::LayoutToString(barrier.layout),
+                            GPU::AccessFlagsToString(barrier.access).c_str(),
+                            GPU::StageFlagsToString(barrier.stages).c_str());
+                    }
+                }
+
+                passBarrierIndex++;
+            }
+
+            // Flush
+            for (auto& barrier : pass.flush)
+            {
+                Logger::Info("  Flush: %u%s, layout: %s, access: %s, stages: %s",
+                    barrier.resIndex,
+                    IsSwapChainString(barrier),
+                    GPU::LayoutToString(barrier.layout),
+                    GPU::AccessFlagsToString(barrier.access).c_str(),
+                    GPU::StageFlagsToString(barrier.stages).c_str());
+            }
+        }
+
+        Logger::Info("----------------------------------------------------");
     }
 
     String RenderGraphImpl::DebugExportGraphviz()
@@ -1575,6 +1701,7 @@ namespace VulkanTest
         }
 
         ret += "}\n";
+        ret += "----------------------------------------------------";
         Logger::Print(ret);
         return ret;
     }
@@ -1625,6 +1752,8 @@ namespace VulkanTest
 
     void GPUPassSubmissionState::Submit()
     {
+        if (!cmd) return;
+
         auto& device = cmd->GetDevice();
         
         // Wait semaphores in queue
@@ -1672,7 +1801,7 @@ namespace VulkanTest
         auto it = std::find_if(inputTextures.begin(), inputTextures.end(), 
             [&](const AccessedTextureResource& a) {
                 return a.texture == &res;
-            });
+        });
         if (it != inputTextures.end())
             return res;
 
