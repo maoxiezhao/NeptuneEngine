@@ -26,6 +26,7 @@ namespace VulkanTest
 		virtual void Stop(World& world) {};
 
 		virtual class FileSystem& GetFileSystem() = 0;
+		virtual class ResourceManager& GetResourceManager() = 0;
 		virtual class PluginManager& GetPluginManager() = 0;
 		virtual class WSI& GetWSI() = 0;
 	};

@@ -8,6 +8,8 @@
 #include "renderer\renderPath3D.h"
 #include "renderer\renderer.h"
 
+#include "core\utils\delegate.h"
+
 namespace VulkanTest
 {
     class MainRenderer : public RenderPath3D {};
@@ -52,7 +54,29 @@ namespace VulkanTest
 
 using namespace VulkanTest;
 
+int test(int aa)
+{
+    std::cout << aa << std::endl;
+    return 0;
+}
+
+class AAA
+{
+public:
+    int test(int aa)
+    {
+        std::cout << aa << std::endl;
+        return 0;
+    }
+};
+
 int main(int argc, char* argv[])
 {
-    return VulkanTest::ApplicationMain(VulkanTest::CreateApplication, argc, argv);
+    AAA a;
+    DelegateList<int(int)> cb;
+    cb.Bind<&AAA::test>(&a);
+    cb.Bind<test>();
+    cb.Invoke(4);
+    return 0;
+    //return VulkanTest::ApplicationMain(VulkanTest::CreateApplication, argc, argv);
 }

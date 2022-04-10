@@ -74,6 +74,9 @@ inline uint32_t HashFunc(uint32_t Input, const T& Data)
 inline uint32_t HashFunc(uint32_t Input, uint32_t Data) { return SDBHash(Input, &Data, 4); }
 inline uint32_t HashFunc(uint32_t Input, int32_t Data) { return SDBHash(Input, &Data, 4); }
 
+// Use XXHash algorithm with high performance
+uint64_t XXHash64(const void* input, size_t length);
+
 template<typename T>
 class Hasher
 {

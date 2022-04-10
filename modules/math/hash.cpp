@@ -1,5 +1,9 @@
 #include "hash.h"
 
+#define XXH_STATIC_LINKING_ONLY
+#define XXH_IMPLEMENTATION
+#include "xxhash\xxhash.h"
+
 namespace VulkanTest
 {
 namespace
@@ -291,5 +295,10 @@ uint64_t FNV1aHash(uint64_t input, const void* data, size_t size)
 uint64_t HashFunc(uint64_t Input, const char* Data)
 {
 	return fnv_64a_str(Data, Input);
+}
+
+uint64_t XXHash64(const void* input, size_t length)
+{
+	return XXH3_64bits(input, length);
 }
 }

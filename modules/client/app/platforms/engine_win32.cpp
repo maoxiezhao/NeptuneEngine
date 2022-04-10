@@ -3,6 +3,7 @@
 #include "core\platform\debug.h"
 #include "core\scene\world.h"
 #include "core\filesystem\filesystem.h"
+#include "core\resource\resourceManager.h"
 #include "core\utils\profiler.h"
 #include "app\app.h"
 #include "renderer\renderer.h"
@@ -14,6 +15,7 @@ namespace VulkanTest
 	private:
 		UniquePtr<PluginManager> pluginManager;
 		UniquePtr<FileSystem> fileSystem;
+		ResourceManager resourceManager;
 		WSIPlatform* platform;
 		WSI* wsi;
 		bool isGameRunning = false;
@@ -43,6 +45,9 @@ namespace VulkanTest
 				fileSystem = FileSystem::Create(currentDir);
 			}
 
+			// Init resource manager
+			resourceManager.Initialize(*fileSystem);
+
 			// Create pluginManager
 			pluginManager = PluginManager::Create(*this);
 			// Builtin plugins
@@ -71,6 +76,7 @@ namespace VulkanTest
 		virtual ~EngineImpl()
 		{
 			pluginManager.Reset();
+			resourceManager.Uninitialzie();
 			fileSystem.Reset();
 			platform = nullptr;
 
@@ -141,6 +147,11 @@ namespace VulkanTest
 		FileSystem& GetFileSystem() override
 		{
 			return *fileSystem.Get();
+		}
+
+		ResourceManager& GetResourceManager() override
+		{
+			return resourceManager;
 		}
 
 		PluginManager& GetPluginManager() override
