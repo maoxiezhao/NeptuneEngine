@@ -6,9 +6,23 @@
 #include "core\platform\platform.h"
 #include "core\utils\string.h"
 #include "core\utils\path.h"
+#include "core\utils\delegate.h"
+#include "core\utils\stream.h"
 
 namespace VulkanTest
 {
+	struct VULKAN_TEST_API AsyncLoadHandle
+	{
+		U32 value;
+		static const AsyncLoadHandle INVALID;
+
+		explicit AsyncLoadHandle(U32 value_) : value(value_) {}
+		bool IsValid()const {
+			return value != 0xffFFffFF;
+		}
+	};
+	using AsyncLoadCallback = Delegate<void(U64, const U8*, bool)>;
+
 	enum class EnumrateMode
 	{
 		File = 1 << 0,
@@ -33,6 +47,10 @@ namespace VulkanTest
 		virtual bool StatFile(const char* path, FileInfo& stat) = 0;
 		virtual U64  GetLastModTime(const char* path) = 0;
 		virtual std::vector<ListEntry> Enumerate(const char* path, int mask = (int)EnumrateMode::All) = 0;
+		virtual bool LoadContext(const char* path, OutputMemoryStream& mem) = 0;
+
+		virtual void ProcessAsync() = 0;
+		virtual AsyncLoadHandle LoadFileAsync(const Path& path, const AsyncLoadCallback& cb) = 0;
 	};
 
 	class VULKAN_TEST_API FileSystem
@@ -53,7 +71,13 @@ namespace VulkanTest
 
 		void SetBasePath(const char* basePath_);
 		const char* GetBasePath()const;
+
+		bool LoadContext(const char* path, OutputMemoryStream& mem);
 		bool HasWork()const;
+		void ProcessAsync();
+
+		// Load file asynchronously
+		AsyncLoadHandle LoadFileAsync(const Path& path, const AsyncLoadCallback& cb);
 
 	private:
 		FileSystem(UniquePtr<FileSystemBackend>&& backend_);

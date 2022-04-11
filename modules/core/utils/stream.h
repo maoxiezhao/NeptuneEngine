@@ -4,7 +4,7 @@
 
 namespace VulkanTest
 {
-    struct IInputStream 
+    struct VULKAN_TEST_API IInputStream 
     {
         virtual bool Read(void* buffer, U64 size) = 0;
         virtual const void* GetBuffer() const = 0;
@@ -32,7 +32,7 @@ namespace VulkanTest
         return v != 0;
     }
 
-    struct IOutputStream 
+    struct VULKAN_TEST_API IOutputStream
     {
         virtual bool Write(const void* buffer, U64 size) = 0;
 
@@ -98,4 +98,42 @@ namespace VulkanTest
 			return *this;
 		}
     };
+
+	struct VULKAN_TEST_API OutputMemoryStream final : public IOutputStream
+	{
+	public:
+		OutputMemoryStream();
+		OutputMemoryStream(void* data_, U64 size_);
+		OutputMemoryStream(OutputMemoryStream&& rhs);
+		OutputMemoryStream(const OutputMemoryStream& rhs);
+		~OutputMemoryStream();
+
+		void operator =(const OutputMemoryStream& rhs);
+		void operator =(OutputMemoryStream&& rhs);
+
+		bool Write(const void* buffer, U64 size)override;
+
+		void Resize(U64 size_);
+		void Reserve(U64 size_);
+		void Clear();
+		void Free();
+
+		bool Empty()const {
+			return size == 0;
+		}
+		U64 Size()const {
+			return size;
+		}
+		U64 Capacity()const {
+			return capacity;
+		}
+		U8* Data() {
+			return buffer;
+		}
+
+	private:
+		U8* buffer;
+		U64 capacity;
+		U64 size;
+	};
 } 

@@ -21,6 +21,10 @@ namespace VulkanTest
 			return isUnloadEnable;
 		}
 
+		ResourceManager& GetResourceManager() {
+			return *resManager;
+		}
+
 	protected:
 		Resource* LoadResource(const Path& path);
 		Resource* GetResource(const Path& path);
@@ -57,6 +61,10 @@ namespace VulkanTest
 		ResourceFactory* GetFactory(ResourceType type);
 		void RegisterFactory(ResourceType type, ResourceFactory* factory);
 		void UnregisterFactory(ResourceType type);
+
+		class FileSystem* GetFileSystem() {
+			return fileSystem;
+		}
 
 	private:
 		friend class Resource;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\filesystem\filesystem.h"
 #include "core\utils\path.h"
 #include "core\utils\stringID.h"
 #include "core\utils\delegate.h"
@@ -87,6 +88,10 @@ namespace VulkanTest
 		virtual void OnLoaded() = 0;
 		virtual void OnUnLoaded() = 0;
 
+#if DEBUG
+		virtual bool NeedExport()const;
+#endif
+
 		ResourceFactory& resFactory;
 		State desiredState;
 		U32 failedDepCount;
@@ -96,12 +101,14 @@ namespace VulkanTest
 		Resource(const Resource&) = delete;
 		void operator=(const Resource&) = delete;
 		
+		void OnFileLoaded(U64 size, const U8* mem, bool success);
 		void OnStateChanged(State oldState, State newState);
 
 		Path path;
 		U32 refCount;
 		State currentState;
 		StateChangedCallback cb;
+		AsyncLoadHandle asyncHandle;
 	};
 
 #define DECLARE_RESOURCE(CLASS_NAME, NAME)                                                      \

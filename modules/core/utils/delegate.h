@@ -4,8 +4,11 @@
 
 namespace VulkanTest
 {
+	template <typename T>
+	struct Delegate;
+
 	template<typename R, typename...Args>
-	class Delegate
+	class Delegate<R(Args...)>
 	{
 	private:
 		template<R (*Func)(Args...)>
@@ -52,7 +55,7 @@ namespace VulkanTest
 			return func(instance, args...);
 		}
 
-		bool operator==(const Delegate<R, Args...>& rhs)
+		bool operator==(const Delegate<R(Args...)>& rhs)
 		{
 			return instance == rhs.instance && func == rhs.func;
 		}
@@ -72,7 +75,7 @@ namespace VulkanTest
 	class DelegateList<R(Args...)>
 	{
 	public:
-		using DelegateT = Delegate<R, Args...>;
+		using DelegateT = Delegate<R(Args...)>;
 
 		DelegateList() = default;
 

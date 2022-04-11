@@ -133,6 +133,9 @@ namespace VulkanTest
 					scene->Update(dt, isPaused);
 			}
 			pluginManager->UpdatePlugins(dt);
+
+			// Process async loading jobs
+			fileSystem->ProcessAsync();
 		}
 
 		void Stop(World& world) override

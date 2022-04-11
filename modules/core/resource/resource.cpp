@@ -1,5 +1,6 @@
 #include "resource.h"
 #include "resourceManager.h"
+#include "core\utils\string.h"
 
 namespace VulkanTest
 {
@@ -43,7 +44,8 @@ namespace VulkanTest
 		currentState(State::EMPTY),
 		desiredState(State::EMPTY),
 		path(path_),
-		resFactory(resFactory_)
+		resFactory(resFactory_),
+		asyncHandle(AsyncLoadHandle::INVALID)
 	{
 	}
 
@@ -54,7 +56,26 @@ namespace VulkanTest
 			return;
 		desiredState = State::READY;
 
+		FileSystem* fileSystem = resFactory.GetResourceManager().GetFileSystem();
+#if DEBUG
+		if (!NeedExport())
+		{
+			OutputMemoryStream mem;
+			bool ret = fileSystem->LoadContext(path.c_str(), mem);
+			OnFileLoaded(mem.Size(), (const U8*)mem.Data(), ret);
+			return;
+		}
+#endif
+		// In loading
+		if (asyncHandle.IsValid())
+			return;
 
+		AsyncLoadCallback cb;
+		cb.Bind<&Resource::OnFileLoaded>(this);
+
+		const U32 pathHash = path.GetHash();
+		StaticString<MAX_PATH_LENGTH> fullResPath(".export/resources/", pathHash, ".res");
+		asyncHandle = fileSystem->LoadFileAsync(Path(fullResPath), cb);
 	}
 
 	void Resource::DoUnload()
@@ -97,6 +118,15 @@ namespace VulkanTest
 				cb.Invoke(oldState, currentState);
 			}
 		}
+	}
+
+	bool Resource::NeedExport()const
+	{
+		return false;
+	}
+
+	void Resource::OnFileLoaded(U64 size, const U8* mem, bool success)
+	{
 	}
 
 	void Resource::OnStateChanged(State oldState, State newState)
