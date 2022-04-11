@@ -144,7 +144,8 @@ public:
 		ProcessEventsAsyncThread();
 	}
 
-	GLFWwindow* GetWindow() {
+	void* GetWindow() override 
+	{
 		return window;
 	}
 
@@ -175,11 +176,11 @@ public:
 	VkSurfaceKHR CreateSurface(VkInstance instance) override
 	{
         VkSurfaceKHR surface = VK_NULL_HANDLE;
-        if (glfwCreateWindowSurface(instance, GetWindow(), nullptr, &surface) != VK_SUCCESS)
+        if (glfwCreateWindowSurface(instance, static_cast<GLFWwindow*>(GetWindow()), nullptr, &surface) != VK_SUCCESS)
             return VK_NULL_HANDLE;
 
         int actual_width, actual_height;
-        glfwGetFramebufferSize(GetWindow(), &actual_width, &actual_height);
+        glfwGetFramebufferSize(static_cast<GLFWwindow*>(GetWindow()), &actual_width, &actual_height);
         SetSize(
             unsigned(actual_width),
             unsigned(actual_height)

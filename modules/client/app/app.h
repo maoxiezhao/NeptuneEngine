@@ -26,33 +26,27 @@ public:
 	virtual void Uninitialize();
 	virtual void Render();
 
-	WSI& GetWSI()
-	{
+	WSI& GetWSI() {
 		return wsi;
 	}
 
-	WSIPlatform& GetPlatform()
-	{
+	WSIPlatform& GetPlatform() {
 		return *platform;
 	}
 
-	virtual U32 GetDefaultWidth()
-	{
+	virtual U32 GetDefaultWidth() {
 		return DEFAULT_WIDTH;
 	}
 
-	virtual U32 GetDefaultHeight()
-	{
+	virtual U32 GetDefaultHeight() {
 		return DEFAULT_HEIGHT;
 	}
 
-	virtual const char* GetWindowTitle()
-	{
+	virtual const char* GetWindowTitle() {
 		return "VULKAN_TEST";
 	}
 
-	F32 GetDeltaTime()const
-	{
+	F32 GetDeltaTime()const {
 		return deltaTime;
 	}
 

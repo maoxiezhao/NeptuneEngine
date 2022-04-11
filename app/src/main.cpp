@@ -39,7 +39,7 @@ namespace VulkanTest
             App::Initialize();
 
 			// Initialize ImGui
-			ImGuiRenderer::Initialize();
+			ImGuiRenderer::Initialize(*this);
 
             renderer->ActivePath(&mainRenderer);
         }
