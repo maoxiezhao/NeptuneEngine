@@ -52,9 +52,8 @@ namespace VulkanTest
 		}
 
 		// Do load if resource is empty
-		if (res->IsEmpty()) {
+		if (res->IsEmpty())
 			res->DoLoad();
-		}
 
 		res->IncRefCount();
 		return res;

@@ -51,7 +51,7 @@ namespace VulkanTest
 
 	void Resource::DoLoad()
 	{
-		// Check resource has loaded
+		// Check resource is loaded
 		if (desiredState == State::READY)
 			return;
 		desiredState = State::READY;
@@ -66,7 +66,6 @@ namespace VulkanTest
 			return;
 		}
 #endif
-		// In loading
 		if (asyncHandle.IsValid())
 			return;
 
@@ -93,9 +92,7 @@ namespace VulkanTest
 	void Resource::CheckState()
 	{
 		// Refresh the current state according to failedDep and emtpyDep
-
 		State oldState = currentState;
-		// Check failure
 		if (currentState != State::FAILURE && failedDepCount > 0)
 		{
 			currentState = State::FAILURE;
@@ -104,14 +101,12 @@ namespace VulkanTest
 
 		if (failedDepCount == 0)
 		{
-			// Check ready
 			if (currentState != State::READY && desiredState != State::EMPTY && emptyDepCount == 0)
 			{
 				currentState = State::READY;
 				cb.Invoke(oldState, currentState);
 			}
 
-			// Check empty
 			if (currentState != State::EMPTY && emptyDepCount > 0)
 			{
 				currentState = State::EMPTY;

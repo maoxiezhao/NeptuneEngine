@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "core\common.h"
 
 namespace VulkanTest
 {
@@ -47,51 +47,61 @@ namespace VulkanTest
 			Write((uint32_t)(data ? 1 : 0));
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(char data)
 		{
 			Write((int8_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(unsigned char data)
 		{
 			Write((uint8_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(int data)
 		{
 			Write((int64_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(unsigned int data)
 		{
 			Write((uint64_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(long data)
 		{
 			Write((int64_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(unsigned long data)
 		{
 			Write((uint64_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(long long data)
 		{
 			Write((int64_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(unsigned long long data)
 		{
 			Write((uint64_t)data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(float data)
 		{
 			Write(data);
 			return *this;
 		}
+
 		inline IOutputStream& operator<<(double data)
 		{
 			Write(data);
@@ -111,10 +121,10 @@ namespace VulkanTest
 		void operator =(const OutputMemoryStream& rhs);
 		void operator =(OutputMemoryStream&& rhs);
 
-		bool Write(const void* buffer, U64 size)override;
+		bool Write(const void* buffer, U64 size_)override;
 
-		void Resize(U64 size_);
-		void Reserve(U64 size_);
+		void Resize(U64 newSize);
+		void Reserve(U64 newSize);
 		void Clear();
 		void Free();
 
@@ -128,11 +138,11 @@ namespace VulkanTest
 			return capacity;
 		}
 		U8* Data() {
-			return buffer;
+			return data;
 		}
 
 	private:
-		U8* buffer;
+		U8* data;
 		U64 capacity;
 		U64 size;
 	};
