@@ -64,6 +64,16 @@ namespace GPU
 			return mipInfos[level];
 		}
 
+		U32 GetRowSize(U32 level)const
+		{
+			return mipInfos[level].blockW * blockStride;
+		}
+
+		U32 GetLayerSize(U32 level)const
+		{
+			return mipInfos[level].blockH * GetRowSize(level);
+		}
+
 		U32 RowByteStride(U32 rowLength)const;
 		U32 LayerByteStride(U32 imageHeight, size_t rowByteStride)const;
 		void BuildBufferImageCopies(U32& num, std::array<VkBufferImageCopy, 32>& copies) const;

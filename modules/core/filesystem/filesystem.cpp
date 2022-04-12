@@ -119,7 +119,7 @@ namespace VulkanTest
 		UniquePtr<File> OpenFile(const char* path, FileFlags flags)override
 		{
 			MaxPathString fullPath(basePath, path);
-			MappedFile* file = CJING_NEW(MappedFile)(path, flags);
+			MappedFile* file = CJING_NEW(MappedFile)(fullPath.c_str(), flags);
 			if (!file->IsValid())
 				return nullptr;
 

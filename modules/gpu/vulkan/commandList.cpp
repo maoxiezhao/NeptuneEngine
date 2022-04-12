@@ -332,6 +332,49 @@ void CommandList::SetDefaultOpaqueState()
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
+void CommandList::SetDefaultTransparentState()
+{
+    ClearPipelineState();
+
+    // blend
+    BlendState& bd = pipelineState.blendState;
+    bd.renderTarget[0].blendEnable = true;
+    bd.renderTarget[0].srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+    bd.renderTarget[0].destBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    bd.renderTarget[0].blendOp = VK_BLEND_OP_ADD;
+    bd.renderTarget[0].srcBlendAlpha = VK_BLEND_FACTOR_ONE;
+    bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
+    bd.renderTarget[0].renderTargetWriteMask = COLOR_WRITE_ENABLE_ALL;
+    bd.alphaToCoverageEnable = false;
+    bd.independentBlendEnable = false;
+
+    // depth
+    DepthStencilState& dsd = pipelineState.depthStencilState;
+    dsd.depthEnable = false;
+    dsd.depthWriteMask = DEPTH_WRITE_MASK_ALL;
+    dsd.depthFunc = VK_COMPARE_OP_GREATER;
+    dsd.stencilEnable = false;
+
+    // rasterizerState
+    RasterizerState& rs = pipelineState.rasterizerState;
+    rs.fillMode = FILL_SOLID;
+    rs.cullMode = VK_CULL_MODE_BACK_BIT;
+    rs.frontCounterClockwise = false;
+    rs.depthBias = 0;
+    rs.depthBiasClamp = 0;
+    rs.slopeScaledDepthBias = 0;
+    rs.depthClipEnable = false;
+    rs.multisampleEnable = false;
+    rs.antialiasedLineEnable = false;
+    rs.conservativeRasterizationEnable = false;
+
+    // topology
+    pipelineState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
 void CommandList::SetPrimitiveTopology(VkPrimitiveTopology topology)
 {
     pipelineState.topology = topology;
@@ -572,6 +615,18 @@ void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
 
     bindings.cookies[set][binding] = imageView.GetCookie();
     dirtySets |= 1u << set;
+}
+
+void CommandList::SetRasterizerState(const RasterizerState& state)
+{
+    pipelineState.rasterizerState = state;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
+void CommandList::SetBlendState(const BlendState& state)
+{
+    pipelineState.blendState = state;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
 void CommandList::NextSubpass(VkSubpassContents contents)
@@ -873,12 +928,12 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
         attachment.blendEnable = desc.blendEnable ? VK_TRUE : VK_FALSE;
         if (attachment.blendEnable)
         {
-            attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-            attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            attachment.colorBlendOp = VK_BLEND_OP_MAX;
-            attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+            attachment.srcColorBlendFactor = desc.srcBlend;
+            attachment.dstColorBlendFactor = desc.destBlend;
+            attachment.colorBlendOp = desc.blendOp;
+            attachment.srcAlphaBlendFactor = desc.srcBlendAlpha;
+            attachment.dstAlphaBlendFactor = desc.destBlendAlpha;
+            attachment.alphaBlendOp = desc.blendOpAlpha;
         }
     }
     VkPipelineColorBlendStateCreateInfo colorBlending = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
@@ -1063,6 +1118,7 @@ void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U3
     HashCombiner hash;
     activeVbos = 0;
     const CombinedResourceLayout& layout = pipeline.shaderProgram->GetPipelineLayout()->GetResLayout();
+  
     ForEachBit(layout.attributeInputMask, [&](U32 bit) {
         hash.HashCombine(bit);
         hash.HashCombine(pipeline.attribs[bit].binding);

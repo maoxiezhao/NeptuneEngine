@@ -378,8 +378,8 @@ namespace GPU
     struct SubresourceData
     {
         const void *data = nullptr;
-        U32 rowPitch = 0;
-        U32 slicePitch = 0;
+        U32 rowLength = 0;
+        U32 imageHeight = 0;
     };
 
     enum BufferMiscFlagBits
@@ -412,12 +412,12 @@ namespace GPU
         VkSamplerAddressMode addressModeV;
         VkSamplerAddressMode addressModeW;
         float mipLodBias;
-        VkBool32 anisotropyEnable;
-        float maxAnisotropy;
-        VkBool32 compareEnable;
+        VkBool32 anisotropyEnable = false;
+        float maxAnisotropy = 1.0f;
+        VkBool32 compareEnable = false;
         VkCompareOp compareOp;
-        float minLod;
-        float maxLod;
+        float minLod = 0;
+        float maxLod = VK_LOD_CLAMP_NONE;
         VkBorderColor borderColor;
         VkBool32 unnormalizedCoordinates;
     };

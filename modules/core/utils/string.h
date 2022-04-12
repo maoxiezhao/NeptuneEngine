@@ -46,15 +46,21 @@ namespace VulkanTest
 	public:
 		char data[N];
 		
-		StaticString() = default;
+		StaticString()
+		{
+			data[0] = '\0';
+		}
+
 		StaticString(const char* str)
 		{
+			data[0] = '\0';
 			CopyString(data, str);
 		}
 
 		template<typename... Args>
 		StaticString(Args... args)
 		{
+			data[0] = '\0';
 			(append(args), ...);
 		}
 

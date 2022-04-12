@@ -1517,9 +1517,9 @@ namespace VulkanTest
 
     void RenderGraphImpl::Log()
     {
-        Logger::Info("----------------------------------------------------");
+        Logger::Info("---------------------------------------------------------------------------");
         Logger::Info("RenderGraph");
-        Logger::Info("----------------------------------------------------");
+        Logger::Info("---------------------------------------------------------------------------");
         // Resources
         Logger::Info("Resource:");
         for (auto& res : physicalDimensions)
@@ -1546,7 +1546,7 @@ namespace VulkanTest
             return barrier.resIndex == swapchainPhysicalIndex ? " (swapchain)" : "";
         };
 
-        
+        Logger::Info("---------------------------------------------------------------------------");
         U32 passBarrierIndex = 0;
         Logger::Info("Render passes:");
         for (auto& pass : physicalPasses)

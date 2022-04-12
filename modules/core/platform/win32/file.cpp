@@ -10,7 +10,6 @@ namespace VulkanTest
 		DWORD desiredAccess = 0;
 		DWORD shareMode = 0;
 		DWORD createFlags = 0;
-		DWORD fileFlags = 0;
 
 		if (FLAG_ANY(flags, FileFlags::CREATE))
 		{
@@ -25,16 +24,20 @@ namespace VulkanTest
 		{
 			desiredAccess |= GENERIC_READ;
 			shareMode = FILE_SHARE_READ;
+
+			if (!FLAG_ANY(flags, FileFlags::CREATE))
+				createFlags = OPEN_EXISTING;
 		}
 		if (FLAG_ANY(flags, FileFlags::WRITE))
 		{
 			desiredAccess |= GENERIC_WRITE;
 		}
 
-		handle = ::CreateFileA(path, desiredAccess, shareMode, nullptr, createFlags, fileFlags, 0);
+		handle = (HANDLE)::CreateFileA(path, desiredAccess, shareMode, nullptr, createFlags, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (handle == INVALID_HANDLE_VALUE)
 		{
-			Logger::Error("Failed to create file:\"%s\", error:%x", path, ::GetLastError());
+			DWORD err = ::GetLastError();
+			Logger::Error("Failed to create file:\"%s\", error:%x", path, err);
 		}
 		else
 		{
@@ -98,6 +101,7 @@ namespace VulkanTest
 		{
 			::FlushFileBuffers(handle);
 			::CloseHandle(handle);
+			handle = INVALID_HANDLE_VALUE;
 		}
 	}
 #endif

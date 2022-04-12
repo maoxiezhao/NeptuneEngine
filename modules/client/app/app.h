@@ -24,7 +24,6 @@ public:
 
 	virtual void Initialize();
 	virtual void Uninitialize();
-	virtual void Render();
 
 	WSI& GetWSI() {
 		return wsi;
@@ -32,6 +31,10 @@ public:
 
 	WSIPlatform& GetPlatform() {
 		return *platform;
+	}
+
+	Engine& GetEngine() {
+		return *engine;
 	}
 
 	virtual U32 GetDefaultWidth() {
@@ -56,8 +59,9 @@ protected:
 		requestedShutdown = true;
 	}
 
-	void Update(F32 deltaTime);
-	void FixedUpdate();
+	virtual void Update(F32 deltaTime);
+	virtual void FixedUpdate();
+	virtual void Render();
 
 protected:
 	std::unique_ptr<WSIPlatform> platform;

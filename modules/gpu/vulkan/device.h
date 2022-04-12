@@ -38,8 +38,8 @@ enum class SwapchainRenderPassType
 struct InitialImageBuffer
 {
     BufferPtr buffer;
-    std::array<VkBufferImageCopy, 32> bit;
-    U32 numBit = 0;
+    std::array<VkBufferImageCopy, 32> blits;
+    U32 numBlits = 0;
 };
 
 struct WaitSemaphores
@@ -328,6 +328,7 @@ public:
     void AddWaitSemaphoreNolock(QueueIndices queueType, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush);
     void SetName(const Image& image, const char* name);
     void SetName(const Buffer& buffer, const char* name);
+    void SetName(const Sampler& sampler, const char* name);
 
     bool IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
 

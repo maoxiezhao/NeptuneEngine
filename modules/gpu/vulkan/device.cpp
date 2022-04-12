@@ -594,6 +594,20 @@ void DeviceVulkan::SetName(const Buffer& buffer, const char* name)
     }
 }
 
+void DeviceVulkan::SetName(const Sampler& sampler, const char* name)
+{
+    if (features.supportDebugUtils)
+    {
+        VkDebugUtilsObjectNameInfoEXT info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        info.pObjectName = name;
+        info.objectType = VK_OBJECT_TYPE_SAMPLER;
+        info.objectHandle = (uint64_t)sampler.GetSampler();
+
+        if (vkSetDebugUtilsObjectNameEXT)
+            vkSetDebugUtilsObjectNameEXT(device, &info);
+    }
+}
+
 ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)])
 {
     HashCombiner hasher;
@@ -827,15 +841,15 @@ InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo&
         {
             // Calculate dst stride
             const auto& mipInfo = layout.GetMipInfo(level);
-            U32 dstRowSize = mipInfo.blockW * blockStride;
-            U32 dstHeightStride = mipInfo.blockH * dstRowSize;
+            U32 dstRowSize = layout.GetRowSize(level);
+            U32 dstHeightStride = layout.GetLayerSize(level);
 
             for (U32 layer = 0; layer < createInfo.layers; layer++)
             {
-                U32 srcRowLength = pInitialData[index].rowPitch ? pInitialData[index].rowPitch : mipInfo.rowLength;
-                U32 srcArrayHeight = pInitialData[index].slicePitch ? pInitialData[index].slicePitch : mipInfo.imageHeight;
+                U32 srcRowLength = pInitialData[index].rowLength ? pInitialData[index].rowLength : mipInfo.rowLength;
+                U32 srcImageHeight = pInitialData[index].imageHeight ? pInitialData[index].imageHeight : mipInfo.imageHeight;
                 U32 srcRowStride = (U32)layout.RowByteStride(srcRowLength);
-                U32 srcHeightStride = (U32)layout.LayerByteStride(srcArrayHeight, srcRowStride);
+                U32 srcHeightStride = (U32)layout.LayerByteStride(srcImageHeight, srcRowStride);
 
                 U8* dst = static_cast<uint8_t*>(layout.Data(layer, level));
                 const U8* src = static_cast<const uint8_t*>(pInitialData[index].data);
@@ -848,7 +862,7 @@ InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo&
         UnmapBuffer(*imageBuffer.buffer, MEMORY_ACCESS_WRITE_BIT);
 
         // Create VkBufferImageCopies
-        layout.BuildBufferImageCopies(imageBuffer.numBit, imageBuffer.bit);
+        layout.BuildBufferImageCopies(imageBuffer.numBlits, imageBuffer.blits);
     }
     return imageBuffer;
 }
@@ -900,7 +914,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
     }
 
     // Check is concurrent queue
-    U32 queueFlags =createInfo.misc &
+    U32 queueFlags = createInfo.misc &
         (IMAGE_MISC_CONCURRENT_QUEUE_GRAPHICS_BIT |
          IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_COMPUTE_BIT |
          IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT |
@@ -963,6 +977,8 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             transitionSrcAccess = VK_ACCESS_TRANSFER_WRITE_BIT;
 
         CommandListPtr graphicsCmd = RequestCommandList(QueueType::QUEUE_TYPE_GRAPHICS);
+
+        // Use the TRANSFER queue to copy data over to the GPU
         CommandListPtr transferCmd;
         if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] != queueInfo.queues[QUEUE_INDEX_TRANSFER])
             transferCmd = RequestCommandList(QueueType::QUEUE_TYPE_ASYNC_TRANSFER);
@@ -974,13 +990,12 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             imagePtr, 
             VK_IMAGE_LAYOUT_UNDEFINED, 
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
-            0, 
-            VK_PIPELINE_STAGE_TRANSFER_BIT, 
-            VK_ACCESS_TRANSFER_WRITE_BIT);
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT
+        );
 
-        transferCmd->BeginEvent("Copy_image_to_gpu");
-        transferCmd->CopyToImage(imagePtr, stagingBuffer->buffer, stagingBuffer->numBit, stagingBuffer->bit.data());
+        transferCmd->BeginEvent("copy_image_to_gpu");
+        transferCmd->CopyToImage(imagePtr, stagingBuffer->buffer, stagingBuffer->numBlits, stagingBuffer->blits.data());
         transferCmd->EndEvent();
 
         if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] != queueInfo.queues[QUEUE_INDEX_TRANSFER])
@@ -1012,6 +1027,8 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
             // Submit transfer cmd
             SemaphorePtr semaphore;
             Submit(transferCmd, nullptr, 1, &semaphore);
+
+            // Graphics queue waits for transition finish
             AddWaitSemaphore(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphore, imagePtr->GetStageFlags(), true);
         
             transitionCmd = std::move(graphicsCmd);

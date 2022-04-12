@@ -2,14 +2,12 @@
 #include "client\app\app.h"
 #include "core\platform\platform.h"
 #include "core\memory\memory.h"
-#include "core\jobsystem\jobsystem.h"
 #include "core\utils\delegate.h"
-#include "gpu\vulkan\device.h"
-#include "math\math.hpp"
+#include "core\utils\profiler.h"
 #include "renderer\renderPath3D.h"
 #include "renderer\renderer.h"
 
-#include "imguiRenderer.h"
+#include "renderer\imguiRenderer.h"
 
 namespace VulkanTest
 {
@@ -26,31 +24,30 @@ namespace VulkanTest
     class MainApp : public App
     {
     public:
-        U32 GetDefaultWidth() override {
-            return 1280;
-        }
-
-        U32 GetDefaultHeight() override {
-            return 720;
-        }
-
         void Initialize() override
         {
             App::Initialize();
 
-			// Initialize ImGui
 			ImGuiRenderer::Initialize(*this);
-
             renderer->ActivePath(&mainRenderer);
         }
 
 		void Uninitialize() override
 		{
-			// Uninitialzie ImGui
 			ImGuiRenderer::Uninitialize();
-
 			App::Uninitialize();
 		}
+
+    protected:
+        void Update(F32 deltaTime) override
+        {
+            PROFILE_BLOCK("Update");
+            ImGuiRenderer::BeginFrame();
+
+            engine->Update(*world, deltaTime);
+
+            ImGuiRenderer::EndFrame();
+        }
 
     private:
         MainRenderer mainRenderer;

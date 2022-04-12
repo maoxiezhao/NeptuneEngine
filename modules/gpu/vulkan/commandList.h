@@ -158,6 +158,8 @@ public:
     void SetSampler(U32 set, U32 binding, const Sampler& sampler);
     void SetSampler(U32 set, U32 binding, StockSampler type);
     void SetTexture(U32 set, U32 binding, const ImageView& imageView);
+    void SetRasterizerState(const RasterizerState& state);
+    void SetBlendState(const BlendState& state);
     void NextSubpass(VkSubpassContents contents);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
@@ -216,6 +218,7 @@ public:
 public:
     void ClearPipelineState();
     void SetDefaultOpaqueState();
+    void SetDefaultTransparentState();
     void SetPrimitiveTopology(VkPrimitiveTopology topology);
     void SetProgram(ShaderProgram* program);
     void SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines = {});

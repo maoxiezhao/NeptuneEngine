@@ -1,5 +1,6 @@
 #pragma once
 
+#include "enums.h"
 #include "gpu\vulkan\device.h"
 #include "core\plugin\plugin.h"
 
@@ -17,6 +18,9 @@ namespace VulkanTest
 	{
 		void Initialize();
 		void Uninitialize();
+
+		const GPU::BlendState& GetBlendState(BlendStateTypes types);
+		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes types);
 
 		RendererPlugin* CreatePlugin(Engine& engine);
 	}

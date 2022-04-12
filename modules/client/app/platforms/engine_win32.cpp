@@ -50,6 +50,7 @@ namespace VulkanTest
 
 			// Create pluginManager
 			pluginManager = PluginManager::Create(*this);
+
 			// Builtin plugins
 			pluginManager->AddPlugin(Renderer::CreatePlugin(*this));
 

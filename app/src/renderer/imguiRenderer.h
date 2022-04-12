@@ -10,6 +10,8 @@ namespace ImGuiRenderer
 {
 	void Initialize(App& app);
 	void Uninitialize();
+	void BeginFrame();
+	void EndFrame();
 	void Render(GPU::CommandList* cmd);
 }
 }
