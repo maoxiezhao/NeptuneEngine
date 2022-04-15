@@ -6,22 +6,23 @@ namespace VulkanTest
 {
 namespace GPU
 {
+
 namespace 
 {
     static void UpdateDescriptorSet(DeviceVulkan &device, 
                                     VkDescriptorSet descSet,
                                     const DescriptorSetLayout &setLayout, 
-                                    const ResourceBinding *bindings)
+                                    const ResourceBinding (*bindings)[VULKAN_NUM_BINDINGS])
     {
-        // update descriptor sets according setLayout masks
+        // Update descriptor sets according setLayout masks
         U32 writeCount = 0;
         VkWriteDescriptorSet writes[VULKAN_NUM_BINDINGS];
 
-        // sampled image
-        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::SAMPLED_IMAGE)],
-            [&](U32 binding) {
-                U32 arraySize = setLayout.arraySize[binding];
-                for (U32 i = 0; i < arraySize; i++)
+        // Constant buffers
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_UNIFORM_BUFFER)],
+            [&](U32 bit) {
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_UNIFORM_BUFFER][bit];
+                for (U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
                     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -29,17 +30,35 @@ namespace
                     write.descriptorCount = 1;
                     write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
                     write.dstArrayElement = i;
-                    write.dstBinding = binding;
+                    write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[binding + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_UNIFORM_BUFFER][bit + i].image;
                 }
             });
 
-        // storage image
-        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::STORAGE_IMAGE)], 
-            [&](U32 binding) {
-                U32 arraySize = setLayout.arraySize[binding];
-                for(U32 i = 0; i < arraySize; i++)
+        // Sampled image
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_SAMPLED_IMAGE)],
+            [&](U32 bit) {
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_SAMPLED_IMAGE][bit];
+                for (U32 i = 0; i < binding.arraySize; i++)
+                {
+                    auto& write = writes[writeCount++];
+                    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    write.pNext = nullptr;
+                    write.descriptorCount = 1;
+                    write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                    write.dstArrayElement = i;
+                    write.dstBinding = binding.unrolledBinding;
+                    write.dstSet = descSet;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_SAMPLED_IMAGE][bit + i].image;
+                }
+            });
+
+        // Storage image
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_STORAGE_IMAGE)], 
+            [&](U32 bit) {
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_STORAGE_IMAGE][bit];
+                for(U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
                     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -47,17 +66,17 @@ namespace
                     write.descriptorCount = 1;
                     write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
                     write.dstArrayElement = i;
-                    write.dstBinding = binding;
+                    write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[binding + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_STORAGE_IMAGE][bit + i].image;
                 }
             });
 
-        // input attachment
-        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::INPUT_ATTACHMENT)], 
-            [&](U32 binding) {
-                U32 arraySize = setLayout.arraySize[binding];
-                for(U32 i = 0; i < arraySize; i++)
+        // Input attachment
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_INPUT_ATTACHMENT)], 
+            [&](U32 bit) {
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_INPUT_ATTACHMENT][bit];
+                for(U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
                     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -65,17 +84,17 @@ namespace
                     write.descriptorCount = 1;
                     write.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
                     write.dstArrayElement = i;
-                    write.dstBinding = binding;
+                    write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[binding + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_INPUT_ATTACHMENT][bit + i].image;
                 }
             });
 
         // Sampler
-        ForEachBit(setLayout.masks[static_cast<U32>(DescriptorSetLayout::SAMPLER)],
-            [&](U32 binding) {
-                U32 arraySize = setLayout.arraySize[binding];
-                for (U32 i = 0; i < arraySize; i++)
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_SAMPLER)],
+            [&](U32 bit) {
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_SAMPLER][bit];
+                for (U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
                     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -83,9 +102,9 @@ namespace
                     write.descriptorCount = 1;
                     write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
                     write.dstArrayElement = i;
-                    write.dstBinding = binding;
+                    write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[binding + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_SAMPLER][bit + i].image;
                 }
             });
 
@@ -103,7 +122,7 @@ CommandPool::CommandPool(DeviceVulkan* device_, U32 queueFamilyIndex) :
     if (queueFamilyIndex != VK_QUEUE_FAMILY_IGNORED)
     {
         VkResult res = vkCreateCommandPool(device->device, &info, nullptr, &pool);
-        assert(res == VK_SUCCESS);
+        ASSERT(res == VK_SUCCESS);
     }
 }
 
@@ -157,7 +176,7 @@ VkCommandBuffer CommandPool::RequestCommandBuffer()
     info.commandBufferCount = 1;
 
     VkResult res = vkAllocateCommandBuffers(device->device, &info, &cmd);
-    assert(res == VK_SUCCESS);
+    ASSERT(res == VK_SUCCESS);
 
     buffers.push_back(cmd);
     usedIndex++;
@@ -195,8 +214,8 @@ CommandList::~CommandList()
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents)
 {
-    assert(frameBuffer == nullptr);
-    assert(compatibleRenderPass == nullptr);
+    ASSERT(frameBuffer == nullptr);
+    ASSERT(compatibleRenderPass == nullptr);
 
     // Get frame buffer and render pass
     frameBuffer = &device.RequestFrameBuffer(renderPassInfo);
@@ -466,6 +485,8 @@ void CommandList::EndCommandBuffer()
         device.RequestVertexBufferBlockNolock(vboBlock, 0);
     if (iboBlock.mapped != nullptr)
         device.RequestIndexBufferBlockNoLock(iboBlock, 0);
+    if (uboBlock.mapped != nullptr)
+        device.RequestUniformBufferBlockNoLock(uboBlock, 0);
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
@@ -548,11 +569,56 @@ void CommandList::BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset, 
     vkCmdBindIndexBuffer(cmd, indexState.buffer, indexState.offset, indexState.indexType);
 }
 
+void CommandList::BindConstantBuffer(const BufferPtr& buffer, U32 set, U32 binding, VkDeviceSize offset, VkDeviceSize range)
+{
+    ASSERT(set < VULKAN_NUM_DESCRIPTOR_SETS);
+    ASSERT(binding < VULKAN_NUM_BINDINGS);
+    ASSERT(buffer->GetCreateInfo().usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+
+    if (buffer->GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding] &&
+        range == bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding].buffer.range)
+    {
+        // Check offset is different
+        auto& b = bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding];
+        if (b.dynamicOffset != offset)
+        {
+            dirtySetsDynamic |= 1u << set;
+            b.dynamicOffset = offset;
+        }
+    }
+    else
+    {
+        auto& b = bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding];
+        VkDescriptorBufferInfo bufferInfo = { buffer->GetBuffer(), 0, range};
+        b.dynamicOffset = offset;
+        b.buffer = bufferInfo;
+        bindings.cookies[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding] = buffer->GetCookie();
+        dirtySets |= 1u << set;
+    }
+}
+
 void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range)
 {
-    assert(offset + range <= VULKAN_PUSH_CONSTANT_SIZE);
+    ASSERT(offset + range <= VULKAN_PUSH_CONSTANT_SIZE);
     memcpy(bindings.pushConstantData + offset, data, range);
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT);
+}
+
+void* CommandList::AllocateConstant(U32 set, U32 binding, VkDeviceSize size)
+{
+    ASSERT(size < VULKAN_MAX_UBO_SIZE);
+    if (!uboBlock.IsAllocated())
+        device.RequestVertexBufferBlock(uboBlock, size);
+
+    auto data = uboBlock.Allocate(size);
+    if (data.data == nullptr)
+    {
+        device.RequestVertexBufferBlock(uboBlock, size);
+        data = uboBlock.Allocate(size);
+    }
+
+    BindConstantBuffer(uboBlock.cpuBuffer, set, binding, data.offset, data.paddedSize);
+    return data.data;
 }
 
 void CommandList::CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
@@ -586,17 +652,23 @@ void CommandList::SetBindless(U32 set, VkDescriptorSet descriptorSet)
 
 void CommandList::SetSampler(U32 set, U32 binding, const Sampler& sampler)
 {
-    if (sampler.GetCookie() == bindings.cookies[set][binding])
+    ASSERT(set < VULKAN_NUM_DESCRIPTOR_SETS);
+    ASSERT(binding < VULKAN_NUM_BINDINGS);
+
+    if (sampler.GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_SAMPLER][binding])
         return;
 
-    ResourceBinding& resBinding = bindings.bindings[set][binding];
+    ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_SAMPLER][binding];
     resBinding.image.sampler = sampler.GetSampler();
-    bindings.cookies[set][binding] = sampler.GetCookie();
+    bindings.cookies[set][DESCRIPTOR_SET_SAMPLER][binding] = sampler.GetCookie();
     dirtySets |= 1u << set;
 }
 
 void CommandList::SetSampler(U32 set, U32 binding, StockSampler type)
 {
+    ASSERT(set < VULKAN_NUM_DESCRIPTOR_SETS);
+    ASSERT(binding < VULKAN_NUM_BINDINGS);
+
     ImmutableSampler* sampler = device.GetStockSampler(type);
     if (sampler != nullptr)
         SetSampler(set, binding, sampler->GetSampler());
@@ -604,16 +676,21 @@ void CommandList::SetSampler(U32 set, U32 binding, StockSampler type)
 
 void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
 {
+    ASSERT(set < VULKAN_NUM_DESCRIPTOR_SETS);
+    ASSERT(binding < VULKAN_NUM_BINDINGS);
     ASSERT(imageView.GetImage()->GetCreateInfo().usage & VK_IMAGE_USAGE_SAMPLED_BIT);
-    if (imageView.GetCookie() == bindings.cookies[set][binding])
+
+    if (imageView.GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding] &&
+        imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ==
+            bindings.bindings[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding].image.imageLayout)
         return;
 
-    ResourceBinding& resBinding = bindings.bindings[set][binding];
+    ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding];
     resBinding.image.imageView = imageView.GetImageView();
     resBinding.image.imageLayout = imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal ?
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 
-    bindings.cookies[set][binding] = imageView.GetCookie();
+    bindings.cookies[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding] = imageView.GetCookie();
     dirtySets |= 1u << set;
 }
 
@@ -627,6 +704,20 @@ void CommandList::SetBlendState(const BlendState& state)
 {
     pipelineState.blendState = state;
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
+void CommandList::SetScissor(const VkRect2D& rect)
+{
+    ASSERT(rect.offset.x >= 0);
+    ASSERT(rect.offset.y >= 0);
+    scissor = rect;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_SCISSOR_BIT);
+}
+
+void CommandList::SetViewport(const VkViewport& viewport_)
+{
+    viewport = viewport_;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_VIEWPORT_BIT);
 }
 
 void CommandList::NextSubpass(VkSubpassContents contents)
@@ -837,6 +928,13 @@ void CommandList::FlushDescriptorSets()
     });
     dirtySets &= ~setUpdate;
 
+    // Update for the dynamic offset of constant buffer
+    dirtySetsDynamic &= ~setUpdate;
+    U32 dynamicSetUpdate = resLayout.descriptorSetMask & dirtySets;
+    ForEachBit(dynamicSetUpdate, [&](U32 set) {
+        FlushDescriptorDynamicSet(set);
+    });
+    dirtySetsDynamic &= ~dynamicSetUpdate;
 }
 
 void CommandList::FlushDescriptorSet(U32 set)
@@ -858,11 +956,11 @@ void CommandList::FlushDescriptorSet(U32 set)
     // Calculate descriptor set layout hash
     HashCombiner hasher;
     const DescriptorSetLayout& setLayout = resLayout.sets[set];
-    for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
+    for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
     {
         ForEachBit(setLayout.masks[maskbit], [&](U32 binding) {
-            for (U8 i = 0; i < setLayout.arraySize[binding]; i++) {
-                hasher.HashCombine(bindings.cookies[set][binding + i]);
+            for (U8 i = 0; i < setLayout.bindings[maskbit][binding].arraySize; i++) {
+                hasher.HashCombine(bindings.cookies[set][maskbit][binding + i]);
             }
         });
     }
@@ -884,6 +982,35 @@ void CommandList::FlushDescriptorSet(U32 set)
         0,
         nullptr);
     allocatedSets[set] = allocated.first;
+}
+
+void CommandList::FlushDescriptorDynamicSet(U32 set)
+{
+    auto& resLayout = currentLayout->GetResLayout();
+    // check is bindless descriptor set
+    if (resLayout.bindlessSetMask & (1u << set))
+    {
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            currentPipelineLayout, set, 1, &bindlessSets[set], 0, nullptr);
+        return;
+    }
+
+    // Update constant buffers
+    U32 numDynamicOffsets = 0;
+    U32 dynamicOffsets[VULKAN_NUM_BINDINGS];
+
+    const DescriptorSetLayout& setLayout = resLayout.sets[set];
+    const U32 uniformMask = setLayout.masks[DESCRIPTOR_SET_UNIFORM_BUFFER];
+    ForEachBit(uniformMask, [&](U32 binding) {
+        auto& maskBinding = setLayout.bindings[DESCRIPTOR_SET_UNIFORM_BUFFER][binding];
+        for (U8 i = 0; i < maskBinding.arraySize; i++) {
+            dynamicOffsets[numDynamicOffsets++] = bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding + i].dynamicOffset;
+        }
+    });
+
+    ASSERT(allocatedSets[set] != VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        currentPipelineLayout, set, 1, &allocatedSets[set], numDynamicOffsets, dynamicOffsets);
 }
 
 VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipelineState)
@@ -1114,7 +1241,7 @@ VkPipeline CommandList::BuildComputePipeline(const CompiledPipelineState& pipeli
 
 void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U32& activeVbos)
 {
-    assert(pipeline.shaderProgram != nullptr);
+    ASSERT(pipeline.shaderProgram != nullptr);
     HashCombiner hash;
     activeVbos = 0;
     const CombinedResourceLayout& layout = pipeline.shaderProgram->GetPipelineLayout()->GetResLayout();

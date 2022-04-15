@@ -7,6 +7,7 @@
 #include "renderer\renderPath3D.h"
 #include "renderer\renderer.h"
 
+#include "imgui-docking\imgui.h"
 #include "renderer\imguiRenderer.h"
 
 namespace VulkanTest
@@ -46,7 +47,16 @@ namespace VulkanTest
 
             engine->Update(*world, deltaTime);
 
+            UpdateGUI(deltaTime);
+
             ImGuiRenderer::EndFrame();
+        }
+
+        bool showDemoWindow = true;
+        void UpdateGUI(F32 deltaTime)
+        {
+            if (showDemoWindow)
+                ImGui::ShowDemoWindow(&showDemoWindow);
         }
 
     private:

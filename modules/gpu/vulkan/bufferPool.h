@@ -23,7 +23,7 @@ namespace GPU
 		VkDeviceSize offset = 0;
 		VkDeviceSize alignment = 0;
 		VkDeviceSize container = 0;
-
+		VkDeviceSize spillSize = 0;
 		BufferPtr cpuBuffer;
 
 	public:
@@ -35,7 +35,8 @@ namespace GPU
 				U8* ret = mapped + alignedOffset;
 				offset = alignedOffset + allocateSize;
 
-				VkDeviceSize paddedSize = std::min(allocateSize, container - alignedOffset);
+				VkDeviceSize paddedSize = std::max(allocateSize, spillSize);
+				paddedSize = std::min(paddedSize, container - alignedOffset);
 				return { ret , alignedOffset, paddedSize };
 			}
 
@@ -54,7 +55,7 @@ namespace GPU
 		BufferPool();
 		~BufferPool();
 
-		void Init(DeviceVulkan* device_, VkDeviceSize blockSize_, VkDeviceSize alignment_, VkBufferUsageFlags usage_, U32 maxRetainedBlocks_ = 0);
+		void Init(DeviceVulkan* device_, VkDeviceSize blockSize_, VkDeviceSize alignment_, VkBufferUsageFlags usage_, U32 maxRetainedBlocks_);
 		void Reset();
 		BufferBlock RequestBlock(VkDeviceSize minimumSize);
 		void RecycleBlock(BufferBlock& block);
@@ -63,14 +64,19 @@ namespace GPU
 			return blockSize;
 		}
 
+		void SetSpillSize(VkDeviceSize spillSize_) {
+			spillSize = spillSize_;
+		}
+
 	private:
 		BufferBlock AllocateBlock(VkDeviceSize size);
 
-		DeviceVulkan* device;
-		VkDeviceSize blockSize;
-		VkDeviceSize alignment;
-		VkBufferUsageFlags usage;
-		U32 maxRetainedBlocks;
+		DeviceVulkan* device = nullptr;
+		VkDeviceSize blockSize = 0;
+		VkDeviceSize alignment= 0 ;
+		VkDeviceSize spillSize = 0;
+		VkBufferUsageFlags usage = 0;
+		U32 maxRetainedBlocks = 0;
 		std::vector<BufferBlock> blocks;
 	};
 }

@@ -71,6 +71,7 @@ namespace GPU
 
         block.offset = 0;
         block.alignment = alignment;
+        block.spillSize = spillSize;
         block.container = size;
         return block;
     }

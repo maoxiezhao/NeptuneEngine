@@ -174,6 +174,11 @@ public:
         return layoutType;
     }
 
+    VkImageLayout GetImageLayout(VkImageLayout optimal)const 
+    {
+        return layoutType == ImageLayoutType::Optimal ? optimal : VK_IMAGE_LAYOUT_GENERAL;
+    }
+
     void SetLayoutType(const ImageLayoutType& layoutType_)
     {
         layoutType = layoutType_;

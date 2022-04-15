@@ -6,6 +6,24 @@ namespace VulkanTest
 {
 namespace GPU
 {
+
+static U32 GetStageMaskFromShaderStage(ShaderStage stage)
+{
+	U32 mask = 0;
+	switch (stage)
+	{
+	case ShaderStage::VS:
+		mask = (U32)VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT;
+		break;
+	case ShaderStage::PS:
+		mask = (U32)VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT;
+		break;
+	default:
+		break;
+	}
+	return mask;
+}
+
 Shader::Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_, const ShaderResourceLayout* layout_) :
 	device(device_),
 	shaderStage(shaderStage_),
@@ -53,36 +71,24 @@ namespace
 		switch (descriptorType)
 		{
 		case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
-			mask = static_cast<I32>(DescriptorSetLayout::SAMPLER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_SAMPLER);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-			mask = static_cast<I32>(DescriptorSetLayout::SAMPLED_IMAGE);
+			mask = static_cast<I32>(DESCRIPTOR_SET_SAMPLED_IMAGE);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			mask = static_cast<I32>(DescriptorSetLayout::SAMPLED_BUFFER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_SAMPLED_BUFFER);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+			mask = static_cast<I32>(DESCRIPTOR_SET_UNIFORM_BUFFER);
+			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-			mask = static_cast<I32>(DescriptorSetLayout::STORAGE_BUFFER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_STORAGE_BUFFER);
 			break;
 		default:
 			break;
 		}
 		return mask;
-	}
-
-	void UpdateShaderArrayInfo(ShaderResourceLayout& layout, U32 set, U32 binding, SpvReflectDescriptorBinding* spvBinding)
-	{
-		auto& size = layout.sets[set].arraySize[binding];
-		if (spvBinding->type_description->op == SpvOpTypeRuntimeArray)
-		{
-			size = DescriptorSetLayout::UNSIZED_ARRAY;
-			layout.bindlessDescriptorSetMask |= 1u << set;
-		}
-		else
-		{
-			size = spvBinding->count;
-		}
 	}
 }
 
@@ -169,8 +175,21 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 		I32 mask = GetMaskByDescriptorType(x->descriptor_type);
 		if (mask >= 0)
 		{
-			layout.sets[x->set].masks[mask] |= 1u << x->binding;
-			UpdateShaderArrayInfo(layout, x->set, x->binding, x);
+			U32 rolledBinding = GetRolledBinding(x->binding);
+			layout.sets[x->set].masks[mask] |= 1u << rolledBinding;
+		
+			auto& binding = layout.sets[x->set].bindings[mask][rolledBinding];
+			binding.unrolledBinding = x->binding;
+			if (x->type_description->op == SpvOpTypeRuntimeArray)
+			{
+				// Bindless array
+				binding.arraySize = DescriptorSetLayout::UNSIZED_ARRAY;
+				layout.bindlessDescriptorSetMask |= 1u << x->set;
+			}
+			else
+			{
+				binding.arraySize = x->count;
+			}
 		}
 	}
 
@@ -200,7 +219,8 @@ ShaderProgram::ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& inf
 			SetShader(static_cast<ShaderStage>(i), info.shaders[i]);
 	}
 
-	device->BakeShaderProgram(*this);
+	// Bake shader program
+	Bake();
 }
 
 ShaderProgram::~ShaderProgram()
@@ -232,6 +252,117 @@ void ShaderProgram::MoveToReadOnly()
 #ifdef VULKAN_MT
 	pipelines.MoveToReadOnly();
 #endif
+}
+
+void ShaderProgram::Bake()
+{
+	// CombinedResourceLayout
+	// * descriptorSetMask;
+	// * stagesForSets[VULKAN_NUM_DESCRIPTOR_SETS];
+	// * stagesForBindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
+
+	// create pipeline layout
+	CombinedResourceLayout resLayout;
+	resLayout.descriptorSetMask = 0;
+
+	if (GetShader(ShaderStage::VS))
+		resLayout.attributeInputMask = GetShader(ShaderStage::VS)->GetLayout().inputMask;
+	if (GetShader(ShaderStage::PS))
+		resLayout.renderTargetMask = GetShader(ShaderStage::VS)->GetLayout().outputMask;
+
+	for (U32 i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
+	{
+		auto shader = GetShader(static_cast<ShaderStage>(i));
+		if (shader == nullptr)
+			continue;
+
+		U32 stageMask = GetStageMaskFromShaderStage(static_cast<ShaderStage>(i));
+		if (stageMask == 0)
+			continue;
+
+		const ShaderResourceLayout& shaderResLayout = shader->GetLayout();
+		for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
+		{
+			bool stageForSet = false;
+
+			// descriptor type masks
+			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
+			{
+				auto& bindingMask = shaderResLayout.sets[set].masks[maskbit];
+				resLayout.sets[set].masks[maskbit] = bindingMask;
+		
+				stageForSet |= bindingMask != 0;
+
+				ForEachBit(bindingMask, [&](U32 bit) {
+					
+					resLayout.stagesForBindings[set][bit] |= stageMask;
+
+					auto& combinedSize = resLayout.sets[set].bindings[maskbit][bit].arraySize;
+					auto& shaderSize = shaderResLayout.sets[set].bindings[maskbit][bit].arraySize;
+					if (combinedSize && combinedSize != shaderSize)
+						Logger::Error("Mismatch between array sizes in different shaders.\n");
+					else
+						combinedSize = shaderSize;
+				});
+			}
+
+			if (stageForSet)
+				resLayout.stagesForSets[set] |= stageMask;
+
+			if (shaderResLayout.bindlessDescriptorSetMask & (1u << set))
+				resLayout.sets[set].isBindless = true;
+		}
+
+		// push constants
+		if (shaderResLayout.pushConstantSize > 0)
+		{
+			resLayout.pushConstantRange.stageFlags |= stageMask;
+			resLayout.pushConstantRange.size = std::max(resLayout.pushConstantRange.size, shaderResLayout.pushConstantSize);
+		}
+
+		resLayout.bindlessSetMask |= shaderResLayout.bindlessDescriptorSetMask;
+	}
+
+	// bindings and check array size
+	for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
+	{
+		if (resLayout.stagesForSets[set] != 0)
+		{
+			resLayout.descriptorSetMask |= 1u << set;
+
+			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
+			{
+				for (U32 binding = 0; binding < VULKAN_NUM_BINDINGS; binding++)
+				{
+					U8& arraySize = resLayout.sets[set].bindings[maskbit][binding].arraySize;
+					if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY)
+					{
+						// Check is valid bindless
+						for (U32 i = 1; i < VULKAN_NUM_BINDINGS; i++)
+						{
+							if (resLayout.stagesForBindings[set][i] != 0)
+								Logger::Error("Invalid bindless for set %u", set);
+						}
+
+						// Allows us to have one unified descriptor set layout for bindless.
+						resLayout.stagesForBindings[set][maskbit] = VK_SHADER_STAGE_ALL;
+					}
+					else if (arraySize == 0)
+					{
+						// just keep one array size
+						arraySize = 1;
+					}
+				}
+			}
+		}
+	}
+
+	// Create pipeline layout
+	HashCombiner hasher;
+	hasher.HashCombine(resLayout.pushConstantRange.stageFlags);
+	hasher.HashCombine(resLayout.pushConstantRange.size);
+	resLayout.pushConstantHash = hasher.Get();
+	SetPipelineLayout(device->RequestPipelineLayout(resLayout));
 }
 
 void ShaderProgram::SetShader(ShaderStage stage, Shader* shader)

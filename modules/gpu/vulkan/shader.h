@@ -36,13 +36,14 @@ namespace GPU
 			VkDescriptorBufferInfo buffer;
 			VkDescriptorImageInfo image;
 		};
+		VkDeviceSize dynamicOffset; // Constant buffer dynamic offset
 	};
 
 	struct ResourceBindings
 	{
-		ResourceBinding bindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
+		ResourceBinding bindings[VULKAN_NUM_DESCRIPTOR_SETS][DESCRIPTOR_SET_COUNT][VULKAN_NUM_BINDINGS];
+		uint64_t cookies[VULKAN_NUM_DESCRIPTOR_SETS][DESCRIPTOR_SET_COUNT][VULKAN_NUM_BINDINGS];
 		uint8_t pushConstantData[VULKAN_PUSH_CONSTANT_SIZE];
-		uint64_t cookies[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
 	};
 
 	class PipelineLayout : public Util::IntrusiveHashMapEnabled<PipelineLayout>
@@ -135,6 +136,7 @@ namespace GPU
 		void MoveToReadOnly();
 
 	private:
+		void Bake();
 		void SetShader(ShaderStage stage, Shader* shader);
 
 		DeviceVulkan* device;

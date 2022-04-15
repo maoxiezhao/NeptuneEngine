@@ -199,6 +199,7 @@ public:
         // buffer blocks
         std::vector<BufferBlock> vboBlocks;
         std::vector<BufferBlock> iboBlocks;
+        std::vector<BufferBlock> uboBlocks;
 
         FrameResource(DeviceVulkan& device_);
         ~FrameResource();
@@ -219,6 +220,7 @@ public:
     // buffer pools
     BufferPool vboPool;
     BufferPool iboPool;
+    BufferPool uboPool;
 
     // vulkan object cache
     VulkanCache<Shader> shaders;
@@ -247,7 +249,6 @@ public:
 
     void SetContext(VulkanContext& context);
     void InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height);
-    void BakeShaderProgram(ShaderProgram& program);
     void WaitIdle();
     void WaitIdleNolock();
     bool IsSwapchainTouched();
@@ -275,6 +276,8 @@ public:
     void RequestVertexBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
     void RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
+    void RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize size);
+    void RequestUniformBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
     void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);

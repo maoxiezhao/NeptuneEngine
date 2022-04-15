@@ -14,27 +14,30 @@ namespace GPU
 		Sampler
 	};
 
+	enum DescriptorSetType
+	{
+		DESCRIPTOR_SET_SAMPLED_IMAGE,
+		DESCRIPTOR_SET_STORAGE_IMAGE,
+		DESCRIPTOR_SET_UNIFORM_BUFFER,
+		DESCRIPTOR_SET_STORAGE_BUFFER,
+		DESCRIPTOR_SET_SAMPLED_BUFFER,
+		DESCRIPTOR_SET_INPUT_ATTACHMENT,
+		DESCRIPTOR_SET_SAMPLER,
+		DESCRIPTOR_SET_COUNT,
+	};
+
+	struct DescriptorSetLayoutBinding
+	{
+		U32 unrolledBinding = 0;
+		U8 arraySize = 0xff;
+	};
+
 	struct DescriptorSetLayout
 	{
-		enum SetMask
-		{
-			SAMPLED_IMAGE,
-			STORAGE_IMAGE,
-			UNIFORM_BUFFER,
-			STORAGE_BUFFER,
-			SAMPLED_BUFFER,
-			INPUT_ATTACHMENT,
-			SAMPLER,
-			COUNT,
-		};
-		U32 masks[static_cast<U32>(SetMask::COUNT)] = {};
-		U8 arraySize[VULKAN_NUM_BINDINGS] = {};
+		U32 masks[DESCRIPTOR_SET_COUNT] = {};
+		DescriptorSetLayoutBinding bindings[DESCRIPTOR_SET_COUNT][VULKAN_NUM_BINDINGS];
+		bool isBindless = false;
 		enum { UNSIZED_ARRAY = 0xff };
-
-		DescriptorSetLayout()
-		{
-			memset(masks, 0, sizeof(U32) * static_cast<U32>(SetMask::COUNT));
-		}
 	};
 
 	class DescriptorSetAllocator;

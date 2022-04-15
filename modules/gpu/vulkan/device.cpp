@@ -107,23 +107,6 @@ namespace
         return QueueIndices(queueType);
     }
 
-    static U32 GetStageMaskFromShaderStage(ShaderStage stage)
-    {
-        U32 mask = 0;
-        switch (stage)
-        {
-        case ShaderStage::VS:
-            mask = (U32)VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT;
-            break;
-        case ShaderStage::PS:
-            mask = (U32)VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT;
-            break;
-        default:
-            break;
-        }
-        return mask;
-    }
-
     class ImageResourceCreator
     {
     public:
@@ -294,6 +277,8 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     // Init buffer pools
     vboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
     iboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 256);
+    uboPool.Init(this, 256 * 1024, 16, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
+    uboPool.SetSpillSize(VULKAN_MAX_UBO_SIZE);
 
     // Init bindless descriptor set allocator
     InitBindless();
@@ -638,7 +623,7 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const Descri
 	HashCombiner hasher;
     hasher.HashCombine(reinterpret_cast<const U32*>(&layout), sizeof(layout));
     hasher.HashCombine(stageForBinds, sizeof(U32) * VULKAN_NUM_BINDINGS);
-	
+    
 	auto findIt = descriptorSetAllocators.find(hasher.Get());
 	if (findIt != nullptr)
 		return *findIt;
@@ -761,6 +746,17 @@ void DeviceVulkan::RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size
 void DeviceVulkan::RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size)
 {
     RequestBufferBlock(block, size, iboPool, CurrentFrameResource().iboBlocks);
+}
+
+void DeviceVulkan::RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize size)
+{
+    LOCK();
+    RequestUniformBufferBlockNoLock(block, size);
+}
+
+void DeviceVulkan::RequestUniformBufferBlockNoLock(BufferBlock& block, VkDeviceSize size)
+{
+    RequestBufferBlock(block, size, uboPool, CurrentFrameResource().uboBlocks);
 }
 
 void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle)
@@ -1513,107 +1509,6 @@ VkQueue DeviceVulkan::GetPresentQueue() const
     return wsi.presentQueue;
 }
 
-
-void DeviceVulkan::BakeShaderProgram(ShaderProgram& program)
-{
-    // CombinedResourceLayout
-    // * descriptorSetMask;
-	// * stagesForSets[VULKAN_NUM_DESCRIPTOR_SETS];
-	// * stagesForBindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
-
-    // create pipeline layout
-    CombinedResourceLayout resLayout;
-    resLayout.descriptorSetMask = 0;
-
-    if (program.GetShader(ShaderStage::VS))
-        resLayout.attributeInputMask = program.GetShader(ShaderStage::VS)->GetLayout().inputMask;
-    if (program.GetShader(ShaderStage::PS))
-        resLayout.renderTargetMask = program.GetShader(ShaderStage::VS)->GetLayout().outputMask;
-
-    for (U32 i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
-    {
-        auto shader = program.GetShader(static_cast<ShaderStage>(i));
-        if (shader == nullptr)
-            continue;
-
-        U32 stageMask = GetStageMaskFromShaderStage(static_cast<ShaderStage>(i));
-        if (stageMask == 0)
-            continue;
-
-        const ShaderResourceLayout& shaderResLayout = shader->GetLayout();
-        for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
-        {
-            U32 activeBinds = false;
-
-            // descriptor type masks
-            for (U32 maskbit = 0; maskbit < static_cast<U32>(DescriptorSetLayout::SetMask::COUNT); maskbit++)
-            {
-                resLayout.sets[set].masks[maskbit] |= shaderResLayout.sets[set].masks[maskbit];
-                activeBinds |= (resLayout.sets[set].masks[maskbit] != 0);
-            }
-
-            // activate current stage
-            if (activeBinds != 0)
-            {
-                resLayout.stagesForSets[set] |= stageMask;
-
-                // activate current bindings
-                ForEachBit(activeBinds, [&](U32 bit) 
-                {
-                    resLayout.stagesForBindings[set][bit] |= stageMask; // set->binding->stages
-
-                    auto& combinedSize = resLayout.sets[set].arraySize[bit];
-                    auto& shaderSize = shaderResLayout.sets[set].arraySize[bit];
-                    if (combinedSize && combinedSize != shaderSize)
-                        Logger::Error("Mismatch between array sizes in different shaders.\n");
-                    else
-                        combinedSize = shaderSize;
-                });
-            }
-        }
-
-        // push constants
-        if (shaderResLayout.pushConstantSize > 0)
-        {
-            resLayout.pushConstantRange.stageFlags |= stageMask;
-            resLayout.pushConstantRange.size = std::max(resLayout.pushConstantRange.size, shaderResLayout.pushConstantSize);
-        }
-
-        resLayout.bindlessSetMask |= shaderResLayout.bindlessDescriptorSetMask;
-    }
-
-    // bindings and check array size
-    for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
-    {
-        if (resLayout.stagesForSets[set] != 0)
-        {
-            resLayout.descriptorSetMask |= 1u << set;
-
-            for(U32 binding = 0; binding < VULKAN_NUM_BINDINGS; binding++)
-            {
-                uint8_t& arraySize = resLayout.sets[set].arraySize[binding];
-                if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY)
-                {
-					// Allows us to have one unified descriptor set layout for bindless.
-					resLayout.stagesForBindings[set][binding] = VK_SHADER_STAGE_ALL;
-                }
-                else if (arraySize == 0)
-                {
-                    // just keep one array size
-                    arraySize = 1;
-                }
-            }
-        }
-    }
-
-    // Create pipeline layout
-    HashCombiner hasher;
-    hasher.HashCombine(resLayout.pushConstantRange.stageFlags);
-    hasher.HashCombine(resLayout.pushConstantRange.size);
-    resLayout.pushConstantHash = hasher.Get();
-    program.SetPipelineLayout(RequestPipelineLayout(resLayout));
-}
-
 void DeviceVulkan::WaitIdle()
 {
     DRAIN_FRAME_LOCK();
@@ -1645,10 +1540,12 @@ void DeviceVulkan::WaitIdleNolock()
     // Clear buffer pools
     vboPool.Reset();
     iboPool.Reset();
+    uboPool.Reset();
     for (auto& frame : frameResources)
     {
         frame->vboBlocks.clear();
         frame->iboBlocks.clear();
+        frame->uboBlocks.clear();
     }
 
     frameBufferAllocator.Clear();
@@ -2004,8 +1901,11 @@ void DeviceVulkan::FrameResource::Begin()
         device.vboPool.RecycleBlock(block);
     for (auto& block : iboBlocks)
         device.iboPool.RecycleBlock(block);
+    for (auto& block : uboBlocks)
+        device.uboPool.RecycleBlock(block);
     vboBlocks.clear();
     iboBlocks.clear();
+    uboBlocks.clear();
 
     // Clear destroyed resources
     for (auto& buffer : destroyedFrameBuffers)
@@ -2203,34 +2103,31 @@ void DeviceVulkan::InitStockSampler(StockSampler type)
 void DeviceVulkan::InitBindless()
 {
     DescriptorSetLayout layout;
-    layout.arraySize[0] = DescriptorSetLayout::UNSIZED_ARRAY;
-    for (unsigned i = 1; i < VULKAN_NUM_BINDINGS; i++)
-        layout.arraySize[i] = 1;
+    layout.isBindless = true;
 
     U32 stagesForSets[VULKAN_NUM_BINDINGS] = { VK_SHADER_STAGE_ALL };
-
     if (features.features_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::SAMPLED_IMAGE] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_SAMPLED_IMAGE] = 1;
         bindlessSampledImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
     if (features.features_1_2.descriptorBindingStorageBufferUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::STORAGE_BUFFER] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_STORAGE_BUFFER] = 1;
         bindlessStorageBuffers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
     if (features.features_1_2.descriptorBindingStorageImageUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::STORAGE_IMAGE] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_STORAGE_IMAGE] = 1;
         bindlessStorageImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
     if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[(U32)DescriptorSetLayout::SetMask::SAMPLER] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_SAMPLER] = 1;
         bindlessSamplers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
 }

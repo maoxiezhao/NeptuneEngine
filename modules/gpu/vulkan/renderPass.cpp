@@ -170,8 +170,7 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 		}
 		else
 		{
-			attachment.initialLayout = 
-				info.colorAttachments[i]->GetImage()->GetLayoutType() == ImageLayoutType::Optimal ? 
+			attachment.initialLayout = info.colorAttachments[i]->GetImage()->GetLayoutType() == ImageLayoutType::Optimal ? 
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}

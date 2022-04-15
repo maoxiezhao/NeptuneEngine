@@ -1,5 +1,5 @@
 
-Texture2D image : register(space1);
+Texture2D image : register(t0);
 SamplerState sam : register(s0);
 
 struct Input

@@ -33,6 +33,12 @@
 //fossilize
 #define VULKAN_TEST_FOSSILIZE
 
+// Binding shift. See shader compiler
+#define VULKAN_BINDING_SHIFT_B 0
+#define VULKAN_BINDING_SHIFT_T 1000
+#define VULKAN_BINDING_SHIFT_U 2000
+#define VULKAN_BINDING_SHIFT_S 3000
+
 namespace VulkanTest
 {
 namespace GPU
@@ -72,6 +78,7 @@ namespace GPU
     static const U32 VULKAN_NUM_VERTEX_BUFFERS = 8;
     static const U32 VULKAN_NUM_BINDINGS = 32;
     static const U32 VULKAN_PUSH_CONSTANT_SIZE = 128;
+    static const U32 VULKAN_MAX_UBO_SIZE = 16 * 1024;
     static const U32 VULKAN_NUM_BINDINGS_BINDLESS_VARYING = 16 * 1024;
 
     class DeviceVulkan;
@@ -121,6 +128,11 @@ namespace GPU
         PER_VERTEX_DATA,
         PER_INSTANCE_DATA,
     };
+
+    static inline U32 GetRolledBinding(U32 unrolledBinding)
+    {
+        return (unrolledBinding % VULKAN_BINDING_SHIFT_T);
+    }
 
     static inline bool IsFormatHasDepth(VkFormat format)
     {

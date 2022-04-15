@@ -121,10 +121,12 @@ private:
     VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
     VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
     U32 dirtySets = 0;
+    U32 dirtySetsDynamic = 0; // Used for constant buffer dynamic offset
     U32 dirtyVbos = 0;
 
     BufferBlock vboBlock;
     BufferBlock iboBlock;
+    BufferBlock uboBlock;
 
     // render pass runtime 
     FrameBuffer* frameBuffer = nullptr;
@@ -148,8 +150,15 @@ public:
     void SetVertexAttribute(U32 attribute, U32 binding, VkFormat format, VkDeviceSize offset);
     void BindVertexBuffer(const BufferPtr& buffer, U32 binding, VkDeviceSize offset, VkDeviceSize stride, VkVertexInputRate inputRate);
     void BindIndexBuffer(const BufferPtr& buffer, VkDeviceSize offset, VkIndexType indexType);
-    
+    void BindConstantBuffer(const BufferPtr& buffer,U32 set, U32 binding, VkDeviceSize offset, VkDeviceSize range);
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
+    void* AllocateConstant(U32 set, U32 binding, VkDeviceSize size);
+    template<typename T>
+    T* AllocateConstant(U32 set, U32 binding)
+    {
+        return static_cast<T*>(AllocateConstant(set, binding, sizeof(T)));
+    }
+
     void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
     void CopyBuffer(const BufferPtr& dst, const BufferPtr& src);
     void CopyBuffer(const BufferPtr& dst, VkDeviceSize dstOffset, const BufferPtr& src, VkDeviceSize srcOffset, VkDeviceSize size);
@@ -160,6 +169,8 @@ public:
     void SetTexture(U32 set, U32 binding, const ImageView& imageView);
     void SetRasterizerState(const RasterizerState& state);
     void SetBlendState(const BlendState& state);
+    void SetScissor(const VkRect2D& rect);
+    void SetViewport(const VkViewport& viewport_);
     void NextSubpass(VkSubpassContents contents);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
@@ -233,6 +244,7 @@ private:
     bool FlushGraphicsPipeline();
     void FlushDescriptorSets();
     void FlushDescriptorSet(U32 set);
+    void FlushDescriptorDynamicSet(U32 set);
     void UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U32& activeVbos);
 
     VkPipeline BuildGraphicsPipeline(const CompiledPipelineState& pipelineState);
