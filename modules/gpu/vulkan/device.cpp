@@ -2109,25 +2109,25 @@ void DeviceVulkan::InitBindless()
     if (features.features_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_SAMPLED_IMAGE] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE] = 1;
         bindlessSampledImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
     if (features.features_1_2.descriptorBindingStorageBufferUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_STORAGE_BUFFER] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_BUFFER] = 1;
         bindlessStorageBuffers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
     if (features.features_1_2.descriptorBindingStorageImageUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_STORAGE_IMAGE] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE] = 1;
         bindlessStorageImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
     if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_SAMPLER] = 1;
+        tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLER] = 1;
         bindlessSamplers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
 }

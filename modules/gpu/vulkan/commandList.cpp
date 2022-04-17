@@ -19,27 +19,27 @@ namespace
         VkWriteDescriptorSet writes[VULKAN_NUM_BINDINGS];
 
         // Constant buffers
-        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_UNIFORM_BUFFER)],
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER)],
             [&](U32 bit) {
-                auto& binding = setLayout.bindings[DESCRIPTOR_SET_UNIFORM_BUFFER][bit];
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][bit];
                 for (U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
                     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
                     write.pNext = nullptr;
                     write.descriptorCount = 1;
-                    write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
                     write.dstArrayElement = i;
                     write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[DESCRIPTOR_SET_UNIFORM_BUFFER][bit + i].image;
+                    write.pBufferInfo = &bindings[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][bit + i].buffer;
                 }
             });
 
         // Sampled image
-        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_SAMPLED_IMAGE)],
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE)],
             [&](U32 bit) {
-                auto& binding = setLayout.bindings[DESCRIPTOR_SET_SAMPLED_IMAGE][bit];
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][bit];
                 for (U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
@@ -50,14 +50,14 @@ namespace
                     write.dstArrayElement = i;
                     write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[DESCRIPTOR_SET_SAMPLED_IMAGE][bit + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][bit + i].image;
                 }
             });
 
         // Storage image
-        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_STORAGE_IMAGE)], 
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_STORAGE_IMAGE)], 
             [&](U32 bit) {
-                auto& binding = setLayout.bindings[DESCRIPTOR_SET_STORAGE_IMAGE][bit];
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][bit];
                 for(U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
@@ -68,14 +68,14 @@ namespace
                     write.dstArrayElement = i;
                     write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[DESCRIPTOR_SET_STORAGE_IMAGE][bit + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][bit + i].image;
                 }
             });
 
         // Input attachment
-        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_INPUT_ATTACHMENT)], 
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT)], 
             [&](U32 bit) {
-                auto& binding = setLayout.bindings[DESCRIPTOR_SET_INPUT_ATTACHMENT][bit];
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][bit];
                 for(U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
@@ -86,14 +86,14 @@ namespace
                     write.dstArrayElement = i;
                     write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[DESCRIPTOR_SET_INPUT_ATTACHMENT][bit + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][bit + i].image;
                 }
             });
 
         // Sampler
-        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_SAMPLER)],
+        ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_SAMPLER)],
             [&](U32 bit) {
-                auto& binding = setLayout.bindings[DESCRIPTOR_SET_SAMPLER][bit];
+                auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLER][bit];
                 for (U32 i = 0; i < binding.arraySize; i++)
                 {
                     auto& write = writes[writeCount++];
@@ -104,7 +104,7 @@ namespace
                     write.dstArrayElement = i;
                     write.dstBinding = binding.unrolledBinding;
                     write.dstSet = descSet;
-                    write.pImageInfo = &bindings[DESCRIPTOR_SET_SAMPLER][bit + i].image;
+                    write.pImageInfo = &bindings[DESCRIPTOR_SET_TYPE_SAMPLER][bit + i].image;
                 }
             });
 
@@ -575,11 +575,11 @@ void CommandList::BindConstantBuffer(const BufferPtr& buffer, U32 set, U32 bindi
     ASSERT(binding < VULKAN_NUM_BINDINGS);
     ASSERT(buffer->GetCreateInfo().usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 
-    if (buffer->GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding] &&
-        range == bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding].buffer.range)
+    if (buffer->GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding] &&
+        range == bindings.bindings[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding].buffer.range)
     {
         // Check offset is different
-        auto& b = bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding];
+        auto& b = bindings.bindings[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding];
         if (b.dynamicOffset != offset)
         {
             dirtySetsDynamic |= 1u << set;
@@ -588,11 +588,11 @@ void CommandList::BindConstantBuffer(const BufferPtr& buffer, U32 set, U32 bindi
     }
     else
     {
-        auto& b = bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding];
+        auto& b = bindings.bindings[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding];
         VkDescriptorBufferInfo bufferInfo = { buffer->GetBuffer(), 0, range};
         b.dynamicOffset = offset;
         b.buffer = bufferInfo;
-        bindings.cookies[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding] = buffer->GetCookie();
+        bindings.cookies[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding] = buffer->GetCookie();
         dirtySets |= 1u << set;
     }
 }
@@ -608,12 +608,12 @@ void* CommandList::AllocateConstant(U32 set, U32 binding, VkDeviceSize size)
 {
     ASSERT(size < VULKAN_MAX_UBO_SIZE);
     if (!uboBlock.IsAllocated())
-        device.RequestVertexBufferBlock(uboBlock, size);
+        device.RequestUniformBufferBlock(uboBlock, size);
 
     auto data = uboBlock.Allocate(size);
     if (data.data == nullptr)
     {
-        device.RequestVertexBufferBlock(uboBlock, size);
+        device.RequestUniformBufferBlock(uboBlock, size);
         data = uboBlock.Allocate(size);
     }
 
@@ -655,12 +655,12 @@ void CommandList::SetSampler(U32 set, U32 binding, const Sampler& sampler)
     ASSERT(set < VULKAN_NUM_DESCRIPTOR_SETS);
     ASSERT(binding < VULKAN_NUM_BINDINGS);
 
-    if (sampler.GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_SAMPLER][binding])
+    if (sampler.GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLER][binding])
         return;
 
-    ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_SAMPLER][binding];
+    ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLER][binding];
     resBinding.image.sampler = sampler.GetSampler();
-    bindings.cookies[set][DESCRIPTOR_SET_SAMPLER][binding] = sampler.GetCookie();
+    bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLER][binding] = sampler.GetCookie();
     dirtySets |= 1u << set;
 }
 
@@ -680,17 +680,17 @@ void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
     ASSERT(binding < VULKAN_NUM_BINDINGS);
     ASSERT(imageView.GetImage()->GetCreateInfo().usage & VK_IMAGE_USAGE_SAMPLED_BIT);
 
-    if (imageView.GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding] &&
+    if (imageView.GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding] &&
         imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ==
-            bindings.bindings[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding].image.imageLayout)
+            bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding].image.imageLayout)
         return;
 
-    ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding];
+    ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding];
     resBinding.image.imageView = imageView.GetImageView();
     resBinding.image.imageLayout = imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal ?
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
 
-    bindings.cookies[set][DESCRIPTOR_SET_SAMPLED_IMAGE][binding] = imageView.GetCookie();
+    bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding] = imageView.GetCookie();
     dirtySets |= 1u << set;
 }
 
@@ -953,14 +953,24 @@ void CommandList::FlushDescriptorSet(U32 set)
     if (allocator == nullptr)
         return;
     
+    uint32_t numDynamicOffsets = 0;
+    uint32_t dynamicOffsets[VULKAN_NUM_BINDINGS];
+
     // Calculate descriptor set layout hash
     HashCombiner hasher;
     const DescriptorSetLayout& setLayout = resLayout.sets[set];
-    for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
+    for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
     {
         ForEachBit(setLayout.masks[maskbit], [&](U32 binding) {
-            for (U8 i = 0; i < setLayout.bindings[maskbit][binding].arraySize; i++) {
+            for (U8 i = 0; i < setLayout.bindings[maskbit][binding].arraySize; i++) 
+            {
                 hasher.HashCombine(bindings.cookies[set][maskbit][binding + i]);
+
+                if (maskbit == DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER)
+                {
+                    ASSERT(numDynamicOffsets < VULKAN_NUM_BINDINGS);
+                    dynamicOffsets[numDynamicOffsets++] = bindings.bindings[set][maskbit][binding + i].dynamicOffset;
+                }
             }
         });
     }
@@ -979,8 +989,8 @@ void CommandList::FlushDescriptorSet(U32 set)
         set, 
         1, 
         &allocated.first,
-        0,
-        nullptr);
+        numDynamicOffsets,
+        dynamicOffsets);
     allocatedSets[set] = allocated.first;
 }
 
@@ -1000,11 +1010,11 @@ void CommandList::FlushDescriptorDynamicSet(U32 set)
     U32 dynamicOffsets[VULKAN_NUM_BINDINGS];
 
     const DescriptorSetLayout& setLayout = resLayout.sets[set];
-    const U32 uniformMask = setLayout.masks[DESCRIPTOR_SET_UNIFORM_BUFFER];
+    const U32 uniformMask = setLayout.masks[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER];
     ForEachBit(uniformMask, [&](U32 binding) {
-        auto& maskBinding = setLayout.bindings[DESCRIPTOR_SET_UNIFORM_BUFFER][binding];
+        auto& maskBinding = setLayout.bindings[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding];
         for (U8 i = 0; i < maskBinding.arraySize; i++) {
-            dynamicOffsets[numDynamicOffsets++] = bindings.bindings[set][DESCRIPTOR_SET_UNIFORM_BUFFER][binding + i].dynamicOffset;
+            dynamicOffsets[numDynamicOffsets++] = bindings.bindings[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding + i].dynamicOffset;
         }
     });
 
@@ -1136,7 +1146,7 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
 
     // raster
     VkPipelineRasterizationStateCreateInfo rasterizer = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
-    rasterizer.depthClampEnable = VK_TRUE;
+    rasterizer.depthClampEnable = pipelineState.rasterizerState.depthClipEnable;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = pipelineState.rasterizerState.fillMode == FILL_SOLID ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE;
     rasterizer.lineWidth = 1.0f;

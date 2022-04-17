@@ -145,7 +145,16 @@ namespace Renderer
 		rs.cullMode = VK_CULL_MODE_FRONT_BIT;
 		stockRasterizerState[RasterizerStateType_Back] = rs;
 
+		rs.fillMode = GPU::FILL_SOLID;
 		rs.cullMode = VK_CULL_MODE_NONE;
+		rs.frontCounterClockwise = false;
+		rs.depthBias = 0;
+		rs.depthBiasClamp = 0;
+		rs.slopeScaledDepthBias = 0;
+		rs.depthClipEnable = false;
+		rs.multisampleEnable = false;
+		rs.antialiasedLineEnable = false;
+		rs.conservativeRasterizationEnable = false;
 		stockRasterizerState[RasterizerStateType_DoubleSided] = rs;
 	}
 

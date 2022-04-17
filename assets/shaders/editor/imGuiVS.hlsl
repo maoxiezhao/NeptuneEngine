@@ -22,6 +22,7 @@ VertexOutput main(VertexInput input)
 {
 	VertexOutput output;
 	output.pos = mul(ProjectionMatrix, float4(input.pos.xy, 0.f, 1.f));
+	output.pos.y *= -1.0f;
 	output.uv = input.uv;
 	output.col = input.col; 
 	return output;

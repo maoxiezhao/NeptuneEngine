@@ -71,19 +71,19 @@ namespace
 		switch (descriptorType)
 		{
 		case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
-			mask = static_cast<I32>(DESCRIPTOR_SET_SAMPLER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_SAMPLER);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-			mask = static_cast<I32>(DESCRIPTOR_SET_SAMPLED_IMAGE);
+			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			mask = static_cast<I32>(DESCRIPTOR_SET_SAMPLED_BUFFER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-			mask = static_cast<I32>(DESCRIPTOR_SET_UNIFORM_BUFFER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-			mask = static_cast<I32>(DESCRIPTOR_SET_STORAGE_BUFFER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_STORAGE_BUFFER);
 			break;
 		default:
 			break;
@@ -164,7 +164,7 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 	// parse push constant buffers
 	if (!pushConstants.empty())
 	{
-		// ÕâÀï½ö½ö»ñÈ¡µÚÒ»¸öconstantµÄ´óÐ¡
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ò»ï¿½ï¿½constantï¿½Ä´ï¿½Ð¡
 		// At least on older validation layers, it did not do a static analysis to determine similar information
 		layout.pushConstantSize = pushConstants.front()->offset + pushConstants.front()->size;
 	}
@@ -286,23 +286,24 @@ void ShaderProgram::Bake()
 			bool stageForSet = false;
 
 			// descriptor type masks
-			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
+			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
 			{
 				auto& bindingMask = shaderResLayout.sets[set].masks[maskbit];
-				resLayout.sets[set].masks[maskbit] = bindingMask;
-		
+				resLayout.sets[set].masks[maskbit] |= bindingMask;
+
 				stageForSet |= bindingMask != 0;
 
 				ForEachBit(bindingMask, [&](U32 bit) {
 					
 					resLayout.stagesForBindings[set][bit] |= stageMask;
+					resLayout.sets[set].bindings[maskbit][bit] = shaderResLayout.sets[set].bindings[maskbit][bit];
 
-					auto& combinedSize = resLayout.sets[set].bindings[maskbit][bit].arraySize;
-					auto& shaderSize = shaderResLayout.sets[set].bindings[maskbit][bit].arraySize;
-					if (combinedSize && combinedSize != shaderSize)
-						Logger::Error("Mismatch between array sizes in different shaders.\n");
-					else
-						combinedSize = shaderSize;
+					//auto& combinedSize = resLayout.sets[set].bindings[maskbit][bit].arraySize;
+					//auto& shaderSize = shaderResLayout.sets[set].bindings[maskbit][bit].arraySize;
+					//if (combinedSize && combinedSize != shaderSize)
+					//	Logger::Error("Mismatch between array sizes in different shaders.\n");
+					//else
+					//	combinedSize = shaderSize;
 				});
 			}
 
@@ -330,8 +331,11 @@ void ShaderProgram::Bake()
 		{
 			resLayout.descriptorSetMask |= 1u << set;
 
-			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
+			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
 			{
+				if (resLayout.sets[set].masks[maskbit] == 0)
+					continue;
+
 				for (U32 binding = 0; binding < VULKAN_NUM_BINDINGS; binding++)
 				{
 					U8& arraySize = resLayout.sets[set].bindings[maskbit][binding].arraySize;

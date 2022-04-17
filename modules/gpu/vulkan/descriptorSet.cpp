@@ -8,14 +8,14 @@ namespace GPU
 {
 	namespace 
 	{
-		//DESCRIPTOR_SET_SAMPLED_IMAGE,
-		//DESCRIPTOR_SET_STORAGE_IMAGE,
-		//DESCRIPTOR_SET_UNIFORM_BUFFER,
-		//DESCRIPTOR_SET_STORAGE_BUFFER,
-		//DESCRIPTOR_SET_SAMPLED_BUFFER,
-		//DESCRIPTOR_SET_INPUT_ATTACHMENT,
-		//DESCRIPTOR_SET_SAMPLER,
-		//DESCRIPTOR_SET_COUNT,
+		//DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE,
+		//DESCRIPTOR_SET_TYPE_STORAGE_IMAGE,
+		//DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER,
+		//DESCRIPTOR_SET_TYPE_STORAGE_BUFFER,
+		//DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER,
+		//DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT,
+		//DESCRIPTOR_SET_TYPE_SAMPLER,
+		//DESCRIPTOR_SET_TYPE_COUNT,
 
 		static const unsigned VULKAN_NUM_SETS_PER_POOL = 16;
 
@@ -23,19 +23,19 @@ namespace GPU
 		{
 			switch (mask)
 			{
-				case DESCRIPTOR_SET_SAMPLED_IMAGE:
+				case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
 					return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-				case DESCRIPTOR_SET_STORAGE_IMAGE:
+				case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
 					return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-				case DESCRIPTOR_SET_UNIFORM_BUFFER:
+				case DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER:
 					return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-				case DESCRIPTOR_SET_STORAGE_BUFFER:
+				case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
 					return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-				case DESCRIPTOR_SET_SAMPLED_BUFFER:
+				case DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER:
 					return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-				case DESCRIPTOR_SET_INPUT_ATTACHMENT:
+				case DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT:
 					return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-				case DESCRIPTOR_SET_SAMPLER:
+				case DESCRIPTOR_SET_TYPE_SAMPLER:
 					return VK_DESCRIPTOR_TYPE_SAMPLER;
 				default:
 					assert(false);
@@ -50,13 +50,13 @@ namespace GPU
 			auto& properties_1_2 = device.features.properties_1_2;
 			switch (mask)
 			{
-			case DESCRIPTOR_SET_SAMPLED_IMAGE:
+			case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
 				return feature_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindSampledImages / 4 : -1;
-			case DESCRIPTOR_SET_STORAGE_IMAGE:
+			case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
 				return feature_1_2.descriptorBindingStorageImageUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindStorageImages / 4 : -1;
-			case DESCRIPTOR_SET_STORAGE_BUFFER:
+			case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
 				return feature_1_2.descriptorBindingStorageBufferUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindStorageBuffers / 4 : -1;
-			case DESCRIPTOR_SET_SAMPLER:
+			case DESCRIPTOR_SET_TYPE_SAMPLER:
 				return feature_1_2.descriptorBindingSampledImageUpdateAfterBind ? 256 : -1;
 			default:
 				return -1;
@@ -68,20 +68,20 @@ namespace GPU
 		{
 			auto& feature_1_2 = device.features.features_1_2;
 			bool ret = false;
-			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
+			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
 			{
 				if (maskFlags[maskbit] & 1)
 				{
 					DescriptorSetType mask = static_cast<DescriptorSetType>(maskbit);
 					switch (mask)
 					{
-					case DESCRIPTOR_SET_SAMPLED_IMAGE:
+					case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
 						return feature_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind;
-					case DESCRIPTOR_SET_STORAGE_IMAGE:
+					case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
 						return feature_1_2.descriptorBindingStorageImageUpdateAfterBind;
-					case DESCRIPTOR_SET_STORAGE_BUFFER:
+					case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
 						return feature_1_2.descriptorBindingStorageBufferUpdateAfterBind;
-					case DESCRIPTOR_SET_SAMPLER:
+					case DESCRIPTOR_SET_TYPE_SAMPLER:
 						return feature_1_2.descriptorBindingSampledImageUpdateAfterBind;
 					}
 				}
@@ -222,9 +222,9 @@ namespace GPU
 				continue;
 			
 			// Create VkDescriptorSetLayoutBinding
-			U32 types = 0;
-			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_COUNT; maskbit++)
+			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
             {
+				U32 types = 0;
 				if (layout.masks[maskbit] & (1u << i))
 				{
 					auto& binding = layout.bindings[maskbit][i];
@@ -258,8 +258,8 @@ namespace GPU
 					poolSize.push_back({ descriptorType, poolArraySize });
 					types++;
 				}
+				ASSERT(types <= 1);
 			}	
-			assert(types <= 1);
 		}
 
 		if (!bindings.empty())
