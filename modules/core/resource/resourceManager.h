@@ -16,6 +16,7 @@ namespace VulkanTest
 
 		void Initialize(ResourceType type, ResourceManager& resManager_);
 		void Uninitialize();
+		void RemoveUnreferenced();
 
 		bool IsUnloadEnable()const {
 			return isUnloadEnable;
@@ -49,6 +50,7 @@ namespace VulkanTest
 
 		void Initialize(class FileSystem& fileSystem_);
 		void Uninitialzie();
+		void RemoveUnreferenced();
 
 		template<typename T>
 		T* LoadResource(const Path& path)

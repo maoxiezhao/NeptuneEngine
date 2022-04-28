@@ -61,7 +61,7 @@ namespace VulkanTest
 		}
 
 		template<typename T>
-		static void ArrayDeconstructFunc(T* ptrArr, size_t num)
+		static void ArrayDestructFunc(T* ptrArr, size_t num)
 		{
 			uint64_t* mem = (uint64_t*)ptrArr;
 			if (mem == nullptr) {
@@ -84,7 +84,7 @@ inline void operator delete(void*, VulkanTest::NewPlaceHolder, void*) { }
 #define CJING_NEW(T) new (VulkanTest::NewPlaceHolder(), VulkanTest::Memory::Alloc(sizeof(T), __FILE__, __LINE__)) T
 #define CJING_DELETE(ptr) VulkanTest::Memory::ObjectConstruct(ptr); VulkanTest::Memory::Free(ptr);
 #define CJING_NEW_ARR(T, count) VulkanTest::Memory::ArrayConstructFunc(static_cast<T*>(VulkanTest::Memory::Alloc(sizeof(T) * count, __FILE__, __LINE__)), count)
-#define CJING_DELETE_ARR(ptr, count) VulkanTest::Memory::ArrayDeconstructFunc(ptr, count); VulkanTest::Memory::Free(ptr);
+#define CJING_DELETE_ARR(ptr, count) VulkanTest::Memory::ArrayDestructFunc(ptr, count); VulkanTest::Memory::Free(ptr);
 
 #define CJING_MALLOC(size)  VulkanTest::Memory::Alloc(size, __FILE__, __LINE__)
 #define CJING_MALLOC_ALIGN(size, align)  VulkanTest::Memory::AlignAlloc(size, align, __FILE__, __LINE__)
@@ -106,7 +106,7 @@ inline void operator delete(void*, VulkanTest::NewPlaceHolder, void*) { }
 #define CJING_NEW(T) new (VulkanTest::NewPlaceHolder(), VulkanTest::Memory::Alloc(sizeof(T))) T
 #define CJING_DELETE(ptr) VulkanTest::Memory::ObjectConstruct(ptr); VulkanTest::Memory::Free(ptr);
 #define CJING_NEW_ARR(T, count) VulkanTest::Memory::ArrayConstructFunc(static_cast<T*>(VulkanTest::Memory::Alloc(sizeof(T) * count)), count)
-#define CJING_DELETE_ARR(ptr, count) VulkanTest::Memory::ArrayDeconstructFunc(ptr, count); VulkanTest::Memory::Free(ptr);
+#define CJING_DELETE_ARR(ptr, count) VulkanTest::Memory::ArrayDestructFunc(ptr, count); VulkanTest::Memory::Free(ptr);
 
 #define CJING_MALLOC(size)  VulkanTest::Memory::Alloc(size)
 #define CJING_MALLOC_ALIGN(size, align)  VulkanTest::Memory::AlignAlloc(size, align)
@@ -173,12 +173,12 @@ namespace VulkanTest
 	class UniquePtr
 	{
 	public:
-		UniquePtr() : mPtr(nullptr) {}
-		UniquePtr(T* ptr) : mPtr(ptr) {}
+		UniquePtr() : ptr_(nullptr) {}
+		UniquePtr(T* ptr) : ptr_(ptr) {}
 		~UniquePtr()
 		{
-			if (mPtr) {
-				CJING_DELETE(mPtr);
+			if (ptr_) {
+				CJING_DELETE(ptr_);
 			}
 		}
 
@@ -191,11 +191,11 @@ namespace VulkanTest
 		template <typename T2>
 		UniquePtr& operator=(UniquePtr<T2>&& rhs)
 		{
-			if (mPtr) {
-				CJING_DELETE(mPtr);
+			if (ptr_) {
+				CJING_DELETE(ptr_);
 			}
 
-			mPtr = static_cast<T*>(rhs.Detach());
+			ptr_ = static_cast<T*>(rhs.Detach());
 			return *this;
 		}
 
@@ -206,34 +206,34 @@ namespace VulkanTest
 
 		T* Detach()
 		{
-			T* ret = mPtr;
-			mPtr = nullptr;
+			T* ret = ptr_;
+			ptr_ = nullptr;
 			return ret;
 		}
 
 		void Reset()
 		{
-			if (mPtr) {
-				CJING_DELETE(mPtr);
+			if (ptr_) {
+				CJING_DELETE(ptr_);
 			}
-			mPtr = nullptr;
+			ptr_ = nullptr;
 		}
 
 		T* Get()const {
-			return mPtr;
+			return ptr_;
 		}
 		T& operator*() const {
-			return *mPtr;
+			return *ptr_;
 		}
 		T* operator->()const {
-			return mPtr;
+			return ptr_;
 		}
 		explicit operator bool()const {
-			return mPtr != nullptr;
+			return ptr_ != nullptr;
 		}
 
 	private:
-		T* mPtr = nullptr;
+		T* ptr_ = nullptr;
 	};
 
 	template< typename T>

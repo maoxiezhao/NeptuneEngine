@@ -1,6 +1,8 @@
 #pragma once
 
 #include "renderPath2D.h"
+#include "culling.h"
+#include "renderScene.h"
 
 namespace VulkanTest
 {
@@ -10,8 +12,18 @@ namespace VulkanTest
 		void Update(float dt) override;
 		void FixedUpdate() override;
 
+		bool GetSceneUpdateEnabled()const {
+			return sceneUpdateEnable;
+		}
+
 	protected:
-		void Setup(RenderGraph& renderGraph) override;
+		void SetupPasses(RenderGraph& renderGraph) override;
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
+	
+	private:
+		bool sceneUpdateEnable = true;
+
+		Visibility visibility;
+		CameraComponent* camera = nullptr;
 	};
 }

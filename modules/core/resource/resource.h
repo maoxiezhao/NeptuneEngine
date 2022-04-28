@@ -32,6 +32,17 @@ namespace VulkanTest
 		StringID type;
 	};
 
+	struct VULKAN_TEST_API CompiledResourceHeader
+	{
+		static constexpr U32 MAGIC = 'FUCK';
+		static constexpr U32 VERSION = 0x01;
+
+		U32 magic = MAGIC;
+		U32 version = 0;
+		U32 originSize = 0;
+		bool isCompressed = false;
+	};
+
 	class VULKAN_TEST_API Resource
 	{
 	public:
@@ -39,7 +50,7 @@ namespace VulkanTest
 		friend class ResourceManager;
 
 		virtual ~Resource();
-		virtual ResourceType GetType() = 0;
+		virtual ResourceType GetType()const = 0;
 
 		// Resource state
 		enum class State
@@ -85,7 +96,7 @@ namespace VulkanTest
 		void DoUnload();
 		void CheckState();
 
-		virtual void OnLoaded() = 0;
+		virtual bool OnLoaded(U64 size, const U8* mem) = 0;
 		virtual void OnUnLoaded() = 0;
 
 #if DEBUG
@@ -96,6 +107,7 @@ namespace VulkanTest
 		State desiredState;
 		U32 failedDepCount;
 		U32 emptyDepCount;
+		U64 resSize;
 
 	private:
 		Resource(const Resource&) = delete;
@@ -111,7 +123,10 @@ namespace VulkanTest
 		AsyncLoadHandle asyncHandle;
 	};
 
-#define DECLARE_RESOURCE(CLASS_NAME, NAME)                                                      \
+#define DECLARE_RESOURCE(CLASS_NAME)															\
 	static const ResourceType ResType;                                                          \
 	ResourceType GetType()const override { return ResType; };
+
+#define DEFINE_RESOURCE(CLASS_NAME)																\
+	const ResourceType CLASS_NAME::ResType(#CLASS_NAME);
 }

@@ -18,7 +18,7 @@ namespace VulkanTest
 		{
 			RenderPath3D::Compose(renderGraph, cmd);
 
-			ImGuiRenderer::Render(cmd);
+			// ImGuiRenderer::Render(cmd);
 		}
     };
 

@@ -12,7 +12,7 @@ namespace VulkanTest
 		RenderPathGraph::FixedUpdate();
 	}
 
-	void RenderPath2D::Setup(RenderGraph& renderGraph)
+	void RenderPath2D::SetupPasses(RenderGraph& renderGraph)
 	{
 	}
 

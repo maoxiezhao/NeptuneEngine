@@ -480,7 +480,7 @@ namespace VulkanTest
         for (auto& res : resources)
         {
             // Buffer are never transient
-            if (res->GetResourceType() != ResourceType::Texture)
+            if (res->GetResourceType() != RenderGraphResourceType::Texture)
                 continue;
 
             U32 resPhysicalIndex = res->GetPhysicalIndex();
@@ -2035,9 +2035,28 @@ namespace VulkanTest
         return *impl->physicalAttachments[res.GetPhysicalIndex()];
     }
 
+    GPU::ImageView* RenderGraph::TryGetPhysicalTexture(RenderTextureResource* res)
+    {
+        if (res == nullptr || res->GetPhysicalIndex() == RenderResource::Unused)
+            return nullptr;
+        return impl->physicalAttachments[res->GetPhysicalIndex()];
+    }
+
+    GPU::Buffer& RenderGraph::GetPhysicalBuffer(const RenderBufferResource& res)
+    {
+        ASSERT(res.GetPhysicalIndex() != RenderResource::Unused);
+        return *impl->physicalBuffers[res.GetPhysicalIndex()];
+    }
+
+    GPU::Buffer* RenderGraph::TryGetPhysicalBuffer(RenderBufferResource* res)
+    {
+        if (res == nullptr || res->GetPhysicalIndex() == RenderResource::Unused)
+            return nullptr;
+        return impl->physicalBuffers[res->GetPhysicalIndex()].get();
+    }
+
     void RenderGraph::SetBackbufferDimension(const ResourceDimensions& dim)
     {
         impl->swapchainDimensions = dim;
     }
-
 }

@@ -3,6 +3,10 @@
 #include "renderer\renderPath3D.h"
 #include "gpu\vulkan\wsi.h"
 #include "core\utils\profiler.h"
+#include "core\resource\resourceManager.h"
+#include "model.h"
+#include "material.h"
+#include "texture.h"
 
 namespace VulkanTest
 {
@@ -22,7 +26,7 @@ public:
 
 	void Initialize() override
 	{
-		Renderer::Initialize();
+		Renderer::Initialize(engine);
 
 		// Activate the default render path if no custom path is set
 		if (GetActivePath() == nullptr) {
@@ -73,14 +77,16 @@ public:
 	}
 
 	void CreateScene(World& world) override {
-		UniquePtr<RenderScene> scene = RenderScene::CreateScene(engine, world);
-		world.AddScene(scene.Move());
+		UniquePtr<RenderScene> newScene = RenderScene::CreateScene(*this, engine, world);
+		scene = newScene.Get();
+		world.AddScene(newScene.Move());
 	}
 
 	void ActivePath(RenderPath* renderPath) override
 	{
 		activePath = renderPath;
 		activePath->SetWSI(&engine.GetWSI());
+		activePath->SetScene(scene);
 	}
 
 	RenderPath* GetActivePath()
@@ -92,13 +98,32 @@ private:
 	Engine& engine;
 	RenderPath* activePath = nullptr;
 	RenderPath3D defaultPath;
+	RenderScene* scene = nullptr;
 };
 
 namespace Renderer
 {
+	template <typename T>
+	struct RenderResourceFactory : public ResourceFactory
+	{
+	protected:
+		virtual Resource* CreateResource(const Path& path) override
+		{
+			return CJING_NEW(T)(path, *this);
+		}
+
+		virtual void DestroyResource(Resource* res) override
+		{
+			CJING_DELETE(res);
+		}
+	};
+	RenderResourceFactory<Texture> textureFactory;
+	RenderResourceFactory<Model> modelFactory;
 
 	GPU::BlendState stockBlendStates[BlendStateType_Count] = {};
 	GPU::RasterizerState stockRasterizerState[RasterizerStateType_Count] = {};
+
+	RendererPlugin* rendererPlugin = nullptr;
 
 	void InitStockStates()
 	{
@@ -158,14 +183,24 @@ namespace Renderer
 		stockRasterizerState[RasterizerStateType_DoubleSided] = rs;
 	}
 
-	void Renderer::Initialize()
+	void Renderer::Initialize(Engine& engine)
 	{
 		Logger::Info("Render initialized");
 		InitStockStates();
+
+		// Initialize resource factories
+		ResourceManager& resManager = engine.GetResourceManager();
+		textureFactory.Initialize(Texture::ResType, resManager);
+		modelFactory.Initialize(Model::ResType, resManager);
 	}
 
 	void Renderer::Uninitialize()
 	{
+		// Uninitialize resource factories
+		modelFactory.Uninitialize();
+		textureFactory.Uninitialize();
+
+		rendererPlugin = nullptr;
 		Logger::Info("Render uninitialized");
 	}
 
@@ -179,10 +214,28 @@ namespace Renderer
 		return stockRasterizerState[types];
 	}
 
-	RendererPlugin* CreatePlugin(Engine& engine)
+	void UpdateFrameData(const Visibility& visible, RenderScene& scene, F32 delta)
 	{
-		return CJING_NEW(RendererPluginImpl)(engine);
+
 	}
 
+	void UpdateRenderData(const Visibility& visible, GPU::CommandList& cmd)
+	{
+
+	}
+
+	void DrawScene(GPU::CommandList& cmd)
+	{
+	}
+
+	void DrawMeshes(GPU::CommandList& cmd, const Visibility& visible, const RenderQueue& queue, RENDERPASS renderPass, U32 renderFlags)
+	{
+	}
+
+	RendererPlugin* CreatePlugin(Engine& engine)
+	{
+		rendererPlugin = CJING_NEW(RendererPluginImpl)(engine);
+		return rendererPlugin;
+	}
 }
 }

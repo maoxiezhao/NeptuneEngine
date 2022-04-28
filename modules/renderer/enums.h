@@ -16,4 +16,12 @@ namespace VulkanTest
 		BlendStateType_Transparent,
 		BlendStateType_Count
 	};
+
+	enum RENDERPASS
+	{
+		RENDERPASS_MAIN,
+		RENDERPASS_PREPASS,
+		RENDERPASS_SHADOE,
+		RENDERPASS_COUNT
+	};
 }

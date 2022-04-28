@@ -37,6 +37,26 @@ namespace VulkanTest
 		resManager = nullptr;
 	}
 
+	void ResourceFactory::RemoveUnreferenced()
+	{
+		if (isUnloadEnable == false)
+			return;
+
+		std::vector<Resource*> toRemoved;
+		for (auto& kvp : resources)
+		{
+			if (kvp.second->GetRefCount() == 0)
+				toRemoved.push_back(kvp.second);
+		}
+
+		for (auto res : toRemoved)
+		{
+			auto it = resources.find(res->GetPath().GetHash());
+			if (it != resources.end())
+				resources.erase(it);
+		}
+	}
+
 	Resource* ResourceFactory::LoadResource(const Path& path)
 	{
 		ASSERT(resManager != nullptr);
@@ -82,6 +102,13 @@ namespace VulkanTest
 	{
 		ASSERT(isInitialized == true);
 		isInitialized = false;
+	}
+
+	void ResourceManager::RemoveUnreferenced()
+	{
+		ASSERT(isInitialized);
+		for (auto& kvp : factoryTable)
+			kvp.second->RemoveUnreferenced();	
 	}
 
 	Resource* ResourceManager::LoadResource(ResourceType type, const Path& path)

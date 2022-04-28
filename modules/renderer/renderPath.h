@@ -5,6 +5,8 @@
 
 namespace VulkanTest
 {
+	class RenderScene;
+
 	class VULKAN_TEST_API RenderPath
 	{
 	public:
@@ -17,11 +19,20 @@ namespace VulkanTest
 		virtual void FixedUpdate() {};
 		virtual void Render() {};
 
-		void SetWSI(WSI* wsi_) {
+		void SetWSI(WSI* wsi_) 
+		{
+			ASSERT(wsi_ != nullptr);
 			wsi = wsi_;
+		}
+
+		void SetScene(RenderScene* scene_) 
+		{
+			ASSERT(scene_ != nullptr);
+			scene = scene_;
 		}
 
 	protected:
 		WSI* wsi = nullptr;
+		RenderScene* scene = nullptr;
 	};
 }

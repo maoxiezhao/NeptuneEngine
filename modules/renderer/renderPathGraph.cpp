@@ -61,7 +61,7 @@ namespace VulkanTest
 
 		// Setup render graph
 		outputColors.clear();
-		Setup(renderGraph);
+		SetupPasses(renderGraph);
 		
 		// Compose
 		auto& composePass = renderGraph.AddRenderPass("Compose", RenderGraphQueueFlag::Graphics);

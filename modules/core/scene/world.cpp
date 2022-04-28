@@ -59,6 +59,7 @@ namespace VulkanTest
 
 	void World::AddScene(UniquePtr<IScene>&& scene)
 	{
+	
 	}
 
 	std::vector<UniquePtr<IScene>>& World::GetScenes()

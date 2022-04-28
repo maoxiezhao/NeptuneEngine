@@ -24,7 +24,7 @@ enum class AttachmentSizeType
     SwapchainRelative,
 };
 
-enum class ResourceType
+enum class RenderGraphResourceType
 {
     Texture,
     Buffer,
@@ -106,7 +106,7 @@ struct ResourceDimensions
 class VULKAN_TEST_API RenderResource
 {
 public:
-    RenderResource(U32 index_, ResourceType resType_) :  index(index_), resType(resType_) {}
+    RenderResource(U32 index_, RenderGraphResourceType resType_) :  index(index_), resType(resType_) {}
     virtual ~RenderResource() {};
 
     const std::unordered_set<U32>& GetWrittenPasses()const
@@ -156,7 +156,7 @@ public:
         return usedQueues;
     }
 
-    ResourceType GetResourceType()const
+    RenderGraphResourceType GetResourceType()const
     {
         return resType;
     }
@@ -166,7 +166,7 @@ protected:
 
     U32 index;
     String name;
-    ResourceType resType;
+    RenderGraphResourceType resType;
     std::unordered_set<U32> writtenPasses;
     std::unordered_set<U32> readPasses;
     U32 physicalIndex = Unused;
@@ -176,7 +176,7 @@ protected:
 class VULKAN_TEST_API RenderTextureResource : public RenderResource
 {
 public:
-    RenderTextureResource(U32 index_) : RenderResource(index_, ResourceType::Texture) {}
+    RenderTextureResource(U32 index_) : RenderResource(index_, RenderGraphResourceType::Texture) {}
 
     void SetImageUsage(VkImageUsageFlags flags)
     {
@@ -206,7 +206,7 @@ private:
 class VULKAN_TEST_API RenderBufferResource : public RenderResource
 {
 public:
-    RenderBufferResource(U32 index_) : RenderResource(index_, ResourceType::Buffer) {}
+    RenderBufferResource(U32 index_) : RenderResource(index_, RenderGraphResourceType::Buffer) {}
 
     void SetBufferUsage(VkBufferUsageFlags flags)
     {
@@ -397,6 +397,9 @@ public:
     RenderBufferResource& GetOrCreateBuffer(const char* name);
 
     GPU::ImageView& GetPhysicalTexture(const RenderTextureResource& res);
+    GPU::ImageView* TryGetPhysicalTexture(RenderTextureResource* res);
+    GPU::Buffer& GetPhysicalBuffer(const RenderBufferResource& res);
+    GPU::Buffer* TryGetPhysicalBuffer(RenderBufferResource* res);
 
     void SetBackbufferDimension(const ResourceDimensions& dim);
 

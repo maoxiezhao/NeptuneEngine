@@ -18,7 +18,7 @@ namespace VulkanTest
 		virtual void Uninit() = 0;
 		virtual void Update(float dt, bool paused) = 0;
 		virtual void Clear() = 0;
-
+		virtual IPlugin& GetPlugin()const = 0;
 		virtual World& GetWorld() = 0;
 	};
 

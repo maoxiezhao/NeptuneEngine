@@ -26,6 +26,9 @@ namespace VulkanTest
 	using VECTOR = XMVECTOR;
 	using MATRIX = XMMATRIX;
 
+	const F32 MATH_PI = XM_PI;
+	const F32 MATH_2PI = XM_2PI;
+
 	////////////////////////////////////////////////////////////////////////////
 	// Type checks
 	////////////////////////////////////////////////////////////////////////////
@@ -41,6 +44,41 @@ namespace VulkanTest
 	static_assert(sizeof(U32x2) == sizeof(XMUINT2), "DirectXMath type mismatch");
 	static_assert(sizeof(U32x3) == sizeof(XMUINT3), "DirectXMath type mismatch");
 	static_assert(sizeof(U32x4) == sizeof(XMUINT4), "DirectXMath type mismatch");
+
+	////////////////////////////////////////////////////////////////////////////
+	// Matrix function
+	////////////////////////////////////////////////////////////////////////////
+	
+	inline MATRIX XM_CALLCONV MatrixMultiply(MATRIX m1, MATRIX m2)
+	{
+		return XMMatrixMultiply(m1, m2);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixPerspectiveFovLH
+	(
+		F32 FovAngleY,
+		F32 AspectRatio,
+		F32 NearZ,
+		F32 FarZ
+	)
+	{
+		return XMMatrixPerspectiveFovLH(FovAngleY, AspectRatio, NearZ, FarZ);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixLookToLH
+	(
+		VECTOR EyePosition,
+		VECTOR EyeDirection,
+		VECTOR UpDirection
+	)
+	{
+		return XMMatrixLookToLH(EyePosition, EyeDirection, UpDirection);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixInverse(MATRIX M)
+	{
+		return XMMatrixInverse(nullptr, M);
+	}	
 
 	////////////////////////////////////////////////////////////////////////////
 	// Load

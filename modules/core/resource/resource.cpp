@@ -43,6 +43,7 @@ namespace VulkanTest
 		failedDepCount(0),
 		currentState(State::EMPTY),
 		desiredState(State::EMPTY),
+		resSize(0),
 		path(path_),
 		resFactory(resFactory_),
 		asyncHandle(AsyncLoadHandle::INVALID)
@@ -79,11 +80,21 @@ namespace VulkanTest
 
 	void Resource::DoUnload()
 	{
+		if (asyncHandle.IsValid())
+		{
+			// Cancel when res is loading
+			FileSystem* fileSystem = resFactory.GetResourceManager().GetFileSystem();
+			// TODO
+			// fileSystem.Cancel(asyncHandle);
+			asyncHandle = AsyncLoadHandle::INVALID;
+		}
+
 		desiredState = State::EMPTY;
 		OnUnLoaded();
 		ASSERT(emptyDepCount <= 1);
 
 		// Refresh current state
+		resSize = 0;
 		emptyDepCount = 1;
 		failedDepCount = 0;
 		CheckState();
@@ -115,13 +126,85 @@ namespace VulkanTest
 		}
 	}
 
+#if DEBUG
 	bool Resource::NeedExport()const
 	{
 		return false;
 	}
+#endif
 
 	void Resource::OnFileLoaded(U64 size, const U8* mem, bool success)
 	{
+		ASSERT(asyncHandle.IsValid());
+		asyncHandle = AsyncLoadHandle::INVALID;
+
+		// Desired state changed when file loading, so is a invalid loading
+		if (desiredState != State::READY)
+			return;
+
+		ASSERT(currentState != State::READY);
+		ASSERT(emptyDepCount == 1);
+
+		if (success == false)
+		{
+			Logger::Error("Failed to load %s", GetPath().c_str());
+			emptyDepCount--;
+			failedDepCount++;
+			CheckState();
+			return;
+		}
+
+		// Ok, file loaded success, let's process the file as CompiledResource
+		// CompiledReource:
+		// ---------------------------
+		// |  CompiledResourceHeader |
+		// ---------------------------
+		// |   Bytes context         |
+		// ---------------------------
+
+		const CompiledResourceHeader* resHeader = (const CompiledResourceHeader*)mem;
+		if (size < sizeof(CompiledResourceHeader))
+		{
+			Logger::Error("Invalid compiled resource %s", GetPath().c_str());
+			failedDepCount++;			
+			goto CHECK_STATE;
+		}
+		
+		if (resHeader->magic != CompiledResourceHeader::MAGIC)
+		{
+			Logger::Error("Invalid compiled resource %s", GetPath().c_str());
+			failedDepCount++;
+			goto CHECK_STATE;
+		}
+
+		if (resHeader->version != CompiledResourceHeader::VERSION)
+		{
+			Logger::Error("Invalid compiled resource %s", GetPath().c_str());
+			failedDepCount++;
+			goto CHECK_STATE;
+		}
+
+		if (resHeader->isCompressed)
+		{
+			ASSERT(0);
+			// TODO: Support LZ4 decompress
+		}
+		else
+		{
+			bool ret = OnLoaded(size - sizeof(resHeader), mem + sizeof(resHeader));
+			if (ret == false)
+			{
+				Logger::Error("Failed to load resource $s", GetPath().c_str());
+				failedDepCount++;
+			}	
+			resSize = resHeader->originSize;
+		}
+
+	CHECK_STATE:
+		ASSERT(emptyDepCount > 0);
+		emptyDepCount--;
+		CheckState();
+		asyncHandle = AsyncLoadHandle::INVALID;		
 	}
 
 	void Resource::OnStateChanged(State oldState, State newState)
