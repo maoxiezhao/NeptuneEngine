@@ -8,7 +8,7 @@ namespace VulkanTest
 
 	ResourceType::ResourceType(const char* typeName)
 	{
-		ASSERT(typeName[0] == 0 || (typeName[0] >= 'a' && typeName[0] <= 'z'));
+		ASSERT(typeName[0] == 0 || (typeName[0] >= 'a' && typeName[0] <= 'z') || (typeName[0] >= 'A' && typeName[0] <= 'Z'));
 		type = StringID(typeName);
 	}
 

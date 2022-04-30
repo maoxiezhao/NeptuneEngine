@@ -89,16 +89,16 @@ inline void operator delete(void*, VulkanTest::NewPlaceHolder, void*) { }
 #define CJING_MALLOC(size)  VulkanTest::Memory::Alloc(size, __FILE__, __LINE__)
 #define CJING_MALLOC_ALIGN(size, align)  VulkanTest::Memory::AlignAlloc(size, align, __FILE__, __LINE__)
 #define CJING_REMALLOC(ptr, size)  VulkanTest::Memory::Realloc(ptr, size, __FILE__, __LINE__)
-#define CJING_REMALLOC_ALIGN(ptr, size, align)  VulkanTest::Memory::AlignRealloc(ptr, size, align, __FILE__, __LINE__)
+#define CJING_REMALLOC_ALIGN(ptr, size, align)  VulkanTest::Memory::ReallocAligned(ptr, size, align, __FILE__, __LINE__)
 #define CJING_FREE(ptr) VulkanTest::Memory::Free(ptr);
-#define CJING_FREE_ALIGN(ptr) VulkanTest::Memory::AlignFree(ptr);
+#define CJING_FREE_ALIGN(ptr) VulkanTest::Memory::FreeAligned(ptr);
 
 #define CJING_ALLOCATOR_MALLOC(allocator, size)  allocator.Allocate(size, __FILE__, __LINE__)
 #define CJING_ALLOCATOR_MALLOC_ALIGN(allocator, size, align)  allocator.AlignAllocate(size, align, __FILE__, __LINE__)
 #define CJING_ALLOCATOR_REMALLOC(allocator, ptr, size)  allocator.Reallocate(ptr, size, __FILE__, __LINE__)
 #define CJING_ALLOCATOR_REMALLOC_ALIGN(allocator, ptr, size, align)  allocator.AlignReallocate(ptr, size, align, __FILE__, __LINE__)
 #define CJING_ALLOCATOR_FREE(allocator, ptr) allocator.Free(ptr);
-#define CJING_ALLOCATOR_FREE_ALIGN(allocator, ptr) allocator.AlignFree(ptr); 
+#define CJING_ALLOCATOR_FREE_ALIGN(allocator, ptr) allocator.FreeAligned(ptr); 
 #define CJING_ALLOCATOR_NEW(allocator, T) new (VulkanTest::NewPlaceHolder(), allocator.Allocate(sizeof(T), __FILE__, __LINE__)) T
 #define CJING_ALLOCATOR_DELETE(allocator, ptr) VulkanTest::Memory::ObjectConstruct(ptr); allocator.Free(ptr);
 

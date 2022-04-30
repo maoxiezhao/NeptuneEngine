@@ -8,7 +8,7 @@ namespace VulkanTest
 {
 namespace Editor
 {
-    class VULKAN_EDITOR_API EditorApp
+    class VULKAN_EDITOR_API EditorApp : public App
     {
     public:
         static EditorApp* Create();

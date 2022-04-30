@@ -1,4 +1,5 @@
 #include "world.h"
+#include "core\utils\string.h"
 
 namespace VulkanTest
 {
@@ -54,12 +55,17 @@ namespace VulkanTest
 
 	IScene* World::GetScene(const char* name) const
 	{
+		for (auto& scene : scenes)
+		{
+			if (EqualString(scene->GetPlugin().GetName(), name))
+				return scene.Get();
+		}
 		return nullptr;
 	}
 
 	void World::AddScene(UniquePtr<IScene>&& scene)
 	{
-	
+		scenes.push_back(scene.Move());
 	}
 
 	std::vector<UniquePtr<IScene>>& World::GetScenes()

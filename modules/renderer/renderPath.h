@@ -27,7 +27,7 @@ namespace VulkanTest
 
 		void SetScene(RenderScene* scene_) 
 		{
-			ASSERT(scene_ != nullptr);
+			// ASSERT(scene_ != nullptr);
 			scene = scene_;
 		}
 

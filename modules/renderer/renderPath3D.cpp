@@ -31,6 +31,10 @@ namespace VulkanTest
 		Renderer::UpdateFrameData(visibility, *scene, dt);
 	}
 
+	void RenderPath3D::FixedUpdate()
+	{
+	}
+
 	void RenderPath3D::SetupPasses(RenderGraph& renderGraph)
 	{
 		// Prepare frame pass

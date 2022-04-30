@@ -2,11 +2,11 @@
 
 #include "core\common.h"
 #include "core\memory\memory.h"
-#include "core\scene\world.h"
 
 namespace VulkanTest
 {
 	class Engine;
+	class World;
 
 	class VULKAN_TEST_API IPlugin
 	{

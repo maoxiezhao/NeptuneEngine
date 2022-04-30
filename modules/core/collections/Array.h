@@ -55,7 +55,7 @@ namespace VulkanTest
             U32 oldSize = size_;
             if (oldSize == capacity_)
                 Grow();
-            new (NewPlaceHolder(), data_ + oldSize) T(static_cast<T&&>(value));    // Move construct
+            new (data_ + oldSize) T(static_cast<T&&>(value));    // Move construct
             size_ = oldSize + 1;
         }
 
@@ -64,7 +64,7 @@ namespace VulkanTest
             U32 oldSize = size_;
             if (oldSize == capacity_)
                 Grow();
-            new (NewPlaceHolder(), data_ + oldSize) T(value);    // copy construct
+            new (data_ + oldSize) T(value);    // copy construct
             size_ = oldSize + 1;
         }
 
@@ -94,7 +94,7 @@ namespace VulkanTest
                 {
                     for (U32 i = index; i < size_ - 1; ++i)
                      {
-                        new (NewPlaceholder(), &data_[i]) T(static_cast<T&&>(data_[i + 1]));
+                        new (&data_[i]) T(static_cast<T&&>(data_[i + 1]));
                         data_[i + 1].~T();
                     }
                 }
@@ -115,7 +115,7 @@ namespace VulkanTest
                 if (index != size_ - 1)
                 {
                     // Move the last item to the current item
-                    new (NewPlaceHolder(), data_ + index) T(static_cast<T&&>(data_[size_ - 1]); 
+                    new (NewPlaceHolder(), data_ + index) T(static_cast<T&&>(data_[size_ - 1])); 
                     data_[size_ - 1].~T();
                 }
                 else
@@ -151,11 +151,11 @@ namespace VulkanTest
             
             if constexpr (__is_trivially_copyable(T))
             {
-                data_ = CJING_REMALLOC_ALIGN(data_, newCapacity * sizeof(T), alignof(T));
+                data_ = static_cast<T*>(CJING_REMALLOC_ALIGN(data_, newCapacity * sizeof(T), alignof(T)));
             }
             else
             {
-                T* newData = CJING_MALLOC_ALIGN(newCapacity * sizeof(T), alignof(T));
+                T* newData = static_cast<T*>(CJING_MALLOC_ALIGN(newCapacity * sizeof(T), alignof(T)));
                 MoveData(newData, data_, size_);
                 CJING_FREE_ALIGN(data_);
                 data_ = newData;

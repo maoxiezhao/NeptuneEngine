@@ -78,8 +78,12 @@ public:
 
 	void CreateScene(World& world) override {
 		UniquePtr<RenderScene> newScene = RenderScene::CreateScene(*this, engine, world);
-		scene = newScene.Get();
 		world.AddScene(newScene.Move());
+		
+		scene = dynamic_cast<RenderScene*>(world.GetScene("Renderer"));
+
+		if (activePath != nullptr)
+			activePath->SetScene(scene);
 	}
 
 	void ActivePath(RenderPath* renderPath) override
