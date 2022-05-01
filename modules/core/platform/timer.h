@@ -11,6 +11,7 @@ namespace VulkanTest
 
 		F32 Tick();
 		F32 GetTimeSinceStart();
+		F32 GetTimeSinceTick();
 		F32 GetTotalDeltaTime();
 
 	private:

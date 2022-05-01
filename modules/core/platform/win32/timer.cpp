@@ -31,6 +31,14 @@ namespace VulkanTest
 		LARGE_INTEGER n;
 		QueryPerformanceCounter(&n);
 		const U64 tick = n.QuadPart;
+		return static_cast<F32>((F64)(tick - firstTick) / (F64)frequency);
+	}
+
+	F32 Timer::GetTimeSinceTick()
+	{
+		LARGE_INTEGER n;
+		QueryPerformanceCounter(&n);
+		const U64 tick = n.QuadPart;
 		return static_cast<F32>((F64)(tick - lastTick) / (F64)frequency);
 	}
 

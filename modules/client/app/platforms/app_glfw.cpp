@@ -7,6 +7,11 @@
 #include "gpu\vulkan\wsi.h"
 #include "GLFW\glfw3.h"
 
+#ifdef CJING3D_PLATFORM_WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include "GLFW\glfw3native.h"
+#endif
+
 #include <thread>
 #include <functional>
 
@@ -149,6 +154,13 @@ public:
 		return window;
 	}
 
+	void* GetPlatformWindow() override
+	{
+#ifdef CJING3D_PLATFORM_WIN32
+		return glfwGetWin32Window(window);
+#endif
+	}
+	
 	void SetSize(uint32_t w, uint32_t h)
 	{
 		width = w;

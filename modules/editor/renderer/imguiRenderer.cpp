@@ -75,11 +75,15 @@ namespace ImGuiRenderer
 			return nullptr;
 		}
 
+		const I32 dpi = Platform::GetDPI();
+		F32 fontScale = dpi / 96.0f;
+		F32 fontSize = 14.0f * fontScale * 1.25f;
+
 		ImGuiIO& io = ImGui::GetIO();
 		ImFontConfig cfg;
 		CopyString(cfg.Name, path);
 		cfg.FontDataOwnedByAtlas = false;
-		ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)mem.Data(), (I32)mem.Size(), 12.0f, &cfg);
+		ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)mem.Data(), (I32)mem.Size(), fontSize, &cfg);
 		ASSERT(font != NULL);
 		return nullptr;
 	}
@@ -111,6 +115,7 @@ namespace ImGuiRenderer
 		font = AddFontFromFile(*app, "editor/fonts/notosans-regular.ttf");
 
 		// Setup platform
+		// TODO: Replace ImGui_ImplGlfw_InitForVulkan
 #ifdef CJING3D_PLATFORM_WIN32
 		GLFWwindow* window = static_cast<GLFWwindow*>(app->GetPlatform().GetWindow());
 		ImGui_ImplGlfw_InitForVulkan(window, true);

@@ -178,6 +178,40 @@ namespace VulkanTest
 		return EqualString(str + len - len2, substr);
 	}
 
+	bool ToCString(U32 value, Span<char> output)
+	{
+		char* c = output.begin();
+		char* num_start = output.begin();
+		U32 length = output.length();
+		if (length > 0)
+		{
+			if (value == 0)
+			{
+				if (length == 1)
+				{
+					return false;
+				}
+				*c = '0';
+				*(c + 1) = 0;
+				return true;
+			}
+			while (value > 0 && length > 1)
+			{
+				*c = value % 10 + '0';
+				value = value / 10;
+				--length;
+				++c;
+			}
+			if (length > 0)
+			{
+				ReverseString(num_start, (int)(c - num_start));
+				*c = 0;
+				return true;
+			}
+		}
+		return false;
+	}
+
 	U32 HashFunc(U32 Input, const String& Data)
 	{
 		return SDBHash(Input, Data.data(), Data.size());

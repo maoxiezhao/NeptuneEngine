@@ -1,8 +1,13 @@
 #include "editor.h"
+#include "editorUtils.h"
 #include "core\utils\profiler.h"
+#include "core\platform\platform.h"
 #include "renderer\renderer.h"
 #include "renderer\renderPath3D.h"
 #include "editor\renderer\imguiRenderer.h"
+
+#include "widgets\assetBrowser.h"
+#include "widgets\assetCompiler.h"
 
 #include "imgui-docking\imgui.h"
 #include "renderer\imguiRenderer.h"
@@ -13,13 +18,13 @@ namespace Editor
 {
     class EditorRenderer : public RenderPath3D
     {
-        void SetupPasses(RenderGraph& renderGraph)
+        void SetupPasses(RenderGraph& renderGraph) override
         {
         }
 
-        void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd)
+        void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override
         {
-            //RenderPath3D::Compose(renderGraph, cmd);
+            // RenderPath3D::Compose(renderGraph, cmd);
             ImGuiRenderer::Render(cmd);
         }
     };
@@ -60,7 +65,6 @@ namespace Editor
         }
 
     protected:
-        bool showDemoWindow = true;
         void Update(F32 deltaTime) override
         {
             PROFILE_BLOCK("Update");
@@ -68,8 +72,14 @@ namespace Editor
 
             engine->Update(*world, deltaTime);
 
-            if (showDemoWindow)
-                ImGui::ShowDemoWindow(&showDemoWindow);
+            fpsFrame++;
+            if (fpsTimer.GetTimeSinceTick() > 1.0f)
+            {
+                fps = fpsFrame / fpsTimer.Tick();
+                fpsFrame = 0;
+            }
+
+            OnGUI();
 
             ImGuiRenderer::EndFrame();
         }
@@ -90,20 +100,86 @@ namespace Editor
             widgets.swapAndPopItem(&widget);
         }
 
+        bool showDemoWindow = true;
+        void OnGUI()
+        {
+            ImGuiWindowFlags flags = 
+                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus |
+                ImGuiWindowFlags_NoDocking;
+
+            Platform::WindowType window = (Platform::WindowType)platform->GetPlatformWindow();
+            Platform::WindowRect rect = Platform::GetClientBounds(window);
+            U32 winWidth = rect.mRight - rect.mLeft;
+            U32 winHeight = rect.mBottom - rect.mTop;
+            if (winWidth > 0 && winHeight > 0)
+            {
+                ImGui::SetNextWindowSize(ImVec2((float)winWidth, (float)winHeight));
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+                ImGui::Begin("MainDockspace", nullptr, flags);
+                ImGui::PopStyleVar();
+                // Show main menu
+                OnMainMenu();
+                ImGuiID dockspaceID = ImGui::GetID("MyDockspace");
+                ImGui::DockSpace(dockspaceID, ImVec2(0, 0));
+                ImGui::End();
+
+                // Show editor widgets
+                for (auto widget : widgets)
+                    widget->OnGUI();
+
+                if (showDemoWindow)
+                    ImGui::ShowDemoWindow(&showDemoWindow);
+            }
+        }
+
+        void OnMainMenu()
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 4));
+            if (ImGui::BeginMainMenuBar())
+            {
+                OnFileMenu();
+                ImGui::PopStyleVar(2);
+
+                StaticString<128> fpsTxt("");
+                fpsTxt << "FPS: ";
+                fpsTxt << (U32)(fps + 0.5f);
+                auto stats_size = ImGui::CalcTextSize(fpsTxt);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - stats_size.x);
+                ImGui::Text("%s", (const char*)fpsTxt);
+
+                ImGui::EndMainMenuBar();
+            }
+            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2));
+        }
+
+        void OnFileMenu()
+        {
+            if (!ImGui::BeginMenu("File")) return;
+            ImGui::EndMenu();
+        }
+
     private:
         EditorRenderer editorRenderer;
         Array<EditorPlugin*> plugins;
         Array<EditorWidget*> widgets;
+        F32 fps = 0.0f;
+        U32 fpsFrame = 0;
+        Timer fpsTimer;
     };
 
     EditorApp* EditorApp::Create()
     {
-		return CJING_NEW(EditorAppImpl)();
+        // TODO
+		// return CJING_NEW(EditorAppImpl)();
+        return new EditorAppImpl();
     }
     
     void EditorApp::Destroy(EditorApp* app)
     {
-        CJING_SAFE_DELETE(app);
+        // CJING_SAFE_DELETE(app);
     }
 }
 }

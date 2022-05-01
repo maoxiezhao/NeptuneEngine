@@ -26,6 +26,7 @@ namespace VulkanTest
 	int  ReverseFindSubstring(const char* str, const char* substr);
 	void ReverseString(char* str, size_t n);
 	bool EndsWith(const char* str, const char* substr);
+	bool ToCString(U32 value, Span<char> output);
 
 	template<size_t N>
 	bool CopyString(char(&destination)[N], const char* source)
@@ -68,27 +69,40 @@ namespace VulkanTest
 		void append(const StaticString<RHS_N>& rhs) {
 			CatString(data, rhs.data);
 		}
+
 		void append(const char* str) {
 			CatString(data, str);
 		}
+
 		void append(char* str) {
 			CatString(data, str);
 		}
+
 		void append(Span<const char*> str) {
 			CatString(data, str.data());
 		}
+
 		void append(char c) 
 		{
 			char temp[2] = { c, 0 };
 			CatString(data, temp);
 		}
+
 		void append(const Span<char>& rhs)
 		{
 			CatNString(data, rhs.data(), rhs.length());
 		}
+
 		void append(const std::string& rhs)
 		{
 			CatString(data, rhs.data());
+		}
+
+		template <typename T>
+		void append(T v)
+		{
+			I32 len = StringLength(data);
+			ToCString(v, Span(data + len, U32(N - len)));
 		}
 
 		bool empty()const {

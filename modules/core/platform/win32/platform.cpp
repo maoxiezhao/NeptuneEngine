@@ -331,6 +331,11 @@ namespace Platform {
 		::SwitchToThread();
 	}
 
+	WindowType GetActiveWindow()
+	{
+		return ::GetActiveWindow();
+	}
+
 	WindowRect GetClientBounds(WindowType window)
 	{
 		RECT rect;

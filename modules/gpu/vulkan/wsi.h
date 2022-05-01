@@ -30,8 +30,11 @@ public:
 	virtual bool IsAlived(WSI& wsi) = 0;
 	virtual U32 GetWidth() = 0;
 	virtual U32 GetHeight() = 0;
-	virtual void* GetWindow() = 0;
 	virtual void PollInput() = 0;
+
+	// TODO: Use unified interface
+	virtual void* GetWindow() = 0;
+	virtual void* GetPlatformWindow() = 0;
 
 	bool ShouldResize()const 
 	{

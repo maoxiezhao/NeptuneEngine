@@ -94,6 +94,7 @@ namespace Platform {
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// Window
+	WindowType GetActiveWindow();
 	WindowRect GetClientBounds(WindowType window);
 	void SetMouseCursorType(CursorType cursorType);
 	void SetMouseCursorVisible(bool isVisible);
