@@ -19,7 +19,17 @@ namespace VulkanTest
 {
 class PlatformGFLW;
 
+static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance, const char* name)
+{
+	// Returns the address of the specified Vulkan instance function.
+	return reinterpret_cast<PFN_vkVoidFunction>(glfwGetInstanceProcAddress(instance, name));
+}
+
 static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
+static void KeyCallback(GLFWwindow* window, int key, int, int action, int);
+static void ButtonCallback(GLFWwindow* window, int button, int action, int);
+static void CursorCallback(GLFWwindow* window, double x, double y);
+static void EnterCallback(GLFWwindow* window, int entered);
 static void WindowCloseCallback(GLFWwindow* window);
 
 class PlatformGFLW : public WSIPlatform
@@ -43,24 +53,37 @@ private:
 private:
 	struct EventList
 	{
-		Mutex mutex;
+		std::mutex lock;
+		std::condition_variable cond;
 		std::vector<std::function<void()>> list;
 	};
 	EventList mainThreadEventList, asyncThreadEventList;
 
-	void PorcessEventList(EventList& list)
+	void PorcessEventList(EventList& list, bool blocking)
 	{
-		ScopedMutex lock(list.mutex);
-		for (auto& ent : list.list)
-			ent();
+		std::unique_lock<std::mutex> lock{ list.lock };
+		if (blocking)
+		{
+			while (list.list.empty()) 
+			{
+				list.cond.wait(lock, [&list]() {
+					return !list.list.empty(); 
+				});
+			}
+		}
+
+		for (auto& entTask : list.list) {
+			entTask();
+		}
 		list.list.clear();
 	}
 
 	template<typename FUNC>
 	void PushEventTaskToList(EventList& list, FUNC&& func)
 	{
-		ScopedMutex lock(list.mutex);
+		std::lock_guard<std::mutex> lock{ list.lock };
 		list.list.emplace_back(std::forward<FUNC>(func));
+		list.cond.notify_one();
 	}
 
 	template <typename FUNC>
@@ -78,12 +101,12 @@ private:
 
 	void ProcessEventsMainThread()
 	{
-		PorcessEventList(mainThreadEventList);
+		PorcessEventList(mainThreadEventList, false);
 	}
 
 	void ProcessEventsAsyncThread()
 	{
-		PorcessEventList(asyncThreadEventList);
+		PorcessEventList(asyncThreadEventList, false);
 	}
 
 public:
@@ -117,6 +140,12 @@ public:
 			Logger::Error("Failed to initialize GLFW");
 			return false;
 		}
+
+		if (!GPU::VulkanContext::InitLoader(GetInstanceProcAddr))
+		{
+			Logger::Error("Failed to initialize vulkan loader");
+			return false;
+		}
 		
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -128,6 +157,10 @@ public:
 
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
+		glfwSetKeyCallback(window, KeyCallback);
+		glfwSetMouseButtonCallback(window, ButtonCallback);
+		glfwSetCursorPosCallback(window, CursorCallback);
+		glfwSetCursorEnterCallback(window, EnterCallback);
 		glfwSetWindowCloseCallback(window, WindowCloseCallback);
         glfwShowWindow(window);
 
@@ -288,8 +321,32 @@ public:
 static void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	auto* glfw = static_cast<PlatformGFLW*>(glfwGetWindowUserPointer(window));
-	ASSERT(width != 0 && height != 0);
-	glfw->NotifyResize(width, height);
+	if (width > 0 && height > 0)
+		glfw->NotifyResize(width, height);
+}
+
+static void KeyCallback(GLFWwindow* window, int key, int, int action, int)
+{
+	// TODO
+	// Create key event
+}
+
+static void ButtonCallback(GLFWwindow* window, int button, int action, int)
+{
+	// TODO
+	// Create mouse button event
+}
+
+static void CursorCallback(GLFWwindow* window, double x, double y)
+{
+	// TODO
+	// Create mouse move event
+}
+
+static void EnterCallback(GLFWwindow* window, int entered)
+{
+	// TODO
+	// Create mouse enter/leave event
 }
 
 static void WindowCloseCallback(GLFWwindow* window)

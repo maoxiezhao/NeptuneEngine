@@ -3,6 +3,8 @@
 #include "core\common.h"
 #include "core\memory\memory.h"
 #include "core\collections\Array.h"
+#include "core\utils\string.h"
+#include "core\utils\delegate.h"
 
 #ifdef STATIC_PLUGINS
 #define VULKAN_EDITOR_API

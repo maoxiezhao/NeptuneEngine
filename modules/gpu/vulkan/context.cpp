@@ -1,4 +1,5 @@
 #include "context.h"
+#include "core\platform\platform.h"
 
 #include <set>
 #include <array>
@@ -24,15 +25,22 @@ namespace GPU
     vkDestroyInstance(instance, nullptr);
 }
 
+static PFN_vkGetInstanceProcAddr instanceProcAddr;
+static bool loadInited = false;
+
 bool VulkanContext::Initialize(std::vector<const char*> instanceExt_, std::vector<const char*> deviceExt_, bool debugLayer_)
 {
     debugLayer = debugLayer_;
 
-    VkResult res = volkInitialize();
-    if (res != VK_SUCCESS)
+    if (instanceProcAddr == nullptr || !loadInited)
     {
-        Logger::Error("Faile to initialize volk");
-        return false;
+        Logger::Warning("Use default volkInitialize.");
+        VkResult res = volkInitialize();
+        if (res != VK_SUCCESS)
+        {
+            Logger::Error("Faile to initialize volk");
+            return false;
+        }
     }
 
     if (!CreateInstance(instanceExt_))
@@ -47,6 +55,39 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt_, std::vecto
         return false;
     }
 
+    return true;
+}
+
+bool VulkanContext::InitLoader(PFN_vkGetInstanceProcAddr addr)
+{
+    if (loadInited && !addr)
+        return true;
+    
+    if (addr == nullptr)
+    {
+#ifdef _WIN32
+        static HMODULE module;
+        if (!module)
+        {
+            module = ::LoadLibraryA("vulkan-1.dll");
+            if (!module)
+                return false;
+        }
+
+        auto ptr = ::GetProcAddress(module, "vkGetInstanceProcAddr");
+        static_assert(sizeof(ptr) == sizeof(addr), "Mismatch pointer type.");
+        memcpy(&addr, &ptr, sizeof(ptr));
+
+        if (!addr)
+            return false;
+#else
+#error "Implement me."
+#endif
+    }
+
+    instanceProcAddr = addr;
+    volkInitializeCustom(addr);
+    loadInited = true;
     return true;
 }
 

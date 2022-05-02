@@ -42,6 +42,9 @@ public:
 
     bool Initialize(std::vector<const char*> instanceExt_, std::vector<const char*> deviceExt_, bool debugLayer_);
 
+    // Load vulkan library
+    static bool InitLoader(PFN_vkGetInstanceProcAddr addr);
+
     VkDevice GetDevice()const
     {
         return device;

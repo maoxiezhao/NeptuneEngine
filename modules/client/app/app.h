@@ -54,7 +54,7 @@ public:
 	}
 
 protected:	
-	void request_shutdown()
+	void RequestShutdown()
 	{
 		requestedShutdown = true;
 	}

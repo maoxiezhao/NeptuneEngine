@@ -2,6 +2,7 @@
 #include "core\platform\platform.h"
 #include "core\platform\debug.h"
 #include "core\scene\world.h"
+#include "core\input\inputSystem.h"
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resourceManager.h"
 #include "core\utils\profiler.h"
@@ -13,6 +14,7 @@ namespace VulkanTest
 	class EngineImpl final : public Engine
 	{
 	private:
+		UniquePtr<InputSystem> inputSystem;
 		UniquePtr<PluginManager> pluginManager;
 		UniquePtr<FileSystem> fileSystem;
 		ResourceManager resourceManager;
@@ -48,6 +50,9 @@ namespace VulkanTest
 			// Init resource manager
 			resourceManager.Initialize(*fileSystem);
 
+			// Init input system
+			inputSystem = InputSystem::Create(*this);
+
 			// Create pluginManager
 			pluginManager = PluginManager::Create(*this);
 
@@ -77,6 +82,7 @@ namespace VulkanTest
 		virtual ~EngineImpl()
 		{
 			pluginManager.Reset();
+			inputSystem.Reset();
 			resourceManager.Uninitialzie();
 			fileSystem.Reset();
 			platform = nullptr;
@@ -135,6 +141,9 @@ namespace VulkanTest
 			}
 			pluginManager->UpdatePlugins(dt);
 
+			// Update input system
+			inputSystem->Update(dt);
+
 			// Process async loading jobs
 			fileSystem->ProcessAsync();
 		}
@@ -146,6 +155,11 @@ namespace VulkanTest
 
 			for (auto plugin : pluginManager->GetPlugins())
 				plugin->OnGameStop();
+		}
+
+		InputSystem& GetInputSystem() override
+		{
+			return *inputSystem.Get();
 		}
 
 		FileSystem& GetFileSystem() override

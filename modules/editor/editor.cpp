@@ -48,6 +48,11 @@ namespace Editor
             for(EditorPlugin* plugin : plugins)
                 CJING_SAFE_DELETE(plugin);
             plugins.clear();
+
+            // Remove actions
+            for (Utils::Action* action : actions)
+                CJING_SAFE_DELETE(action);
+            actions.clear();
         }
 
         void Initialize() override
@@ -56,6 +61,8 @@ namespace Editor
 
             ImGuiRenderer::Initialize(*this);
             renderer->ActivePath(&editorRenderer);
+
+            InitActions();
         }
 
         void Uninitialize() override
@@ -109,13 +116,19 @@ namespace Editor
                 ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus |
                 ImGuiWindowFlags_NoDocking;
 
+            const bool hasviewports = ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable;
+
             Platform::WindowType window = (Platform::WindowType)platform->GetPlatformWindow();
             Platform::WindowRect rect = Platform::GetClientBounds(window);
+            Platform::WindowPoint point = hasviewports ?
+                Platform::ToScreen(window, rect.mLeft, rect.mTop) : Platform::WindowPoint();
+
             U32 winWidth = rect.mRight - rect.mLeft;
             U32 winHeight = rect.mBottom - rect.mTop;
             if (winWidth > 0 && winHeight > 0)
             {
                 ImGui::SetNextWindowSize(ImVec2((float)winWidth, (float)winHeight));
+                ImGui::SetNextWindowPos(ImVec2((float)point.mPosX, (float)point.mPosY));
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
                 ImGui::Begin("MainDockspace", nullptr, flags);
                 ImGui::PopStyleVar();
@@ -158,7 +171,50 @@ namespace Editor
         void OnFileMenu()
         {
             if (!ImGui::BeginMenu("File")) return;
+
+            OnActionMenuItem("Exit");
             ImGui::EndMenu();
+        }
+
+        void OnActionMenuItem(const char* name)
+        {
+            Utils::Action* action = GetAction(name);
+            if (!action)
+                return;
+
+            if (ImGui::MenuItem(action->label, nullptr, action->isSelected.Invoke()))
+                action->func.Invoke();
+        }
+
+    private:
+        void InitActions()
+        {
+            // File menu item actions
+            AddAction<&EditorAppImpl::Exit>("Exit");
+        }
+
+        template<void (EditorAppImpl::*Func)()>
+        Utils::Action& AddAction(const char* label)
+        {
+            Utils::Action* action = CJING_NEW(Utils::Action)(label, label);
+            action->func.Bind<Func>(this);
+            actions.push_back(action);
+            return *action;
+        }
+
+        Utils::Action* GetAction(const char* name)
+        {
+            for (Utils::Action* action : actions)
+            {
+                if (EqualString(action->name, name))
+                    return action;
+            }
+            return nullptr;
+        }
+
+        void Exit()
+        {
+            RequestShutdown();
         }
 
     private:
@@ -168,6 +224,8 @@ namespace Editor
         F32 fps = 0.0f;
         U32 fpsFrame = 0;
         Timer fpsTimer;
+
+        Array<Utils::Action*> actions;
     };
 
     EditorApp* EditorApp::Create()

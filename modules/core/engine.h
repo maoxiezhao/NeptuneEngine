@@ -25,6 +25,7 @@ namespace VulkanTest
 		virtual void FixedUpdate(World& world) {};
 		virtual void Stop(World& world) {};
 
+		virtual class InputSystem& GetInputSystem() = 0;
 		virtual class FileSystem& GetFileSystem() = 0;
 		virtual class ResourceManager& GetResourceManager() = 0;
 		virtual class PluginManager& GetPluginManager() = 0;
