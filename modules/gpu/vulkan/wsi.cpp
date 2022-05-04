@@ -189,12 +189,6 @@ void WSI::EndFrame()
     info.pResults = &result;
 
     VkResult overall = vkQueuePresentKHR(deviceVulkan->GetPresentQueue(), &info);
-    if (overall == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT ||
-        result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
-    {
-        Logger::Error("Lost exclusive full-screen");
-    }
-
     if (overall == VK_SUBOPTIMAL_KHR || result == VK_SUBOPTIMAL_KHR)
     {
         isSwapchinSuboptimal = true;
@@ -246,8 +240,10 @@ bool WSI::InitSwapchain(U32 width, U32 height)
 
         if (err == SwapchainError::NoSurface)
         {
-            Logger::Error("Failed to make progress due to minimization.");
-            return false;
+            // Happendd when window is minimized
+            Logger::Warning("WSI blocking because of minimization.");
+            platform->BlockWSI(*this);
+            Logger::Warning("WSI woke up!");
         }
         else if (err == SwapchainError::Error)
         {
@@ -264,13 +260,17 @@ bool WSI::InitSwapchain(U32 width, U32 height)
 WSI::SwapchainError WSI::InitSwapchainImpl(U32 width, U32 height)
 {
     if (surface == VK_NULL_HANDLE)
+    {
+        Logger::Error("Failed to create swapchain with surface == VK_NULL_HANDLE");
         return SwapchainError::NoSurface;
+    }
 
-    // get surface properties
+    VkPhysicalDevice physicalDevice = vulkanContext->GetPhysicalDevice();
+
+    // Get surface properties
     VkSurfaceCapabilitiesKHR surfaceProperties;
     VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR };
-    VkPhysicalDevice physicalDevice = vulkanContext->GetPhysicalDevice();
-    bool useSurfaceInfo = false; // deviceVulkan->GetFeatures().supportsSurfaceCapabilities2;
+    bool useSurfaceInfo = deviceVulkan->GetFeatures().supportsSurfaceCapabilities2;
     if (useSurfaceInfo)
     {
         surfaceInfo.surface = surface;
@@ -287,10 +287,13 @@ WSI::SwapchainError WSI::InitSwapchainImpl(U32 width, U32 height)
             return SwapchainError::Error;
     }
 
-    // get surface formats
+    // Check the window is minimized.
+    if (surfaceProperties.maxImageExtent.width == 0 && surfaceProperties.maxImageExtent.height == 0)
+        return SwapchainError::NoSurface;
+
+    // Get surface formats
     U32 formatCount = 0;
     std::vector<VkSurfaceFormatKHR> formats;
-
     if (useSurfaceInfo)
     {
         vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice, &surfaceInfo, &formatCount, nullptr);
@@ -458,4 +461,5 @@ void WSIPlatform::OnDeviceCreated(GPU::DeviceVulkan* device) {}
 void WSIPlatform::OnDeviceDestroyed() {}
 void WSIPlatform::OnSwapchainCreated(GPU::DeviceVulkan* device, U32 width, U32 height, float aspectRatio, size_t numSwapchainImages, VkFormat format, VkSurfaceTransformFlagBitsKHR preRotate) {}
 void WSIPlatform::OnSwapchainDestroyed() {}
+
 }

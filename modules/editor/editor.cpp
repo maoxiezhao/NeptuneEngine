@@ -132,6 +132,7 @@ namespace Editor
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
                 ImGui::Begin("MainDockspace", nullptr, flags);
                 ImGui::PopStyleVar();
+
                 // Show main menu
                 OnMainMenu();
                 ImGuiID dockspaceID = ImGui::GetID("MyDockspace");

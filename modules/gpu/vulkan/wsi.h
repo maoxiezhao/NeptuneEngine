@@ -31,6 +31,7 @@ public:
 	virtual U32 GetWidth() = 0;
 	virtual U32 GetHeight() = 0;
 	virtual void PollInput() = 0;
+	virtual void BlockWSI(WSI& wsi) = 0;
 
 	// TODO: Use unified interface
 	virtual void* GetWindow() = 0;
@@ -38,25 +39,25 @@ public:
 
 	bool ShouldResize()const 
 	{
-		return isResize; 
+		return resize; 
 	}
 
 	virtual void NotifySwapchainDimensions(unsigned width, unsigned height)
 	{
 		swapchainWidth = width;
 		swapchainHeight = height;
-		isResize = false;
+		resize = false;
 	}
 
 	virtual void OnDeviceCreated(GPU::DeviceVulkan* device);
 	virtual void OnDeviceDestroyed();
 	virtual void OnSwapchainCreated(GPU::DeviceVulkan* device, U32 width, U32 height, float aspectRatio, size_t numSwapchainImages, VkFormat format, VkSurfaceTransformFlagBitsKHR preRotate);
 	virtual void OnSwapchainDestroyed();
-
+	
 protected:
 	U32 swapchainWidth = 0;
 	U32 swapchainHeight = 0;
-	bool isResize = false;
+	bool resize = false;
 };
 
 class VULKAN_TEST_API WSI

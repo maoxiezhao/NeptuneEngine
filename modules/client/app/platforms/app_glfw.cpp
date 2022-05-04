@@ -44,8 +44,8 @@ public:
 
 private:
     Options options;
-	uint32_t width = 0;
-	uint32_t height = 0;
+	U32 width = 0;
+	U32 height = 0;
 	GLFWwindow* window = nullptr;
 	bool asyncLoopAlive = true;
 	std::atomic_bool requestClose;
@@ -107,6 +107,11 @@ private:
 	void ProcessEventsAsyncThread()
 	{
 		PorcessEventList(asyncThreadEventList, false);
+	}
+
+	void ProcessEventsAsyncThreadBlocking()
+	{
+		PorcessEventList(asyncThreadEventList, true);
 	}
 
 public:
@@ -194,7 +199,7 @@ public:
 #endif
 	}
 	
-	void SetSize(uint32_t w, uint32_t h)
+	void SetSize(U32 w, U32 h)
 	{
 		width = w;
 		height = h;
@@ -202,7 +207,7 @@ public:
 
 	std::vector<const char*> GetRequiredExtensions(bool debugUtils) override
 	{
-        uint32_t glfwExtensionCount = 0;
+        U32 glfwExtensionCount = 0;
         const char** glfwExtensions;
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
         std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
@@ -236,7 +241,7 @@ public:
 	void NotifyResize(U32 width_, U32 height_)
 	{
 		PushEventTaskToAsyncThread([=]() {
-			isResize = true;
+			resize = true;
 			width = width_;
 			height = height_;
 		});
@@ -252,6 +257,12 @@ public:
 	{
 		ProcessEventsAsyncThread();
 		return !requestClose.load();
+	}
+
+	void BlockWSI(WSI& wsi)override
+	{
+		while (!resize && IsAlived(wsi))
+			ProcessEventsAsyncThreadBlocking();
 	}
 
 	int RunMainLoop()
