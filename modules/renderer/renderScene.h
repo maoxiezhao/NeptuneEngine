@@ -2,6 +2,7 @@
 
 #include "core\common.h"
 #include "core\scene\world.h"
+#include "core\collections\array.h"
 #include "renderGraph.h"
 #include "enums.h"
 #include "model.h"
@@ -29,6 +30,24 @@ namespace VulkanTest
 		void UpdateCamera();
 	};
 
+	struct MeshComponent
+	{
+		Array<F32x3> vertexPos;
+		Array<U32> indices;
+
+		struct MeshSubset
+		{
+			U32 indexOffset = 0;
+			U32 indexCount = 0;
+		};
+		Array<MeshSubset> subsets;
+
+		GPU::BufferPtr vboPos;
+		GPU::BufferPtr ibo;
+
+		void SetupRenderData();
+	};
+
 	class VULKAN_TEST_API RenderPassPlugin
 	{
 	public:
@@ -48,6 +67,9 @@ namespace VulkanTest
 	class VULKAN_TEST_API RenderScene : public IScene
 	{
 	public:
+		template<typename T>
+		using EntityMap = std::unordered_map<ECS::EntityID, T>;
+
 		static UniquePtr<RenderScene> CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world);
 
 		virtual CameraComponent* GetMainCamera() = 0;
@@ -57,5 +79,14 @@ namespace VulkanTest
 
 		// Entity create methods
 		virtual ECS::EntityID CreateMesh(const char* name) = 0;
+	
+		// Temp getter
+		virtual EntityMap<MeshComponent*>& GetMeshes() = 0;
+
+		template<typename C>
+		C* GetComponent(ECS::EntityID entity)
+		{
+			return GetWorld().GetComponent<C>(entity);
+		}
 	};
 }

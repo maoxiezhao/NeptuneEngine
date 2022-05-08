@@ -22,7 +22,7 @@ namespace VulkanTest
         Array(Array&& rhs) {
             swap(std::move(rhs));
         }
-        void operator=(const Array&& rhs)
+        void operator=(Array&& rhs)
         {
             if (this == &rhs) return;
             if (data_ != nullptr)
@@ -144,6 +144,17 @@ namespace VulkanTest
             size_ = 0;
         }
 
+        void resize(U32 size)
+        {
+            if (size > capacity_)
+                reserve(size);
+            for (U32 i = size_; i < size; i++)
+                new ((char*)(data_ + i)) T;
+            if (size < size_)
+                DestructData(data_ + size, data_ + size_);
+            size_ = size;
+        }
+
         void reserve(U32 newCapacity)
         {
             if (newCapacity <= capacity_)
@@ -177,6 +188,16 @@ namespace VulkanTest
 
         T* data() { 
             return data_; 
+        }
+
+        const T& operator[](U32 index) const {
+            ASSERT(index < size_);
+            return data_[index];
+        }
+
+        T& operator[](U32 index) {
+            ASSERT(index < size_);
+            return data_[index];
         }
 
     private:

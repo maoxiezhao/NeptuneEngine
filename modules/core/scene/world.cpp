@@ -11,6 +11,7 @@ namespace VulkanTest
 
 	World::~World()
 	{
+		world.reset();
 	}
 
 	const ECS::EntityBuilder& World::CreateEntity(const char* name)

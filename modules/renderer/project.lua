@@ -18,3 +18,22 @@ files
     "**.h",
     "**.inl",
 }
+
+-- Shader interop
+files 
+{
+    asset_location .. "/shaders/common/**.h"
+}
+
+vpaths { 
+    ["shaders"] = {
+        asset_location .. "/shaders/common/**.h"
+    },
+    ["*"] = {
+        "**.c",
+        "**.cpp",
+        "**.hpp",
+        "**.h",
+        "**.inl",
+    }
+}

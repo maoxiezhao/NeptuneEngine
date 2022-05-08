@@ -81,8 +81,7 @@ template<typename T>
 class Hasher
 {
 public:
-	uint32_t operator()(uint32_t input, const T& data) const { return HashFunc(input, data); }
-	uint64_t operator()(uint64_t input, const T& data) const { return HashFunc(input, data); }
+	static U32 Get(const T& key) { return HashFunc((U32)0, key); }
 };
 
 using HashValue = uint64_t;

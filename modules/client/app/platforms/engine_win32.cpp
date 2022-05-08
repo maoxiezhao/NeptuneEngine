@@ -6,6 +6,7 @@
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resourceManager.h"
 #include "core\utils\profiler.h"
+#include "core\scripts\lua.h"
 #include "app\app.h"
 #include "renderer\renderer.h"
 
@@ -25,6 +26,8 @@ namespace VulkanTest
 		F32 lastTimeDeltas[8] = {};
 		U32 lastTimeFrames = 0;
 
+		DefaultAllocator luaAllocator;
+
 	public:
 		EngineImpl(const InitConfig& initConfig, App& app)
 		{
@@ -35,6 +38,9 @@ namespace VulkanTest
 			platform = &app.GetPlatform();
 			wsi = &app.GetWSI();
 			SetupUnhandledExceptionHandler();
+
+			// Init lua system
+			Lua::Initialize(luaAllocator);
 
 			// Create filesystem
 			if (initConfig.workingDir != nullptr) {
@@ -86,6 +92,8 @@ namespace VulkanTest
 			resourceManager.Uninitialzie();
 			fileSystem.Reset();
 			platform = nullptr;
+
+			Lua::Uninitialize();
 
 			Logger::Info("Game engine released.");
 		}

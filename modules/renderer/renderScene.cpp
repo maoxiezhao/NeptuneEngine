@@ -4,6 +4,21 @@
 
 namespace VulkanTest
 {
+    void MeshComponent::SetupRenderData()
+    {
+        GPU::DeviceVulkan* device = Renderer::GetDevice();
+
+        GPU::BufferCreateInfo bufferInfo = {};
+        bufferInfo.domain = GPU::BufferDomain::Device;
+        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        bufferInfo.size = vertexPos.size() * sizeof(F32x3);
+        vboPos = device->CreateBuffer(bufferInfo, vertexPos.data());
+
+        bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        bufferInfo.size = indices.size() * sizeof(U32);
+        ibo = device->CreateBuffer(bufferInfo, indices.data());
+    }
+
     void CameraComponent::UpdateCamera()
     {
         // Construct V, P, VP
@@ -17,6 +32,8 @@ namespace VulkanTest
         RendererPlugin& rendererPlugin;
         CameraComponent mainCamera;
         UniquePtr<CullingSystem> cullingSystem;
+
+        EntityMap<MeshComponent*> meshes;
 
     public:
         RenderSceneImpl(RendererPlugin& rendererPlugin_, Engine& engine_, World& world_) :
@@ -68,10 +85,16 @@ namespace VulkanTest
             cullingSystem->Cull(vis, *this);
         }
 
-        virtual ECS::EntityID CreateMesh(const char* name)
+        ECS::EntityID CreateMesh(const char* name)override
         {
-            ECS::EntityID entity = world.CreateEntity(name).entity;
-            return entity;
+            return world.CreateEntity(name)
+                .With<MeshComponent>()
+                .entity;
+        }
+
+        EntityMap<MeshComponent*>& GetMeshes()override
+        {
+            return meshes;
         }
     };
 

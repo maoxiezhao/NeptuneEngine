@@ -10,6 +10,18 @@ namespace VulkanTest
 {
 class RenderGraph;
 
+struct VULKAN_TEST_API RenderPassJob
+{
+    virtual~RenderPassJob() = default;
+
+    virtual bool IsConditional()const;
+    virtual bool GetClearDepthStencil(VkClearDepthStencilValue* value) const;
+    virtual bool GetClearColor(unsigned attachment, VkClearColorValue* value) const;
+
+    virtual void EnqueuePrepare();
+    virtual void BuildRenderPass(GPU::CommandList& cmd);
+};
+
 enum class RenderGraphQueueFlag
 {
     Graphics = 1 << 0,
@@ -217,6 +229,7 @@ private:
     VkBufferUsageFlags usage = 0;
 };
 
+using EnqueuePrepareFunc = std::function<void()>;
 using BuildRenderPassFunc = std::function<void(GPU::CommandList&)>;
 using ClearDepthStencilFunc = std::function<bool(VkClearDepthStencilValue* value)>;
 using ClearColorFunc = std::function<bool(U32 index, VkClearColorValue* value)>;
@@ -240,7 +253,11 @@ public:
     RenderPass(RenderGraph& graph_, U32 index_, U32 queue_);
     ~RenderPass();
 
-    void SetBuildCallback(std::function<void(GPU::CommandList&)> func)
+    void SetEnqueuePprepareCallback(EnqueuePrepareFunc func)
+    {
+        enqueuePrepareCallback = std::move(func);
+    }
+    void SetBuildCallback(BuildRenderPassFunc func)
     {
         buildRenderPassCallback = std::move(func);
     }
@@ -265,6 +282,12 @@ public:
         if (clearDepthStencilCallback != nullptr)
             return clearDepthStencilCallback(value);
         return false;
+    }
+
+    void EnqueuePrepareRenderPass()
+    {
+        if (enqueuePrepareCallback != nullptr)
+            enqueuePrepareCallback();
     }
 
     void BuildRenderPass(GPU::CommandList& cmd)
@@ -363,7 +386,9 @@ private:
     U32 index;
     U32 queue = 0;
     U32 physicalIndex = Unused;
-    std::function<void(GPU::CommandList&)> buildRenderPassCallback;
+
+    EnqueuePrepareFunc enqueuePrepareCallback;
+    BuildRenderPassFunc buildRenderPassCallback;
     ClearDepthStencilFunc clearDepthStencilCallback;
     ClearColorFunc clearColorCallback;
 

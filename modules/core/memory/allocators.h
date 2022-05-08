@@ -5,7 +5,7 @@
 
 namespace VulkanTest
 {
-	class VULKAN_TEST_API DefaultAllocator final : IAllocator
+	class VULKAN_TEST_API DefaultAllocator final : public IAllocator
 	{
 	public:
 		DefaultAllocator();

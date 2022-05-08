@@ -745,6 +745,15 @@ void CommandList::DrawIndexed(U32 indexCount, U32 firstIndex, U32 vertexOffset)
     }
 }
 
+void CommandList::DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 startIndexLocation, U32 baseVertexLocation, U32 startInstanceLocation)
+{
+    ASSERT(indexState.buffer != VK_NULL_HANDLE);
+    if (FlushRenderState())
+    {
+        vkCmdDrawIndexed(cmd, indexCount, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
+    }
+}
+
 void CommandList::ImageBarrier(const ImagePtr& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
 {
     VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };

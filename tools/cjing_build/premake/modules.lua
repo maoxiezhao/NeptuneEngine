@@ -6,6 +6,7 @@ module_location = ""
 build_location = ""
 lib_location = ""
 third_party_location = ""
+asset_location = ""
 
 function set_module_location(location)
     module_location = location
@@ -22,6 +23,10 @@ end
 function set_third_party_location(location)
     third_party_location = location
 end 
+
+function set_asset_location(location)
+    asset_location = location
+end
 
 function register_module(project_name, dependencies, is_default)
     if is_default == nil then 

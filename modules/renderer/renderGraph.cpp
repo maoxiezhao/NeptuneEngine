@@ -1426,6 +1426,13 @@ namespace VulkanTest
                 ent.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             }
 
+            // Prepare render passes
+            for (auto& passIndex : physicalPass.passes)
+            {
+                RenderPass& subpass = *renderPasses[passIndex];
+                subpass.EnqueuePrepareRenderPass();
+            }
+
             state.active = true;
         }
 
@@ -1776,6 +1783,34 @@ namespace VulkanTest
         {
             device.Submit(cmd);
         }
+    }
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    bool RenderPassJob::IsConditional()const
+    {
+        return false;
+    }
+
+    bool RenderPassJob::GetClearDepthStencil(VkClearDepthStencilValue* value) const
+    {
+        if (value)
+            *value = { 1.0f, 0u };
+        return true;
+    }
+
+    bool RenderPassJob::GetClearColor(unsigned attachment, VkClearColorValue* value) const
+    {
+        if (value)
+            *value = {};
+        return true;
+    }
+
+    void RenderPassJob::EnqueuePrepare()
+    {
+    }
+
+    void RenderPassJob::BuildRenderPass(GPU::CommandList& cmd)
+    {
     }
 
     ///////////////////////////////////////////////////////////////////////////////////

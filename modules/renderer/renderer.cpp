@@ -14,10 +14,7 @@ namespace VulkanTest
 struct RendererPluginImpl : public RendererPlugin
 {
 public:
-	RendererPluginImpl(Engine& engine_)
-		: engine(engine_)
-	{
-	}
+	RendererPluginImpl(Engine& engine_): engine(engine_) {}
 
 	virtual ~RendererPluginImpl()
 	{
@@ -71,6 +68,16 @@ public:
 		}
 	}
 
+	GPU::DeviceVulkan* GetDevice() override
+	{
+		return engine.GetWSI().GetDevice();
+	}
+
+	RenderScene* GetScene() override
+	{
+		return scene;
+	}
+
 	const char* GetName() const override
 	{
 		return "Renderer";
@@ -107,6 +114,42 @@ private:
 
 namespace Renderer
 {
+	struct InstancedMesh
+	{
+		MeshComponent* mesh;
+		GPU::BufferPtr indexBuffer;
+		GPU::BufferPtr vertexBuffer;
+	};
+
+	struct RenderBatch
+	{
+		InstancedMesh mesh;
+		U64 sortingKey;
+	};
+
+	struct RenderQueue
+	{
+		void Sort()
+		{
+		}
+
+		void Clear()
+		{
+		}
+
+		bool Empty()const
+		{
+			return batches.empty();
+		}
+
+		size_t Size()const
+		{
+			return batches.size();
+		}
+
+		Array<RenderBatch> batches;
+	};
+
 	template <typename T>
 	struct RenderResourceFactory : public ResourceFactory
 	{
@@ -187,10 +230,16 @@ namespace Renderer
 		stockRasterizerState[RasterizerStateType_DoubleSided] = rs;
 	}
 
+	void LoadShaders()
+	{
+	}
+
 	void Renderer::Initialize(Engine& engine)
 	{
 		Logger::Info("Render initialized");
+
 		InitStockStates();
+		LoadShaders();
 
 		// Initialize resource factories
 		ResourceManager& resManager = engine.GetResourceManager();
@@ -206,6 +255,18 @@ namespace Renderer
 
 		rendererPlugin = nullptr;
 		Logger::Info("Render uninitialized");
+	}
+
+	GPU::DeviceVulkan* GetDevice()
+	{
+		ASSERT(rendererPlugin != nullptr);
+		return rendererPlugin->GetDevice();
+	}
+
+	RenderScene* GetScene()
+	{
+		ASSERT(rendererPlugin != nullptr);
+		return rendererPlugin->GetScene();
 	}
 
 	const GPU::BlendState& GetBlendState(BlendStateTypes types)
@@ -232,8 +293,91 @@ namespace Renderer
 	{
 	}
 
-	void DrawMeshes(GPU::CommandList& cmd, const Visibility& visible, const RenderQueue& queue, RENDERPASS renderPass, U32 renderFlags)
+	bool isInit = false;
+	MeshComponent* meshComp = nullptr;
+	void DrawTest(GPU::CommandList& cmd)
 	{
+		if (isInit == false)
+		{
+			isInit = true;
+
+		
+		}
+
+		assert(meshComp != nullptr);
+
+		cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		cmd.BindIndexBuffer(meshComp->ibo, 0, VK_INDEX_TYPE_UINT32);
+		cmd.BindVertexBuffer(meshComp->vboPos, 0, 0, sizeof(F32x3), VK_VERTEX_INPUT_RATE_VERTEX);
+		cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0);
+
+		for (U32 index = 0; index < meshComp->subsets.size(); index++)
+		{
+			MeshComponent::MeshSubset& subset = meshComp->subsets[index];
+			if (subset.indexCount == 0)
+				continue;
+
+			// Set rendering state
+			cmd.SetDefaultOpaqueState();
+			cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
+			cmd.SetDefaultOpaqueState();
+			cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);
+		}
+
+		cmd.DrawIndexed(6);
+	}
+
+	struct ObjectPushConstants
+	{
+		U32 geometryIndex;
+		I32 instances;
+		U32 instance_offset;
+	};
+
+	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, RENDERPASS renderPass, U32 renderFlags)
+	{
+		if (queue.Empty())
+			return;
+
+		cmd.BeginEvent("DrawMeshes");
+
+		for (auto& batch : queue.batches)
+		{
+			InstancedMesh& instMesh = batch.mesh;
+			if (instMesh.mesh == nullptr)
+				continue;
+
+			cmd.BindIndexBuffer(instMesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			cmd.BindVertexBuffer(instMesh.vertexBuffer, 0, 0, sizeof(F32x2), VK_VERTEX_INPUT_RATE_VERTEX);
+
+			for (U32 index = 0; index < instMesh.mesh->subsets.size(); index++)
+			{
+				MeshComponent::MeshSubset& subset = instMesh.mesh->subsets[index];
+				if (subset.indexCount == 0)
+					continue;
+
+				// Set rendering state
+				cmd.SetDefaultOpaqueState();
+				switch (renderPass)
+				{
+				case VulkanTest::RENDERPASS_MAIN:
+					// cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
+					cmd.SetProgram("test/triangleVS.hlsl", "screenPS.hlsl");
+					break;
+				default:
+					ASSERT(0);
+					break;
+				}
+
+				// ObjectPushConstants push;
+
+				// cmd.PushConstants(&push, 0, sizeof(push));
+				cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);
+				// cmd.DrawIndexedInstanced(subset.indexCount, 1, subset.indexOffset, 0, 0);
+			}
+		}
+
+		cmd.EndEvent();
 	}
 
 	RendererPlugin* CreatePlugin(Engine& engine)

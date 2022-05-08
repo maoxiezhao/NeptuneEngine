@@ -13,3 +13,24 @@ files
     "**.h",
     "**.inl",
 }
+
+-- Lua
+files 
+{ 
+    third_party_location .. "/lua/**.h",
+    third_party_location .. "/lua/**.c",
+}
+
+vpaths { 
+    ["scripts/lua"] = {
+        third_party_location .. "/lua/**.h",
+        third_party_location .. "/lua/**.c",
+    },
+    ["*"] = {
+        "**.c",
+        "**.cpp",
+        "**.hpp",
+        "**.h",
+        "**.inl",
+    }
+}

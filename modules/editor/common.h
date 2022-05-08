@@ -2,7 +2,7 @@
 
 #include "core\common.h"
 #include "core\memory\memory.h"
-#include "core\collections\Array.h"
+#include "core\collections\array.h"
 #include "core\utils\string.h"
 #include "core\utils\delegate.h"
 
