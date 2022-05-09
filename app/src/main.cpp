@@ -21,7 +21,8 @@ namespace VulkanTest
         void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override
         {
             // RenderPath3D::Compose(renderGraph, cmd);
-            Renderer::DrawTest(*cmd);
+            //Renderer::DrawTest(*cmd);
+            Renderer::DrawScene(*cmd, visibility);
         }
     };
 
@@ -72,6 +73,8 @@ namespace VulkanTest
                 meshComp->vboPos.reset();
                 meshComp->ibo.reset();
             }
+
+            App::Uninitialize();
         }
 
     private:

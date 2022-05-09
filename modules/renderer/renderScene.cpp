@@ -21,8 +21,40 @@ namespace VulkanTest
 
     void CameraComponent::UpdateCamera()
     {
-        // Construct V, P, VP
+        projection = StoreFMat4x4(MatrixPerspectiveFovLH(fov, width / height, farZ, nearZ)); // reverse zbuffer!
+
+        VECTOR _Eye = LoadF32x3(eye);
+        VECTOR _At  = LoadF32x3(at);
+        VECTOR _Up  = LoadF32x3(up);
+
+        MATRIX _V = MatrixLookToLH(_Eye, _At, _Up);
+        MATRIX _P = LoadFMat4x4(projection);
+        MATRIX _VP = MatrixMultiply(_V, _P);
+
+        view = StoreFMat4x4(_V);
+        viewProjection = StoreFMat4x4(_VP);
+
+        frustum.Compute(LoadFMat4x4(viewProjection));
     }
+
+    class MeshUpdateSystem : public ISystem
+    {
+    public:
+        MeshUpdateSystem(RenderScene& scene) : ISystem(scene)
+        {
+            system = scene.GetWorld().CreateSystem<MeshComponent>()
+                .ForEach([&](ECS::EntityID entity, MeshComponent& mesh) {
+                    F32x3 minPoint = F32x3(std::numeric_limits<F32>::max(), std::numeric_limits<F32>::max(), std::numeric_limits<F32>::max());
+                    F32x3 maxPoint = F32x3(std::numeric_limits<F32>::lowest(), std::numeric_limits<F32>::lowest(), std::numeric_limits<F32>::lowest());
+                    for (auto point : mesh.vertexPos)
+                    {
+                        minPoint = Min(minPoint, point);
+                        maxPoint = Min(maxPoint, point);
+                    }
+                    mesh.aabb = AABB(minPoint, maxPoint);
+                });
+        }
+    };
 
     class RenderSceneImpl : public RenderScene
     {
@@ -30,6 +62,7 @@ namespace VulkanTest
         Engine& engine;
         World& world;
         RendererPlugin& rendererPlugin;
+        std::vector<ISystem*> systems;
         CameraComponent mainCamera;
         UniquePtr<CullingSystem> cullingSystem;
 
@@ -51,14 +84,25 @@ namespace VulkanTest
 
         void Init()override
         {
+            AddSystem(CJING_NEW(MeshUpdateSystem)(*this));
         }
 
         void Uninit()override
         {
+            for (auto system : systems)
+                CJING_SAFE_DELETE(system);
+            systems.clear();
+        }
+
+        void AddSystem(ISystem* system)
+        {
+            systems.push_back(system);
         }
 
         void Update(float dt, bool paused)override
         {
+            for (auto system : systems)
+                system->UpdateSystem();
         }
         
         void Clear()override
@@ -87,9 +131,11 @@ namespace VulkanTest
 
         ECS::EntityID CreateMesh(const char* name)override
         {
-            return world.CreateEntity(name)
+            ECS::EntityID entity = world.CreateEntity(name)
                 .With<MeshComponent>()
                 .entity;
+            meshes[entity] = world.GetComponent<MeshComponent>(entity);
+            return entity;
         }
 
         EntityMap<MeshComponent*>& GetMeshes()override

@@ -41,8 +41,7 @@ namespace VulkanTest
 			All = Opaque | Transparent
 		};
 
-		void DrawScene(GPU::CommandList& cmd);
-		void DrawTest(GPU::CommandList& cmd);
+		void DrawScene(GPU::CommandList& cmd, const Visibility& vis);
 
 		// Plugin interface
 		RendererPlugin* CreatePlugin(Engine& engine);

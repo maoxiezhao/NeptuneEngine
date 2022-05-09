@@ -3,6 +3,24 @@
 
 namespace VulkanTest
 {
+	ISystem::ISystem(IScene& scene_) :
+		scene(scene_),
+		system(ECS::INVALID_ENTITY)
+	{
+	}
+
+	ISystem::~ISystem()
+	{
+		if (system != ECS::INVALID_ENTITY)
+			scene.GetWorld().RemoveSystem(system);
+	}
+
+	void ISystem::UpdateSystem()
+	{
+		if (system != ECS::INVALID_ENTITY)
+			scene.GetWorld().RunSystem(system);
+	}
+
 	World::World(Engine* engine_) :
 		engine(engine_)
 	{
@@ -34,9 +52,9 @@ namespace VulkanTest
 		return world->FindEntityIDByName(name);
 	}
 
-	ECS::EntityID World::IsEntityAlive(ECS::EntityID entity) const
+	ECS::EntityID World::EntityExists(ECS::EntityID entity) const
 	{
-		return world->IsEntityAlive(entity);
+		return world->EntityExists(entity);
 	}
 
 	void World::DeleteEntity(ECS::EntityID entity)
@@ -52,6 +70,16 @@ namespace VulkanTest
 	bool World::HasComponent(ECS::EntityID entity, ECS::EntityID compID)
 	{
 		return world->HasComponent(entity, compID);
+	}
+
+	void World::RunSystem(ECS::EntityID system)
+	{
+		world->RunSystem(system);
+	}
+
+	void World::RemoveSystem(ECS::EntityID system)
+	{
+		// TODO
 	}
 
 	IScene* World::GetScene(const char* name) const

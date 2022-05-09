@@ -22,6 +22,18 @@ namespace VulkanTest
 		virtual World& GetWorld() = 0;
 	};
 
+	class VULKAN_TEST_API ISystem
+	{
+	public:
+		ISystem(IScene& scene_);
+		virtual ~ISystem();
+		void UpdateSystem();
+
+	protected:
+		IScene& scene;
+		ECS::EntityID system;
+	};
+
 	class VULKAN_TEST_API World
 	{
 	public:
@@ -32,7 +44,7 @@ namespace VulkanTest
 		const ECS::EntityBuilder& CreatePrefab(const char* name);
 		ECS::EntityID CreateEntityID(const char* name);
 		ECS::EntityID FindEntity(const char* name);
-		ECS::EntityID IsEntityAlive(ECS::EntityID entity)const;
+		ECS::EntityID EntityExists(ECS::EntityID entity)const;
 		void DeleteEntity(ECS::EntityID entity);
 		void SetEntityName(ECS::EntityID entity, const char* name);
 		bool HasComponent(ECS::EntityID entity, ECS::EntityID compID);
@@ -60,6 +72,8 @@ namespace VulkanTest
 		{
 			return world->CreateSystem<Args...>();
 		}
+		void RunSystem(ECS::EntityID system);
+		void RemoveSystem(ECS::EntityID system);
 
 		IScene* GetScene(const char* name)const;
 		void AddScene(UniquePtr<IScene>&& scene);

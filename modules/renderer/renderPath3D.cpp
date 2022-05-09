@@ -12,10 +12,11 @@ namespace VulkanTest
 		RenderPath2D::Update(dt);
 
 		// Update render scene
-		if (GetSceneUpdateEnabled()) {
-			scene->Update(dt, false);
-		}
+		// if (GetSceneUpdateEnabled()) {
+		//	scene->Update(dt, false);
+		// }
 
+		// Update main camera
 		camera = scene->GetMainCamera();
 		ASSERT(camera != nullptr);
 		camera->width = (F32)currentBufferSize.x;
@@ -23,16 +24,13 @@ namespace VulkanTest
 		camera->UpdateCamera();
 
 		// Culling for main camera
+		visibility.Clear();
 		visibility.camera = camera;
 		visibility.flags = Visibility::ALLOW_EVERYTHING;
 		scene->UpdateVisibility(visibility);
 
 		// Update per frame data
 		Renderer::UpdateFrameData(visibility, *scene, dt);
-	}
-
-	void RenderPath3D::FixedUpdate()
-	{
 	}
 
 	void RenderPath3D::SetupPasses(RenderGraph& renderGraph)

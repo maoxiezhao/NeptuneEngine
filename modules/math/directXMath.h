@@ -80,6 +80,51 @@ namespace VulkanTest
 		return XMMatrixInverse(nullptr, M);
 	}	
 
+	inline MATRIX XM_CALLCONV MatrixTranspose(MATRIX M)
+	{
+		return XMMatrixTranspose(M);
+	}
+
+	inline VECTOR XM_CALLCONV PlaneNormalize(VECTOR v)
+	{
+		return XMPlaneNormalize(v);
+	}
+
+	inline VECTOR XM_CALLCONV VectorZero()
+	{
+		return XMVectorZero();
+	}
+
+	inline VECTOR XM_CALLCONV VectorLess(VECTOR V1, VECTOR V2)
+	{
+		return XMVectorLess(V1, V2);
+	}
+
+	inline VECTOR XM_CALLCONV VectorSelect(VECTOR V1, VECTOR V2, VECTOR Control)
+	{
+		return XMVectorSelect(V1, V2, Control);
+	}
+
+	inline VECTOR XM_CALLCONV PlaneDotCoord(VECTOR V1, VECTOR V2)
+	{
+		return XMPlaneDotCoord(V1, V2);
+	}
+
+	inline F32 XM_CALLCONV VectorGetX(VECTOR V)
+	{
+		return XMVectorGetX(V);
+	}
+
+	inline F32 XM_CALLCONV VectorGetY(VECTOR V)
+	{
+		return XMVectorGetY(V);
+	}
+
+	inline F32 XM_CALLCONV VectorGetZ(VECTOR V)
+	{
+		return XMVectorGetZ(V);
+	}
+
 	////////////////////////////////////////////////////////////////////////////
 	// Load
 	////////////////////////////////////////////////////////////////////////////
@@ -229,10 +274,6 @@ namespace VulkanTest
 		XMStoreFloat4x4(reinterpret_cast<XMFLOAT4X4*>(&dst), src);
 		return dst;
 	}
-
-	////////////////////////////////////////////////////////////////////////////
-	// Functions
-	////////////////////////////////////////////////////////////////////////////
 }
 
 #endif

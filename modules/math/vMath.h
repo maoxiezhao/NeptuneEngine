@@ -4,6 +4,14 @@
 
 namespace VulkanTest
 {
+#if defined(_MSC_VER) && (_MSC_FULL_VER < 190023506)
+#define VEC_CONST const
+#define VEC_CONSTEXPR
+#else
+#define VEC_CONST constexpr
+#define VEC_CONSTEXPR constexpr
+#endif
+
 	template <typename T> struct TMat2;
 	template <typename T> struct TMat3;
 	template <typename T> struct TMat4;
@@ -36,7 +44,7 @@ namespace VulkanTest
 			y = v;
 		}
 
-		TVec2(T x_, T y_) noexcept
+		VEC_CONSTEXPR TVec2(T x_, T y_) noexcept
 		{
 			x = x_;
 			y = y_;
@@ -82,7 +90,7 @@ namespace VulkanTest
 			z = v;
 		}
 
-		TVec3(T x_, T y_, T z_) noexcept
+		VEC_CONSTEXPR TVec3(T x_, T y_, T z_) noexcept
 		{
 			x = x_;
 			y = y_;
@@ -138,7 +146,7 @@ namespace VulkanTest
 			w = v;
 		}
 
-		TVec4(T x_, T y_, T z_, T w_) noexcept
+		VEC_CONSTEXPR TVec4(T x_, T y_, T z_, T w_) noexcept
 		{
 			x = x_;
 			y = y_;

@@ -10,7 +10,6 @@ namespace VulkanTest
 	{
 	public:
 		void Update(float dt) override;
-		void FixedUpdate() override;
 
 		bool GetSceneUpdateEnabled()const {
 			return sceneUpdateEnable;
@@ -20,7 +19,7 @@ namespace VulkanTest
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
 	
-	private:
+	protected:
 		bool sceneUpdateEnable = true;
 
 		Visibility visibility;

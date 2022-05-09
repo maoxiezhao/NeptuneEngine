@@ -114,16 +114,9 @@ private:
 
 namespace Renderer
 {
-	struct InstancedMesh
-	{
-		MeshComponent* mesh;
-		GPU::BufferPtr indexBuffer;
-		GPU::BufferPtr vertexBuffer;
-	};
-
 	struct RenderBatch
 	{
-		InstancedMesh mesh;
+		ECS::EntityID mesh;
 		U64 sortingKey;
 	};
 
@@ -289,44 +282,6 @@ namespace Renderer
 
 	}
 
-	void DrawScene(GPU::CommandList& cmd)
-	{
-	}
-
-	bool isInit = false;
-	MeshComponent* meshComp = nullptr;
-	void DrawTest(GPU::CommandList& cmd)
-	{
-		if (isInit == false)
-		{
-			isInit = true;
-
-		
-		}
-
-		assert(meshComp != nullptr);
-
-		cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		cmd.BindIndexBuffer(meshComp->ibo, 0, VK_INDEX_TYPE_UINT32);
-		cmd.BindVertexBuffer(meshComp->vboPos, 0, 0, sizeof(F32x3), VK_VERTEX_INPUT_RATE_VERTEX);
-		cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0);
-
-		for (U32 index = 0; index < meshComp->subsets.size(); index++)
-		{
-			MeshComponent::MeshSubset& subset = meshComp->subsets[index];
-			if (subset.indexCount == 0)
-				continue;
-
-			// Set rendering state
-			cmd.SetDefaultOpaqueState();
-			cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
-			cmd.SetDefaultOpaqueState();
-			cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);
-		}
-
-		cmd.DrawIndexed(6);
-	}
-
 	struct ObjectPushConstants
 	{
 		U32 geometryIndex;
@@ -341,41 +296,54 @@ namespace Renderer
 
 		cmd.BeginEvent("DrawMeshes");
 
+		RenderScene* scene = Renderer::GetScene();
 		for (auto& batch : queue.batches)
 		{
-			InstancedMesh& instMesh = batch.mesh;
-			if (instMesh.mesh == nullptr)
+			MeshComponent* mesh = scene->GetComponent<MeshComponent>(batch.mesh);
+			if (mesh == nullptr)
 				continue;
 
-			cmd.BindIndexBuffer(instMesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			cmd.BindVertexBuffer(instMesh.vertexBuffer, 0, 0, sizeof(F32x2), VK_VERTEX_INPUT_RATE_VERTEX);
+			cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+			cmd.BindIndexBuffer(mesh->ibo, 0, VK_INDEX_TYPE_UINT32);
+			cmd.BindVertexBuffer(mesh->vboPos, 0, 0, sizeof(F32x3), VK_VERTEX_INPUT_RATE_VERTEX);
+			cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0);
 
-			for (U32 index = 0; index < instMesh.mesh->subsets.size(); index++)
+			for (U32 index = 0; index < mesh->subsets.size(); index++)
 			{
-				MeshComponent::MeshSubset& subset = instMesh.mesh->subsets[index];
+				MeshComponent::MeshSubset& subset = mesh->subsets[index];
 				if (subset.indexCount == 0)
 					continue;
 
 				// Set rendering state
 				cmd.SetDefaultOpaqueState();
-				switch (renderPass)
-				{
-				case VulkanTest::RENDERPASS_MAIN:
-					// cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
-					cmd.SetProgram("test/triangleVS.hlsl", "screenPS.hlsl");
-					break;
-				default:
-					ASSERT(0);
-					break;
-				}
-
-				// ObjectPushConstants push;
-
-				// cmd.PushConstants(&push, 0, sizeof(push));
+				cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
+				cmd.SetDefaultOpaqueState();
 				cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);
-				// cmd.DrawIndexedInstanced(subset.indexCount, 1, subset.indexOffset, 0, 0);
 			}
 		}
+
+		cmd.EndEvent();
+	}
+
+	void DrawScene(GPU::CommandList& cmd, const Visibility& vis)
+	{
+		cmd.BeginEvent("DrawScene");
+
+		RenderScene* secne = Renderer::GetScene();
+		RenderQueue queue;
+		for (auto meshID : vis.objects)
+		{
+			MeshComponent* mesh = secne->GetComponent<MeshComponent>(meshID);
+			if (mesh == nullptr)
+				continue;
+
+			RenderBatch batch = {};
+			batch.mesh = meshID;
+			queue.batches.push_back(batch);
+		}
+
+		if (!queue.Empty())
+			DrawMeshes(cmd, queue, RENDERPASS::RENDERPASS_MAIN, 0);
 
 		cmd.EndEvent();
 	}

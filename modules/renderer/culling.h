@@ -3,6 +3,8 @@
 #include "core\common.h"
 #include "core\memory\memory.h"
 #include "core\scene\world.h"
+#include "math\geometry.h"
+#include "renderScene.h"
 
 namespace VulkanTest
 {
@@ -20,6 +22,14 @@ namespace VulkanTest
 		U32 flags = EMPTY;
 
         struct CameraComponent* camera = nullptr;
+        Frustum frustum;
+
+        Array<ECS::EntityID> objects;
+
+        void Clear()
+        {
+            objects.clear();
+        }
     };
 
     class VULKAN_TEST_API CullingSystem

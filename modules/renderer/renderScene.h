@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\scene\world.h"
 #include "core\collections\array.h"
+#include "math\geometry.h"
 #include "renderGraph.h"
 #include "enums.h"
 #include "model.h"
@@ -24,9 +25,10 @@ namespace VulkanTest
 		F32x3 up = F32x3(0.0f, 1.0f, 0.0f);
 		FMat4x4 view;
 		FMat4x4 projection;
-		FMat4x4 vp;
+		FMat4x4 viewProjection;
 
-		// Component should preferably not contain any methods.
+		Frustum frustum;
+
 		void UpdateCamera();
 	};
 
@@ -41,6 +43,9 @@ namespace VulkanTest
 			U32 indexCount = 0;
 		};
 		Array<MeshSubset> subsets;
+
+		// TEST
+		AABB aabb;
 
 		GPU::BufferPtr vboPos;
 		GPU::BufferPtr ibo;
