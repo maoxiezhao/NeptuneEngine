@@ -27,23 +27,38 @@ namespace ShaderCompiler
 {
 	struct CompilerImpl
 	{
-		CComPtr<IDxcCompiler3> dxcCompiler = nullptr;
-		CComPtr<IDxcUtils> dxcUtils = nullptr;
-		CComPtr<IDxcIncludeHandler> dxcIncludeHandler = nullptr;
+		DxcCreateInstanceProc DxcCreateInstance = nullptr;
 
 		CompilerImpl()
 		{
-			HMODULE dxcompiler = CiLoadLibrary("dxcompiler.dll");
+#ifdef _WIN32
+#define LIBDXCOMPILER "dxcompiler.dll"
+			HMODULE dxcompiler = CiLoadLibrary(LIBDXCOMPILER);
+#elif defined(PLATFORM_LINUX)
+#define LIBDXCOMPILER "libdxcompiler.so"
+			HMODULE dxcompiler = CiLoadLibrary("./" LIBDXCOMPILER);
+#endif
 			if (dxcompiler != nullptr)
 			{
-				DxcCreateInstanceProc DxcCreateInstance = (DxcCreateInstanceProc)CiGetProcAddress(dxcompiler, "DxcCreateInstance");
+				DxcCreateInstance = (DxcCreateInstanceProc)CiGetProcAddress(dxcompiler, "DxcCreateInstance");
 				if (DxcCreateInstance != nullptr)
 				{
-					HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils));
-					assert(SUCCEEDED(hr));
-					hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler));
-					assert(SUCCEEDED(hr));
+					CComPtr<IDxcCompiler3> dxcCompiler;
+					HRESULT hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler));
+					ASSERT(SUCCEEDED(hr));
+					CComPtr<IDxcVersionInfo> info;
+					hr = dxcCompiler->QueryInterface(&info);
+					ASSERT(SUCCEEDED(hr));
+					uint32_t minor = 0;
+					uint32_t major = 0;
+					hr = info->GetVersion(&major, &minor);
+					ASSERT(SUCCEEDED(hr));
+					Logger::Info("ShaderCompiler loaded (version:%u.$u)", std::to_string(major), std::to_string(minor));
 				}
+			}
+			else
+			{
+				Logger::Warning("ShaderCompiler loaded failed");
 			}
 		}
 	};
@@ -58,13 +73,14 @@ namespace ShaderCompiler
 	{
 		const CompilerInput* input = nullptr;
 		CompilerOutput* output = nullptr;
+		CComPtr<IDxcIncludeHandler> dxcIncludeHandler;
 
 		HRESULT STDMETHODCALLTYPE LoadSource(
 			_In_z_ LPCWSTR pFilename,                                 // Candidate filename.
 			_COM_Outptr_result_maybenull_ IDxcBlob** ppIncludeSource  // Resultant source object for included file, nullptr if not found.
 		) override
 		{
-			HRESULT hr = GetCompilerImpl().dxcIncludeHandler->LoadSource(pFilename, ppIncludeSource);
+			HRESULT hr = dxcIncludeHandler->LoadSource(pFilename, ppIncludeSource);
 			if (SUCCEEDED(hr))
 			{
 				std::string& filename = output->dependencies.emplace_back();
@@ -77,7 +93,7 @@ namespace ShaderCompiler
 			/* [in] */ REFIID riid,
 			/* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR* __RPC_FAR* ppvObject) override
 		{
-			return GetCompilerImpl().dxcIncludeHandler->QueryInterface(riid, ppvObject);
+			return dxcIncludeHandler->QueryInterface(riid, ppvObject);
 		}
 
 		ULONG STDMETHODCALLTYPE AddRef(void) override
@@ -98,21 +114,23 @@ namespace ShaderCompiler
 	bool Compile(const CompilerInput& input, CompilerOutput& output)
 	{
 		CompilerImpl& impl = GetCompilerImpl();
-		if (impl.dxcCompiler == nullptr)
+		if (impl.DxcCreateInstance == nullptr)
 			return false;
+
+		CComPtr<IDxcUtils> dxcUtils;
+		CComPtr<IDxcCompiler3> dxcCompiler;
+		HRESULT hr = impl.DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils));
+		assert(SUCCEEDED(hr));
+		hr = impl.DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler));
+		assert(SUCCEEDED(hr));
 
 		std::vector<uint8_t> shadersourcedata;
 		if (!Helper::FileRead(input.shadersourcefilename, shadersourcedata))
 			return false;
 
-		// see: https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll#dxcompiler-dll-interface
+		// https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll#dxcompiler-dll-interface
 		
-		// base args
-		std::vector<LPCWSTR> args = {
-			L"-res-may-alias",
-			L"-flegacy-macro-expansion",
-		};
-
+		std::vector<LPCWSTR> args;
 		args.push_back(L"-D"); args.push_back(L"SPIRV");
 		args.push_back(L"-spirv");
 		args.push_back(L"-fspv-target-env=vulkan1.2");
@@ -169,8 +187,8 @@ namespace ShaderCompiler
 			args.push_back(L"-D");
 			args.push_back(wstr.c_str());
 		}
-		// include directories
 
+		// include directories
 		for (auto& x : input.includeDirectories)
 		{
 			std::wstring& wstr = wstrings.emplace_back();
@@ -196,33 +214,36 @@ namespace ShaderCompiler
 		Source.Size = shadersourcedata.size();
 		Source.Encoding = DXC_CP_ACP;
 
+		IncludeHandler includeHandler;
+		includeHandler.input = &input;
+		includeHandler.output = &output;
+
+		hr = dxcUtils->CreateDefaultIncludeHandler(&includeHandler.dxcIncludeHandler);
+		assert(SUCCEEDED(hr));
+
 		CComPtr<IDxcResult> pResults;
-		HRESULT hr = impl.dxcCompiler->Compile(
+		hr = dxcCompiler->Compile(
 			&Source,					// Source buffer.
 			args.data(),                // Array of pointers to arguments.
 			(UINT32)args.size(),		// Number of arguments.
-			impl.dxcIncludeHandler,			// User-provided interface to handle #include directives (optional).
+			&includeHandler,		    // User-provided interface to handle #include directives (optional).
 			IID_PPV_ARGS(&pResults)		// Compiler output status, buffer, and errors.
 		);
+		assert(SUCCEEDED(hr));
 
 		// Print errors if present.
 		CComPtr<IDxcBlobUtf8> pErrors = nullptr;
 		hr = pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
 		assert(SUCCEEDED(hr));
 		if (pErrors != nullptr && pErrors->GetStringLength() != 0)
-		{
 			output.errorMessage = pErrors->GetStringPointer();
-			return false;
-		}
 
 		// Quit if the compilation failed.
 		HRESULT hrStatus;
 		hr = pResults->GetStatus(&hrStatus);
 		assert(SUCCEEDED(hr));
 		if (FAILED(hrStatus))
-		{
 			return false;
-		}
 
 		// Save shader binary.
 		CComPtr<IDxcBlob> pShader = nullptr;

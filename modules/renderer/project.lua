@@ -24,6 +24,7 @@ files
 {
     asset_location .. "/shaders/common/**.h"
 }
+includedirs { asset_location .. "/shaders/common" }
 
 vpaths { 
     ["shaders"] = {

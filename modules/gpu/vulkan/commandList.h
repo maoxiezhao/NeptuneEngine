@@ -153,10 +153,18 @@ public:
     void BindConstantBuffer(const BufferPtr& buffer,U32 set, U32 binding, VkDeviceSize offset, VkDeviceSize range);
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
     void* AllocateConstant(U32 set, U32 binding, VkDeviceSize size);
+    
     template<typename T>
     T* AllocateConstant(U32 set, U32 binding)
     {
         return static_cast<T*>(AllocateConstant(set, binding, sizeof(T)));
+    }
+
+    template<typename T>
+    void BindConstant(const T& data, U32 set, U32 binding)
+    {
+        T* mem = static_cast<T*>(AllocateConstant(set, binding, sizeof(T)));
+        memcpy(mem, &data, sizeof(T));
     }
 
     void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);

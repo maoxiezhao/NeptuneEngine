@@ -22,6 +22,7 @@ namespace VulkanTest
         {
             // RenderPath3D::Compose(renderGraph, cmd);
             //Renderer::DrawTest(*cmd);
+            Renderer::BindCameraCB(*camera, *cmd);
             Renderer::DrawScene(*cmd, visibility);
         }
     };

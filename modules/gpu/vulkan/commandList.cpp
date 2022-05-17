@@ -335,7 +335,7 @@ void CommandList::SetDefaultOpaqueState()
     // rasterizerState
     RasterizerState& rs = pipelineState.rasterizerState;
     rs.fillMode = FILL_SOLID;
-    rs.cullMode = VK_CULL_MODE_BACK_BIT;
+    rs.cullMode = VK_CULL_MODE_NONE;
     rs.frontCounterClockwise = false;
     rs.depthBias = 0;
     rs.depthBiasClamp = 0;

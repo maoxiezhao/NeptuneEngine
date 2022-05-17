@@ -4,6 +4,7 @@
 #include "gpu\vulkan\device.h"
 #include "core\plugin\plugin.h"
 #include "core\collections\array.h"
+#include "renderScene.h"
 #include "culling.h"
 #include "math\math.hpp"
 
@@ -27,6 +28,8 @@ namespace VulkanTest
 
 		void UpdateFrameData(const Visibility& visible, RenderScene& scene, F32 delta);
 		void UpdateRenderData(const Visibility& visible, GPU::CommandList& cmd);
+
+		void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd);
 
 		GPU::DeviceVulkan* GetDevice();
 		RenderScene* GetScene();

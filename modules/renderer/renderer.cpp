@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "shaderInterop.h"
 #include "renderer\renderScene.h"
 #include "renderer\renderPath3D.h"
 #include "gpu\vulkan\wsi.h"
@@ -282,6 +283,13 @@ namespace Renderer
 
 	}
 
+	void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd)
+	{
+		CameraCB cb;
+		cb.viewProjection = camera.viewProjection;
+		cmd.BindConstant(cb, 0, CBSLOT_RENDERER_CAMERA);
+	}
+
 	struct ObjectPushConstants
 	{
 		U32 geometryIndex;
@@ -315,7 +323,6 @@ namespace Renderer
 					continue;
 
 				// Set rendering state
-				cmd.SetDefaultOpaqueState();
 				cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
 				cmd.SetDefaultOpaqueState();
 				cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);

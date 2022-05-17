@@ -49,7 +49,7 @@ namespace VulkanTest
                     for (auto point : mesh.vertexPos)
                     {
                         minPoint = Min(minPoint, point);
-                        maxPoint = Min(maxPoint, point);
+                        maxPoint = Max(maxPoint, point);
                     }
                     mesh.aabb = AABB(minPoint, maxPoint);
                 });

@@ -3,4 +3,9 @@
 
 #include "shaderInterop.h"
 
+inline CameraCB GetCamera()
+{
+	return g_xCamera;
+}
+
 #endif

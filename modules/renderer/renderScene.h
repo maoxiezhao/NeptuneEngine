@@ -20,8 +20,8 @@ namespace VulkanTest
 		F32 width = 0.0f;
 		F32 height = 0.0f;
 
-		F32x3 eye = F32x3(0.0f, 0.0f, 0.0f);
-		F32x3 at = F32x3(0.0f, 0.0f, 1.0f);
+		F32x3 eye = F32x3(0.0f, 0.0f, 1.0f);
+		F32x3 at = F32x3(0.0f, 0.0f, -1.0f);
 		F32x3 up = F32x3(0.0f, 1.0f, 0.0f);
 		FMat4x4 view;
 		FMat4x4 projection;
