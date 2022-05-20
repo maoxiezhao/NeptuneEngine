@@ -5,6 +5,7 @@
 #include "core\collections\array.h"
 #include "core\utils\string.h"
 #include "core\utils\delegate.h"
+#include "math\hash.h"
 
 #ifdef STATIC_PLUGINS
 #define VULKAN_EDITOR_API

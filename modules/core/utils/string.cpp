@@ -169,6 +169,18 @@ namespace VulkanTest
 		}
 	}
 
+	bool StartsWith(const char* str, const char* substr)
+	{
+		const char* lhs = str;
+		const char* rhs = substr;
+		while (*rhs && *lhs && *lhs == *rhs) 
+		{
+			++lhs;
+			++rhs;
+		}
+		return *rhs == 0;
+	}
+
 	bool EndsWith(const char* str, const char* substr)
 	{
 		int len = (int)StringLength(str);
@@ -188,9 +200,41 @@ namespace VulkanTest
 			if (value == 0)
 			{
 				if (length == 1)
-				{
 					return false;
-				}
+
+				*c = '0';
+				*(c + 1) = 0;
+				return true;
+			}
+			while (value > 0 && length > 1)
+			{
+				*c = value % 10 + '0';
+				value = value / 10;
+				--length;
+				++c;
+			}
+			if (length > 0)
+			{
+				ReverseString(num_start, (int)(c - num_start));
+				*c = 0;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool ToCString(U64 value, Span<char> output)
+	{
+		char* c = output.begin();
+		char* num_start = output.begin();
+		U32 length = output.length();
+		if (length > 0)
+		{
+			if (value == 0)
+			{
+				if (length == 1)
+					return false;
+
 				*c = '0';
 				*(c + 1) = 0;
 				return true;

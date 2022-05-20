@@ -8,6 +8,7 @@
 
 #include "widgets\assetBrowser.h"
 #include "widgets\assetCompiler.h"
+#include "widgets\worldEditor.h"
 
 #include "imgui-docking\imgui.h"
 #include "renderer\imguiRenderer.h"
@@ -39,13 +40,48 @@ namespace Editor
 
         ~EditorAppImpl()
         {
+        }
+
+        void Initialize() override
+        {
+            // Create game engine
+            Engine::InitConfig config = {};
+            config.windowTitle = GetWindowTitle();
+            engine = CreateEngine(config, *this);
+
+            assetCompiler = AssetCompiler::Create(*this);
+            worldEditor = WorldEditor::Create(*this);
+
+            // Get renderer
+            renderer = static_cast<RendererPlugin*>(engine->GetPluginManager().GetPlugin("Renderer"));
+            ASSERT(renderer != nullptr);
+
+            // Init imgui renderer
+            ImGuiRenderer::Initialize(*this);
+            renderer->ActivePath(&editorRenderer);
+
+            // Init actions
+            InitActions();
+
+            assetCompiler->InitFinished();
+        }
+
+        void Uninitialize() override
+        {
+            FileSystem& fs = engine->GetFileSystem();
+            while (fs.HasWork())
+                fs.ProcessAsync();
+
+            // Destroy world
+            worldEditor->DestroyWorld();
+
             // Clear widgets
-            for(EditorWidget* plugin : widgets)
-                CJING_SAFE_DELETE(plugin);
+            for (EditorWidget* widget : widgets)
+                CJING_SAFE_DELETE(widget);
             widgets.clear();
 
             // Clear editor plugins
-            for(EditorPlugin* plugin : plugins)
+            for (EditorPlugin* plugin : plugins)
                 CJING_SAFE_DELETE(plugin);
             plugins.clear();
 
@@ -53,22 +89,16 @@ namespace Editor
             for (Utils::Action* action : actions)
                 CJING_SAFE_DELETE(action);
             actions.clear();
-        }
 
-        void Initialize() override
-        {
-            App::Initialize();
+            // Remove system widgets
+            assetCompiler.Reset();
+            worldEditor.Reset();
 
-            ImGuiRenderer::Initialize(*this);
-            renderer->ActivePath(&editorRenderer);
-
-            InitActions();
-        }
-
-        void Uninitialize() override
-        {
+            // Uninit imgui renderer
             ImGuiRenderer::Uninitialize();
-            App::Uninitialize();
+
+            // Reset engine
+            engine.Reset();
         }
 
     protected:
@@ -77,7 +107,9 @@ namespace Editor
             PROFILE_BLOCK("Update");
             ImGuiRenderer::BeginFrame();
 
-            engine->Update(*world, deltaTime);
+            assetCompiler->Update(deltaTime);
+
+            engine->Update(*worldEditor->GetWorld(), deltaTime);
 
             fpsFrame++;
             if (fpsTimer.GetTimeSinceTick() > 1.0f)
@@ -85,6 +117,10 @@ namespace Editor
                 fps = fpsFrame / fpsTimer.Tick();
                 fpsFrame = 0;
             }
+
+            // Update editor widgets
+            for (auto widget : widgets)
+                widget->Update(deltaTime);
 
             OnGUI();
 
@@ -225,13 +261,15 @@ namespace Editor
         F32 fps = 0.0f;
         U32 fpsFrame = 0;
         Timer fpsTimer;
-
         Array<Utils::Action*> actions;
+
+        // Builtin widgets
+        UniquePtr<AssetCompiler> assetCompiler;
+        UniquePtr<WorldEditor> worldEditor;
     };
 
     EditorApp* EditorApp::Create()
     {
-        // TODO
 		// return CJING_NEW(EditorAppImpl)();
         return new EditorAppImpl();
     }

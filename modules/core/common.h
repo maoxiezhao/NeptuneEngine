@@ -100,6 +100,12 @@ constexpr inline bool FLAG_ANY(int value, int Flags) {
 	return ((int)value & (int)Flags) != 0;
 }
 
+template <typename T, U32 count> 
+constexpr U32 LengthOf(const T(&)[count])
+{
+	return count;
+};
+
 #ifdef __GNUC__
 
 #elif defined(_MSC_VER)

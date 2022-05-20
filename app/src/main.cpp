@@ -30,8 +30,8 @@ namespace VulkanTest
     class TestApp final : public App
     {
         F32x3 vertices[4] = {
-            F32x3(-0.5f, -0.5f, 0.0f),
-            F32x3(-0.5f, +0.5f, 0.0f),
+            F32x3(-0.5f, -0.5f, -5.0f),
+            F32x3(-0.5f, +0.5f, -5.0f),
             F32x3(+0.5f, +0.5f, 0.0f),
             F32x3(+0.5f, -0.5f, 0.0f),
         };
@@ -65,6 +65,8 @@ namespace VulkanTest
             meshComp->subsets[1].indexOffset = 3;
 
             meshComp->SetupRenderData();
+
+            scene->GetMainCamera()->eye = F32x3(1.0f, 0.0f, 1.5f);
         }
 
         void Uninitialize() override
@@ -87,7 +89,7 @@ namespace VulkanTest
     {
         try
         {
-            App* app = new TestApp(); //Editor::EditorApp::Create();
+            App* app = Editor::EditorApp::Create();
             return app;
         }
         catch (const std::exception& e)

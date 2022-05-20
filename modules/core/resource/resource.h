@@ -83,6 +83,14 @@ namespace VulkanTest
 		void DecRefCount();
 		void Refresh();
 
+		void SetHooked(bool isHooked) {
+			hooked = isHooked;
+		}
+
+		bool IsHooked()const {
+			return hooked;
+		}
+
 		ResourceFactory& GetResourceFactoyr() {
 			return resFactory;
 		}
@@ -118,6 +126,7 @@ namespace VulkanTest
 
 		Path path;
 		U32 refCount;
+		bool hooked = false;
 		State currentState;
 		StateChangedCallback cb;
 		AsyncLoadHandle asyncHandle;

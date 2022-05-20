@@ -45,6 +45,18 @@ namespace VulkanTest
 	public:
 		using FactoryTable = std::unordered_map<U64, ResourceFactory*>;
 
+		struct VULKAN_TEST_API LoadHook
+		{
+			enum class Action 
+			{ 
+				IMMEDIATE, 
+				DEFERRED
+			};
+			virtual ~LoadHook() {}
+			virtual Action OnBeforeLoad(Resource& res) = 0;
+			void ContinueLoad(Resource& res);
+		};
+
 		ResourceManager();
 		virtual ~ResourceManager();
 
@@ -68,11 +80,15 @@ namespace VulkanTest
 			return fileSystem;
 		}
 
+		void SetLoadHook(LoadHook* hook);
+		LoadHook::Action OnBeforeLoad(Resource& res);
+
 	private:
 		friend class Resource;
 
 		class FileSystem* fileSystem = nullptr;
 		FactoryTable factoryTable;
 		bool isInitialized = false;
+		LoadHook* loadHook = nullptr;
 	};
 }

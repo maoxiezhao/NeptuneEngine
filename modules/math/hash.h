@@ -138,4 +138,20 @@ public:
 private:
 	HashValue hashValue = 0;
 };
+
+struct RuntimeHash 
+{
+	static RuntimeHash FromU64(U64 hash);
+	RuntimeHash() {}
+	explicit RuntimeHash(const char* str);
+	RuntimeHash(const void* data, U32 len);
+
+	bool operator != (RuntimeHash rhs) const { return hash != rhs.hash; }
+	bool operator == (RuntimeHash rhs) const { return hash == rhs.hash; }
+
+	U64 GetHashValue() const { return hash; }
+
+private:
+	U64 hash = 0;
+};
 }

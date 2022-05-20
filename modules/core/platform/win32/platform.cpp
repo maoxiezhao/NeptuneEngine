@@ -477,7 +477,7 @@ namespace Platform {
 		return attrib.st_mtime;
 	}
 
-	bool CreateDir(const char* path)
+	bool MakeDir(const char* path)
 	{
 		// convert "/" to "\\"
 		char temp[MAX_PATH_LENGTH];

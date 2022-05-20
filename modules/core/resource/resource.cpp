@@ -73,7 +73,7 @@ namespace VulkanTest
 		AsyncLoadCallback cb;
 		cb.Bind<&Resource::OnFileLoaded>(this);
 
-		const U32 pathHash = path.GetHash();
+		const U64 pathHash = path.GetHashValue();
 		StaticString<MAX_PATH_LENGTH> fullResPath(".export/resources/", pathHash, ".res");
 		asyncHandle = fileSystem->LoadFileAsync(Path(fullResPath), cb);
 	}

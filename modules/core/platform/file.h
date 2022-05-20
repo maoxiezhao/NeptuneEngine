@@ -51,6 +51,18 @@ namespace VulkanTest
 		virtual FileFlags GetFlags() const = 0;
 		virtual bool IsValid() const = 0;
 		virtual void  Close() = 0;
+
+		template <typename T> 
+		bool Write(const T& value)
+		{
+			return Write(&value, sizeof(T));
+		}
+
+		template <typename T> 
+		void Read(T& value) 
+		{ 
+			Read(&value, sizeof(T));
+		}
 	};
 
 	class MemFile : public File

@@ -301,4 +301,21 @@ uint64_t XXHash64(const void* input, size_t length)
 {
 	return XXH3_64bits(input, length);
 }
+
+RuntimeHash RuntimeHash::FromU64(U64 hash)
+{
+	RuntimeHash res;
+	res.hash = hash;
+	return res;
+}
+
+RuntimeHash::RuntimeHash(const char* str)
+{
+	hash = XXH3_64bits(str, strlen(str));
+}
+
+RuntimeHash::RuntimeHash(const void* data, U32 len)
+{
+	hash = XXH3_64bits(data, len);
+}
 }

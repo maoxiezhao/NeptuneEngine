@@ -128,7 +128,7 @@ namespace Platform {
 	bool   FileCopy(const char* from, const char* to);
 	size_t GetFileSize(const char* path);
 	U64    GetLastModTime(const char* file);
-	bool   CreateDir(const char* path);
+	bool   MakeDir(const char* path);
 	void   SetCurrentDir(const char* path);
 	void   GetCurrentDir(Span<char> path);
 	bool   StatFile(const char* path, FileInfo& fileInfo);

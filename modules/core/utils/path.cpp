@@ -1,5 +1,4 @@
 #include "path.h"
-#include "crc32.h"
 
 namespace VulkanTest
 {
@@ -137,20 +136,20 @@ namespace VulkanTest
 	Path::Path(const char* path_)
 	{
 		Path::Normalize(path_, path);
-		hash = CRC32(path);
+		hash = StringID(path_);
 	}
 
 	void Path::operator=(const char* rhs)
 	{
 		Path::Normalize(rhs, path);
-		hash = CRC32(path);
+		hash = StringID(rhs);
 	}
 
 	void Path::Join(const char* path_)
 	{
 		auto newPath = Path::Join(path, Span(path_, StringLength(path_)));
 		Path::Normalize(newPath, path);
-		hash = CRC32(path);
+		hash = StringID(path_);
 	}
 
 	size_t Path::Length() const

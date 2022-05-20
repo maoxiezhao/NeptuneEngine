@@ -51,7 +51,7 @@ namespace VulkanTest
 
 		for (auto res : toRemoved)
 		{
-			auto it = resources.find(res->GetPath().GetHash());
+			auto it = resources.find(res->GetPath().GetHashValue());
 			if (it != resources.end())
 				resources.erase(it);
 		}
@@ -68,12 +68,22 @@ namespace VulkanTest
 		if (res == nullptr)
 		{
 			res = CreateResource(path);
-			resources[path.GetHash()] = res;
+			resources[path.GetHashValue()] = res;
 		}
 
-		// Do load if resource is empty
-		if (res->IsEmpty())
+		if (res->IsEmpty() && res->desiredState == Resource::State::EMPTY)
+		{
+			if (resManager->OnBeforeLoad(*res) == ResourceManager::LoadHook::Action::DEFERRED)
+			{
+				ASSERT(res->IsHooked() == false);
+				res->SetHooked(true);
+				res->desiredState = Resource::State::READY;
+				res->IncRefCount(); // Hook
+				res->IncRefCount(); // Self
+				return res;
+			}
 			res->DoLoad();
+		}
 
 		res->IncRefCount();
 		return res;
@@ -81,7 +91,7 @@ namespace VulkanTest
 
 	Resource* ResourceFactory::GetResource(const Path& path)
 	{
-		auto it = resources.find(path.GetHash());
+		auto it = resources.find(path.GetHashValue());
 		if (it != resources.end())
 			return it->second;
 
@@ -141,5 +151,24 @@ namespace VulkanTest
 	{
 		ASSERT(isInitialized);
 		factoryTable.erase(type.GetHashValue());
+	}
+
+	void ResourceManager::SetLoadHook(LoadHook* hook)
+	{
+		loadHook = hook;
+	}
+
+	ResourceManager::LoadHook::Action ResourceManager::OnBeforeLoad(Resource& res)
+	{
+		return loadHook != nullptr ? loadHook->OnBeforeLoad(res) : LoadHook::Action::IMMEDIATE;
+	}
+
+	void ResourceManager::LoadHook::ContinueLoad(Resource& res)
+	{
+		ASSERT(res.IsEmpty());
+		res.DecRefCount();
+		res.SetHooked(false);
+		res.desiredState = Resource::State::EMPTY;
+		res.DoLoad();
 	}
 }

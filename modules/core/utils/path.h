@@ -1,6 +1,7 @@
 #pragma once
 
 #include "string.h"
+#include "stringID.h"
 
 namespace VulkanTest
 {
@@ -36,16 +37,18 @@ namespace VulkanTest
 		void Join(const char* path_);
 		size_t Length()const;
 		const char* c_str()const { return path; }
-		unsigned int  GetHash()const { return hash; }
+		StringID GetHash()const { return hash; }
+		U64 GetHashValue()const { return hash.GetHashValue(); }
 		bool IsEmpty()const { return path[0] == '\0'; }
 		PathInfo GetPathInfo();
+		Span<const char> ToSpan()const { return Span(path, Length()); }
 		
 		bool operator==(const Path& rhs) const;
 		bool operator!=(const Path& rhs) const;
 
 	private:
 		char path[MAX_PATH_LENGTH];
-		U32 hash = 0;
+		StringID hash;
 	};
 
 	class FilePathResolver

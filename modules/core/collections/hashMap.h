@@ -6,7 +6,61 @@
 
 namespace VulkanTest
 {
-	template<typename K, typename V, typename CustomHasher = Hasher<K>>
+	template <typename Key>
+	struct HashMapHashFunc
+	{
+		static U32 Get(const Key& key);
+	};
+
+	template<>
+	struct HashMapHashFunc<U64>
+	{
+		static U32 Get(U64 key) 
+		{
+			// https://xoshiro.di.unimi.it/splitmix64.c
+			U64 x = key;
+			x ^= x >> 30;
+			x *= 0xbf58476d1ce4e5b9U;
+			x ^= x >> 27;
+			x *= 0x94d049bb133111ebU;
+			x ^= x >> 31;
+			return U32((x >> 32) ^ x);
+		}
+	};
+
+
+	template<>
+	struct HashMapHashFunc<I32>
+	{
+		static U32 Get(I32 key) 
+		{
+			// https://nullprogram.com/blog/2018/07/31/
+			U32 x = key;
+			x ^= x >> 16;
+			x *= 0x7feb352dU;
+			x ^= x >> 15;
+			x *= 0x846ca68bU;
+			x ^= x >> 16;
+			return x;
+		}
+	};
+
+	template<>
+	struct HashMapHashFunc<U32>
+	{
+		static U32 Get(const U32& key) 
+		{
+			U32 x = key;
+			x ^= x >> 16;
+			x *= 0x7feb352dU;
+			x ^= x >> 15;
+			x *= 0x846ca68bU;
+			x ^= x >> 16;
+			return x;
+		}
+	};
+
+	template<typename K, typename V, typename CustomHasher = HashMapHashFunc<K>>
 	struct HashMap
 	{
 	private:
