@@ -18,6 +18,8 @@ namespace VulkanTest
 		void Uninitialize();
 		void RemoveUnreferenced();
 
+		Resource* GetResource(const Path& path);
+
 		bool IsUnloadEnable()const {
 			return isUnloadEnable;
 		}
@@ -28,7 +30,6 @@ namespace VulkanTest
 
 	protected:
 		Resource* LoadResource(const Path& path);
-		Resource* GetResource(const Path& path);
 
 		virtual Resource* CreateResource(const Path& path) = 0;
 		virtual void DestroyResource(Resource* res) = 0;
@@ -71,8 +72,9 @@ namespace VulkanTest
 		}
 
 		Resource* LoadResource(ResourceType type, const Path& path);
-
+		
 		ResourceFactory* GetFactory(ResourceType type);
+		FactoryTable& GetAllFactories();
 		void RegisterFactory(ResourceType type, ResourceFactory* factory);
 		void UnregisterFactory(ResourceType type);
 

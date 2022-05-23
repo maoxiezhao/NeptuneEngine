@@ -103,7 +103,7 @@ namespace VulkanTest
 		template <typename T>
 		void append(T v)
 		{
-			I32 len = StringLength(data);
+			size_t len = StringLength(data);
 			ToCString(v, Span(data + len, U32(N - len)));
 		}
 

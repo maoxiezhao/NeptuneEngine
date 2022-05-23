@@ -6,7 +6,6 @@
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resourceManager.h"
 #include "core\utils\profiler.h"
-#include "core\scripts\lua.h"
 #include "app\app.h"
 #include "renderer\renderer.h"
 
@@ -26,6 +25,8 @@ namespace VulkanTest
 		F32 lastTimeDeltas[8] = {};
 		U32 lastTimeFrames = 0;
 
+		lua_State* luaState = NULL;
+		size_t luaAllocated = 0;
 		DefaultAllocator luaAllocator;
 
 	public:
@@ -40,7 +41,8 @@ namespace VulkanTest
 			SetupUnhandledExceptionHandler();
 
 			// Init lua system
-			Lua::Initialize(luaAllocator);
+			luaState = luaL_newstate();
+			luaL_openlibs(luaState);
 
 			// Create filesystem
 			if (initConfig.workingDir != nullptr) {
@@ -91,10 +93,10 @@ namespace VulkanTest
 			inputSystem.Reset();
 			resourceManager.Uninitialzie();
 			fileSystem.Reset();
+
+			lua_close(luaState);
+
 			platform = nullptr;
-
-			Lua::Uninitialize();
-
 			Logger::Info("Game engine released.");
 		}
 
@@ -188,6 +190,11 @@ namespace VulkanTest
 		WSI& GetWSI() override
 		{
 			return *wsi;
+		}
+
+		lua_State* GetLuaState() override
+		{
+			return luaState;
 		}
 	};
 

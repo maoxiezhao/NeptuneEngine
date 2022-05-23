@@ -2,6 +2,7 @@
 
 #include "core\common.h"
 #include "core\memory\memory.h"
+#include "core\scripts\luaUtils.h"
 
 namespace VulkanTest
 {
@@ -30,5 +31,6 @@ namespace VulkanTest
 		virtual class ResourceManager& GetResourceManager() = 0;
 		virtual class PluginManager& GetPluginManager() = 0;
 		virtual class WSI& GetWSI() = 0;
+		virtual lua_State* GetLuaState() = 0;
 	};
 }

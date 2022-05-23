@@ -9,11 +9,3 @@ extern "C"
 #include "lua/lualib.h"
 #include "lua/lauxlib.h"
 }
-
-namespace VulkanTest::Lua
-{
-	void Initialize(IAllocator& allocator);
-	void Uninitialize();
-
-	lua_State* GetLuaState();
-}

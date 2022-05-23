@@ -129,7 +129,7 @@ namespace VulkanTest
 #if DEBUG
 	bool Resource::NeedExport()const
 	{
-		return false;
+		return true;
 	}
 #endif
 

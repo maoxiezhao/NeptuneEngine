@@ -5,39 +5,96 @@
 
 namespace VulkanTest
 {
+
+template<>
+struct HashMapHashFunc<Path>
+{
+    static U32 Get(const Path& key)
+    {
+        const U64 hash = key.GetHashValue();
+        return U32(hash ^ (hash >> 32));
+    }
+};
+
 namespace Editor
 {
+    class AssetCompilerImpl;
+
     constexpr U32 COMPRESSION_SIZE_LIMIT = 4096;
+    constexpr U32 MAX_PROCESS_COMPILED_JOB_COUNT = 16;
+
+    #define EXPORT_RESOURCE_LIST ".export/resources/_list.list"
+    #define EXPORT_RESOURCE_LIST_TEMP ".export/resources/_list.list_temp"
+    #define EXPORT_RESOURCE_VERSION ".export/resources/_version.vs"
+
+    struct CompileJob
+    {
+        U32 generation;
+        Path path;
+    };
+
+    struct LoadHook : public ResourceManager::LoadHook
+    {
+        LoadHook(AssetCompilerImpl& compiler_) : compiler(compiler_) {}
+
+        Action OnBeforeLoad(Resource& res)override;
+        AssetCompilerImpl& compiler;
+    };
+
+    class CompilerTask final : public Thread
+    {
+    public:
+        CompilerTask(AssetCompilerImpl& impl_) :
+            impl(impl_)
+        {}
+
+        I32 Task() override;
+
+        AssetCompilerImpl& impl;
+        bool isFinished = false;
+    };
 
     class AssetCompilerImpl : public AssetCompiler
     {
-    private:
+    public:
         EditorApp& editor;
-        HashMap<U64, ResourceItem> resources;
         HashMap<U64, IPlugin*> plugins;
+        HashMap<U64, U32> resGenerations;
+        HashMap<U32, ResourceType> registeredExts;
+
+        Array<CompileJob> toCompileJobs;
+        Array<CompileJob> compiledJobs;
+        Mutex toCompileMutex;
+        Mutex compiledMutex;
+        HashMap<Path, Array<Path>> dependencies;
+
         Mutex mutex;
-        bool initialized = false;
-
-        struct LoadHook : ResourceManager::LoadHook
-        {
-            LoadHook(AssetCompilerImpl& compiler_) : compiler(compiler_) {}
-
-            Action OnBeforeLoad(Resource& res) override
-            {
-                return compiler.OnBeforeLoad(res);
-            }
-
-            AssetCompilerImpl& compiler;
-        };
+        CompilerTask compilerTask;
+        Semaphore semaphore;
         LoadHook lookHook;
+
+        Mutex resMutex;
+        HashMap<U64, ResourceItem> resources;
+
+        Array<Resource*> onInitLoad;
+
+        Path inprogressRes;
+        bool initialized = false;
 
     public:
         AssetCompilerImpl(EditorApp& editor_) : 
             editor(editor_),
-            lookHook(*this)
+            lookHook(*this),
+            semaphore(0, 0xFFff),
+            compilerTask(*this)
         {
             Engine& engine = editor.GetEngine();
             FileSystem& fs = engine.GetFileSystem();
+
+            // Setup compiler task
+            compilerTask.Create("CompilerTask");
+
+            // Check the export director
             const char* basePath = fs.GetBasePath();
             StaticString<MAX_PATH_LENGTH> path(basePath, ".export/resources");
             if (!Platform::DirExists(path.c_str()))
@@ -49,8 +106,7 @@ namespace Editor
                 }
 
                 // Create version file
-                path += "/_version.vs";
-                auto file = fs.OpenFile(".export/resources/_version.vs", FileFlags::DEFAULT_WRITE);
+                auto file = fs.OpenFile(EXPORT_RESOURCE_VERSION, FileFlags::DEFAULT_WRITE);
                 if (!file->IsValid())
                 {
                     Logger::Error("Failed to create the version file of resources");
@@ -62,13 +118,12 @@ namespace Editor
             }
 
             // Check the version file
-            auto file = fs.OpenFile(".export/resources/_version.vs", FileFlags::DEFAULT_READ);
+            auto file = fs.OpenFile(EXPORT_RESOURCE_VERSION, FileFlags::DEFAULT_READ);
             if (!file->IsValid())
             {
                 Logger::Error("Failed to load the version file of resources");
                 return;
             }
-
             U32 version = 0;
             file->Read(version);
             file->Close();
@@ -87,7 +142,7 @@ namespace Editor
         {
             Engine& engine = editor.GetEngine();
             FileSystem& fs = engine.GetFileSystem();
-            auto file = fs.OpenFile(".export/resources/_list.list_temp", FileFlags::DEFAULT_WRITE);
+            auto file = fs.OpenFile(EXPORT_RESOURCE_LIST_TEMP, FileFlags::DEFAULT_WRITE);
             if (!file->IsValid())
             {
                 Logger::Error("Failed to save the list of resources");
@@ -99,7 +154,7 @@ namespace Editor
             //   ResPath1,
             //   ResPath2
             // }
-            file->Write("resource = {\n");
+            file->Write("resources = {\n");
             for (auto& item : resources)
             {
                 file->Write("\"");
@@ -107,9 +162,33 @@ namespace Editor
                 file->Write("\",\n");
             }
             file->Write("}\n\n");
+            
+            // dependencies = {
+            //   ["Path1"] = { depPath1, depPath2 },
+            //   ["Path2"] = { depPath3, depPath4 }
+            // }
+            file->Write("dependencies = {\n");
+            for (auto it = dependencies.begin(); it != dependencies.end(); ++it)
+            {
+                file->Write("\t[\"");
+                file->Write(it.key().c_str());
+                file->Write("\"] = {\n");
+                for (const Path& path : it.value())
+                {
+                    file->Write("\t\t\"");
+                    file->Write(path.c_str());
+                    file->Write("\",\n");
+                }
+                file->Write("\t},\n");
+            }
+            file->Write("}\n\n");
             file->Close();
-            fs.DeleteFile(".export/resources/_list.list");
-            fs.MoveFile(".export/resources/_list.list_temp", ".export/resources/_list.list");
+            fs.DeleteFile(EXPORT_RESOURCE_LIST);
+            fs.MoveFile(EXPORT_RESOURCE_LIST_TEMP, EXPORT_RESOURCE_LIST);
+
+            compilerTask.isFinished = true;
+            semaphore.Signal(1);
+            compilerTask.Destroy();
 
             ResourceManager& resManager = engine.GetResourceManager();
             resManager.SetLoadHook(nullptr);
@@ -118,10 +197,151 @@ namespace Editor
         void InitFinished() override
         {
             initialized = true;
+         
+            for (Resource* res : onInitLoad)
+            {
+                PushToCompileQueue(res->GetPath());
+                res->DecRefCount();
+            }
+            onInitLoad.clear();
+
+            // Load EXPORT_RESOURCE_LIST
+            LoadResourceList();
+
+            // Check current base directroy
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            const U64 listLastmodified = fs.GetLastModTime(EXPORT_RESOURCE_LIST);
+            ProcessDirectory("", listLastmodified);
+        }
+
+        void LoadResourceList()
+        {
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            OutputMemoryStream mem;
+            if (fs.LoadContext(EXPORT_RESOURCE_LIST, mem))
+            {
+                lua_State* l = luaL_newstate();
+                [&]() {
+                    if (!LuaUtils::LoadBuffer(l, (const char*)mem.Data(), mem.Size(), "resource_list"))
+                    {
+                        Logger::Error("Failed to load resource list:%s", lua_tostring(l, -1));
+                        return;
+                    }
+
+                    lua_getglobal(l, "resources");
+                    if (lua_type(l, -1) != LUA_TTABLE)
+                        return;
+
+                    resMutex.Lock();
+                    LuaUtils::ForEachArrayItem<Path>(l, -1, "resource list expected", [this, &fs](const Path& p) {
+                        ResourceType resType = GetResourceType(p.c_str());
+                        if (resType != ResourceType::INVALID_TYPE)
+                        {
+                            if (fs.FileExists(p.c_str()))
+                            {
+                                resources.insert(p.GetHashValue(), {
+                                    p,
+                                    resType,
+                                    GetDirHash(p.c_str())
+                                });
+                            }
+                            else
+                            {
+                                // Remove the export file if the original dose not exist
+                                MaxPathString exportPath(".export/Resources/", p.GetHashValue(), ".res");
+                            }
+                        }
+                    });
+                    resMutex.Unlock();
+                    lua_pop(l, 1);
+
+                    // Parse dependencies
+                    // dependencies = {
+                    //   ["Path1"] = { depPath1, depPath2 },
+                    //   ["Path2"] = { depPath3, depPath4 }
+                    // }
+                    lua_getglobal(l, "dependencies");
+                    if (lua_type(l, -1) != LUA_TTABLE)
+                        return;
+
+                    lua_pushnil(l);
+                    while (lua_next(l, -2) != 0)
+                    {
+                        if (!lua_isstring(l, -2) || !lua_istable(l, -1)) 
+                        {
+                            Logger::Error("Invalid dependencies in resource list");
+                            lua_pop(l, 1);
+                            continue;
+                        }
+
+                        const char* key = lua_tostring(l, -2);
+                        const Path path(key);
+                        Array<Path>& deps = dependencies.emplace(path).value();
+                        LuaUtils::ForEachArrayItem<Path>(l, -1, "path list expected", [&deps](const Path& p) {
+                            deps.push_back(p);
+                        });
+                        lua_pop(l, 1);
+                    }
+
+                    lua_pop(l, 1);
+                }();
+                lua_close(l);
+            }
         }
 
         void Update(F32 dt) override
         {
+            for (int i = 0; i < MAX_PROCESS_COMPILED_JOB_COUNT; i++)
+            {
+                CompileJob compiled = PopCompiledQueue();
+                if (compiled.path.IsEmpty())
+                    break;
+
+                // Check the current generation of resource
+                U32 generation = 0;
+                {
+                    ScopedMutex lock(toCompileMutex);
+                    auto it = resGenerations.find(compiled.path.GetHashValue());
+                    generation = it.isValid() ? it.value() : 0;
+                }
+                if (generation != compiled.generation)
+                    continue;
+
+                // Continue loading resource
+                ScopedMutex lock(compiledMutex);
+                for (const auto& it : resources)
+                {
+                    if (!EndsWith(it.path.c_str(), compiled.path.c_str()))
+                        continue;
+
+                    Resource* res = GetResource(compiled.path);
+                    if (res && res->IsHooked() && (!res->IsFailure() || !res->IsReady()))
+                        lookHook.ContinueLoad(*res);
+                }
+
+                // Compile remaining dependents
+                auto it = dependencies.find(compiled.path);
+                if (it.isValid())
+                {
+                    for (const Path& dep : it.value())
+                        PushToCompileQueue(dep);
+                }
+            }
+        }
+
+        void AddDependency(const Path& parent, const Path& dep)override
+        {
+            auto it = dependencies.find(parent);
+            if (!it.isValid())
+            {
+                dependencies.insert(parent, std::move(Array<Path>()));
+                it = dependencies.find(parent);
+            }
+
+            Array<Path>& deps = it.value();
+            if (deps.indexOf(dep) < 0)
+                deps.push_back(dep);
+            
         }
 
         void EndFrame() override
@@ -137,6 +357,19 @@ namespace Editor
             return "AssetCompiler";
         }
 
+        Resource* GetResource(const Path& path)
+        {
+            Resource* ret = nullptr;
+            ResourceManager& resManager = editor.GetEngine().GetResourceManager();
+            for (auto kvp : resManager.GetAllFactories())
+            {
+                ret = kvp.second->GetResource(path);
+                if (ret != nullptr)
+                    return ret;
+            }
+            return ret;
+        }
+
         bool Compile(const Path& path)override
         {
             IPlugin* plugin = GetPlugin(path);
@@ -146,6 +379,19 @@ namespace Editor
                 return false;
             }
             return plugin->Compile(path);
+        }
+
+        bool CopyCompile(const Path& path)override
+        {
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            OutputMemoryStream mem;
+            if (!fs.LoadContext(path.c_str(), mem))
+            {
+                Logger::Error("failed to read file:%s", path.c_str());
+                return false;
+            }
+
+            return WriteCompiled(path.c_str(), Span(mem.Data(), mem.Size()));
         }
 
         bool WriteCompiled(const char* path, Span<const U8> data)override
@@ -171,7 +417,7 @@ namespace Editor
 
             CompiledResourceHeader header;
             header.version = CompiledResourceHeader::VERSION;
-            header.originSize = data.length();
+            header.originSize = (U32)data.length();
             header.isCompressed = compressedSize > 0;
             if (header.isCompressed)
             {
@@ -188,33 +434,142 @@ namespace Editor
             return true;
         }
 
+        ResourceType GetResourceType(const char* path) const override
+        {
+            Span<const char> ext = Path::GetExtension(Span(path, StringLength(path)));
+            alignas(U32) char tmp[6] = {};
+            CopyString(tmp, ext);
+            U32 key = *(U32*)tmp;
+            auto it = registeredExts.find(key);
+            if (!it.isValid())
+                return ResourceType::INVALID_TYPE;
+
+            return it.value();
+        }
+
+        void RegisterExtension(const char* extension, ResourceType type)override
+        {
+            alignas(U32) char tmp[6] = {};
+            CopyString(tmp, extension);
+            U32 key = *(U32*)tmp;
+            registeredExts.insert(key, type);
+        }
+
+        static RuntimeHash GetDirHash(const char* path) 
+        {
+            char tmp[MAX_PATH_LENGTH];
+            CopyString(Span(tmp), Path::GetDir(path));
+            Span<const char> dir(tmp, StringLength(tmp));
+            if (dir.pEnd > dir.pBegin && (*(dir.pEnd - 1) == '\\' || *(dir.pEnd - 1) == '/')) {
+                --dir.pEnd;
+            }
+            return RuntimeHash(dir.begin(), (U32)dir.length());
+        }
+
+        void AddResource(ResourceType type, const char* path) override
+        {
+            const Path pathObj(path);
+            ScopedMutex lock(resMutex);
+            auto it = resources.find(pathObj.GetHashValue());
+            if (it.isValid())
+            {
+                resources[pathObj.GetHashValue()] = {
+                    pathObj,
+                    type,
+                    GetDirHash(path)
+                };
+            }
+            else
+            {
+                resources.insert(pathObj.GetHashValue(), {
+                    pathObj,
+                    type,
+                    GetDirHash(path)
+                });
+            }
+        }
+
         void AddPlugin(IPlugin& plugin, const char* ext) override
         {
+            ScopedMutex lock(mutex);
+            const RuntimeHash hash(ext);
+            plugins.insert(hash.GetHashValue(), &plugin);
         }
 
         void RemovePlugin(IPlugin& plugin) override
         {
+            ScopedMutex lock(mutex);
+            bool finished = true;
+            do 
+            {
+                finished = true;
+                for (auto iter = plugins.begin(); iter != plugins.end(); ++iter)
+                {
+                    if (iter.value() == &plugin)
+                    {
+                        plugins.erase(iter);
+                        finished = false;
+                        break;
+                    }
+                }
+            } 
+            while (!finished);
         }
 
         // Get a taget plugin according to the extension of path
         IPlugin* GetPlugin(const Path& path)
         {
             Span<const char> ext = Path::GetExtension(path.ToSpan());
-            const RuntimeHash hash(ext.data(), ext.length());
+            const RuntimeHash hash(ext.data(), (U32)ext.length());
             ScopedMutex lock(mutex);
             auto it = plugins.find(hash.GetHashValue());
             return it.isValid() ? it.value() : nullptr;
         }
 
-        void PushCompileQueue(const Path& path)
+        void PushToCompileQueue(const Path& path)
         {
+            ScopedMutex lock(toCompileMutex);
+            auto it = resGenerations.find(path.GetHashValue());
+            if (it.isValid() == false)
+                it = resGenerations.insert(path.GetHashValue(), 0);
+            else
+                it.value()++;
+
+            CompileJob job;
+            job.generation = it.value();
+            job.path = path;
+
+            toCompileJobs.push_back(job);
+            semaphore.Signal(1);
+        }
+
+        CompileJob PopCompiledQueue()
+        {
+            ScopedMutex lock(compiledMutex);
+            if (compiledJobs.empty())
+                return {};
+
+            CompileJob compiled = compiledJobs.back();
+            compiledJobs.pop_back();
+            return compiled;
+        }
+
+        void RegisterResource(const char* path)
+        {
+            Span<const char> ext = Path::GetExtension(Span(path, StringLength(path)));
+            const RuntimeHash hash(ext.data(), (U32)ext.length());
+            auto it = plugins.find(hash.GetHashValue());
+            if (!it.isValid())
+                return;
+
+            it.value()->RegisterResource(*this, path);
         }
 
         ResourceManager::LoadHook::Action OnBeforeLoad(Resource& res)
         {
             FileSystem& fs = editor.GetEngine().GetFileSystem();
             const char* filePath = res.GetPath().c_str();
-            if (fs.FileExists(filePath))
+            if (!fs.FileExists(filePath))
                 return ResourceManager::LoadHook::Action::IMMEDIATE;
 
             if (StartsWith(filePath, ".export/resources/"))
@@ -231,11 +586,117 @@ namespace Editor
             {
                 if (GetPlugin(res.GetPath()) == nullptr)
                     ResourceManager::LoadHook::Action::IMMEDIATE;
+
+                // Will process after initialized
+                if (initialized == false)
+                {
+                    res.IncRefCount();
+                    onInitLoad.push_back(&res);
+                    return ResourceManager::LoadHook::Action::DEFERRED;
+                }
+
+                // Pending this resource and wait for compiling
+                PushToCompileQueue(res.GetPath());
+                return ResourceManager::LoadHook::Action::DEFERRED;
             }
 
             return ResourceManager::LoadHook::Action::IMMEDIATE;
         }
+
+        void ProcessDirectory(const char* dir, U64 listLastModified)
+        {
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            auto fileList = fs.Enumerate(dir);
+            for (const auto& fileInfo : fileList)
+            {
+                if (fileInfo.filename[0] == '.')
+                    continue;
+
+                if (fileInfo.type == PathType::Directory)
+                {
+                    char childPath[MAX_PATH];
+                    CopyString(childPath, dir);
+                    if (dir[0])
+                        CatString(childPath, "/");
+                    CatString(childPath, fileInfo.filename);
+                    ProcessDirectory(childPath, listLastModified);
+                }
+                else
+                {
+                    char fullpath[MAX_PATH];
+                    CopyString(fullpath, dir);
+                    if (dir[0])
+                        CatString(fullpath, "/");
+                    CatString(fullpath, fileInfo.filename);
+
+                    if (fs.GetLastModTime(fullpath) > listLastModified) {
+                        RegisterResource(fullpath);
+                    }
+                    else
+                    {
+                        auto it = resources.find(Path(fullpath).GetHashValue());
+                        if (!it.isValid())
+                            RegisterResource(fullpath);
+                    }
+                }
+            }
+        }
     };
+
+    ResourceManager::LoadHook::Action LoadHook::OnBeforeLoad(Resource& res)
+    {
+        return compiler.OnBeforeLoad(res);
+    }
+
+    I32 CompilerTask::Task()
+    {
+        while (!isFinished)
+        {
+            impl.semaphore.Wait();
+
+            CompileJob job;
+            {
+                // Get the next job to compile
+                ScopedMutex lock(impl.toCompileMutex);
+                if (!impl.toCompileJobs.empty())
+                {
+                    CompileJob temp = impl.toCompileJobs.back();
+                    impl.toCompileJobs.pop_back();
+
+                    if (temp.path.IsEmpty())
+                        continue;
+
+                    auto it = impl.resGenerations.find(temp.path.GetHashValue());
+                    if (it.isValid() && it.value() == temp.generation) 
+                    {
+                        impl.inprogressRes = temp.path;
+                        job = temp;
+                    }   
+                }
+            }
+
+            if (!job.path.IsEmpty())
+            {
+                PROFILE_BLOCK("Compile asset");
+                if (!impl.Compile(job.path))
+                    Logger::Error("Failed to compile resource:%s", job.path.c_str());
+
+                ScopedMutex lock(impl.compiledMutex);
+                impl.compiledJobs.push_back(job);
+            }
+        }
+
+        return 0;
+    }
+
+    void AssetCompiler::IPlugin::RegisterResource(AssetCompiler& compiler, const char* path)
+    {
+        ResourceType type = compiler.GetResourceType(path);
+        if (type == ResourceType::INVALID_TYPE)
+            return;
+        
+        compiler.AddResource(type, path);
+    }
 
     UniquePtr<AssetCompiler> AssetCompiler::Create(EditorApp& app)
     {

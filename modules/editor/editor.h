@@ -8,6 +8,8 @@ namespace VulkanTest
 {
 namespace Editor
 {
+    class AssetCompiler;
+
     class VULKAN_EDITOR_API EditorApp : public App
     {
     public:
@@ -17,6 +19,8 @@ namespace Editor
         virtual void AddPlugin(EditorPlugin& plugin) = 0;
         virtual void AddWidget(EditorWidget& widget) = 0;
         virtual void RemoveWidget(EditorWidget& widget) = 0;
+
+        virtual AssetCompiler& GetAssetCompiler() = 0;
     };
 }   
 } 

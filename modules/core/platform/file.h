@@ -2,6 +2,7 @@
 
 #include "core\common.h"
 #include "core\memory\memory.h"
+#include "core\utils\string.h"
 
 namespace VulkanTest
 {
@@ -56,6 +57,11 @@ namespace VulkanTest
 		bool Write(const T& value)
 		{
 			return Write(&value, sizeof(T));
+		}
+
+		bool Write(const char* str)
+		{
+			return Write(str, StringLength(str));
 		}
 
 		template <typename T> 

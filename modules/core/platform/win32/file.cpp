@@ -41,9 +41,10 @@ namespace VulkanTest
 		}
 		else
 		{
-			DWORD sizeH = 0;
-			DWORD sizeL = ::GetFileSize(handle, &sizeL);
-			size = (size_t)(sizeH) << 32ull | sizeL;
+			//DWORD sizeH = 0;
+			//DWORD sizeL = ::GetFileSize(handle, &sizeL);
+			//size = (size_t)(sizeH) << 32ull | sizeL;
+			size = ::GetFileSize((HANDLE)handle, 0);
 		}
 	}
 

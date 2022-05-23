@@ -141,6 +141,11 @@ namespace VulkanTest
 		return nullptr;
 	}
 
+	ResourceManager::FactoryTable& ResourceManager::GetAllFactories()
+	{
+		return factoryTable;
+	}
+
 	void ResourceManager::RegisterFactory(ResourceType type, ResourceFactory* factory)
 	{
 		ASSERT(isInitialized);

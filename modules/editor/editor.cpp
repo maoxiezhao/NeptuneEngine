@@ -10,6 +10,8 @@
 #include "widgets\assetCompiler.h"
 #include "widgets\worldEditor.h"
 
+#include "plugins\renderer.h"
+
 #include "imgui-docking\imgui.h"
 #include "renderer\imguiRenderer.h"
 
@@ -63,6 +65,9 @@ namespace Editor
             // Init actions
             InitActions();
 
+            // Load plugins
+            LoadPlugins();
+
             assetCompiler->InitFinished();
         }
 
@@ -99,6 +104,11 @@ namespace Editor
 
             // Reset engine
             engine.Reset();
+        }
+
+        AssetCompiler& GetAssetCompiler()
+        {
+            return *assetCompiler;
         }
 
     protected:
@@ -228,6 +238,20 @@ namespace Editor
         {
             // File menu item actions
             AddAction<&EditorAppImpl::Exit>("Exit");
+        }
+
+        void LoadPlugins()
+        {
+            // TODO:
+            {
+                EditorPlugin* plugin = SetupPluginRenderer(*this);
+                if (plugin != nullptr)
+                    AddPlugin(*plugin);
+            }
+
+            // Init plugins
+            for (EditorPlugin* plugin : plugins)
+                plugin->Initialize();
         }
 
         template<void (EditorAppImpl::*Func)()>

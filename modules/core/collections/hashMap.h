@@ -60,6 +60,12 @@ namespace VulkanTest
 		}
 	};
 
+	template <typename T>
+	struct HashFuncDirect {
+		static U32 Get(const T& key) { return key; }
+	};
+
+
 	template<typename K, typename V, typename CustomHasher = HashMapHashFunc<K>>
 	struct HashMap
 	{
@@ -240,7 +246,7 @@ namespace VulkanTest
 			}
 
 			new (keys[pos].keyMem) K(key);
-			new (&values[pos]) V(static_cast<V&&>(value));
+			new (&values[pos]) V(value);
 			++size;
 			keys[pos].valid = true;
 
@@ -263,11 +269,52 @@ namespace VulkanTest
 			}
 
 			new (keys[pos].keyMem) K(key);
-			new (&values[pos]) V(value);
+			new (&values[pos]) V(static_cast<V&&>(value));
 			++size;
 			keys[pos].valid = true;
 
 			return { this, pos };
+		}
+
+		Iterator emplace(const K& key)
+		{
+			if (size >= capacity * 3 / 4) {
+				grow((capacity << 1) < 8 ? 8 : capacity << 1);
+			}
+
+			// Find empty pos
+			U32 pos = CustomHasher::Get(key) & mask;
+			while (keys[pos].valid) ++pos;
+			if (pos == capacity) 
+			{
+				pos = 0;
+				while (keys[pos].valid) ++pos;
+			}
+
+			new (keys[pos].keyMem) K(key);
+			new (&values[pos]) V();
+			++size;
+			keys[pos].valid = true;
+
+			return { this, pos };
+		}
+
+		void erase(const Iterator& iter) 
+		{
+			ASSERT(iter.isValid());
+
+			U32 pos = iter.idx;
+			((K*)keys[pos].keyMem)->~K();
+			values[pos].~V();
+			keys[pos].valid = false;
+			--size;
+
+			pos = (pos + 1) & mask;
+			while (keys[pos].valid) 
+			{
+				rehash(pos);
+				pos = (pos + 1) % capacity;
+			}
 		}
 
 		Iterator begin() 
@@ -352,5 +399,37 @@ namespace VulkanTest
 			std::swap(keys, tmp.keys);
 			std::swap(values, tmp.values);
 		}
+
+		U32 findEmptySlot(const K& key, U32 endPos) const 
+		{
+			U32 pos = CustomHasher::Get(key) & mask;
+			while (keys[pos].valid && pos != endPos) 
+				++pos;
+
+			if (pos == capacity) 
+			{
+				pos = 0;
+				while (keys[pos].valid && pos != endPos) 
+					++pos;
+			}
+			return pos;
+		}
+
+		void rehash(U32 pos) 
+		{
+			K& key = *((K*)keys[pos].keyMem);
+			const U32 rehashedPos = findEmptySlot(key, pos);
+			if (rehashedPos != pos) 
+			{
+				new (keys[rehashedPos].keyMem) K(key);
+				new (&values[rehashedPos]) V(static_cast<V&&>(values[pos]));
+
+				((K*)keys[pos].keyMem)->~K();
+				values[pos].~V();
+				keys[pos].valid = false;
+				keys[rehashedPos].valid = true;
+			}
+		}
+
 	};
 }

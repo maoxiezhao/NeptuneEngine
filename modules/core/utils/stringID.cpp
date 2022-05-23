@@ -15,7 +15,7 @@ namespace VulkanTest {
 
 	StringID::StringID(const char* str)
 	{
-		hash = XXHash64(str, StringLength(str));
+		hash = str != nullptr ? XXHash64(str, StringLength(str)) : 0;
 	}
 
 	StringID::StringID(const void* data, U32 len)

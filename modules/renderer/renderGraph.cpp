@@ -527,7 +527,7 @@ namespace VulkanTest
 
             // Create render pass info
             auto& renderPassInfo = physicalPass.gpuRenderPassInfo;
-            renderPassInfo.numSubPasses = physicalPass.gpuSubPasses.size();
+            renderPassInfo.numSubPasses = (U32)physicalPass.gpuSubPasses.size();
             renderPassInfo.subPasses = physicalPass.gpuSubPasses.data();
             renderPassInfo.clearAttachments = 0;
             renderPassInfo.loadAttachments = 0;
@@ -550,8 +550,8 @@ namespace VulkanTest
 
                 // Add color attachments
                 auto& outputColors = pass.GetOutputColors();
-                subPass.numColorAattachments = outputColors.size();
-                for (int i = 0; i < subPass.numColorAattachments; i++)
+                subPass.numColorAattachments = (U32)outputColors.size();
+                for (U32 i = 0; i < subPass.numColorAattachments; i++)
                 {
                     auto ret = AddColorAttachment(outputColors[i]->GetPhysicalIndex());
                     subPass.colorAttachments[i] = ret.first;
@@ -650,8 +650,8 @@ namespace VulkanTest
                 auto& subPass = physicalPass.gpuSubPasses[&passIndex - physicalPass.passes.data()];
 
                 auto& inputAttachments = pass.GetInputAttachments();
-                subPass.numInputAttachments = inputAttachments.size();
-                for (int i = 0; i < subPass.numInputAttachments; i++)
+                subPass.numInputAttachments = (U32)inputAttachments.size();
+                for (U32 i = 0; i < subPass.numInputAttachments; i++)
                 {     
                     auto ret = AddInputAttachment(inputAttachments[i]->GetPhysicalIndex());
                     subPass.inputAttachments[i] = ret.first;
@@ -660,7 +660,7 @@ namespace VulkanTest
                 }
             }
             
-            renderPassInfo.numColorAttachments = physicalPass.physicalColorAttachments.size();
+            renderPassInfo.numColorAttachments = (U32)physicalPass.physicalColorAttachments.size();
         }
     }
 
@@ -1184,7 +1184,7 @@ namespace VulkanTest
         for (auto& physicalPass : physicalPasses)
         {
             auto& gpuRenderPassInfo = physicalPass.gpuRenderPassInfo;
-            U32 numColorAttachments = physicalPass.physicalColorAttachments.size();
+            U32 numColorAttachments = (U32)physicalPass.physicalColorAttachments.size();
             for (U32 i = 0; i < numColorAttachments; i++)
             {
                 gpuRenderPassInfo.colorAttachments[i] = 
@@ -1933,7 +1933,7 @@ namespace VulkanTest
         if (it != impl->nameToRenderPassIndex.end())
             return *impl->renderPasses[it->second];
 
-        U32 index = impl->renderPasses.size();
+        U32 index = (U32)impl->renderPasses.size();
         impl->renderPasses.emplace_back(CJING_NEW(RenderPass)(*this, index, (U32)queueFlag));
         auto& pass = *impl->renderPasses.back();
         pass.name = name;
@@ -2042,7 +2042,7 @@ namespace VulkanTest
         if (it != impl->nameToResourceIndex.end())
             return *static_cast<RenderTextureResource*>(impl->resources[it->second].Get());
 
-        U32 index = impl->resources.size();
+        U32 index = (U32)impl->resources.size();
         impl->resources.emplace_back(CJING_NEW(RenderTextureResource)(index));
         auto& res = *impl->resources.back();
         res.name = name;
@@ -2056,7 +2056,7 @@ namespace VulkanTest
         if (it != impl->nameToResourceIndex.end())
             return *static_cast<RenderBufferResource*>(impl->resources[it->second].Get());
 
-        U32 index = impl->resources.size();
+        U32 index = (U32)impl->resources.size();
         impl->resources.emplace_back(CJING_NEW(RenderBufferResource)(index));
         auto& res = *impl->resources.back();
         res.name = name;

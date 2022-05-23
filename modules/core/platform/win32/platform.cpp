@@ -470,7 +470,7 @@ namespace Platform {
 		struct stat attrib;
 		if (stat(file, &attrib) != 0)
 		{
-			Logger::Warning("Faild to get last mod time \"%s\"", file);
+			// Logger::Warning("Faild to get last mod time \"%s\"", file);
 			return 0;
 		}
 

@@ -50,6 +50,31 @@ namespace VulkanTest
             return data_ != nullptr ? data_ + size_ : nullptr;
         }
 
+        T& back() 
+        {
+            ASSERT(size_ > 0);
+            return data_[size_ - 1];
+        }
+
+        void pop_back()
+        {
+            if (size_ > 0)
+            {
+                data_[size_ - 1].~T();
+                size_--;
+            }
+        }
+
+        I32 indexOf(const T& v)
+        {
+            for (U32 i = 0; i < size_; i++)
+            {
+                if (data_[i] == v)
+                    return i;
+            }
+            return -1;
+        }
+
         void push_back(T&& value)
         {
             U32 oldSize = size_;

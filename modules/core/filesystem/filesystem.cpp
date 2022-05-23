@@ -120,8 +120,8 @@ namespace VulkanTest
 		{
 			MaxPathString fullPath(basePath, path);
 			MappedFile* file = CJING_NEW(MappedFile)(fullPath.c_str(), flags);
-			if (!file->IsValid())
-				return nullptr;
+			//if (!file->IsValid())
+			//	return nullptr;
 
 			return UniquePtr<File>(file);
 		}
@@ -140,8 +140,9 @@ namespace VulkanTest
 
 		std::vector<ListEntry> Enumerate(const char* path, int mask = (int)EnumrateMode::All)override
 		{
+			MaxPathString fullPath(basePath, path);
 			std::vector<ListEntry> ret;
-			auto* fileIt = Platform::CreateFileIterator(path);
+			auto* fileIt = Platform::CreateFileIterator(fullPath.c_str());
 			if (fileIt == nullptr) {
 				return ret;
 			}
@@ -220,7 +221,7 @@ namespace VulkanTest
 			job.path = path.c_str();
 			job.cb = cb;
 			pendingJobs.push(job);
-
+			semaphore.Signal(1);
 			return AsyncLoadHandle(lastJobID);
 		}
 	};

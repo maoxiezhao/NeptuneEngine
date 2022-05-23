@@ -5,6 +5,8 @@
 #include "core\collections\array.h"
 #include "core\utils\string.h"
 #include "core\utils\delegate.h"
+#include "core\utils\profiler.h"
+#include "core\scripts\luaUtils.h"
 #include "math\hash.h"
 
 #ifdef STATIC_PLUGINS
