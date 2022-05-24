@@ -12,6 +12,9 @@ static StdoutLoggerSink mStdoutLoggerSink;
 
 App::App()
 {
+    for (float& f : lastTimeDeltas) 
+        f = 1 / 60.f;
+
     if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
         AllocConsole();
     }
@@ -74,6 +77,21 @@ void App::Render()
     renderer->Render();
 }
 
+void App::ComputeSmoothTimeDelta()
+{
+    F32 tmp[11];
+    memcpy(tmp, lastTimeDeltas, sizeof(tmp));
+    qsort(tmp, LengthOf(tmp), sizeof(tmp[0]), [](const void* a, const void* b) -> I32 {
+        return *(const float*)a < *(const float*)b ? -1 : *(const float*)a > *(const float*)b ? 1 : 0;
+    });
+
+    F32 t = 0;
+    for (U32 i = 2; i < LengthOf(tmp) - 2; ++i) {
+        t += tmp[i];
+    }
+    smoothTimeDelta = t / (LengthOf(tmp) - 4);
+}
+
 void App::Update(F32 deltaTime)
 {
     PROFILE_BLOCK("Update");
@@ -93,16 +111,45 @@ bool App::Poll()
     if (requestedShutdown)
         return false;
     
+    Platform::WindowEvent ent;
+    while (Platform::GetWindowEvent(ent))
+        OnEvent(ent);
+
     EventManager::Instance().Dispatch();
     return true;
+}
+
+void App::OnEvent(const Platform::WindowEvent& ent)
+{
+    switch (ent.type) 
+    {
+    case Platform::WindowEvent::Type::QUIT:
+    case Platform::WindowEvent::Type::WINDOW_CLOSE:
+        RequestShutdown();
+        break;
+    case Platform::WindowEvent::Type::WINDOW_MOVE:
+    case Platform::WindowEvent::Type::WINDOW_SIZE:
+    {
+        const auto r = Platform::GetClientBounds(platform->GetWindow());
+        platform->NotifyResize(r.width, r.height);
+    }
+        break;
+    default: 
+        break;
+    }
 }
 
 void App::RunFrame()
 {
     Profiler::BeginFrame();
 
+    // Calculate delta time
     deltaTime = timer.Tick();
     float dt = framerateLock ? (1.0f / targetFrameRate) : deltaTime;
+    ++lastTimeFrames;
+    lastTimeDeltas[lastTimeFrames % LengthOf(lastTimeDeltas)] = dt;
+
+    ComputeSmoothTimeDelta();
 
     // FixedUpdate engine
     Profiler::BeginBlock("FixedUpdate");

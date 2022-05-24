@@ -37,7 +37,32 @@ namespace Editor
     public:
         EditorAppImpl()
         {
-
+            memset(imguiKeyMap, 0, sizeof(imguiKeyMap));
+            imguiKeyMap[(int)Platform::Keycode::CTRL] = ImGuiKey_ModCtrl;
+            imguiKeyMap[(int)Platform::Keycode::MENU] = ImGuiKey_ModAlt;
+            imguiKeyMap[(int)Platform::Keycode::SHIFT] = ImGuiKey_ModShift;
+            imguiKeyMap[(int)Platform::Keycode::LSHIFT] = ImGuiKey_LeftShift;
+            imguiKeyMap[(int)Platform::Keycode::RSHIFT] = ImGuiKey_RightShift;
+            imguiKeyMap[(int)Platform::Keycode::SPACE] = ImGuiKey_Space;
+            imguiKeyMap[(int)Platform::Keycode::TAB] = ImGuiKey_Tab;
+            imguiKeyMap[(int)Platform::Keycode::LEFT] = ImGuiKey_LeftArrow;
+            imguiKeyMap[(int)Platform::Keycode::RIGHT] = ImGuiKey_RightArrow;
+            imguiKeyMap[(int)Platform::Keycode::UP] = ImGuiKey_UpArrow;
+            imguiKeyMap[(int)Platform::Keycode::DOWN] = ImGuiKey_DownArrow;
+            imguiKeyMap[(int)Platform::Keycode::PAGEUP] = ImGuiKey_PageUp;
+            imguiKeyMap[(int)Platform::Keycode::PAGEDOWN] = ImGuiKey_PageDown;
+            imguiKeyMap[(int)Platform::Keycode::HOME] = ImGuiKey_Home;
+            imguiKeyMap[(int)Platform::Keycode::END] = ImGuiKey_End;
+            imguiKeyMap[(int)Platform::Keycode::DEL] = ImGuiKey_Delete;
+            imguiKeyMap[(int)Platform::Keycode::BACKSPACE] = ImGuiKey_Backspace;
+            imguiKeyMap[(int)Platform::Keycode::RETURN] = ImGuiKey_Enter;
+            imguiKeyMap[(int)Platform::Keycode::ESCAPE] = ImGuiKey_Escape;
+            imguiKeyMap[(int)Platform::Keycode::A] = ImGuiKey_A;
+            imguiKeyMap[(int)Platform::Keycode::C] = ImGuiKey_C;
+            imguiKeyMap[(int)Platform::Keycode::V] = ImGuiKey_V;
+            imguiKeyMap[(int)Platform::Keycode::X] = ImGuiKey_X;
+            imguiKeyMap[(int)Platform::Keycode::Y] = ImGuiKey_Y;
+            imguiKeyMap[(int)Platform::Keycode::Z] = ImGuiKey_Z;
         }
 
         ~EditorAppImpl()
@@ -46,6 +71,9 @@ namespace Editor
 
         void Initialize() override
         {
+            // Add main window
+            windows.push_back(platform->GetWindow());
+
             // Create game engine
             Engine::InitConfig config = {};
             config.windowTitle = GetWindowTitle();
@@ -106,6 +134,102 @@ namespace Editor
             engine.Reset();
         }
 
+        void OnEvent(const Platform::WindowEvent& ent) override
+        {
+            bool isFocused = IsFocused();
+            Platform::WindowType mainWindow = platform->GetWindow();
+            switch (ent.type)
+            {
+            case Platform::WindowEvent::Type::MOUSE_MOVE: {
+                ImGuiIO& io = ImGui::GetIO();
+                const Platform::WindowPoint cp = Platform::GetMouseScreenPos();
+                if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+                    io.AddMousePosEvent((float)cp.x, (float)cp.y);
+                }
+                else {
+                    const Platform::WindowRect screenRect = Platform::GetWindowScreenRect(mainWindow);
+                    io.AddMousePosEvent((float)cp.x - screenRect.left, (float)cp.y - screenRect.top);
+                }
+                break;
+            }
+            case Platform::WindowEvent::Type::FOCUS: {
+                ImGuiIO& io = ImGui::GetIO();
+                io.AddFocusEvent(IsFocused());
+                break;
+            }
+            case Platform::WindowEvent::Type::MOUSE_BUTTON: {
+                ImGuiIO& io = ImGui::GetIO();
+                if (isFocused || !ent.mouseButton.down)
+                    io.AddMouseButtonEvent((int)ent.mouseButton.button, ent.mouseButton.down);
+                break;
+            }
+            case Platform::WindowEvent::Type::MOUSE_WHEEL:
+                if (isFocused)
+                {
+                    ImGuiIO& io = ImGui::GetIO();
+                    io.AddMouseWheelEvent(0, ent.mouseWheel.amount);
+                }
+                break;
+
+            case Platform::WindowEvent::Type::CHAR:
+                if (isFocused)
+                {
+                    ImGuiIO& io = ImGui::GetIO();
+                    char tmp[5] = {};
+                    memcpy(tmp, &ent.textInput.utf8, sizeof(ent.textInput.utf8));
+                    io.AddInputCharactersUTF8(tmp);
+                }
+                break;
+
+            case Platform::WindowEvent::Type::KEY:
+                if (isFocused || !ent.key.down)
+                {
+                    ImGuiIO& io = ImGui::GetIO();
+                    ImGuiKey key = imguiKeyMap[(int)ent.key.keycode];
+                    if (key != ImGuiKey_None)
+                        io.AddKeyEvent(key, ent.key.down);
+                }
+                break;
+
+            case Platform::WindowEvent::Type::QUIT:
+                RequestShutdown();
+                break;
+
+            case Platform::WindowEvent::Type::WINDOW_CLOSE: {
+                ImGuiViewport* vp = ImGui::FindViewportByPlatformHandle(ent.window);
+                if (vp)
+                    vp->PlatformRequestClose = true;
+                if (ent.window == mainWindow)
+                    RequestShutdown();
+                break;
+            }
+            case Platform::WindowEvent::Type::WINDOW_MOVE: {
+                if (ImGui::GetCurrentContext())
+                {
+                    ImGuiViewport* vp = ImGui::FindViewportByPlatformHandle(ent.window);
+                    if (vp)
+                        vp->PlatformRequestMove = true;
+                }
+                break;
+            }
+            case Platform::WindowEvent::Type::WINDOW_SIZE:
+                if (ImGui::GetCurrentContext()) 
+                {
+                    ImGuiViewport* vp = ImGui::FindViewportByPlatformHandle(ent.window);
+                    if (vp)
+                        vp->PlatformRequestResize = true;
+                }
+
+                if (ent.window == mainWindow && ent.winSize.w > 0 && ent.winSize.h > 0)
+                    platform->NotifyResize(ent.winSize.w, ent.winSize.h);
+
+                break;
+
+            default:
+                break;
+            }
+        }
+
         AssetCompiler& GetAssetCompiler()
         {
             return *assetCompiler;
@@ -115,6 +239,9 @@ namespace Editor
         void Update(F32 deltaTime) override
         {
             PROFILE_BLOCK("Update");
+            ProcessDeferredDestroyWindows();
+           
+            // Begin imgui frame
             ImGuiRenderer::BeginFrame();
 
             assetCompiler->Update(deltaTime);
@@ -134,6 +261,7 @@ namespace Editor
 
             OnGUI();
 
+            // End imgui frame
             ImGuiRenderer::EndFrame();
         }
 
@@ -153,6 +281,20 @@ namespace Editor
             widgets.swapAndPopItem(&widget);
         }
 
+        void AddWindow(Platform::WindowType window) override
+        {
+            windows.push_back(window);
+        }
+        void RemoveWindow(Platform::WindowType window) override
+        {
+            windows.erase(window);
+        }
+
+        void DeferredDestroyWindow(Platform::WindowType window)override
+        {
+            toDestroyWindows.push_back({ window, 4 });
+        }
+
         bool showDemoWindow = true;
         void OnGUI()
         {
@@ -164,17 +306,17 @@ namespace Editor
 
             const bool hasviewports = ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable;
 
-            Platform::WindowType window = (Platform::WindowType)platform->GetPlatformWindow();
+            Platform::WindowType window = platform->GetWindow();
             Platform::WindowRect rect = Platform::GetClientBounds(window);
             Platform::WindowPoint point = hasviewports ?
-                Platform::ToScreen(window, rect.mLeft, rect.mTop) : Platform::WindowPoint();
+                Platform::ToScreen(window, rect.left, rect.top) : Platform::WindowPoint();
 
-            U32 winWidth = rect.mRight - rect.mLeft;
-            U32 winHeight = rect.mBottom - rect.mTop;
+            U32 winWidth = rect.width;
+            U32 winHeight = rect.height;
             if (winWidth > 0 && winHeight > 0)
             {
                 ImGui::SetNextWindowSize(ImVec2((float)winWidth, (float)winHeight));
-                ImGui::SetNextWindowPos(ImVec2((float)point.mPosX, (float)point.mPosY));
+                ImGui::SetNextWindowPos(ImVec2((float)point.x, (float)point.y));
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
                 ImGui::Begin("MainDockspace", nullptr, flags);
                 ImGui::PopStyleVar();
@@ -234,6 +376,27 @@ namespace Editor
         }
 
     private:
+        bool IsFocused() const 
+        {
+            const Platform::WindowType focused = Platform::GetActiveWindow();
+            const int idx = windows.find([focused](Platform::WindowType w) { return w == focused; });
+            return idx >= 0;
+        }
+
+        void ProcessDeferredDestroyWindows()
+        {
+            for (int i = toDestroyWindows.size() - 1; i >= 0; i--)
+            {
+                WindowToDestroy& toDestroy = toDestroyWindows[i];
+                toDestroy.counter--;
+                if (toDestroy.counter == 0)
+                {
+                    Platform::DestroyCustomWindow(toDestroy.window);
+                    toDestroyWindows.swapAndPop(i);
+                }
+            }
+        }
+
         void InitActions()
         {
             // File menu item actions
@@ -287,9 +450,21 @@ namespace Editor
         Timer fpsTimer;
         Array<Utils::Action*> actions;
 
+        // Windows
+        Array<Platform::WindowType> windows;
+        struct WindowToDestroy 
+        {
+            Platform::WindowType window;
+            U32 counter = 0;
+        };
+        Array<WindowToDestroy> toDestroyWindows;
+
         // Builtin widgets
         UniquePtr<AssetCompiler> assetCompiler;
         UniquePtr<WorldEditor> worldEditor;
+
+        // Imgui
+        ImGuiKey imguiKeyMap[255];
     };
 
     EditorApp* EditorApp::Create()

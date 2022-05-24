@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\engine.h"
 #include "core\platform\timer.h"
+#include "core\platform\platform.h"
 #include "core\scene\world.h"
 #include "gpu\vulkan\wsi.h"
 
@@ -24,6 +25,7 @@ public:
 
 	virtual void Initialize();
 	virtual void Uninitialize();
+	virtual void OnEvent(const Platform::WindowEvent& ent);
 
 	WSI& GetWSI() {
 		return wsi;
@@ -53,6 +55,10 @@ public:
 		return deltaTime;
 	}
 
+	F32 GetLastDeltaTime()const {
+		return smoothTimeDelta;
+	}
+
 protected:	
 	void RequestShutdown()
 	{
@@ -63,6 +69,8 @@ protected:
 	virtual void FixedUpdate();
 	virtual void Render();
 
+	void ComputeSmoothTimeDelta();
+
 protected:
 	std::unique_ptr<WSIPlatform> platform;
 	UniquePtr<Engine> engine;
@@ -71,6 +79,10 @@ protected:
 	F32 deltaTime = 0.0f;
 	F32 targetFrameRate = 60;
 	F32 deltaTimeAcc = 0;
+	F32 lastTimeDeltas[11] = {};
+	U32 lastTimeFrames = 0;
+	F32 smoothTimeDelta = 0.0f;
+
 	bool frameskip = true;
 	bool framerateLock = false;
 	bool requestedShutdown = false;

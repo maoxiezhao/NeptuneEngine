@@ -20,6 +20,10 @@ namespace Editor
         virtual void AddWidget(EditorWidget& widget) = 0;
         virtual void RemoveWidget(EditorWidget& widget) = 0;
 
+        virtual void AddWindow(Platform::WindowType window) = 0;
+        virtual void RemoveWindow(Platform::WindowType window) = 0;
+        virtual void DeferredDestroyWindow(Platform::WindowType window) = 0;
+
         virtual AssetCompiler& GetAssetCompiler() = 0;
     };
 }   

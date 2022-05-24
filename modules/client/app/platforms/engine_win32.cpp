@@ -22,8 +22,6 @@ namespace VulkanTest
 		WSI* wsi;
 		bool isGameRunning = false;
 		bool isPaused = false;
-		F32 lastTimeDeltas[8] = {};
-		U32 lastTimeFrames = 0;
 
 		lua_State* luaState = NULL;
 		size_t luaAllocated = 0;
@@ -34,8 +32,6 @@ namespace VulkanTest
 		{
 			Logger::Info("Create game engine...");
 
-			Platform::Initialize();
-			Platform::LogPlatformInfo();
 			platform = &app.GetPlatform();
 			wsi = &app.GetWSI();
 			SetupUnhandledExceptionHandler();
@@ -143,7 +139,6 @@ namespace VulkanTest
 
 		void Update(World& world, F32 dt) override
 		{
-			lastTimeDeltas[(lastTimeFrames++) % ARRAYSIZE(lastTimeDeltas)] = dt;
 			{
 				PROFILE_BLOCK("Update scenes");
 				for (auto& scene : world.GetScenes())

@@ -13,13 +13,15 @@
 
 #define VULKAN_TEST_FILESYSTEM
 
+#ifdef _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif // _WIN32
+
 // platform win32
 #ifdef CJING3D_PLATFORM_WIN32
 #include <SDKDDKVer.h>
 #include <windows.h>
 #include <tchar.h>
-
-#define VK_USE_PLATFORM_WIN32_KHR
 #endif
 
 // vulkan

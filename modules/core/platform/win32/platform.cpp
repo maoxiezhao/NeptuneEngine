@@ -75,8 +75,53 @@ namespace Platform {
 		return i.QuadPart;
 	}
 
+	struct EventQueue
+	{
+		struct Rec
+		{
+			WindowEvent e;
+			Rec* prev;
+			Rec* next = nullptr;
+		};
+
+		void pushBack(const WindowEvent& e)
+		{
+			Rec* n = CJING_NEW(Rec);
+			n->prev = back;
+			if (back) back->next = n;
+			back = n;
+			if (!front) front = n;
+			n->e = e;
+		}
+
+		WindowEvent popFront()
+		{
+			ASSERT(front);
+			WindowEvent e = front->e;
+			Rec* tmp = front;
+			front = tmp->next;
+			if (!front) back = nullptr;
+			CJING_SAFE_DELETE(tmp);
+			return e;
+		}
+
+		bool empty() const {
+			return !front;
+		}
+
+		Rec* front = nullptr;
+		Rec* back = nullptr;
+		DefaultAllocator allocator;
+	};
+
 	struct PlatformImpl
 	{
+		WindowType window = INVALID_WINDOW;
+		EventQueue eventQueue;
+		WindowPoint relative_mode_pos = {};
+		bool relative_mouse = false;
+		bool raw_input_registered = false;
+		U16 surrogate = 0;
 		struct {
 			HCURSOR mArrow;
 			HCURSOR mSizeALL;
@@ -340,7 +385,7 @@ namespace Platform {
 	{
 		RECT rect;
 		GetClientRect(window, &rect);
-		return { (I32)rect.left, (I32)rect.top, (I32)rect.right, (I32)rect.bottom };
+		return { (I32)rect.left, (I32)rect.top, (I32)(rect.right - rect.left), (I32)(rect.bottom - rect.top) };
 	}
 
 	void SetMouseCursorType(CursorType cursorType)
@@ -374,6 +419,171 @@ namespace Platform {
 		}
 	}
 
+	WindowPoint GetMouseScreenPos()
+	{
+		POINT point;
+		static POINT lastPoint = {};
+		if (!GetCursorPos(&point))
+			point = lastPoint;
+
+		lastPoint = point;
+		return { point.x, point.y };
+	}
+
+	void SetMouseScreenPos(int x, int y)
+	{
+		::SetCursorPos(x, y);
+	}
+
+	void UpdateGrabbedMouse() 
+	{
+		if (impl.window == INVALID_WINDOW) {
+			ClipCursor(NULL);
+			return;
+		}
+
+		RECT rect;
+		GetWindowRect((HWND)impl.window, &rect);
+		ClipCursor(&rect);
+	}
+
+	void GrabMouse(WindowType win) {
+		impl.window = win;
+		UpdateGrabbedMouse();
+	}
+
+	WindowType CreateCustomWindow(const WindowInitArgs& args)
+	{
+		// Create WndClass
+		WCharString<MAX_PATH_LENGTH> className("vulkan_window");
+		static WNDCLASS wc = [&]() -> WNDCLASS 
+		{
+			WNDCLASS wc = {};
+			auto WndProc = [](HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) -> LRESULT 
+			{
+				WindowEvent e;
+				e.window = hWnd;
+				switch (Msg)
+				{
+				case WM_MOVE:
+					e.type = WindowEvent::Type::WINDOW_MOVE;
+					e.winMove.x = (I16)LOWORD(lParam);
+					e.winMove.y = (I16)HIWORD(lParam);
+					impl.eventQueue.pushBack(e);
+					UpdateGrabbedMouse();
+					return 0;
+				case WM_SIZE:
+					e.type = WindowEvent::Type::WINDOW_SIZE;
+					e.winSize.w = LOWORD(lParam);
+					e.winSize.h = HIWORD(lParam);
+					impl.eventQueue.pushBack(e);
+					UpdateGrabbedMouse();
+					return 0;
+				case WM_CLOSE:
+					e.type = WindowEvent::Type::WINDOW_CLOSE;
+					impl.eventQueue.pushBack(e);
+					if (hWnd == impl.window) impl.window = INVALID_WINDOW;
+					UpdateGrabbedMouse();
+					return 0;
+				case WM_ACTIVATE:
+					if (wParam == WA_INACTIVE) 
+					{
+						ShowCursor(true);
+						GrabMouse(INVALID_WINDOW);
+					}
+
+					e.type = WindowEvent::Type::FOCUS;
+					e.focus.gained = wParam != WA_INACTIVE;
+					impl.eventQueue.pushBack(e);
+					UpdateGrabbedMouse();
+					break;
+				}
+				return DefWindowProc(hWnd, Msg, wParam, lParam);
+			};
+
+			wc.style = 0;
+			wc.lpfnWndProc = WndProc;
+			wc.cbClsExtra = 0;
+			wc.cbWndExtra = 0;
+			wc.hInstance = GetModuleHandle(NULL);
+			wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+			wc.hCursor = NULL;
+			wc.hbrBackground = NULL;
+			wc.lpszClassName = className;
+
+			if (!RegisterClass(&wc)) {
+				ASSERT(false);
+				return {};
+			}
+			return wc;
+		}();
+
+		// Create window
+		DWORD style = args.flags & WindowInitArgs::NO_DECORATION ? WS_POPUP : WS_OVERLAPPEDWINDOW;
+		DWORD extStyle = args.flags & WindowInitArgs::NO_TASKBAR_ICON ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW;
+
+		RECT rectangle = {
+			0,
+			0,
+			static_cast<LONG>(args.width),
+			static_cast<LONG>(args.height) 
+		};
+		AdjustWindowRect(&rectangle, style, FALSE);
+
+		LONG width = rectangle.right - rectangle.left;
+		LONG height = rectangle.bottom - rectangle.top;
+
+		WCharString<MAX_PATH_LENGTH> wname(args.name);
+		const HWND hwnd = CreateWindowEx(
+			extStyle,
+			className,
+			wname,
+			style,
+			CW_USEDEFAULT,
+			CW_USEDEFAULT,
+			width,
+			height,
+			(HWND)args.parent,
+			NULL,
+			wc.hInstance,
+			NULL);
+		ASSERT(hwnd);
+
+		::ShowWindow(hwnd, SW_SHOW);
+		::UpdateWindow(hwnd);
+
+		if (!impl.raw_input_registered) 
+		{
+			RAWINPUTDEVICE device;
+			device.usUsagePage = 0x01;
+			device.usUsage = 0x02;
+			device.dwFlags = RIDEV_INPUTSINK;
+			device.hwndTarget = hwnd;
+			BOOL status = ::RegisterRawInputDevices(&device, 1, sizeof(device));
+			ASSERT(status);
+			impl.raw_input_registered = true;
+		}
+
+		return hwnd;
+	}
+
+	void DestroyCustomWindow(WindowType window)
+	{
+		::DestroyWindow((HWND)window);
+	}
+
+	void SetWindowScreenRect(WindowType win, const WindowRect& rect)
+	{
+		::MoveWindow((HWND)win, rect.left, rect.top, rect.width, rect.height, TRUE);
+	}
+
+	WindowRect GetWindowScreenRect(WindowType window)
+	{
+		RECT rect;
+		::GetWindowRect((HWND)window, &rect);
+		return { rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top };
+	}
+
 	WindowPoint ToScreen(WindowType window, I32 x, I32 y)
 	{
 		POINT p;
@@ -383,11 +593,267 @@ namespace Platform {
 		return { p.x, p.y };
 	}
 
+	static void UTF32ToUTF8(U32 utf32, char* utf8)
+	{
+		if (utf32 <= 0x7F) 
+		{
+			utf8[0] = (char)utf32;
+		}
+		else if (utf32 <= 0x7FF) 
+		{
+			utf8[0] = 0xC0 | (char)((utf32 >> 6) & 0x1F);
+			utf8[1] = 0x80 | (char)(utf32 & 0x3F);
+		}
+		else if (utf32 <= 0xFFFF) 
+		{
+			utf8[0] = 0xE0 | (char)((utf32 >> 12) & 0x0F);
+			utf8[1] = 0x80 | (char)((utf32 >> 6) & 0x3F);
+			utf8[2] = 0x80 | (char)(utf32 & 0x3F);
+		}
+		else if (utf32 <= 0x10FFFF) 
+		{
+			utf8[0] = 0xF0 | (char)((utf32 >> 18) & 0x0F);
+			utf8[1] = 0x80 | (char)((utf32 >> 12) & 0x3F);
+			utf8[2] = 0x80 | (char)((utf32 >> 6) & 0x3F);
+			utf8[3] = 0x80 | (char)(utf32 & 0x3F);
+		}
+		else 
+		{
+			ASSERT(false);
+		}
+	}
+
+	U32 GetMonitors(Span<Monitor> monitors)
+	{
+		struct Callback 
+		{
+			struct Data 
+			{
+				Span<Monitor>* monitors;
+				U32 index;
+			};
+
+			static BOOL CALLBACK func(HMONITOR monitor, HDC, LPRECT, LPARAM lparam)
+			{
+				Data* data = reinterpret_cast<Data*>(lparam);
+				if (data->index >= data->monitors->length()) return TRUE;
+
+				MONITORINFO info = { 0 };
+				info.cbSize = sizeof(MONITORINFO);
+				if (!::GetMonitorInfo(monitor, &info)) return TRUE;
+
+				Monitor& m = (*data->monitors)[data->index];
+				m.monitorRect.left = info.rcMonitor.left;
+				m.monitorRect.top = info.rcMonitor.top;
+				m.monitorRect.width = info.rcMonitor.right - info.rcMonitor.left;
+				m.monitorRect.height = info.rcMonitor.bottom - info.rcMonitor.top;
+
+				m.workRect.left = info.rcWork.left;
+				m.workRect.top = info.rcWork.top;
+				m.workRect.width = info.rcWork.right - info.rcWork.left;
+				m.workRect.height = info.rcWork.bottom - info.rcWork.top;
+
+				m.primary = info.dwFlags & MONITORINFOF_PRIMARY;
+				++data->index;
+
+				return TRUE;
+			}
+		};
+
+		Callback::Data data = {
+			&monitors,
+			0
+		};
+
+		::EnumDisplayMonitors(NULL, NULL, &Callback::func, (LPARAM)&data);
+		return data.index;
+	}
+
 	void ShowMessageBox(const char* msg)
 	{
 		WCHAR tmp[2048];
 		CharToWChar(tmp, msg);
 		MessageBox(NULL, tmp, L"Message", MB_OK);
+	}
+
+	bool GetWindowEvent(WindowEvent& event)
+	{
+		if (!impl.eventQueue.empty()) 
+		{
+			event = impl.eventQueue.popFront();
+			return true;
+		}
+
+	retry:
+		MSG msg;
+		if (!PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) 
+			return false;
+
+		event.window = msg.hwnd;
+
+		switch (msg.message) 
+		{
+		case WM_DROPFILES:
+			event.type = WindowEvent::Type::DROP_FILE;
+			event.fileDrop.handle = (HDROP)msg.wParam;
+			break;
+		case WM_QUIT:
+			event.type = WindowEvent::Type::QUIT;
+			break;
+		case WM_CLOSE:
+			event.type = WindowEvent::Type::WINDOW_CLOSE;
+			break;
+		case WM_SYSKEYDOWN:
+			if (msg.wParam == VK_MENU) 
+				goto retry;
+			event.type = WindowEvent::Type::KEY;
+			event.key.down = true;
+			event.key.keycode = (Keycode)msg.wParam;
+			break;
+		case WM_SYSCOMMAND:
+			if (msg.wParam != SC_KEYMENU || (msg.lParam >> 16) > 0) 
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+			goto retry;
+		case WM_SYSKEYUP:
+			event.type = WindowEvent::Type::KEY;
+			event.key.down = false;
+			event.key.keycode = (Keycode)msg.wParam;
+			break;
+		case WM_KEYDOWN:
+			event.type = WindowEvent::Type::KEY;
+			event.key.down = true;
+			event.key.keycode = (Keycode)msg.wParam;
+			break;
+		case WM_KEYUP:
+			event.type = WindowEvent::Type::KEY;
+			event.key.down = false;
+			event.key.keycode = (Keycode)msg.wParam;
+			break;
+		case WM_CHAR: {
+			event.type = WindowEvent::Type::CHAR;
+			event.textInput.utf8 = 0;
+			U32 c = (U32)msg.wParam;
+			if (c >= 0xd800 && c <= 0xdbff) 
+			{
+				impl.surrogate = (U16)c;
+				goto retry;
+			}
+
+			if (c >= 0xdc00 && c <= 0xdfff) 
+			{
+				if (impl.surrogate) 
+				{
+					c = (impl.surrogate - 0xd800) << 10;
+					c += (WCHAR)msg.wParam - 0xdc00;
+					c += 0x10000;
+				}
+			}
+			impl.surrogate = 0;
+
+			UTF32ToUTF8(c, (char*)&event.textInput.utf8);
+			break;
+		}
+		case WM_INPUT: {
+			HRAWINPUT hRawInput = (HRAWINPUT)msg.lParam;
+			UINT dataSize;
+			GetRawInputData(hRawInput, RID_INPUT, NULL, &dataSize, sizeof(RAWINPUTHEADER));
+			alignas(RAWINPUT) char dataBuf[1024];
+			if (dataSize == 0 || dataSize > sizeof(dataBuf)) break;
+
+			GetRawInputData(hRawInput, RID_INPUT, dataBuf, &dataSize, sizeof(RAWINPUTHEADER));
+
+			const RAWINPUT* raw = (const RAWINPUT*)dataBuf;
+			if (raw->header.dwType != RIM_TYPEMOUSE) break;
+
+			const RAWMOUSE& mouseData = raw->data.mouse;
+			const USHORT flags = mouseData.usButtonFlags;
+			const short wheel_delta = (short)mouseData.usButtonData;
+			const LONG x = mouseData.lLastX, y = mouseData.lLastY;
+
+			WindowEvent e;
+			if (wheel_delta) 
+			{
+				e.mouseWheel.amount = (float)wheel_delta / WHEEL_DELTA;
+				e.type = WindowEvent::Type::MOUSE_WHEEL;
+				impl.eventQueue.pushBack(e);
+			}
+
+			if (flags & RI_MOUSE_LEFT_BUTTON_DOWN) 
+			{
+				e.type = WindowEvent::Type::MOUSE_BUTTON;
+				e.mouseButton.button = MouseButton::LEFT;
+				e.mouseButton.down = true;
+				impl.eventQueue.pushBack(e);
+			}
+			if (flags & RI_MOUSE_LEFT_BUTTON_UP) 
+			{
+				e.type = WindowEvent::Type::MOUSE_BUTTON;
+				e.mouseButton.button = MouseButton::LEFT;
+				e.mouseButton.down = false;
+				impl.eventQueue.pushBack(e);
+			}
+
+			if (flags & RI_MOUSE_RIGHT_BUTTON_UP) 
+			{
+				e.type = WindowEvent::Type::MOUSE_BUTTON;
+				e.mouseButton.button = MouseButton::RIGHT;
+				e.mouseButton.down = false;
+				impl.eventQueue.pushBack(e);
+			}
+			if (flags & RI_MOUSE_RIGHT_BUTTON_DOWN) 
+			{
+				e.type = WindowEvent::Type::MOUSE_BUTTON;
+				e.mouseButton.button = MouseButton::RIGHT;
+				e.mouseButton.down = true;
+				impl.eventQueue.pushBack(e);
+			}
+
+			if (flags & RI_MOUSE_MIDDLE_BUTTON_UP) 
+			{
+				e.type = WindowEvent::Type::MOUSE_BUTTON;
+				e.mouseButton.button = MouseButton::MIDDLE;
+				e.mouseButton.down = false;
+				impl.eventQueue.pushBack(e);
+			}
+			if (flags & RI_MOUSE_MIDDLE_BUTTON_DOWN) 
+			{
+				e.type = WindowEvent::Type::MOUSE_BUTTON;
+				e.mouseButton.button = MouseButton::MIDDLE;
+				e.mouseButton.down = true;
+				impl.eventQueue.pushBack(e);
+			}
+
+			if (x != 0 || y != 0) 
+			{
+				e.type = WindowEvent::Type::MOUSE_MOVE;
+				e.mouseMove.xrel = x;
+				e.mouseMove.yrel = y;
+				impl.eventQueue.pushBack(e);
+			}
+
+			if (impl.eventQueue.empty()) 
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+				return false;
+			}
+
+			event = impl.eventQueue.popFront();
+			break;
+		}
+		default:
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+			goto retry;
+		}
+
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+
+		return true;
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////

@@ -1,13 +1,14 @@
 #include "imguiRenderer.h"
+#include "editor\editor.h"
 #include "renderer\renderPath3D.h"
 #include "renderer\renderer.h"
 #include "core\jobsystem\jobsystem.h"
 #include "core\filesystem\filesystem.h"
 #include "core\utils\stream.h"
 
-#include "imgui_impl_glfw.h"
 #include "glfw\include\GLFW\glfw3.h"
 #include "imgui-docking\imgui.h"
+// #include "imgui_impl_glfw.h"
 
 namespace VulkanTest
 {
@@ -88,6 +89,94 @@ namespace ImGuiRenderer
 		return nullptr;
 	}
 
+	static void UpdateImGuiMonitors() 
+	{
+		Platform::Monitor monitors[32];
+		const U32 monitor_count = Platform::GetMonitors(Span(monitors));
+		ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+		pio.Monitors.resize(0);
+		for (U32 i = 0; i < monitor_count; ++i) 
+		{
+			const Platform::Monitor& m = monitors[i];
+			ImGuiPlatformMonitor im;
+			im.MainPos = ImVec2((F32)m.monitorRect.left, (F32)m.monitorRect.top);
+			im.MainSize = ImVec2((F32)m.monitorRect.width, (F32)m.monitorRect.height);
+			im.WorkPos = ImVec2((F32)m.workRect.left, (F32)m.workRect.top);
+			im.WorkSize = ImVec2((F32)m.workRect.width, (F32)m.workRect.height);
+
+			if (m.primary) {
+				pio.Monitors.push_front(im);
+			}
+			else {
+				pio.Monitors.push_back(im);
+			}
+		}
+	}
+
+	void InitPlatformIO(App& app)
+	{
+		ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+		static Editor::EditorApp* editor = (Editor::EditorApp*)(&app);
+		pio.Platform_CreateWindow = [](ImGuiViewport* vp) 
+		{
+			Platform::WindowInitArgs args = {};
+			args.flags = Platform::WindowInitArgs::NO_DECORATION | 
+						 Platform::WindowInitArgs::NO_TASKBAR_ICON;
+			ImGuiViewport* parent = ImGui::FindViewportByID(vp->ParentViewportId);
+			args.parent = parent ? parent->PlatformHandle : Platform::INVALID_WINDOW;
+			args.name = "child";
+			vp->PlatformHandle = Platform::CreateCustomWindow(args);
+			ASSERT(vp->PlatformHandle != Platform::INVALID_WINDOW);
+			editor->AddWindow((Platform::WindowType)vp->PlatformHandle);
+		};
+		pio.Platform_DestroyWindow = [](ImGuiViewport* vp) 
+		{
+			Platform::WindowType w = (Platform::WindowType)vp->PlatformHandle;
+			editor->DeferredDestroyWindow(w);
+			vp->PlatformHandle = nullptr;
+			vp->PlatformUserData = nullptr;
+			editor->AddWindow(w);
+		};
+		pio.Platform_ShowWindow = [](ImGuiViewport* vp) {};
+		pio.Platform_SetWindowPos = [](ImGuiViewport* vp, ImVec2 pos) {
+			const Platform::WindowType h = (Platform::WindowType)vp->PlatformHandle;
+			Platform::WindowRect r = Platform::GetWindowScreenRect(h);
+			r.left = I32(pos.x);
+			r.top = I32(pos.y);
+			Platform::SetWindowScreenRect(h, r);
+		};
+		pio.Platform_GetWindowPos = [](ImGuiViewport* vp) -> ImVec2 {
+			Platform::WindowType win = (Platform::WindowType)vp->PlatformHandle;
+			const Platform::WindowRect r = Platform::GetClientBounds(win);
+			const Platform::WindowPoint p = Platform::ToScreen(win, r.left, r.top);
+			return { (F32)p.x, (F32)p.y };
+
+		};
+		pio.Platform_SetWindowSize = [](ImGuiViewport* vp, ImVec2 pos) {
+			const Platform::WindowType h = (Platform::WindowType)vp->PlatformHandle;
+			Platform::WindowRect r = Platform::GetWindowScreenRect(h);
+			r.width = int(pos.x);
+			r.height = int(pos.y);
+			Platform::SetWindowScreenRect(h, r);
+		};
+		pio.Platform_GetWindowSize = [](ImGuiViewport* vp) -> ImVec2 {
+			const Platform::WindowRect r = Platform::GetClientBounds((Platform::WindowType)vp->PlatformHandle);
+			return { (F32)r.width, (F32)r.height };
+		};
+		pio.Platform_SetWindowTitle = [](ImGuiViewport* vp, const char* title) {};
+		pio.Platform_GetWindowFocus = [](ImGuiViewport* vp) {
+			return Platform::GetActiveWindow() == vp->PlatformHandle;
+		};
+		pio.Platform_SetWindowFocus = nullptr;
+
+		ImGuiViewport* mvp = ImGui::GetMainViewport();
+		mvp->PlatformHandle = app.GetPlatform().GetWindow();
+		mvp->DpiScale = 1;
+		mvp->PlatformUserData = (void*)1;
+
+		UpdateImGuiMonitors();
+	}
+
 	void Initialize(App& app_)
 	{
 		Logger::Info("Initializing imgui...");
@@ -98,36 +187,34 @@ namespace ImGuiRenderer
 
 		// Setup context
 		ImGuiIO& io = ImGui::GetIO();
-		io.ConfigFlags |= 
-			ImGuiConfigFlags_DockingEnable | 
-			ImGuiConfigFlags_ViewportsEnable;
-
-		// Setup style
-		ImGui::StyleColorsDark();
-		ImGuiStyle& style = ImGui::GetStyle();
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			style.WindowRounding = 0.0f;
-			style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-		}
-
-		// Add fonts
-		font = AddFontFromFile(*app, "editor/fonts/notosans-regular.ttf");
-
-		// Setup platform
-		// TODO: Replace ImGui_ImplGlfw_InitForVulkan
+		io.IniFilename = nullptr;
 #ifdef CJING3D_PLATFORM_WIN32
-		GLFWwindow* window = static_cast<GLFWwindow*>(app->GetPlatform().GetWindow());
-		ImGui_ImplGlfw_InitForVulkan(window, true);
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable;
+		io.BackendFlags = 
+			ImGuiBackendFlags_PlatformHasViewports | 
+			ImGuiBackendFlags_RendererHasViewports | 
+			ImGuiBackendFlags_HasMouseCursors;
+#else
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+		io.BackendFlags = ImGuiBackendFlags_HasMouseCursors;
 #endif
 		// Setup renderer backend
 		ImGuiImplData* bd = IM_NEW(ImGuiImplData)();
 		io.BackendRendererUserData = (void*)bd;
 		io.BackendRendererName = "VulkanTest";
-		io.BackendFlags = 
-			ImGuiBackendFlags_PlatformHasViewports | 
-			ImGuiBackendFlags_RendererHasViewports | 
-			ImGuiBackendFlags_HasMouseCursors;
+
+		// Setup platform
+		InitPlatformIO(app_);
+
+		// Add fonts
+		font = AddFontFromFile(*app, "editor/fonts/notosans-regular.ttf");
+
+		// Setup style
+		ImGui::StyleColorsDark();
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.FramePadding.y = 0;
+		style.ItemSpacing.y = 2;
+		style.ItemInnerSpacing.x = 2;
 	}
 
 	void Uninitialize()
@@ -135,9 +222,9 @@ namespace ImGuiRenderer
 		sampler.reset();
 		fontTexture.reset();
 
-#ifdef CJING3D_PLATFORM_WIN32
-		ImGui_ImplGlfw_Shutdown();
-#endif
+//#ifdef CJING3D_PLATFORM_WIN32
+//		ImGui_ImplGlfw_Shutdown();
+//#endif
 		ImGui::DestroyContext();
 		app = nullptr;
 	}
@@ -150,9 +237,22 @@ namespace ImGuiRenderer
 		if (!fontTexture)
 			CreateDeviceObjects();
 
-#ifdef CJING3D_PLATFORM_WIN32
-		ImGui_ImplGlfw_NewFrame();
-#endif
+		ImGuiIO& io = ImGui::GetIO();
+		UpdateImGuiMonitors();
+
+		Platform::WindowType window = app->GetPlatform().GetWindow();
+		const Platform::WindowRect rect = Platform::GetClientBounds(window);
+		if (rect.width > 0 && rect.height > 0) 
+		{
+			io.DisplaySize = ImVec2(float(rect.width), float(rect.height));
+		}
+		else if (io.DisplaySize.x <= 0) 
+		{
+			io.DisplaySize.x = 800;
+			io.DisplaySize.y = 600;
+		}
+		io.DeltaTime = app->GetLastDeltaTime();
+
 		ImGui::NewFrame();
 		ImGui::PushFont(font);
 	}
@@ -161,14 +261,7 @@ namespace ImGuiRenderer
 	{
 		ImGui::PopFont();
 		ImGui::Render();
-
-		// Update and Render additional Platform Windows
-		ImGuiIO& io = ImGui::GetIO();
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-		}
+		ImGui::UpdatePlatformWindows();
 	}
 
 	void Render(GPU::CommandList* cmd)
@@ -208,16 +301,16 @@ namespace ImGuiRenderer
 			}
 		
 			// Setup mvp matrix
-			const float L = drawData->DisplayPos.x;
-			const float R = drawData->DisplayPos.x + drawData->DisplaySize.x;
-			const float T = drawData->DisplayPos.y;
-			const float B = drawData->DisplayPos.y + drawData->DisplaySize.y;
+			const F32 L = drawData->DisplayPos.x;
+			const F32 R = drawData->DisplayPos.x + drawData->DisplaySize.x;
+			const F32 T = drawData->DisplayPos.y;
+			const F32 B = drawData->DisplayPos.y + drawData->DisplaySize.y;
 
 			struct ImGuiConstants
 			{
-				float  mvp[4][4];
+				F32  mvp[4][4];
 			};
-			float mvp[4][4] =
+			F32 mvp[4][4] =
 			{
 				{ 2.0f / (R - L),    0.0f,                 0.0f,       0.0f },
 				{ 0.0f,              2.0f / (T - B),       0.0f,       0.0f },

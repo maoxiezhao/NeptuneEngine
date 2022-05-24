@@ -225,6 +225,18 @@ namespace VulkanTest
             return data_[index];
         }
 
+        template <typename F> 
+        int find(F predicate) const 
+        {
+            for (U32 i = 0; i < size_; i++) 
+            {
+                if (predicate(data_[i]))
+                    return i;
+            }
+            return -1;
+        }
+
+
     private:
         void MoveData(T* dst, T* src, U32 count) 
         {

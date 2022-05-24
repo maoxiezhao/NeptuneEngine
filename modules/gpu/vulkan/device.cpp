@@ -5,6 +5,9 @@
 #include "core\platform\platform.h"
 #include "core\platform\atomic.h"
 
+#define VOLK_IMPLEMENTATION
+#include "volk\volk.h"
+
 namespace VulkanTest
 {
 namespace GPU

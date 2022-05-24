@@ -136,7 +136,7 @@ void WSI::BeginFrame()
             acquire->Signal();
 
             // Poll after acquire as well for optimal latency
-            platform->PollInput();
+            // platform->PollInput();
 
             // Set swapchain acquire semaphore and image index
             deviceVulkan->SetAcquireSemaphore(swapchainImageIndex, acquire);

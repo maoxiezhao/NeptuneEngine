@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\memory\memory.h"
 #include "core\collections\array.h"
+#include "core\platform\platform.h"
 #include "core\utils\string.h"
 #include "core\utils\delegate.h"
 #include "core\utils\profiler.h"
