@@ -779,16 +779,16 @@ namespace VulkanTest
         std::vector<ResourceState> resourceStates;
         resourceStates.reserve(physicalDimensions.size());
 
-        for (U32 physicalPassIndex = 0; physicalPassIndex < physicalPasses.size(); physicalPassIndex++)
+        auto barrierIt = passBarriers.begin();
+        for (auto& physicalPass : physicalPasses)
         {
             resourceStates.clear();
             resourceStates.resize(physicalDimensions.size());
 
             // In multipass, only the first and last barriers need to be considered externally.
-            auto& physicalPass = physicalPasses[physicalPassIndex];
-            for (auto& subpass : physicalPass.passes)
+            for (U32 i = 0; i < physicalPass.passes.size(); i++, ++barrierIt)
             {
-                auto& passBarrier = passBarriers[subpass];
+                PassBarrier& passBarrier = *barrierIt;
                 auto& invalidates = passBarrier.invalidate;
                 auto& flushes = passBarrier.flush;
 

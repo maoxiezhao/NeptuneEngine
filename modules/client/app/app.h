@@ -19,13 +19,7 @@ public:
 	App();
 	virtual ~App();
 
-	bool InitializeWSI(std::unique_ptr<WSIPlatform> platform_);
-	bool Poll();
-	void RunFrame();
-
-	virtual void Initialize();
-	virtual void Uninitialize();
-	virtual void OnEvent(const Platform::WindowEvent& ent);
+	void Run(std::unique_ptr<WSIPlatform> platform_);
 
 	WSI& GetWSI() {
 		return wsi;
@@ -60,6 +54,13 @@ public:
 	}
 
 protected:	
+	bool Poll();
+	void OnIdle();
+
+	virtual void Initialize();
+	virtual void Uninitialize();
+	virtual void OnEvent(const Platform::WindowEvent& ent);
+
 	void RequestShutdown()
 	{
 		requestedShutdown = true;

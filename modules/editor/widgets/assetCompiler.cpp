@@ -187,7 +187,7 @@ namespace Editor
             fs.MoveFile(EXPORT_RESOURCE_LIST_TEMP, EXPORT_RESOURCE_LIST);
 
             compilerTask.isFinished = true;
-            semaphore.Signal(1);
+            semaphore.Signal();
             compilerTask.Destroy();
 
             ResourceManager& resManager = engine.GetResourceManager();
@@ -540,7 +540,7 @@ namespace Editor
             job.path = path;
 
             toCompileJobs.push_back(job);
-            semaphore.Signal(1);
+            semaphore.Signal();
         }
 
         CompileJob PopCompiledQueue()

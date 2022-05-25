@@ -54,17 +54,14 @@ namespace VulkanTest
 	{
 	public:
 		Semaphore(I32 initialCount, I32 maximumCount, const char* debugName_ = nullptr);
-		Semaphore(Semaphore&& rhs);
 		~Semaphore();
-
-		bool Signal(I32 count);
-		bool Wait();
-
-	private:
 		Semaphore(const Semaphore&) = delete;
 
-		struct SemaphoreImpl* Get();
-		U8 data[32];
+		void Signal();
+		void Wait();
+
+	private:
+		void* id;
 
 #ifdef DEBUG
 		const char* debugName = nullptr;

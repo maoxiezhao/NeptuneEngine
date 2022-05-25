@@ -93,6 +93,16 @@ namespace VulkanTest
             size_ = oldSize + 1;
         }
 
+        template <typename... Args> 
+        T& emplace(Args&&... args) 
+        {
+            if (size_ == capacity_) 
+                Grow();
+            new ((char*)(data_ + size_)) T(static_cast<Args&&>(args)...);
+            ++size_;
+            return data_[size_ - 1];
+        }
+
         void erase(const T& value)
         {
             for(U32 i = 0; i < size_; i++)

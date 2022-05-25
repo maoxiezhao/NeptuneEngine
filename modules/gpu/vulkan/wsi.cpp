@@ -32,7 +32,6 @@ WSI::WSI()
 
 WSI::~WSI()
 {
-    Uninitialize();
 }
 
 bool WSI::Initialize(U32 numThread)

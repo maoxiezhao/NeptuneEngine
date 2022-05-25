@@ -27,20 +27,6 @@ namespace VulkanTest
 		lock->~SRWLOCK();
 	}
 
-	//Mutex::Mutex(Mutex&& rhs)
-	//{
-	//	rhs.Lock();
-	//	std::swap(data, rhs.data);
-	//	Unlock();
-	//}
-
-	//void Mutex::operator=(Mutex&& rhs)
-	//{
-	//	rhs.Lock();
-	//	std::swap(data, rhs.data);
-	//	Unlock();
-	//}
-
 	void Mutex::Lock()
 	{
 		SRWLOCK* lock = (SRWLOCK*)data;
@@ -53,50 +39,27 @@ namespace VulkanTest
 		::ReleaseSRWLockExclusive(lock);
 	}
 
-	struct SemaphoreImpl
-	{
-		HANDLE handle_;
-	};
-
-	SemaphoreImpl* Semaphore::Get()
-	{
-		return reinterpret_cast<SemaphoreImpl*>(&data[0]);
-	}
-
 	Semaphore::Semaphore(I32 initialCount, I32 maximumCount, const char* debugName_)
 	{
-		memset(data, 0, sizeof(data));
-		new(data) SemaphoreImpl();
-		Get()->handle_ = ::CreateSemaphore(nullptr, initialCount, maximumCount, nullptr);
+		id = ::CreateSemaphore(nullptr, initialCount, maximumCount, nullptr);
 #ifdef DEBUG
 		debugName = debugName;
 #endif
 	}
 
-	Semaphore::Semaphore(Semaphore&& rhs)
-	{
-		std::swap(data, rhs.data);
-#ifdef DEBUG
-		std::swap(debugName, rhs.debugName);
-#endif
-	}
-
 	Semaphore::~Semaphore()
 	{
-		::CloseHandle(Get()->handle_);
-		Get()->~SemaphoreImpl();
+		::CloseHandle(id);
 	}
 
-	bool Semaphore::Signal(I32 count)
+	void Semaphore::Signal()
 	{
-		ASSERT(Get() != nullptr);
-		return ::ReleaseSemaphore(Get()->handle_, count, nullptr);
+		::ReleaseSemaphore(id, 1, nullptr);
 	}
 
-	bool Semaphore::Wait()
+	void Semaphore::Wait()
 	{
-		ASSERT(Get() != nullptr);
-		return (::WaitForSingleObject(Get()->handle_, INFINITE) == WAIT_OBJECT_0);
+		::WaitForSingleObject(id, INFINITE);
 	}
 
 	ConditionVariable::ConditionVariable()
@@ -263,6 +226,7 @@ namespace VulkanTest
 		{
 			impl->threadHandle = handle;
 			impl->isRunning = true;
+
 			bool success = ::ResumeThread(impl->threadHandle) != -1;
 			if (success)
 				return true;
@@ -277,7 +241,9 @@ namespace VulkanTest
 	{
 		if (impl != nullptr)
 		{
-			::WaitForSingleObject(impl->threadHandle, INFINITE);
+			while (impl->isRunning)
+				Platform::Sleep(1);
+
 			::CloseHandle(impl->threadHandle);
 			impl->threadHandle = nullptr;
 		}

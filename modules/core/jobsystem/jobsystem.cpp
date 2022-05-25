@@ -81,11 +81,13 @@ namespace Jobsystem
     struct WorkerThread : Thread
     {
     public:
-        U32 workderIndex;
         ManagerImpl& manager;
+        U32 workderIndex;
         bool isFinished = false;
-        Fiber::Handle primaryFiber = Fiber::INVALID_HANDLE;
+        bool isEnabled = false;
+
         WorkerFiber* currentFiber = nullptr;
+        Fiber::Handle primaryFiber = Fiber::INVALID_HANDLE;
         std::vector<WorkerFiber*> readyFibers;
         std::vector<JobImpl> jobQueue;
 
@@ -96,18 +98,13 @@ namespace Jobsystem
         {
         }
 
-        ~WorkerThread()
-        {
-        }
-
         int Task() override
         {
             Platform::SetCurrentThreadIndex(workderIndex + 1);
-
             gWorker = this;
             primaryFiber = Fiber::Create(Fiber::THIS_THREAD);
-            gManager->sync.Lock();
 
+            gManager->sync.Lock();
             WorkerFiber* fiber = gManager->freeFibers.back();
             gManager->freeFibers.pop_back();
             if (!Fiber::IsValid(fiber->handle))
@@ -155,14 +152,13 @@ namespace Jobsystem
     {
         // Clear workers
         for (auto worker : gManager->workers)
-        {
             worker->isFinished = true;
-            worker->Wakeup();
-        }
+
         for (auto worker : gManager->workers)
         {
             while (!worker->IsFinished())
                 worker->Wakeup();
+
             worker->Destroy();
             CJING_SAFE_DELETE(worker);
         }
@@ -331,7 +327,7 @@ namespace Jobsystem
         WorkerThread* worker = GetWorker();
         while (!worker->isFinished)
         {
-            WorkerFiber* readyFiber = nullptr;
+            WorkerFiber* fiber = nullptr;
             JobImpl job;
             while (!worker->isFinished)
             {
@@ -340,7 +336,7 @@ namespace Jobsystem
                 // Worker
                 if (!worker->readyFibers.empty())
                 {
-                    readyFiber = worker->readyFibers.back();
+                    fiber = worker->readyFibers.back();
                     worker->readyFibers.pop_back();
                     break;
                 }
@@ -354,7 +350,7 @@ namespace Jobsystem
                 // Global
                 if (!gManager->readyFibers.empty())
                 {
-                    readyFiber = gManager->readyFibers.back();
+                    fiber = gManager->readyFibers.back();
                     gManager->readyFibers.pop_back();
                     break;
                 }
@@ -371,13 +367,14 @@ namespace Jobsystem
             if (worker->isFinished)
                 break;
 
-            if (readyFiber != nullptr)
+            if (fiber != nullptr)
             {
-                worker->currentFiber = readyFiber;
+                // Do ready fiber
+                worker->currentFiber = fiber;
 
                 gManager->sync.Lock();
                 gManager->freeFibers.push_back(currentFiber);
-                Fiber::SwitchTo(currentFiber->handle, readyFiber->handle);
+                Fiber::SwitchTo(currentFiber->handle, fiber->handle);
                 gManager->sync.Unlock();
 
                 worker = GetWorker();
@@ -385,6 +382,7 @@ namespace Jobsystem
             }
             else if (job.task != nullptr)
             {
+                // Do target job
                 currentFiber->currentJob = job;
                 job.task(job.data);
                 currentFiber->currentJob.task = nullptr;
@@ -396,7 +394,7 @@ namespace Jobsystem
             }
         }
 
-        Fiber::SwitchTo(currentFiber->handle, worker->primaryFiber);
+        Fiber::SwitchTo(currentFiber->handle, GetWorker()->primaryFiber);
     }
 }
 }

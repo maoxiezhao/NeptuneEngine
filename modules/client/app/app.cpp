@@ -27,27 +27,62 @@ App::App()
     Logger::Info("App initialized.");
      
     Jobsystem::Initialize(Platform::GetCPUsCount());
+
+    Platform::Initialize();
+    Platform::LogPlatformInfo();
 }
 
 App::~App()
 {
+    Platform::Uninitialize();
     Jobsystem::Uninitialize();
 }
 
-bool App::InitializeWSI(std::unique_ptr<WSIPlatform> platform_)
+void App::Run(std::unique_ptr<WSIPlatform> platform_)
 {
     platform = std::move(platform_);
     wsi.SetPlatform(platform.get());
 
-    if (!wsi.Initialize(Platform::GetCPUsCount() + 1))
-        return false;
+    Profiler::SetThreadName("MainThread");
+    Semaphore semaphore(0, 1);
+    struct Data
+    {
+        App* app;
+        Semaphore* semaphore;
+    }
+    data = { this, &semaphore };
 
-    return true;
+    Jobsystem::Run(&data, [](void* ptr) {
+        Data* data = static_cast<Data*>(ptr);
+        App* app = data->app;
+
+        Profiler::SetThreadName("AsyncMainThread");
+        Platform::SetCurrentThreadIndex(0);
+
+        app->Initialize();
+
+        while (app->Poll())
+            app->OnIdle();
+
+        app->Uninitialize();
+        data->semaphore->Signal();
+    }, nullptr);
+
+    PROFILE_BLOCK("sleeping");
+    semaphore.Wait();
 }
 
 void App::Initialize()
 {
-    // Create game engine
+    // Init platform
+    bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
+    ASSERT(ret);
+
+    // Init wsi
+    ret = wsi.Initialize(Platform::GetCPUsCount() + 1);
+    ASSERT(ret);
+
+    //// Create game engine
     Engine::InitConfig config = {};
     config.windowTitle = GetWindowTitle();
     engine = CreateEngine(config, *this);
@@ -69,6 +104,9 @@ void App::Uninitialize()
     engine->DestroyWorld(*world);
     engine.Reset();
     world = nullptr;
+
+    wsi.Uninitialize();
+    platform.reset();
 }
 
 void App::Render()
@@ -105,9 +143,6 @@ void App::FixedUpdate()
 
 bool App::Poll()
 {
-    if (!platform->IsAlived(wsi))
-        return false;
-
     if (requestedShutdown)
         return false;
     
@@ -139,7 +174,7 @@ void App::OnEvent(const Platform::WindowEvent& ent)
     }
 }
 
-void App::RunFrame()
+void App::OnIdle()
 {
     Profiler::BeginFrame();
 

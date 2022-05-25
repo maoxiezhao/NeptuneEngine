@@ -28,7 +28,7 @@ namespace Editor
         void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override
         {
             // RenderPath3D::Compose(renderGraph, cmd);
-            ImGuiRenderer::Render(cmd);
+            // ImGuiRenderer::Render(cmd);
         }
     };
 
@@ -308,14 +308,10 @@ namespace Editor
 
             Platform::WindowType window = platform->GetWindow();
             Platform::WindowRect rect = Platform::GetClientBounds(window);
-            Platform::WindowPoint point = hasviewports ?
-                Platform::ToScreen(window, rect.left, rect.top) : Platform::WindowPoint();
-
-            U32 winWidth = rect.width;
-            U32 winHeight = rect.height;
-            if (winWidth > 0 && winHeight > 0)
+            Platform::WindowPoint point = hasviewports ? Platform::ToScreen(window, rect.left, rect.top) : Platform::WindowPoint();
+            if (rect.width > 0 && rect.height > 0)
             {
-                ImGui::SetNextWindowSize(ImVec2((float)winWidth, (float)winHeight));
+                ImGui::SetNextWindowSize(ImVec2((float)rect.width, (float)rect.height));
                 ImGui::SetNextWindowPos(ImVec2((float)point.x, (float)point.y));
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
                 ImGui::Begin("MainDockspace", nullptr, flags);

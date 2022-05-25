@@ -28,53 +28,6 @@ private:
 	U32 height = 0;
 	Platform::WindowType window = nullptr;
 	bool asyncLoopAlive = true;
-	std::atomic_bool requestClose;
-
-	struct EventList
-	{
-		std::mutex lock;
-		std::condition_variable cond;
-		std::vector<std::function<void()>> list;
-	};
-	EventList mainThreadEventList, asyncThreadEventList;
-
-	void PorcessEventList(EventList& list, bool blocking)
-	{
-		std::unique_lock<std::mutex> lock{ list.lock };
-		if (blocking)
-		{
-			while (list.list.empty())
-			{
-				list.cond.wait(lock, [&list]() {
-					return !list.list.empty();
-					});
-			}
-		}
-
-		for (auto& entTask : list.list) {
-			entTask();
-		}
-		list.list.clear();
-	}
-
-	template<typename FUNC>
-	void PushEventTaskToList(EventList& list, FUNC&& func)
-	{
-		std::lock_guard<std::mutex> lock{ list.lock };
-		list.list.emplace_back(std::forward<FUNC>(func));
-		list.cond.notify_one();
-	}
-
-	template <typename FUNC>
-	void PushEventTaskToAsyncThread(FUNC&& func)
-	{
-		PushEventTaskToList(asyncThreadEventList, std::forward<FUNC>(func));
-	}
-
-	void ProcessEventsAsyncThreadBlocking()
-	{
-		PorcessEventList(asyncThreadEventList, true);
-	}
 
 public:
 	PlatformWin32(const Options &options_) :
@@ -88,9 +41,8 @@ public:
 			Platform::DestroyCustomWindow(window);
 	}
 
-	bool Init(int width_, int height_, const char* title)
+	bool Init(int width_, int height_, const char* title) override
 	{
-		requestClose.store(false);
 		width = width_;
 		height = height_;
 
@@ -98,9 +50,6 @@ public:
 			width = options.overrideWidth;
 		if (options.overrideHeight > 0)
 			height = options.overrideHeight;
-
-		Platform::Initialize();
-		Platform::LogPlatformInfo();
 
 		Platform::WindowInitArgs args = {};
 		args.name = title;
@@ -168,15 +117,8 @@ public:
         return surface;
 	}
 
-	bool IsAlived(WSI& wsi)override
-	{
-		return !requestClose.load();
-	}
-
 	void BlockWSI(WSI& wsi)override
 	{
-		while (!resize && IsAlived(wsi))
-			ProcessEventsAsyncThreadBlocking();
 	}
 
 	void NotifyResize(U32 width_, U32 height_)
@@ -184,65 +126,22 @@ public:
 		if (width_ == width && height_ == height)
 			return;
 
-		PushEventTaskToAsyncThread([=]() {
-			resize = true;
-			width = width_;
-			height = height_;
-		});
+		resize = true;
+		width = width_;
+		height = height_;
 	}
 };
 
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[])
 {
-	std::unique_ptr<App> app = std::unique_ptr<App>(createAppFunc(argc, argv));
+	App* app = createAppFunc(argc, argv);
 	if (app == nullptr)
 		return 1;
 
-	Profiler::SetThreadName("MainThread");
-	struct Data
-	{
-		Data(App* app_) :
-			semaphore(0, 1),
-			app(app_)
-		{}
-
-		App* app;
-		Semaphore semaphore;
-	} 
-	data(app.get());
-
-	// Async loop
-	Jobsystem::Run(&data, [](void* ptr) {
-		Data* data = static_cast<Data*>(ptr);
-
-		Profiler::SetThreadName("AsyncMainThread");
-		Platform::SetCurrentThreadIndex(0);
-
-		PlatformWin32::Options options = {};
-		std::unique_ptr<PlatformWin32> platform = std::make_unique<PlatformWin32>(options);
-		auto* platformHandle = platform.get();
-		if (!platform->Init(data->app->GetDefaultWidth(), data->app->GetDefaultHeight(), data->app->GetWindowTitle()))
-		{
-			data->semaphore.Signal(1);
-			return;
-		}
-
-		if (!data->app->InitializeWSI(std::move(platform)))
-		{
-			data->semaphore.Signal(1);
-			return;
-		}
-
-		data->app->Initialize();
-		while (data->app->Poll())
-			data->app->RunFrame();
-		data->app->Uninitialize();
-
-		data->semaphore.Signal(1);
-	}, nullptr);
-
-	PROFILE_BLOCK("sleeping");
-	data.semaphore.Wait();
+	PlatformWin32::Options options = {};
+	std::unique_ptr<PlatformWin32> platform = std::make_unique<PlatformWin32>(options);
+	app->Run(std::move(platform));
+	CJING_SAFE_DELETE(app);
 	return 0;
 }
 }

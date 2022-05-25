@@ -221,7 +221,7 @@ namespace VulkanTest
 			job.path = path.c_str();
 			job.cb = cb;
 			pendingJobs.push(job);
-			semaphore.Signal(1);
+			semaphore.Signal();
 			return AsyncLoadHandle(lastJobID);
 		}
 	};
@@ -267,7 +267,7 @@ namespace VulkanTest
 	void AsyncLoadTask::Stop()
 	{
 		isFinished = true;
-		fs.semaphore.Signal(1);
+		fs.semaphore.Signal();
 	}
 
 	////////////////////////////////////////////////////////////////////////////////

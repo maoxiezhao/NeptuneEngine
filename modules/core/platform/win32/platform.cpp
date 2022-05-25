@@ -143,6 +143,12 @@ namespace Platform {
 		impl.mCursors.mTextInput = LoadCursor(NULL, IDC_IBEAM);
 	}
 
+	void Uninitialize()
+	{
+		while (!impl.eventQueue.empty())
+			impl.eventQueue.popFront();
+	}
+
 	void LogPlatformInfo()
 	{
 		Logger::Info("Platform info:");
@@ -521,17 +527,21 @@ namespace Platform {
 		// Create window
 		DWORD style = args.flags & WindowInitArgs::NO_DECORATION ? WS_POPUP : WS_OVERLAPPEDWINDOW;
 		DWORD extStyle = args.flags & WindowInitArgs::NO_TASKBAR_ICON ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW;
+		LONG width = CW_USEDEFAULT; 
+		LONG height = CW_USEDEFAULT; 
+		if (args.width > 0 && args.height > 0)
+		{
+			RECT rectangle = {
+				0,
+				0,
+				static_cast<LONG>(args.width),
+				static_cast<LONG>(args.height)
+			};
+			AdjustWindowRect(&rectangle, style, FALSE);
 
-		RECT rectangle = {
-			0,
-			0,
-			static_cast<LONG>(args.width),
-			static_cast<LONG>(args.height) 
-		};
-		AdjustWindowRect(&rectangle, style, FALSE);
-
-		LONG width = rectangle.right - rectangle.left;
-		LONG height = rectangle.bottom - rectangle.top;
+			width = rectangle.right - rectangle.left;
+			height = rectangle.bottom - rectangle.top;
+		}
 
 		WCharString<MAX_PATH_LENGTH> wname(args.name);
 		const HWND hwnd = CreateWindowEx(
@@ -852,7 +862,6 @@ namespace Platform {
 
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-
 		return true;
 	}
 

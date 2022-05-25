@@ -73,6 +73,7 @@ namespace Platform {
 	};
 
 	void Initialize();
+	void Uninitialize();
 	void LogPlatformInfo();
 	void SetLoggerConsoleFontColor(ConsoleFontColor fontColor);
 	bool ShellExecuteOpen(const char* path, const char* args);
