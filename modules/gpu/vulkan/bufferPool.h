@@ -22,30 +22,26 @@ namespace GPU
 		U8* mapped = nullptr;
 		VkDeviceSize offset = 0;
 		VkDeviceSize alignment = 0;
-		VkDeviceSize container = 0;
+		VkDeviceSize capacity = 0;
 		VkDeviceSize spillSize = 0;
-		BufferPtr cpuBuffer;
+		BufferPtr gpu;
+		BufferPtr cpu;
 
 	public:
 		BufferBlockAllocation Allocate(VkDeviceSize allocateSize)
 		{
 			VkDeviceSize alignedOffset = (offset + alignment - 1) & ~(alignment - 1);
-			if (alignedOffset + allocateSize <= container)
+			if (alignedOffset + allocateSize <= capacity)
 			{
 				U8* ret = mapped + alignedOffset;
 				offset = alignedOffset + allocateSize;
 
 				VkDeviceSize paddedSize = std::max(allocateSize, spillSize);
-				paddedSize = std::min(paddedSize, container - alignedOffset);
-				return { ret , alignedOffset, paddedSize };
+				paddedSize = std::min(paddedSize, capacity - alignedOffset);
+				return { ret, alignedOffset, paddedSize };
 			}
 
 			return { nullptr, 0, 0 };
-		}
-
-		bool IsAllocated()const
-		{
-			return cpuBuffer.operator bool();
 		}
 	};
 

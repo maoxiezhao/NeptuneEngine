@@ -498,9 +498,6 @@ void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
 
 void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate)
 {
-    if (!vboBlock.IsAllocated())
-        device.RequestVertexBufferBlock(vboBlock, size);
-
     auto data = vboBlock.Allocate(size);
     if (data.data == nullptr)
     {
@@ -508,15 +505,12 @@ void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDevice
         data = vboBlock.Allocate(size);
     }
 
-    BindVertexBuffer(vboBlock.cpuBuffer, binding, data.offset, stride, inputRate);
+    BindVertexBuffer(vboBlock.gpu, binding, data.offset, stride, inputRate);
     return data.data;
 }
 
 void* CommandList::AllocateIndexBuffer(VkDeviceSize size, VkIndexType indexType)
 {
-    if (!iboBlock.IsAllocated())
-        device.RequestIndexBufferBlock(iboBlock, size);
-
     auto data = iboBlock.Allocate(size);
     if (data.data == nullptr)
     {
@@ -524,7 +518,7 @@ void* CommandList::AllocateIndexBuffer(VkDeviceSize size, VkIndexType indexType)
         data = iboBlock.Allocate(size);
     }
 
-    BindIndexBuffer(iboBlock.cpuBuffer, data.offset, indexType);
+    BindIndexBuffer(iboBlock.gpu, data.offset, indexType);
     return data.data;
 }
 
@@ -589,9 +583,8 @@ void CommandList::BindConstantBuffer(const BufferPtr& buffer, U32 set, U32 bindi
     else
     {
         auto& b = bindings.bindings[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding];
-        VkDescriptorBufferInfo bufferInfo = { buffer->GetBuffer(), 0, range};
         b.dynamicOffset = offset;
-        b.buffer = bufferInfo;
+        b.buffer = { buffer->GetBuffer(), 0, range };
         bindings.cookies[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding] = buffer->GetCookie();
         dirtySets |= 1u << set;
     }
@@ -607,9 +600,6 @@ void CommandList::PushConstants(const void* data, VkDeviceSize offset, VkDeviceS
 void* CommandList::AllocateConstant(U32 set, U32 binding, VkDeviceSize size)
 {
     ASSERT(size < VULKAN_MAX_UBO_SIZE);
-    if (!uboBlock.IsAllocated())
-        device.RequestUniformBufferBlock(uboBlock, size);
-
     auto data = uboBlock.Allocate(size);
     if (data.data == nullptr)
     {
@@ -617,13 +607,13 @@ void* CommandList::AllocateConstant(U32 set, U32 binding, VkDeviceSize size)
         data = uboBlock.Allocate(size);
     }
 
-    BindConstantBuffer(uboBlock.cpuBuffer, set, binding, data.offset, data.paddedSize);
+    BindConstantBuffer(uboBlock.gpu, set, binding, data.offset, data.paddedSize);
     return data.data;
 }
 
 void CommandList::CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
 {
-    vkCmdCopyBufferToImage(cmd, buffer->GetBuffer(), image->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, numBlits, blits);
+    vkCmdCopyBufferToImage(cmd, buffer->GetBuffer(), image->GetImage(), image->GetImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), numBlits, blits);
 }
 
 void CommandList::CopyBuffer(const BufferPtr& dst, const BufferPtr& src)
@@ -756,15 +746,20 @@ void CommandList::DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 st
 
 void CommandList::ImageBarrier(const ImagePtr& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
 {
+    ASSERT(image->GetCreateInfo().domain != ImageDomain::Transient);
+
     VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    barrier.srcAccessMask = srcAccess;
+    barrier.dstAccessMask = dstAccess;
     barrier.oldLayout = oldLayout;
     barrier.newLayout = newLayout;
     barrier.image = image->GetImage();
     barrier.subresourceRange.aspectMask = formatToAspectMask(image->GetCreateInfo().format);
     barrier.subresourceRange.levelCount = image->GetCreateInfo().levels;
     barrier.subresourceRange.layerCount = image->GetCreateInfo().layers;
-    barrier.srcAccessMask = srcAccess;
-    barrier.dstAccessMask = dstAccess;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
     vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 

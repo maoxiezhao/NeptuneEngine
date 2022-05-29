@@ -61,7 +61,7 @@ namespace Jobsystem
     struct ManagerImpl
     {
         Mutex sync;
-        ConditionMutex jobQueueLock;
+        Mutex jobQueueLock;
 
         std::vector<WorkerFiber*> readyFibers;
         std::vector<WorkerFiber*> freeFibers;
@@ -191,23 +191,24 @@ namespace Jobsystem
         }
 
         // Push job for worker
-        if (job.workerIndex == ANY_WORKER)
-        {
-            {
-                ScopedConditionMutex lock(gManager->jobQueueLock);
-                gManager->jobQueue.push_back(job);
-            }
-            for (auto worker : gManager->workers)
-                worker->Wakeup();
-        }
-        else
+        if (job.workerIndex != ANY_WORKER)
         {
             WorkerThread* worker = gManager->workers[job.workerIndex % gManager->workers.size()];
             {
-                ScopedConditionMutex lock(gManager->jobQueueLock);
+                ScopedMutex lock(gManager->jobQueueLock);
                 worker->jobQueue.push_back(job);
             }
             worker->Wakeup();
+        }
+        else
+        {
+            {
+                ScopedMutex lock(gManager->jobQueueLock);
+                gManager->jobQueue.push_back(job);
+            }
+
+            for (auto worker : gManager->workers)
+                worker->Wakeup();
         }
     }
 
@@ -284,7 +285,7 @@ namespace Jobsystem
 
         bool needWakeAll = false;
         {
-            ScopedConditionMutex lock(gManager->jobQueueLock);
+            ScopedMutex lock(gManager->jobQueueLock);
             while (waitor != nullptr)
             {
                 JobWaitor* next = waitor->next;
@@ -331,7 +332,7 @@ namespace Jobsystem
             JobImpl job;
             while (!worker->isFinished)
             {
-                ScopedConditionMutex lock(gManager->jobQueueLock);
+                ScopedMutex lock(gManager->jobQueueLock);
 
                 // Worker
                 if (!worker->readyFibers.empty())

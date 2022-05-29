@@ -16,6 +16,8 @@ namespace VulkanTest
 	struct alignas(8) VULKAN_TEST_API Mutex
 	{
 	public:
+		friend class ConditionVariable;
+
 		Mutex();
 		~Mutex();
 
@@ -68,47 +70,6 @@ namespace VulkanTest
 #endif
 	};
 
-	// just used for ConditionVariable, use Mutex in general
-	class alignas(8) VULKAN_TEST_API ConditionMutex
-	{
-	public:
-		ConditionMutex();
-		~ConditionMutex();
-		ConditionMutex(ConditionMutex&& rhs);
-
-		void Enter();
-		void Exit();
-
-	private:
-		friend class ConditionVariable;
-
-		ConditionMutex(const ConditionMutex& rhs) = delete;
-		ConditionMutex& operator=(const ConditionMutex& rhs) = delete;
-
-		U8 implData[8];
-	};
-
-	class VULKAN_TEST_API ScopedConditionMutex
-	{
-	public:
-		ScopedConditionMutex(ConditionMutex& mutex_) :
-			mutex(mutex_)
-		{
-			mutex.Enter();
-		}
-
-		~ScopedConditionMutex()
-		{
-			mutex.Exit();
-		}
-
-	private:
-		ScopedConditionMutex(const ConditionMutex& rhs) = delete;
-		ScopedConditionMutex(ConditionMutex&& rhs) = delete;
-
-		ConditionMutex& mutex;
-	};
-
 	class VULKAN_TEST_API ConditionVariable
 	{
 	public:
@@ -116,7 +77,7 @@ namespace VulkanTest
 		ConditionVariable(ConditionVariable&& rhs);
 		~ConditionVariable();
 
-		void Sleep(ConditionMutex& lock);
+		void Sleep(Mutex& lock);
 		void Wakeup();
 
 	private:
@@ -135,7 +96,7 @@ namespace VulkanTest
 
 		void SetAffinity(U64 mask);
 		bool IsValid()const;
-		void Sleep(ConditionMutex& lock);
+		void Sleep(Mutex& lock);
 		void Wakeup();
 		bool IsFinished()const;
 		bool Create(const char* name);

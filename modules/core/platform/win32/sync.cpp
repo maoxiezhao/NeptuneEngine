@@ -76,9 +76,9 @@ namespace VulkanTest
 		((CONDITION_VARIABLE*)implData)->~CONDITION_VARIABLE();
 	}
 
-	void ConditionVariable::Sleep(ConditionMutex& lock)
+	void ConditionVariable::Sleep(Mutex& lock)
 	{
-		::SleepConditionVariableSRW((CONDITION_VARIABLE*)implData, (SRWLOCK*)lock.implData, INFINITE, 0);
+		::SleepConditionVariableSRW((CONDITION_VARIABLE*)implData, (SRWLOCK*)lock.data, INFINITE, 0);
 	}
 
 	ConditionVariable::ConditionVariable(ConditionVariable&& rhs)
@@ -89,38 +89,6 @@ namespace VulkanTest
 	void ConditionVariable::Wakeup()
 	{
 		::WakeConditionVariable((CONDITION_VARIABLE*)implData);
-	}
-
-	ConditionMutex::ConditionMutex()
-	{
-		static_assert(sizeof(implData) >= sizeof(SRWLOCK), "Size is not enough");
-		static_assert(alignof(ConditionMutex) == alignof(SRWLOCK), "Alignment does not match");
-		memset(implData, 0, sizeof(implData));
-		SRWLOCK* lock = new (implData) SRWLOCK();
-		InitializeSRWLock(lock);
-	}
-
-	ConditionMutex::~ConditionMutex()
-	{
-		SRWLOCK* lock = (SRWLOCK*)implData;
-		lock->~SRWLOCK();
-	}
-
-	ConditionMutex::ConditionMutex(ConditionMutex&& rhs)
-	{
-		std::swap(implData, rhs.implData);
-	}
-
-	void ConditionMutex::Enter()
-	{
-		SRWLOCK* lock = (SRWLOCK*)implData;
-		AcquireSRWLockExclusive(lock);
-	}
-
-	void ConditionMutex::Exit()
-	{
-		SRWLOCK* lock = (SRWLOCK*)implData;
-		ReleaseSRWLockExclusive(lock);
 	}
 
 	struct ThreadImpl
@@ -199,7 +167,7 @@ namespace VulkanTest
 		return impl != nullptr;
 	}
 
-	void Thread::Sleep(ConditionMutex& lock)
+	void Thread::Sleep(Mutex& lock)
 	{
 		ASSERT(impl != nullptr);
 		impl->cv.Sleep(lock);

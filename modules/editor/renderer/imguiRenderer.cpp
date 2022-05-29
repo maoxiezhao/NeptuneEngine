@@ -120,8 +120,7 @@ namespace ImGuiRenderer
 		pio.Platform_CreateWindow = [](ImGuiViewport* vp) 
 		{
 			Platform::WindowInitArgs args = {};
-			args.flags = Platform::WindowInitArgs::NO_DECORATION | 
-						 Platform::WindowInitArgs::NO_TASKBAR_ICON;
+			args.flags = Platform::WindowInitArgs::NO_DECORATION | Platform::WindowInitArgs::NO_TASKBAR_ICON;
 			ImGuiViewport* parent = ImGui::FindViewportByID(vp->ParentViewportId);
 			args.parent = parent ? parent->PlatformHandle : Platform::INVALID_WINDOW;
 			args.name = "child";
@@ -135,7 +134,7 @@ namespace ImGuiRenderer
 			editor->DeferredDestroyWindow(w);
 			vp->PlatformHandle = nullptr;
 			vp->PlatformUserData = nullptr;
-			editor->AddWindow(w);
+			editor->RemoveWindow(w);
 		};
 		pio.Platform_ShowWindow = [](ImGuiViewport* vp) {};
 		pio.Platform_SetWindowPos = [](ImGuiViewport* vp, ImVec2 pos) {
@@ -255,6 +254,16 @@ namespace ImGuiRenderer
 
 		ImGui::NewFrame();
 		ImGui::PushFont(font);
+	
+		const ImGuiMouseCursor imguiCursor = ImGui::GetMouseCursor();
+		switch (imguiCursor) {
+			case ImGuiMouseCursor_Arrow: Platform::SetMouseCursorType(Platform::CursorType::DEFAULT); break;
+			case ImGuiMouseCursor_ResizeNS: Platform::SetMouseCursorType(Platform::CursorType::SIZE_NS); break;
+			case ImGuiMouseCursor_ResizeEW: Platform::SetMouseCursorType(Platform::CursorType::SIZE_WE); break;
+			case ImGuiMouseCursor_ResizeNWSE: Platform::SetMouseCursorType(Platform::CursorType::SIZE_NWSE); break;
+			case ImGuiMouseCursor_TextInput: Platform::SetMouseCursorType(Platform::CursorType::TEXT_INPUT); break;
+			default: Platform::SetMouseCursorType(Platform::CursorType::DEFAULT); break;
+		}
 	}
 
 	void EndFrame()
@@ -267,26 +276,20 @@ namespace ImGuiRenderer
 	void Render(GPU::CommandList* cmd)
 	{
 		cmd->BeginEvent("ImGuiRender");
-
-		cmd->SetProgram("editor/imGuiVS.hlsl", "editor/imGuiPS.hlsl");
-
 		ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
 		for (ImGuiViewport* vp : platformIO.Viewports)
 		{
-			ImDrawData* drawData = vp->DrawData;
+			ImDrawData* draw_data = vp->DrawData;
+			ImDrawData* drawData = ImGui::GetDrawData();
 			if (!drawData || drawData->TotalVtxCount == 0)
-				continue;
+				return;
 
 			int fbWidth = (int)(drawData->DisplaySize.x * drawData->FramebufferScale.x);
 			int fbHeight = (int)(drawData->DisplaySize.y * drawData->FramebufferScale.y);
 			if (fbWidth <= 0 || fbHeight <= 0)
-				continue;
+				return;
 
 			// Setup vertex buffer and index buffer
-			cmd->SetVertexAttribute(0, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, pos));
-			cmd->SetVertexAttribute(1, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, uv));
-			cmd->SetVertexAttribute(2, 0, VK_FORMAT_R8G8B8A8_UNORM, (U32)IM_OFFSETOF(ImDrawVert, col));
-
 			const U64 vbSize = sizeof(ImDrawVert) * drawData->TotalVtxCount;
 			const U64 ibSize = sizeof(ImDrawIdx) * drawData->TotalIdxCount;
 			ImDrawVert* vertMem = static_cast<ImDrawVert*>(cmd->AllocateVertexBuffer(0, vbSize, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX));
@@ -299,7 +302,7 @@ namespace ImGuiRenderer
 				vertMem += drawList->VtxBuffer.Size;
 				indexMem += drawList->IdxBuffer.Size;
 			}
-		
+
 			// Setup mvp matrix
 			const F32 L = drawData->DisplayPos.x;
 			const F32 R = drawData->DisplayPos.x + drawData->DisplaySize.x;
@@ -319,7 +322,12 @@ namespace ImGuiRenderer
 			};
 			ImGuiConstants* constants = cmd->AllocateConstant<ImGuiConstants>(0, 0);
 			memcpy(&constants->mvp, mvp, sizeof(mvp));
-			
+
+			cmd->SetProgram("editor/imGuiVS.hlsl", "editor/imGuiPS.hlsl");
+			cmd->SetVertexAttribute(0, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, pos));
+			cmd->SetVertexAttribute(1, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, uv));
+			cmd->SetVertexAttribute(2, 0, VK_FORMAT_R8G8B8A8_UNORM, (U32)IM_OFFSETOF(ImDrawVert, col));
+
 			// Set viewport
 			VkViewport vp = {};
 			vp.x = 0.0f;
@@ -351,7 +359,7 @@ namespace ImGuiRenderer
 				{
 					const ImDrawCmd* drawCmd = &drawList->CmdBuffer[cmdIndex];
 					ASSERT(!drawCmd->UserCallback);
-					
+
 					// Project scissor/clipping rectangles into framebuffer space
 					ImVec2 clipMin(drawCmd->ClipRect.x - clipOff.x, drawCmd->ClipRect.y - clipOff.y);
 					ImVec2 clipMax(drawCmd->ClipRect.z - clipOff.x, drawCmd->ClipRect.w - clipOff.y);
@@ -367,9 +375,9 @@ namespace ImGuiRenderer
 					cmd->SetScissor(scissor);
 
 					const GPU::Image* texture = (const GPU::Image*)drawCmd->TextureId;
-					cmd->SetTexture(0, 0, fontTexture->GetImageView()); // texture->GetImageView());
+					cmd->SetTexture(0, 0, texture->GetImageView());
 					cmd->DrawIndexed(drawCmd->ElemCount, indexOffset, vertexOffset);
-				
+
 					indexOffset += drawCmd->ElemCount;
 				}
 				vertexOffset += drawList->VtxBuffer.size();

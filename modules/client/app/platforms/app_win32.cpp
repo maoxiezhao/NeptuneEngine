@@ -117,10 +117,6 @@ public:
         return surface;
 	}
 
-	void BlockWSI(WSI& wsi)override
-	{
-	}
-
 	void NotifyResize(U32 width_, U32 height_)
 	{
 		if (width_ == width && height_ == height)

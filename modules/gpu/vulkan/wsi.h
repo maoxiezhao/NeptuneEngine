@@ -31,7 +31,6 @@ public:
 	virtual bool Init(int width_, int height_, const char* title) = 0;
 	virtual U32  GetWidth() = 0;
 	virtual U32  GetHeight() = 0;
-	virtual void BlockWSI(WSI& wsi) = 0;
 	virtual Platform::WindowType GetWindow() = 0;
 	virtual void NotifyResize(U32 width_, U32 height_) = 0;
 

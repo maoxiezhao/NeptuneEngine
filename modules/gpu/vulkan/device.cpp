@@ -274,6 +274,24 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     numThreads = 1;
 #endif
 
+    for (auto& index : queueInfo.familyIndices)
+    {
+        if (index != VK_QUEUE_FAMILY_IGNORED)
+        {
+            bool found = false;
+            for (U32 i = 0; i < queueFamilies.size(); i++)
+            {
+                if (queueFamilies[i] == index)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                queueFamilies.push_back(index);
+        }
+    }
+
     // Create frame resources
     InitFrameContext();
 
@@ -737,7 +755,7 @@ void DeviceVulkan::RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize siz
 
 void DeviceVulkan::RequestVertexBufferBlockNolock(BufferBlock& block, VkDeviceSize size)
 {
-    RequestBufferBlock(block, size, vboPool, CurrentFrameResource().vboBlocks);
+    RequestBufferBlock(block, size, vboPool, CurrentFrameResource().vboBlocks, pendingBufferBlocks.vbo);
 }
 
 void DeviceVulkan::RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size)
@@ -748,7 +766,7 @@ void DeviceVulkan::RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size
 
 void DeviceVulkan::RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size)
 {
-    RequestBufferBlock(block, size, iboPool, CurrentFrameResource().iboBlocks);
+    RequestBufferBlock(block, size, iboPool, CurrentFrameResource().iboBlocks, pendingBufferBlocks.ibo);
 }
 
 void DeviceVulkan::RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize size)
@@ -759,22 +777,28 @@ void DeviceVulkan::RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize si
 
 void DeviceVulkan::RequestUniformBufferBlockNoLock(BufferBlock& block, VkDeviceSize size)
 {
-    RequestBufferBlock(block, size, uboPool, CurrentFrameResource().uboBlocks);
+    RequestBufferBlock(block, size, uboPool, CurrentFrameResource().uboBlocks, pendingBufferBlocks.ubo);
 }
 
-void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle)
+void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>& pending)
 {
     if (block.mapped != nullptr)
-        UnmapBuffer(*block.cpuBuffer, MemoryAccessFlag::MEMORY_ACCESS_WRITE_BIT);
+        UnmapBuffer(*block.cpu, MemoryAccessFlag::MEMORY_ACCESS_WRITE_BIT);
 
     if (block.offset == 0)
     {
-        if (block.container == pool.GetBlockSize())
+        if (block.capacity == pool.GetBlockSize())
             pool.RecycleBlock(block);
     }
     else
     {
-        if (block.container == pool.GetBlockSize())
+        if (block.cpu != block.gpu)
+        {
+            // Pending this block, is will copy from gpu to cpu before submit
+            pending.push_back(block);
+        }
+
+        if (block.capacity == pool.GetBlockSize())
             recycle.push_back(block);
     }
 
@@ -919,6 +943,18 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
          IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_GRAPHICS_BIT |
          IMAGE_MISC_CONCURRENT_QUEUE_ASYNC_TRANSFER_BIT);
     bool concurrentQueue = queueFlags != 0;
+    if (queueFamilies.size() > 1)
+    {
+        info.sharingMode = VK_SHARING_MODE_CONCURRENT;
+        info.queueFamilyIndexCount = (uint32_t)queueFamilies.size();
+        info.pQueueFamilyIndices = queueFamilies.data();
+    }
+    else
+    {
+        info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        info.queueFamilyIndexCount = 0;
+        info.pQueueFamilyIndices = nullptr;
+    }
 
     // Create VKImage by allocator
     VkImage image = VK_NULL_HANDLE;
@@ -1080,10 +1116,20 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
     VkBufferCreateInfo info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     info.size = createInfo.size;
     info.usage = createInfo.usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     if (features.features_1_2.bufferDeviceAddress == VK_TRUE)
-    {
         info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+    if (queueFamilies.size() > 1)
+    {
+        info.sharingMode = VK_SHARING_MODE_CONCURRENT;
+        info.queueFamilyIndexCount = (uint32_t)queueFamilies.size();
+        info.pQueueFamilyIndices = queueFamilies.data();
+    }
+    else
+    {
+        info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        info.queueFamilyIndexCount = 0;
+        info.pQueueFamilyIndices = nullptr;
     }
 
     VkBuffer buffer;
@@ -1257,7 +1303,7 @@ void DeviceVulkan::FlushFrame(QueueIndices queueIndex)
         return;
 
     if (queueIndex == QueueIndices::QUEUE_INDEX_TRANSFER)
-        SyncBufferBlocks();
+        SyncPendingBufferBlocks();
 
     SubmitQueue(queueIndex, nullptr, 0, nullptr);
 }
@@ -1528,6 +1574,8 @@ void DeviceVulkan::WaitIdleNolock()
         auto ret = vkDeviceWaitIdle(device);
         if (ret != VK_SUCCESS)
             Logger::Error("vkDeviceWaitIdle failed:%d", ret);
+        if (ret == VK_ERROR_DEVICE_LOST)
+            LogDeviceLost();
     }
 
     // Clear wait semaphores
@@ -1595,10 +1643,11 @@ void DeviceVulkan::MoveReadWriteCachesToReadOnly()
 
 void DeviceVulkan::SubmitNolock(CommandListPtr cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
-    cmd->EndCommandBuffer();
-
     QueueIndices queueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
+
+    cmd->EndCommandBuffer();
+
     submissions.push_back(std::move(cmd));
 
     InternalFence signalledFence;
@@ -1739,8 +1788,9 @@ void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U3
     VkResult ret = SubmitBatches(batchComposer, queue, clearedFence);
     if (ret != VK_SUCCESS)
     {
-        Logger::Error("Submit queue failed: ");
-        return;
+        Logger::Error("Submit empty queue failed: ");
+        if (ret == VK_ERROR_DEVICE_LOST)
+            LogDeviceLost();
     }
     queueData.needFence = true;
 }
@@ -1831,8 +1881,36 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
     }
 }
 
+static const char* queueNameTable[] = {
+    "Graphics",
+    "Compute",
+    "Transfer",
+};
+
 void DeviceVulkan::LogDeviceLost()
 {
+    if (!features.supportDevieDiagnosticCheckpoints)
+        return;
+
+    for (int i = 0; i < QUEUE_INDEX_COUNT; i++)
+    {
+        if (queueInfo.queues[i] == VK_NULL_HANDLE)
+            continue;
+
+        uint32_t count;
+        vkGetQueueCheckpointDataNV(queueInfo.queues[i], &count, nullptr);
+        std::vector<VkCheckpointDataNV> checkpointDatas(count);
+        for (auto& data : checkpointDatas)
+            data.sType = VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV;
+        vkGetQueueCheckpointDataNV(queueInfo.queues[i], &count, checkpointDatas.data());
+
+        if (!checkpointDatas.empty())
+        {
+            Logger::Info("Checkpoints for %s queue:\n", queueNameTable[i]);
+            for (auto& d : checkpointDatas)
+                Logger::Info("Stage %u:\n%s\n", d.stage, static_cast<const char*>(d.pCheckpointMarker));
+        }
+    }
 }
 
 void DeviceVulkan::CollectWaitSemaphores(QueueData& data, WaitSemaphores& waitSemaphores)
@@ -2060,10 +2138,6 @@ void DeviceVulkan::DecrementFrameCounter()
 #endif
 }
 
-void DeviceVulkan::SyncBufferBlocks()
-{
-}
-
 void DeviceVulkan::InitStockSamplers()
 {
     for (int i = 0; i < (int)StockSampler::Count; i++)
@@ -2133,6 +2207,46 @@ void DeviceVulkan::InitBindless()
         tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLER] = 1;
         bindlessSamplers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
+}
+
+void DeviceVulkan::SyncPendingBufferBlocks()
+{
+    if (pendingBufferBlocks.vbo.empty() ||
+        pendingBufferBlocks.ubo.empty() ||
+        pendingBufferBlocks.ibo.empty())
+        return;
+
+    VkBufferUsageFlags usage = 0;
+    auto cmd = RequestCommandListNolock(GetThreadIndex(), QueueType::QUEUE_TYPE_ASYNC_TRANSFER);
+    cmd->BeginEvent("Buffer_block_sync");
+    for (auto& block : pendingBufferBlocks.vbo)
+    {
+        ASSERT(block.offset != 0);
+        cmd->CopyBuffer(block.gpu, block.cpu);
+        usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    }
+    pendingBufferBlocks.vbo.clear();
+
+    for (auto& block : pendingBufferBlocks.ibo)
+    {
+        ASSERT(block.offset != 0);
+        cmd->CopyBuffer(block.gpu, block.cpu);
+        usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    }
+    pendingBufferBlocks.ibo.clear();
+
+    for (auto& block : pendingBufferBlocks.ubo)
+    {
+        ASSERT(block.offset != 0);
+        cmd->CopyBuffer(block.gpu, block.cpu);
+        usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    }
+    pendingBufferBlocks.ubo.clear();
+
+    cmd->EndEvent();
+
+    if (usage != 0)
+        SubmitStaging(cmd, usage, false);
 }
 
 void TransientAttachmentAllcoator::BeginFrame()

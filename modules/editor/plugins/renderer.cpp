@@ -92,7 +92,6 @@ namespace Editor
 			testResFactory.Uninitialize();
 		}
 
-		TestResource* test = nullptr;
 		void Initialize() override
 		{
 			ResourceManager& resManager = app.GetEngine().GetResourceManager();
@@ -100,8 +99,6 @@ namespace Editor
 
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.AddPlugin(testPlugin, "txt");
-
-			test = resManager.LoadResource<TestResource>(Path("aa.txt"));
 		}
 
 		const char* GetName()const override

@@ -28,8 +28,25 @@ namespace Editor
         void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override
         {
             // RenderPath3D::Compose(renderGraph, cmd);
-            // ImGuiRenderer::Render(cmd);
+            ImGuiRenderer::Render(cmd);
         }
+
+        void Render() override
+        {
+            auto device = wsi->GetDevice();
+
+            GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+            cmd->BeginEvent("TriangleTest");
+            GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
+            cmd->BeginRenderPass(rp);
+            {
+                ImGuiRenderer::Render(cmd.get());
+            }
+            cmd->EndRenderPass();
+            cmd->EndEvent();
+
+            device->Submit(cmd);
+        };
     };
 
     class EditorAppImpl final : public EditorApp
@@ -71,6 +88,14 @@ namespace Editor
 
         void Initialize() override
         {
+            // Init platform
+            bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
+            ASSERT(ret);
+
+            // Init wsi
+            ret = wsi.Initialize(Platform::GetCPUsCount() + 1);
+            ASSERT(ret);
+
             // Add main window
             windows.push_back(platform->GetWindow());
 
@@ -132,6 +157,10 @@ namespace Editor
 
             // Reset engine
             engine.Reset();
+
+            // Uninit platform
+            wsi.Uninitialize();
+            platform.reset();
         }
 
         void OnEvent(const Platform::WindowEvent& ent) override
@@ -465,8 +494,7 @@ namespace Editor
 
     EditorApp* EditorApp::Create()
     {
-		// return CJING_NEW(EditorAppImpl)();
-        return new EditorAppImpl();
+		return CJING_NEW(EditorAppImpl)();
     }
     
     void EditorApp::Destroy(EditorApp* app)

@@ -278,7 +278,7 @@ public:
     void RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
     void RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestUniformBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
-    void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle);
+    void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>& pending);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
     InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
@@ -348,6 +348,8 @@ public:
     
     CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
 
+    static bool InitRenderdocCapture();
+
 private:
 #ifdef VULKAN_TEST_FILESYSTEM
     void InitShaderManagerCache();
@@ -358,7 +360,6 @@ private:
 
     void AddFrameCounter();
     void DecrementFrameCounter();
-    void SyncBufferBlocks();
 
     // stock samplers
     void InitStockSamplers();
@@ -373,6 +374,16 @@ private:
     DescriptorSetAllocator* bindlessStorageImages = nullptr;
     DescriptorSetAllocator* bindlessSamplers = nullptr;
 
+    // copy from CPU to GPU before submitting graphics or compute work.
+    struct
+    {
+        std::vector<BufferBlock> vbo;
+        std::vector<BufferBlock> ibo;
+        std::vector<BufferBlock> ubo;
+    }
+    pendingBufferBlocks;
+    void SyncPendingBufferBlocks();
+
     // queue data
     struct QueueData
     {
@@ -381,6 +392,7 @@ private:
         bool needFence = false;
     };
     QueueData queueDatas[QUEUE_INDEX_COUNT];
+    std::vector<U32> queueFamilies;
 
     // submit methods
     struct InternalFence

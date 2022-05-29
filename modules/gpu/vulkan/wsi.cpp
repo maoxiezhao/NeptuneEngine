@@ -241,7 +241,7 @@ bool WSI::InitSwapchain(U32 width, U32 height)
         {
             // Happendd when window is minimized
             Logger::Warning("WSI blocking because of minimization.");
-            platform->BlockWSI(*this);
+            // platform->BlockWSI(*this);
             Logger::Warning("WSI woke up!");
         }
         else if (err == SwapchainError::Error)

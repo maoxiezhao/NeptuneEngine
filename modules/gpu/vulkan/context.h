@@ -13,10 +13,11 @@ namespace GPU
 struct DeviceFeatures
 {
     bool supportDebugUtils = false;
-    bool supportsVulkan12Instance = false;
-    bool supportsVulkan12Device = false;
     bool supportsPhysicalDeviceProperties2 = false;
     bool supportsSurfaceCapabilities2 = false;
+    bool supportDevieDiagnosticCheckpoints = false;
+    bool supportsDepthClip = false;
+    bool supportConditionRendering = false;
 
     VkPhysicalDeviceFeatures2 features2 = {};
     VkPhysicalDeviceVulkan11Features features_1_1 = {};
@@ -24,6 +25,8 @@ struct DeviceFeatures
     VkPhysicalDeviceProperties2 properties2 = {};
     VkPhysicalDeviceVulkan11Properties properties_1_1 = {};
     VkPhysicalDeviceVulkan12Properties properties_1_2 = {};
+    VkPhysicalDeviceDepthClipEnableFeaturesEXT depth_clip_enable_features = {};
+    VkPhysicalDeviceConditionalRenderingFeaturesEXT conditional_rendering_features = {};
 };
 
 struct QueueInfo
@@ -82,7 +85,7 @@ public:
 
 private:
     bool CreateInstance(std::vector<const char*> instanceExt);
-    bool CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<const char*> deviceExt, std::vector<const char*> deviceLayers);
+    bool CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<const char*> deviceExt);
 
     VkApplicationInfo GetApplicationInfo();
     
@@ -98,14 +101,12 @@ private:
 private:
     friend class DeviceVulkan;
 
-    // base info
     uint32_t width = 0;
     uint32_t height = 0;
     bool debugLayer = false;
     SystemHandles handles;
     U32 numThreads = 1;
 
-    // core 
     VkDevice device;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkInstance instance;
@@ -113,12 +114,9 @@ private:
     VkPhysicalDeviceProperties physicalDevcieProps = {};
     VkPhysicalDeviceMemoryProperties physicalDeviceMemProps = {};
 
-    // features
     DeviceFeatures ext = {};
 
-    // queue
-    std::vector<VkQueueFamilyProperties> queueFamilyProps;
-    std::vector<VkQueueFamilyProperties2> queueFamilyProps2;
+    std::vector<VkQueueFamilyProperties> queueFamilies;
     QueueInfo queueInfo = {};
 };
 

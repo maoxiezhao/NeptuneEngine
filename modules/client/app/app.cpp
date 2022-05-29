@@ -30,6 +30,8 @@ App::App()
 
     Platform::Initialize();
     Platform::LogPlatformInfo();
+
+    GPU::DeviceVulkan::InitRenderdocCapture();
 }
 
 App::~App()
@@ -52,13 +54,13 @@ void App::Run(std::unique_ptr<WSIPlatform> platform_)
     }
     data = { this, &semaphore };
 
-    Jobsystem::Run(&data, [](void* ptr) {
-        Data* data = static_cast<Data*>(ptr);
-        App* app = data->app;
-
+    Jobsystem::Run(&data, [](void* ptr) 
+    {
         Profiler::SetThreadName("AsyncMainThread");
         Platform::SetCurrentThreadIndex(0);
 
+        Data* data = static_cast<Data*>(ptr);
+        App* app = data->app;
         app->Initialize();
 
         while (app->Poll())

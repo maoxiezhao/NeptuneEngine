@@ -48,34 +48,34 @@ namespace VulkanTest
             App::Initialize();
             renderer->ActivePath(&testRenderer);
         
-            //RenderScene* scene = Renderer::GetScene();
-            //ECS::EntityID entity = scene->CreateMesh("Test");
-            //meshComp = scene->GetComponent<MeshComponent>(entity);
+            RenderScene* scene = Renderer::GetScene();
+            ECS::EntityID entity = scene->CreateMesh("Test");
+            meshComp = scene->GetComponent<MeshComponent>(entity);
 
-            //meshComp->vertexPos.resize(4);
-            //memcpy(meshComp->vertexPos.data(), vertices, sizeof(F32x3) * 4);
+            meshComp->vertexPos.resize(4);
+            memcpy(meshComp->vertexPos.data(), vertices, sizeof(F32x3) * 4);
 
-            //meshComp->indices.resize(6);
-            //memcpy(meshComp->indices.data(), indices, sizeof(U32) * 6);
+            meshComp->indices.resize(6);
+            memcpy(meshComp->indices.data(), indices, sizeof(U32) * 6);
 
-            //meshComp->subsets.resize(2);
-            //meshComp->subsets[0].indexCount = 3;
-            //meshComp->subsets[0].indexOffset = 0;
-            //meshComp->subsets[1].indexCount = 3;
-            //meshComp->subsets[1].indexOffset = 3;
+            meshComp->subsets.resize(2);
+            meshComp->subsets[0].indexCount = 3;
+            meshComp->subsets[0].indexOffset = 0;
+            meshComp->subsets[1].indexCount = 3;
+            meshComp->subsets[1].indexOffset = 3;
 
-            //meshComp->SetupRenderData();
+            meshComp->SetupRenderData();
 
-            //scene->GetMainCamera()->eye = F32x3(1.0f, 0.0f, 1.5f);
+            scene->GetMainCamera()->eye = F32x3(1.0f, 0.0f, 1.5f);
         }
 
         void Uninitialize() override
         {
-            //if (meshComp != nullptr)
-            //{
-            //    meshComp->vboPos.reset();
-            //    meshComp->ibo.reset();
-            //}
+            if (meshComp != nullptr)
+            {
+                meshComp->vboPos.reset();
+                meshComp->ibo.reset();
+            }
 
             App::Uninitialize();
         }
@@ -89,7 +89,7 @@ namespace VulkanTest
     {
         try
         {
-            App* app = CJING_NEW(TestApp); // Editor::EditorApp::Create();
+            App* app = Editor::EditorApp::Create();
             return app;
         }
         catch (const std::exception& e)
