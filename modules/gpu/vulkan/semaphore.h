@@ -18,6 +18,7 @@ class Semaphore : public IntrusivePtrEnabled<Semaphore, SemaphoreDeleter>, publi
 {
 public:
     Semaphore(DeviceVulkan& device_, VkSemaphore semaphore_ = VK_NULL_HANDLE, bool isSignalled_ = true);
+    Semaphore(DeviceVulkan& device_, U64 timeline_, VkSemaphore semaphore_);
     ~Semaphore();
 
     const VkSemaphore& GetSemaphore()const

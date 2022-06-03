@@ -210,6 +210,9 @@ CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueTy
 
 CommandList::~CommandList()
 {
+    ASSERT(vboBlock.mapped == nullptr);
+    ASSERT(iboBlock.mapped == nullptr);
+    ASSERT(uboBlock.mapped == nullptr);
 }
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents)

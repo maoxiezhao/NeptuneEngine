@@ -6,10 +6,10 @@ namespace VulkanTest
 namespace GPU
 {
 
-FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass, const RenderPassInfo& info) :
+FrameBuffer::FrameBuffer(DeviceVulkan& device_, RenderPass& renderPass_, const RenderPassInfo& info) :
 	GraphicsCookie(device_),
 	device(device_),
-	renderPass(renderPass)
+	renderPass(renderPass_)
 {
 	VkImageView imageViews[VULKAN_NUM_ATTACHMENTS + 1];
 	uint32_t numImageViews = 0;
@@ -54,6 +54,5 @@ FrameBuffer::~FrameBuffer()
 			device.ReleaseFrameBuffer(frameBuffer);
 	}
 }
-
 }
 }

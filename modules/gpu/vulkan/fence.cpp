@@ -8,24 +8,54 @@ namespace GPU
 
 Fence::Fence(DeviceVulkan& device_, VkFence fence) :
 	device(device_),
-	fence(fence)
+	fence(fence),
+	timeline(0),
+	timelineSemaphore(VK_NULL_HANDLE)
 {
+}
+
+Fence::Fence(DeviceVulkan& device_, U64 timeline_, VkSemaphore timelineSemaphore_) :
+	device(device_),
+	fence(VK_NULL_HANDLE),
+	timeline(timeline_),
+	timelineSemaphore(timelineSemaphore_)
+{
+	ASSERT(timeline > 0);
 }
 
 Fence::~Fence()
 {
 	if (fence != VK_NULL_HANDLE)
-		device.ReleaseFence(fence, isWait);
+		device.ReleaseFence(fence, isWaiting);
 }
 
 void Fence::Wait()
 {
-	if (isWait)
+	std::lock_guard<std::mutex> holder{ lock };
+
+	if (isWaiting)
 		return;
 
-	VkResult res = vkWaitForFences(device.device, 1, &fence, VK_TRUE, UINT64_MAX);
-	assert(res == VK_SUCCESS);
-	isWait = true;
+	if (timeline != 0)
+	{
+		ASSERT(timelineSemaphore);
+		VkSemaphoreWaitInfo info = { VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO };
+		info.semaphoreCount = 1;
+		info.pSemaphores = &timelineSemaphore;
+		info.pValues = &timeline;
+	
+		if (vkWaitSemaphores(device.device, &info, UINT64_MAX) != VK_SUCCESS)
+			Logger::Error("Failed to wait for timeline semaphore!");
+		else
+			isWaiting = true;
+	}
+	else
+	{
+		if (vkWaitForFences(device.device, 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS)
+			Logger::Error("Failed to wait for fence!");
+		else
+			isWaiting = true;
+	}
 }
 
 void FenceDeleter::operator()(Fence* fence)

@@ -176,9 +176,12 @@ bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
     };
 
     VkValidationFeaturesEXT validationFeatures = { VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
-    if (debugLayer && HasLayer("VK_LAYER_KHRONOS_validation"))
+    if (debugLayer)
     {
-        instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+        if (HasLayer("VK_LAYER_KHRONOS_validation"))
+            instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+        else if (HasLayer("VK_LAYER_LUNARG_standard_validation"))
+            instanceLayers.push_back("VK_LAYER_LUNARG_standard_validation");
     }
 
 #endif

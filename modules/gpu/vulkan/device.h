@@ -46,6 +46,9 @@ struct WaitSemaphores
 {
     std::vector<VkSemaphore> binaryWaits;
     std::vector<VkPipelineStageFlags> binaryWaitStages;
+    std::vector<VkSemaphore> timelineWaits;
+    std::vector<VkPipelineStageFlags> timelineWaitStages;
+    std::vector<U64> timelineWaitCounts;
 };
 
 struct BatchComposer
@@ -53,25 +56,30 @@ struct BatchComposer
 public:
     BatchComposer();
 
-    static const uint32_t MAX_SUBMIT_COUNT = 8;
+    static const uint32_t MAX_SUBMISSIONS = 8;
     uint32_t submitIndex = 0;
     struct SubmitInfo
     {
         std::vector<VkPipelineStageFlags> waitStages;
+        std::vector<uint64_t> waitCounts;
         std::vector<VkSemaphore> waitSemaphores;
+        std::vector<uint64_t> signalCounts;
         std::vector<VkSemaphore> signalSemaphores;
         std::vector<VkCommandBuffer> commandLists;
     };
-    SubmitInfo submitInfos[MAX_SUBMIT_COUNT];
+    SubmitInfo submitInfos[MAX_SUBMISSIONS];
     std::vector<VkSubmitInfo> submits;
+    VkTimelineSemaphoreSubmitInfo timelineInfos[MAX_SUBMISSIONS];
 
 private:
     void BeginBatch();
 
+    bool hasTimelineSemaphoreInBatch(U32 index)const;
+
 public:
     void AddWaitSemaphores(WaitSemaphores& semaphores);
     void AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages);
-    void AddSignalSemaphore(VkSemaphore sem);
+    void AddSignalSemaphore(VkSemaphore sem, U64 timeline);
     void AddCommandBuffer(VkCommandBuffer buffer);
     std::vector<VkSubmitInfo>& Bake();
 };
@@ -170,6 +178,10 @@ public:
     {
         DeviceVulkan& device;
         std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
+
+        // timeline
+        VkSemaphore timelineSemaphores[QUEUE_INDEX_COUNT] = {};
+        uint64_t timelineFences[QUEUE_INDEX_COUNT] = {};
 
         // destroyed resoruces
         std::vector<VkImageView> destroyedImageViews;
@@ -389,15 +401,21 @@ private:
     {
         std::vector<SemaphorePtr> waitSemaphores;
         std::vector<VkPipelineStageFlags> waitStages;
+        VkSemaphore timelineSemaphore = VK_NULL_HANDLE;
+        U64 timeline = 0;
         bool needFence = false;
     };
     QueueData queueDatas[QUEUE_INDEX_COUNT];
     std::vector<U32> queueFamilies;
 
+    void InitTimelineSemaphores();
+    void DeinitTimelineSemaphores();
+
     // submit methods
     struct InternalFence
     {
-        VkFence fence = VK_NULL_HANDLE;
+        VkSemaphore timeline;
+        U64 value;
     };
     void SubmitNolock(CommandListPtr cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore);
     void SubmitQueue(QueueIndices queueIndex, InternalFence* fence = nullptr, U32 semaphoreCount = 0, SemaphorePtr* semaphores = nullptr);
@@ -406,6 +424,7 @@ private:
     void SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, bool flush);
     void LogDeviceLost();
     void CollectWaitSemaphores(QueueData& data, WaitSemaphores& waitSemaphores);
+    void EmitQueueSignals(BatchComposer& composer, VkSemaphore sem, U64 timeline, InternalFence* fence, U32 semaphoreCount, SemaphorePtr* semaphores);
 
     // internal wsi
     struct InternalWSI

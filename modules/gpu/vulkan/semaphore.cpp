@@ -11,11 +11,19 @@ void SemaphoreDeleter::operator()(Semaphore* semaphore)
 	semaphore->device.semaphorePool.free(semaphore);
 }
 
-Semaphore::Semaphore(DeviceVulkan& device_, VkSemaphore semaphore, bool isSignalled) :
+Semaphore::Semaphore(DeviceVulkan& device_, VkSemaphore semaphore_, bool isSignalled) :
 	device(device_),
-	semaphore(semaphore),
+	semaphore(semaphore_),
 	signalled(isSignalled)
 {
+}
+
+Semaphore::Semaphore(DeviceVulkan& device_, U64 timeline_, VkSemaphore semaphore_) :
+	device(device_),
+	timeline(timeline_),
+	semaphore(semaphore_)
+{
+	ASSERT(timeline > 0);
 }
 
 Semaphore::~Semaphore()
@@ -25,7 +33,7 @@ Semaphore::~Semaphore()
 
 void Semaphore::Recycle()
 {
-	if (semaphore)
+	if (semaphore && timeline == 0)
 	{
 		if (internalSync)
 		{
@@ -54,10 +62,12 @@ Semaphore& Semaphore::operator=(Semaphore&& other) noexcept
 	semaphore = other.semaphore;
 	timeline = other.timeline;
 	signalled = other.signalled;
+	timeline = other.timeline;
 
 	other.semaphore = VK_NULL_HANDLE;
 	other.timeline = 0;
 	other.signalled = false;
+	other.timeline = 0;
 
 	return *this;
 }

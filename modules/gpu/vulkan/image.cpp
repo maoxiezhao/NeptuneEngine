@@ -6,10 +6,10 @@ namespace VulkanTest
 namespace GPU
 {
 
-ImageView::ImageView(DeviceVulkan& device_, VkImageView imageView, const ImageViewCreateInfo& info) :
+ImageView::ImageView(DeviceVulkan& device_, VkImageView imageView_, const ImageViewCreateInfo& info) :
 	GraphicsCookie(device_),
 	device(device_),
-	imageView(imageView),
+	imageView(imageView_),
 	info(info)
 {
 }

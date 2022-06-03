@@ -18,6 +18,7 @@ class Fence : public IntrusivePtrEnabled<Fence, FenceDeleter>, public InternalSy
 {
 public:
     Fence(DeviceVulkan& device_, VkFence fence_);
+    Fence(DeviceVulkan& device_, U64 timeline_, VkSemaphore timelineSemaphore_);
     ~Fence();
 
     VkFence GetFence()const
@@ -34,7 +35,10 @@ private:
 
     DeviceVulkan& device;
     VkFence fence;
-    bool isWait = false;
+    VkSemaphore timelineSemaphore;
+    uint64_t timeline;
+    bool isWaiting = false;
+    std::mutex lock;
 };
 using FencePtr = IntrusivePtr<Fence>;
 
