@@ -315,6 +315,7 @@ namespace GPU
 
 	void TextureFormatLayout::SetTexture1D(VkFormat format_, U32 width_, U32 arrayLayers_, U32 mipLevels_)
 	{
+		imageType = VK_IMAGE_TYPE_1D;
 		format = format_;
 		arrayLayers = arrayLayers_;
 		mipLevels = mipLevels_;
@@ -323,6 +324,7 @@ namespace GPU
 
 	void TextureFormatLayout::SetTexture2D(VkFormat format_, U32 width_, U32 height_, U32 arrayLayers_, U32 mipLevels_)
 	{
+		imageType = VK_IMAGE_TYPE_2D;
 		format = format_;
 		arrayLayers = arrayLayers_;
 		mipLevels = mipLevels_;
@@ -331,6 +333,7 @@ namespace GPU
 
 	void TextureFormatLayout::SetTexture3D(VkFormat format_, U32 width_, U32 height_, U32 depth_, U32 arrayLayers_, U32 mipLevels_)
 	{
+		imageType = VK_IMAGE_TYPE_3D;
 		format = format_;
 		arrayLayers = arrayLayers_;
 		mipLevels = mipLevels_;
@@ -355,28 +358,33 @@ namespace GPU
 
 	void TextureFormatLayout::FillMipinfo(U32 width, U32 height, U32 depth)
 	{
-		U32 offset = 0;
 		formatInfo = GetFormatInfo(format, 0);
+		blockStride = formatInfo.blockBits >> 3;
+
+		U32 offset = 0;
 		for (U32 mip = 0; mip < mipLevels; mip++)
 		{
+			offset = (offset + 15) & ~15;
+			U32 blocksX = (width + formatInfo.blockW - 1) / formatInfo.blockW;
+			U32 blocksY = (height + formatInfo.blockH - 1) / formatInfo.blockH;
+
 			mipInfos[mip] = MipInfo();
 			mipInfos[mip].width = width;
 			mipInfos[mip].height = height;
 			mipInfos[mip].depth = depth;
-			mipInfos[mip].blockW = (width + formatInfo.blockW - 1) / formatInfo.blockW;
-			mipInfos[mip].blockH = (height + formatInfo.blockH - 1) / formatInfo.blockH;
-			mipInfos[mip].rowLength = mipInfos[mip].blockW * formatInfo.blockW;
-			mipInfos[mip].imageHeight = mipInfos[mip].blockH * formatInfo.blockH;
+			mipInfos[mip].blockW = blocksX;
+			mipInfos[mip].blockH = blocksY;
+			mipInfos[mip].rowLength = blocksX * formatInfo.blockW;
+			mipInfos[mip].imageHeight = blocksY * formatInfo.blockH;
 			mipInfos[mip].offset = offset;
 
-			offset += mipInfos[mip].blockW * mipInfos[mip].blockH * arrayLayers * depth * (formatInfo.blockBits >> 3);
+			offset += mipInfos[mip].blockW * mipInfos[mip].blockH * arrayLayers * depth * blockStride;
 
 			width = std::max((width >> 1u), 1u);
 			height = std::max((height >> 1u), 1u);
 			depth = std::max((depth >> 1u), 1u);
 		}
 		requiredSize = offset;
-		blockStride = formatInfo.blockBits >> 3;
 	}
 
 	void TextureFormatLayout::BuildBufferImageCopies(U32& num, std::array<VkBufferImageCopy, 32>& copies) const

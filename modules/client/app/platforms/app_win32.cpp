@@ -117,6 +117,19 @@ public:
         return surface;
 	}
 
+	virtual VkSurfaceKHR CreateSurface(VkInstance instance, Platform::WindowType window) override
+	{
+		VkSurfaceKHR surface = VK_NULL_HANDLE;
+		VkWin32SurfaceCreateInfoKHR createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		createInfo.hwnd = window;
+		createInfo.hinstance = GetModuleHandle(nullptr);
+
+		VkResult res = vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface);
+		assert(res == VK_SUCCESS);
+		return surface;
+	}
+
 	void NotifyResize(U32 width_, U32 height_)
 	{
 		if (width_ == width && height_ == height)

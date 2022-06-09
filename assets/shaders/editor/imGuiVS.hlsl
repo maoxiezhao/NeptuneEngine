@@ -14,15 +14,14 @@ struct VertexOutput
 
 cbuffer vertexBuffer : register(b0) 
 {
-	float4x4 ProjectionMatrix; 
+	float4x2 ProjectionMatrix; 
 };
 
 [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0))")]
 VertexOutput main(VertexInput input)
 {
 	VertexOutput output;
-	output.pos = mul(ProjectionMatrix, float4(input.pos.xy, 0.f, 1.f));
-	output.pos.y *= -1.0f;
+	output.pos = float4(mul(float4(input.pos.xy, 1.f, 1.f), ProjectionMatrix), 0.0f, 1.0f);
 	output.uv = input.uv;
 	output.col = input.col; 
 	return output;

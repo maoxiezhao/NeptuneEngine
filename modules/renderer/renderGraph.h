@@ -18,7 +18,9 @@ struct VULKAN_TEST_API RenderPassJob
     virtual bool GetClearDepthStencil(VkClearDepthStencilValue* value) const;
     virtual bool GetClearColor(unsigned attachment, VkClearColorValue* value) const;
 
-    virtual void EnqueuePrepare();
+    virtual void Setup(GPU::DeviceVulkan& device);
+    virtual void SetupDependencies(RenderGraph& graph);
+    virtual void EnqueuePrepare(RenderGraph& graph);
     virtual void BuildRenderPass(GPU::CommandList& cmd);
 };
 
@@ -294,6 +296,11 @@ public:
     {
         if (buildRenderPassCallback != nullptr)
             return buildRenderPassCallback(cmd);
+    }
+
+    bool NeedRenderPass() const
+    {
+        return true;
     }
     
     RenderTextureResource& ReadTexture(const char* name, VkPipelineStageFlags stages = 0);

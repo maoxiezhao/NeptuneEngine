@@ -144,18 +144,23 @@ VkAccessFlags Image::ConvertLayoutToPossibleAccess(VkImageLayout layout)
 	}
 }
 
-Image::Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const DeviceAllocation& allocation_, const ImageCreateInfo& info):
+Image::Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const DeviceAllocation& allocation_, const ImageCreateInfo& info_, VkImageViewType viewType_):
 	GraphicsCookie(device_),
 	device(device_),
 	image(image_),
 	allocation(allocation_),
-	imageInfo(info)
+	imageInfo(info_)
 {
 	if (imageView_ != VK_NULL_HANDLE)
 	{
 		ImageViewCreateInfo imageViewInfo = {};
 		imageViewInfo.image = this;
-		imageViewInfo.format = info.format;
+		imageViewInfo.viewType = viewType_;
+		imageViewInfo.format = info_.format;
+		imageViewInfo.baseLevel = 0;
+		imageViewInfo.levels = info_.levels;
+		imageViewInfo.baseLayer = 0;
+		imageViewInfo.layers = info_.layers;
 		imageView = ImageViewPtr(device.imageViewPool.allocate(device_, imageView_, imageViewInfo));
 	}
 }
@@ -164,14 +169,14 @@ Image::~Image()
 {
 	if (internalSync)
 	{
-		if (isOwnsImge)
+		if (isOwnsImage)
 			device.ReleaseImageNolock(image);
 		if (isOwnsMemory)
 			device.FreeMemoryNolock(allocation);
 	}
 	else
 	{
-		if (isOwnsImge)
+		if (isOwnsImage)
 			device.ReleaseImage(image);
 		if (isOwnsMemory)
 			device.FreeMemory(allocation);

@@ -152,11 +152,11 @@ CommandPool& CommandPool::operator=(CommandPool&& other) noexcept
 
         pool = VK_NULL_HANDLE;
         buffers.clear();
-        usedIndex = 0;
+        usedIndex = other.usedIndex;
+        other.usedIndex = 0;
 
         std::swap(pool, other.pool);
         std::swap(buffers, other.buffers);
-        std::swap(usedIndex, other.usedIndex);
     }
 
     return *this;
@@ -164,10 +164,9 @@ CommandPool& CommandPool::operator=(CommandPool&& other) noexcept
 
 VkCommandBuffer CommandPool::RequestCommandBuffer()
 {
+    ASSERT(pool != VK_NULL_HANDLE);
     if (usedIndex < buffers.size())
-    {
         return buffers[usedIndex++];
-    }
 
     VkCommandBuffer cmd;
     VkCommandBufferAllocateInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
@@ -774,9 +773,9 @@ void CommandList::Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess
     vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 }
 
-void CommandList::Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers)
+void CommandList::Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned bufferBarrierCount, const VkBufferMemoryBarrier* bufferBarriers, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers)
 {
-    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, imageBarrierCount, imageBarriers);
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, bufferBarrierCount, bufferBarriers, imageBarrierCount, imageBarriers);
 }
 
 void CommandList::CompleteEvent(const Event& ent)
@@ -835,6 +834,7 @@ void CommandList::EndCommandBufferForThread()
 {
     if (isEnded)
         return;
+
     isEnded = true;
 
     // Must end a cmd on a same thread we requested it on

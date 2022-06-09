@@ -120,7 +120,7 @@ namespace
         VkImageView stencilView = VK_NULL_HANDLE;
         std::vector<VkImageView> rtViews;
         VkImageViewCreateInfo defaultViewCreateInfo = {};
-        bool imageOwned = false;
+        bool imageOwned = true;
 
     public:
         explicit ImageResourceCreator(DeviceVulkan& device_) :
@@ -130,9 +130,29 @@ namespace
 
         explicit ImageResourceCreator(DeviceVulkan& device_, VkImage image_) :
             device(device_),
-            image(image_),
-            imageOwned(false)
+            image(image_)
         {
+        }
+
+        ~ImageResourceCreator()
+        {
+            if (imageOwned)
+                Cleanup();
+        }
+
+        void Cleanup()
+        {
+            if (imageView)
+                vkDestroyImageView(device.device, imageView, nullptr);
+            if (depthView)
+                vkDestroyImageView(device.device, depthView, nullptr);
+            if (stencilView)
+                vkDestroyImageView(device.device, stencilView, nullptr);
+            for (auto& view : rtViews)
+                vkDestroyImageView(device.device, view, nullptr);
+
+            if (image != VK_NULL_HANDLE)
+                vkDestroyImage(device.device, image, nullptr);
         }
 
         bool CreateDefaultView(const VkImageViewCreateInfo& viewInfo)
@@ -161,12 +181,14 @@ namespace
 
         bool CreateRenderTargetView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
         {
-            if (viewInfo.subresourceRange.layerCount > 0 && createInfo.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT))
+            if ((viewInfo.subresourceRange.layerCount > 1 || viewInfo.subresourceRange.levelCount > 1) &&
+                createInfo.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT))
             {
                 rtViews.reserve(viewInfo.subresourceRange.layerCount);
 
                 VkImageViewCreateInfo tempInfo = viewInfo;
                 tempInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+                tempInfo.subresourceRange.baseMipLevel = viewInfo.subresourceRange.baseMipLevel;
 
                 for (U32 layer = 0; layer < tempInfo.subresourceRange.layerCount; layer++)
                 {
@@ -204,17 +226,17 @@ namespace
 
         bool CreateDefaultViews(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo* viewInfo)
         {
-            U32 checkUsage = 
-                VK_IMAGE_USAGE_SAMPLED_BIT | 
-                VK_IMAGE_USAGE_STORAGE_BIT | 
+            if ((createInfo.usage & 
+                (VK_IMAGE_USAGE_SAMPLED_BIT |
+                VK_IMAGE_USAGE_STORAGE_BIT |
                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | 
-                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-            if ((createInfo.usage & checkUsage) == 0)
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) == 0)
             {
                 Logger::Error("Cannot create image view unless certain usage flags are present.\n");
                 return false;
             }
+
             if (viewInfo != nullptr)
                 defaultViewCreateInfo = *viewInfo;
             else
@@ -293,15 +315,6 @@ void DeviceVulkan::SetContext(VulkanContext& context)
         }
     }
 
-    // Create frame resources
-    InitFrameContext();
-
-    // Init buffer pools
-    vboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
-    iboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 256);
-    uboPool.Init(this, 256 * 1024, 16, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
-    uboPool.SetSpillSize(VULKAN_MAX_UBO_SIZE);
-
     // Init bindless descriptor set allocator
     InitBindless();
 
@@ -310,6 +323,15 @@ void DeviceVulkan::SetContext(VulkanContext& context)
 
     // Init stock buffers
     InitStockSamplers();
+
+    // Create frame resources
+    InitFrameContext(2);
+
+    // Init buffer pools
+    vboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
+    iboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 256);
+    uboPool.Init(this, 256 * 1024, 16, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
+    uboPool.SetSpillSize(VULKAN_MAX_UBO_SIZE);
 
     // Init managers
     memory.Initialize(this);
@@ -322,21 +344,20 @@ void DeviceVulkan::SetContext(VulkanContext& context)
 #endif
 }
 
-void DeviceVulkan::InitFrameContext()
+void DeviceVulkan::InitFrameContext(U32 count)
 {
     transientAllocator.Clear();
     frameBufferAllocator.Clear();
     frameResources.clear();
 
-    const int FRAME_COUNT = 2;
-    for (int frameIndex = 0; frameIndex < FRAME_COUNT; frameIndex++)
+    for (int frameIndex = 0; frameIndex < count; frameIndex++)
     {
-        auto frameResource = std::make_unique<FrameResource>(*this);
+        auto frameResource = std::make_unique<FrameResource>(*this, frameIndex);
         frameResources.emplace_back(std::move(frameResource));
     }
 }
 
-void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, U32 width, U32 height)
+void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height)
 {
     wsi.swapchainImages.clear();
 
@@ -364,7 +385,7 @@ void DeviceVulkan::InitSwapchain(std::vector<VkImage>& images, VkFormat format, 
         VkResult res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
         assert(res == VK_SUCCESS);
 
-        ImagePtr backbuffer = ImagePtr(imagePool.allocate(*this, images[i], imageView, DeviceAllocation(), imageCreateInfo));
+        ImagePtr backbuffer = ImagePtr(imagePool.allocate(*this, images[i], imageView, DeviceAllocation(), imageCreateInfo, VK_IMAGE_VIEW_TYPE_2D));
         if (backbuffer)
         {
             backbuffer->SetInternalSyncObject();
@@ -411,6 +432,16 @@ IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex
     return cmdPtr;
 }
 
+VkFormat DeviceVulkan::GetDefaultDepthStencilFormat() const
+{
+    return VK_FORMAT_D32_SFLOAT_S8_UINT;
+}
+
+VkFormat DeviceVulkan::GetDefaultDepthFormat() const
+{
+    return VK_FORMAT_D32_SFLOAT;
+}
+
 ImageView& DeviceVulkan::GetSwapchainView()
 {
     assert(wsi.swapchainImages.size() > 0);
@@ -425,10 +456,24 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(SwapchainRenderPassType 
     info.clearAttachments = ~0u;
     info.storeAttachments = 1u << 0;
 
+    ImagePtr swapchain = wsi.swapchainImages[wsi.index];
     if (swapchainRenderPassType == SwapchainRenderPassType::Depth)
     {
         info.opFlags |= RENDER_PASS_OP_CLEAR_DEPTH_STENCIL_BIT;
-        info.depthStencil;
+        auto att = RequestTransientAttachment(
+            swapchain->GetCreateInfo().width,
+            swapchain->GetCreateInfo().height,
+            GetDefaultDepthFormat());
+        info.depthStencil = &att->GetImageView();
+    }
+    else if (swapchainRenderPassType == SwapchainRenderPassType::DepthStencil)
+    {
+        info.opFlags |= RENDER_PASS_OP_CLEAR_DEPTH_STENCIL_BIT;
+        auto att = RequestTransientAttachment(
+            swapchain->GetCreateInfo().width,
+            swapchain->GetCreateInfo().height,
+            GetDefaultDepthStencilFormat());
+        info.depthStencil = &att->GetImageView();
     }
 
     return info;
@@ -829,7 +874,7 @@ InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo&
 {
     // Setup texture format layout
     TextureFormatLayout layout;
-    U32 copyLevels = 1;
+    U32 copyLevels = createInfo.levels;
     switch (createInfo.type)
     {
     case VK_IMAGE_TYPE_1D:
@@ -846,11 +891,12 @@ InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo&
     }
 
     // Create staging buffer
-    InitialImageBuffer imageBuffer = {};
     BufferCreateInfo bufferCreateInfo = {};
     bufferCreateInfo.domain = BufferDomain::Host;
     bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufferCreateInfo.size = layout.GetRequiredSize();
+
+    InitialImageBuffer imageBuffer = {};
     imageBuffer.buffer = CreateBuffer(bufferCreateInfo, nullptr);
     if (!imageBuffer.buffer)
         return InitialImageBuffer();
@@ -909,12 +955,6 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.flags = createInfo.flags;
 
-    if (createInfo.domain == ImageDomain::Transient)
-        info.usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
-
-    if (stagingBuffer != nullptr)
-        info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
     if (createInfo.domain == ImageDomain::LinearHostCached || createInfo.domain == ImageDomain::LinearHost)
     {
         info.tiling = VK_IMAGE_TILING_LINEAR;
@@ -926,19 +966,11 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
-    if (info.tiling == VK_IMAGE_TILING_LINEAR)
-    {
-        if (stagingBuffer)
-            return ImagePtr();
-        if (info.mipLevels > 1)
-            return ImagePtr();
-        if (info.arrayLayers > 1)
-            return ImagePtr();
-        if (info.imageType != VK_IMAGE_TYPE_2D)
-            return ImagePtr();
-        if (info.samples != VK_SAMPLE_COUNT_1_BIT)
-            return ImagePtr();
-    }
+    if (createInfo.domain == ImageDomain::Transient)
+        info.usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+
+    if (stagingBuffer != nullptr)
+        info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     // Check is concurrent queue
     U32 queueFlags = createInfo.misc &
@@ -958,6 +990,21 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         info.queueFamilyIndexCount = 0;
         info.pQueueFamilyIndices = nullptr;
+    }
+
+    if (info.tiling == VK_IMAGE_TILING_LINEAR)
+    {
+        if (stagingBuffer)
+            return ImagePtr();
+
+        if (info.mipLevels > 1)
+            return ImagePtr();
+        if (info.arrayLayers > 1)
+            return ImagePtr();
+        if (info.imageType != VK_IMAGE_TYPE_2D)
+            return ImagePtr();
+        if (info.samples != VK_SAMPLE_COUNT_1_BIT)
+            return ImagePtr();
     }
 
     // Create VKImage by allocator
@@ -989,9 +1036,11 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
     }
 
     // Create image ptr
-    ImagePtr imagePtr(imagePool.allocate(*this, image, viewCreator.imageView, allocation, createInfo));
+    ImagePtr imagePtr(imagePool.allocate(*this, image, viewCreator.imageView, allocation, createInfo, viewType));
     if (!imagePtr)
         return imagePtr;
+
+    viewCreator.imageOwned = false;
 
     if (hasView)
     {
@@ -1000,7 +1049,6 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         imageView.SetRenderTargetViews(std::move(viewCreator.rtViews));
     }
 
-    imagePtr->isOwnsImge = true;
     imagePtr->stageFlags = Image::ConvertUsageToPossibleStages(createInfo.usage);
     imagePtr->accessFlags = Image::ConvertUsageToPossibleAccess(createInfo.usage);
 
@@ -1010,10 +1058,6 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
     {
         ASSERT(createInfo.domain != ImageDomain::Transient);
         ASSERT(createInfo.initialLayout != VK_IMAGE_LAYOUT_UNDEFINED);
-
-        VkAccessFlags transitionSrcAccess = 0;
-        if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] == queueInfo.queues[QUEUE_INDEX_TRANSFER])
-            transitionSrcAccess = VK_ACCESS_TRANSFER_WRITE_BIT;
 
         CommandListPtr graphicsCmd = RequestCommandList(QueueType::QUEUE_TYPE_GRAPHICS);
 
@@ -1062,11 +1106,13 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
                 transferCmd->Barrier(
                     VK_PIPELINE_STAGE_TRANSFER_BIT, 
                     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 
+                    0, nullptr,
                     1, &release);
                 
                 graphicsCmd->Barrier(
                     imagePtr->GetStageFlags(), 
                     imagePtr->GetStageFlags(), 
+                    0, nullptr,
                     1, &acquire);
             }
 
@@ -1082,7 +1128,8 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
 
         if (transitionCmd)
         {
-            Submit(transitionCmd, nullptr, 0, nullptr);
+            LOCK();
+            SubmitNolock(transitionCmd, nullptr, 0, nullptr);
             if (concurrentQueue)
                 FlushFrame(QueueIndices::QUEUE_INDEX_GRAPHICS);
         }
@@ -1126,11 +1173,16 @@ ImageViewPtr DeviceVulkan::CreateImageView(const ImageViewCreateInfo& viewInfo)
 
 BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const void* initialData)
 {
-    VkBufferCreateInfo info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    VkBufferCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     info.size = createInfo.size;
     info.usage = createInfo.usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    info.flags = 0;
+
+#ifndef DEBUG_RENDERDOC
     if (features.features_1_2.bufferDeviceAddress == VK_TRUE)
         info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+#endif
 
     if (queueFamilies.size() > 1)
     {
@@ -1990,15 +2042,17 @@ void DeviceVulkan::EmitQueueSignals(BatchComposer& composer, VkSemaphore sem, U6
     }
 }
 
-DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_) : device(device_)
+DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_, U32 frameIndex_) : 
+    device(device_),
+    frameIndex(frameIndex_)
 {
-    const int THREAD_COUNT = device.numThreads;
+    const int threadCount = device.numThreads;
     for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
     {
         timelineSemaphores[queueIndex] = device_.queueDatas[queueIndex].timelineSemaphore;
 
-        cmdPools[queueIndex].reserve(THREAD_COUNT);
-        for (int threadIndex = 0; threadIndex < THREAD_COUNT; threadIndex++)
+        cmdPools[queueIndex].reserve(threadCount);
+        for (int threadIndex = 0; threadIndex < threadCount; threadIndex++)
             cmdPools[queueIndex].emplace_back(&device_, device_.queueInfo.familyIndices[queueIndex]);
     }
 }
@@ -2251,7 +2305,8 @@ std::vector<VkSubmitInfo>& BatchComposer::Bake()
             submitCount++;
         }
     }
-    submits.resize(submitCount);
+    if (submitCount != submits.size())
+        submits.resize(submitCount);
     return submits;
 }
 

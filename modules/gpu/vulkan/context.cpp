@@ -8,13 +8,16 @@ namespace VulkanTest
 {
 namespace GPU
 {
-    VulkanContext::VulkanContext(U32 numThreads_) :
-        numThreads(numThreads_)
-    {
-    }
-
-    VulkanContext::~VulkanContext()
+VulkanContext::VulkanContext(U32 numThreads_) :
+    numThreads(numThreads_)
 {
+}
+
+VulkanContext::~VulkanContext()
+{
+    if (device != VK_NULL_HANDLE)
+        vkDeviceWaitIdle(device);
+       
 #ifdef VULKAN_DEBUG
     if (mDebugUtilsMessenger != VK_NULL_HANDLE) {
         vkDestroyDebugUtilsMessengerEXT(instance, mDebugUtilsMessenger, nullptr);
@@ -333,7 +336,7 @@ bool VulkanContext::CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<c
     for (const auto& ext : deviceExt)
         enabledExtensions.push_back(ext);
 
-    ext.features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+    ext.features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     ext.features_1_1.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
     ext.features_1_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     ext.features2.pNext = &ext.features_1_1;

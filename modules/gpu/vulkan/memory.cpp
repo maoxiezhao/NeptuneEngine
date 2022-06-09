@@ -13,24 +13,22 @@ namespace GPU
 		VmaAllocationCreateFlags GetCreateFlags(BufferDomain domain, const VkBufferCreateInfo& bufferInfo)
 		{
 			VmaAllocationCreateFlags ret = 0;
-			if (domain == BufferDomain::Device)
-				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-			else if (domain == BufferDomain::CachedHost)
+			if (domain == BufferDomain::CachedHost)
 				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-			if (bufferInfo.usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			else if (domain == BufferDomain::Host)
 				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
+			else if (domain == BufferDomain::LinkedDeviceHost)
+				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 			return ret;
 		}
 
 		VmaAllocationCreateFlags GetCreateFlags(ImageDomain domain)
 		{
 			VmaAllocationCreateFlags ret = 0;
-			if (domain == ImageDomain::LinearHost)
-				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-			else if (domain == ImageDomain::LinearHostCached)
-				ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+			//if (domain == ImageDomain::LinearHost)
+			//	ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+			//else if (domain == ImageDomain::LinearHostCached)
+			//	ret |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 			return ret;
 		}
 	}
@@ -110,17 +108,22 @@ namespace GPU
 		allocatorInfo.device = device->device;
 		allocatorInfo.instance = device->instance;
 
-		// 1.1
-		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT | VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+		// Core in 1.1
+		allocatorInfo.flags =
+			VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT |
+			VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
 		vmaVulkanFunc.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2;
 		vmaVulkanFunc.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2;
 
+#ifndef DEBUG_RENDERDOC
 		if (device->features.features_1_2.bufferDeviceAddress)
 		{
 			allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 			vmaVulkanFunc.vkBindBufferMemory2KHR = vkBindBufferMemory2;
 			vmaVulkanFunc.vkBindImageMemory2KHR = vkBindImageMemory2;
 		}
+#endif
+
 		allocatorInfo.pVulkanFunctions = &vmaVulkanFunc;
 
 		if (vmaCreateAllocator(&allocatorInfo, &allocator) != VK_SUCCESS)
@@ -134,7 +137,7 @@ namespace GPU
 	{
 		VmaAllocationInfo allocInfo;
 		VmaAllocationCreateInfo createInfo = {};
-		createInfo.usage = VMA_MEMORY_USAGE_AUTO; // GetMemoryUsage(domain);
+		createInfo.usage = VMA_MEMORY_USAGE_AUTO;
 		createInfo.flags = GetCreateFlags(domain, bufferInfo);
 		bool ret = vmaCreateBuffer(allocator, &bufferInfo, &createInfo, &buffer, &allocation->allocation, &allocInfo) == VK_SUCCESS;
 		if (ret == true)

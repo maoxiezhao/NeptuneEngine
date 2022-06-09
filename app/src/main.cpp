@@ -25,6 +25,25 @@ namespace VulkanTest
             // Renderer::BindCameraCB(*camera, *cmd);
             // Renderer::DrawScene(*cmd, visibility);
         }
+
+        void Render() override
+        {
+            auto device = wsi->GetDevice();
+
+            GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+            cmd->BeginEvent("TriangleTest");
+            GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
+            cmd->BeginRenderPass(rp);
+            {
+                cmd->SetDefaultOpaqueState();
+                cmd->SetProgram("screenVS.hlsl", "screenPS.hlsl");
+                cmd->Draw(3);
+            }
+            cmd->EndRenderPass();
+            cmd->EndEvent();
+
+            device->Submit(cmd);
+        };
     };
 
     class TestApp final : public App
@@ -48,7 +67,7 @@ namespace VulkanTest
             App::Initialize();
             renderer->ActivePath(&testRenderer);
         
-            RenderScene* scene = Renderer::GetScene();
+         /*   RenderScene* scene = Renderer::GetScene();
             ECS::EntityID entity = scene->CreateMesh("Test");
             meshComp = scene->GetComponent<MeshComponent>(entity);
 
@@ -66,7 +85,7 @@ namespace VulkanTest
 
             meshComp->SetupRenderData();
 
-            scene->GetMainCamera()->eye = F32x3(1.0f, 0.0f, 1.5f);
+            scene->GetMainCamera()->eye = F32x3(1.0f, 0.0f, 1.5f);*/
         }
 
         void Uninitialize() override
@@ -82,11 +101,13 @@ namespace VulkanTest
 
     private:
         TestRenderer testRenderer;
-        MeshComponent* meshComp;
+        MeshComponent* meshComp = nullptr;
     };
 
     App* CreateApplication(int, char**)
     {
+        GPU::DeviceVulkan::InitRenderdocCapture();
+
         try
         {
             App* app = Editor::EditorApp::Create();

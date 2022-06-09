@@ -248,9 +248,10 @@ namespace Jobsystem
         }
 
         // Set the current fiber as the next waitor of the pending handle
-        WorkerFiber* currentFiber = GetWorker()->currentFiber;
+        WorkerFiber* thisFiber = GetWorker()->currentFiber;
+
         JobWaitor waitor = {};
-        waitor.fiber = currentFiber;
+        waitor.fiber = thisFiber;
         waitor.next = handle->waitor;
         handle->waitor = &waitor;
             
@@ -261,8 +262,8 @@ namespace Jobsystem
             newFiber->handle = Fiber::Create(64 * 1024, FiberFunc, newFiber);
 
         GetWorker()->currentFiber = newFiber;
-        Fiber::SwitchTo(currentFiber->handle, newFiber->handle);
-        GetWorker()->currentFiber = currentFiber;
+        Fiber::SwitchTo(thisFiber->handle, newFiber->handle);
+        GetWorker()->currentFiber = thisFiber;
         gManager->sync.Unlock();
     }
 

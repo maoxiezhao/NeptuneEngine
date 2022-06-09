@@ -229,7 +229,7 @@ namespace GPU
     {
         Device,             // Device local. Probably not visible from CPU.
         LinkedDeviceHost,   // On desktop, directly mapped VRAM over PCI.
-        Host,               // Host-only, needs to be synced to GPU. Might be device local as well on iGPUs.
+        Host,               // Host-only, needs to be synced to GPU. Might be device local as well on iGPUs. Like staging buffer.
         CachedHost,
     };
 

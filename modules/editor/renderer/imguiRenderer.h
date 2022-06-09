@@ -12,6 +12,6 @@ namespace ImGuiRenderer
 	void Uninitialize();
 	void BeginFrame();
 	void EndFrame();
-	void Render(GPU::CommandList* cmd);
+	void Render();
 }
 }

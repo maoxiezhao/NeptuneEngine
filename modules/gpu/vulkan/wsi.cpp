@@ -1,30 +1,7 @@
 ﻿#include "wsi.h"
-#include "gpu\vulkan\device.h"
-#include "gpu\vulkan\context.h"
 
 namespace VulkanTest
 {
-namespace {
-#ifdef DEBUG
-    static bool debugLayer = true;
-#else
-    static bool debugLayer = false;
-#endif
-
-    GPU::VulkanContext* vulkanContext = nullptr;
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    GPU::DeviceVulkan* deviceVulkan = nullptr;
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    std::vector<VkImage> swapchianImages;
-    U32 swapchainWidth = 0;
-    U32 swapchainHeight = 0;
-    VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
-    U32 swapchainImageIndex = 0;
-    bool swapchainIndexHasAcquired = false;
-    bool isSwapchinSuboptimal = false;
-
-    std::vector<GPU::SemaphorePtr> releaseSemaphores;
-}
 
 WSI::WSI()
 {
@@ -46,12 +23,12 @@ bool WSI::Initialize(U32 numThread)
     auto instanceExt = platform->GetRequiredExtensions(true);
     auto deviceExt = platform->GetRequiredDeviceExtensions();
 
-    vulkanContext = new GPU::VulkanContext(numThread);
+    vulkanContext = CJING_NEW(GPU::VulkanContext)(numThread);
     if (!vulkanContext->Initialize(instanceExt, deviceExt, true))
         return false;
 
     // init gpu
-    deviceVulkan = new GPU::DeviceVulkan();
+    deviceVulkan = CJING_NEW(GPU::DeviceVulkan);
     deviceVulkan->SetContext(*vulkanContext);
 
     // init surface
@@ -84,19 +61,67 @@ bool WSI::Initialize(U32 numThread)
         return false;
     }
     deviceVulkan->InitSwapchain(swapchianImages, swapchainFormat, swapchainWidth, swapchainHeight);
+
+    isExternal = false;
 	return true;
+}
+
+bool WSI::InitializeExternal(VkSurfaceKHR surface_, GPU::DeviceVulkan& device_, GPU::VulkanContext& context_, I32 width, I32 height)
+{
+    ASSERT(platform == nullptr);
+
+    vulkanContext = &context_;
+    deviceVulkan = &device_;
+    surface = surface_;
+
+    if (surface == VK_NULL_HANDLE)
+        return false;
+
+    // need to check which queue family support surface
+    VkBool32 supported = VK_FALSE;
+    U32 queuePresentSupport = 0;
+    for (U32 familyIndex : vulkanContext->GetQueueInfo().familyIndices)
+    {
+        if (familyIndex != VK_QUEUE_FAMILY_IGNORED)
+        {
+            auto ret = vkGetPhysicalDeviceSurfaceSupportKHR(vulkanContext->GetPhysicalDevice(), familyIndex, surface, &supported);
+            if (ret == VK_SUCCESS && supported)
+            {
+                queuePresentSupport |= 1u << familyIndex;
+            }
+        }
+    }
+
+    if (!(queuePresentSupport & (1 << vulkanContext->GetQueueInfo().familyIndices[(U32)GPU::QUEUE_INDEX_GRAPHICS])))
+        return false;
+
+    // init swapchian
+    if (!InitSwapchain(width, height))
+    {
+        Logger::Error("Failed to init swapchian.");
+        return false;
+    }
+    deviceVulkan->InitSwapchain(swapchianImages, swapchainFormat, swapchainWidth, swapchainHeight);
+
+    isExternal = true;
+    return false;
 }
 
 void WSI::Uninitialize()
 {
     if (vulkanContext != nullptr)
+    {
         TeardownSwapchain();
 
-    if (surface != VK_NULL_HANDLE)
-        vkDestroySurfaceKHR(vulkanContext->GetInstance(), surface, nullptr);
+        if (surface != VK_NULL_HANDLE)
+            vkDestroySurfaceKHR(vulkanContext->GetInstance(), surface, nullptr);
+    }
 
-    delete deviceVulkan;
-    delete vulkanContext;
+    if (!isExternal)
+    {
+        CJING_SAFE_DELETE(deviceVulkan);
+        CJING_SAFE_DELETE(vulkanContext);
+    }
 }
 
 void WSI::BeginFrame()
@@ -219,9 +244,19 @@ GPU::DeviceVulkan* WSI::GetDevice()
     return deviceVulkan;
 }
 
+GPU::VulkanContext* WSI::GetContext()
+{
+    return vulkanContext;
+}
+
 VkFormat WSI::GetSwapchainFormat() const
 {
     return swapchainFormat;
+}
+
+VkSurfaceKHR WSI::GetSurface()
+{
+    return surface;
 }
 
 bool WSI::InitSwapchain(U32 width, U32 height)
@@ -231,15 +266,15 @@ bool WSI::InitSwapchain(U32 width, U32 height)
     do
     {
         err = InitSwapchainImpl(width, height);
-        if (err != SwapchainError::None)
+        if (err != SwapchainError::None && platform != nullptr)
             platform->NotifySwapchainDimensions(0, 0);
 
         if (err == SwapchainError::NoSurface)
         {
             // Happendd when window is minimized
             Logger::Warning("WSI blocking because of minimization.");
-            // platform->BlockWSI(*this);
             Logger::Warning("WSI woke up!");
+            return false;
         }
         else if (err == SwapchainError::Error)
         {
@@ -267,6 +302,7 @@ WSI::SwapchainError WSI::InitSwapchainImpl(U32 width, U32 height)
     VkSurfaceCapabilitiesKHR surfaceProperties;
     VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR };
     bool useSurfaceInfo = deviceVulkan->GetFeatures().supportsSurfaceCapabilities2;
+    useSurfaceInfo = false;
     if (useSurfaceInfo)
     {
         surfaceInfo.surface = surface;
@@ -327,7 +363,7 @@ WSI::SwapchainError WSI::InitSwapchainImpl(U32 width, U32 height)
     }
 
     // find suitable surface format
-    VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_UNDEFINED };
+    surfaceFormat = { VK_FORMAT_UNDEFINED };
     VkFormatFeatureFlags features = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
     for (auto& format : formats)
     {
@@ -349,8 +385,7 @@ WSI::SwapchainError WSI::InitSwapchainImpl(U32 width, U32 height)
     }
 
     // find suitable present mode
-    VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; // 交换链是个队列，显示的时候从队列头拿一个图像，程序插入渲染的图像到队列尾。
-                                                                      // 如果队列满了程序就要等待，这差不多像是垂直同步，显示刷新的时刻就是垂直空白
+    VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR; 
     bool isVsync = presentMode == PresentMode::SyncToVBlank;
     if (!isVsync)
     {
@@ -425,7 +460,7 @@ void WSI::UpdateFrameBuffer(U32 width, U32 height)
 
     DrainSwapchain();
 
-    if (InitSwapchain(platform->GetWidth(), platform->GetHeight()))
+    if (InitSwapchain(width, height))
     {
         deviceVulkan->InitSwapchain(swapchianImages, swapchainFormat, swapchainWidth, swapchainHeight);
     }

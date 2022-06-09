@@ -19,36 +19,6 @@ namespace VulkanTest
 {
 namespace Editor
 {
-    class EditorRenderer : public RenderPath3D
-    {
-        void SetupPasses(RenderGraph& renderGraph) override
-        {
-        }
-
-        void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override
-        {
-            // RenderPath3D::Compose(renderGraph, cmd);
-            ImGuiRenderer::Render(cmd);
-        }
-
-        void Render() override
-        {
-            auto device = wsi->GetDevice();
-
-            GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
-            cmd->BeginEvent("TriangleTest");
-            GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
-            cmd->BeginRenderPass(rp);
-            {
-                ImGuiRenderer::Render(cmd.get());
-            }
-            cmd->EndRenderPass();
-            cmd->EndEvent();
-
-            device->Submit(cmd);
-        };
-    };
-
     class EditorAppImpl final : public EditorApp
     {
     public:
@@ -113,7 +83,6 @@ namespace Editor
 
             // Init imgui renderer
             ImGuiRenderer::Initialize(*this);
-            renderer->ActivePath(&editorRenderer);
 
             // Init actions
             InitActions();
@@ -294,6 +263,11 @@ namespace Editor
             ImGuiRenderer::EndFrame();
         }
 
+        void Render() override
+        {
+            ImGuiRenderer::Render();
+        }
+
     public:
         void AddPlugin(EditorPlugin& plugin) override
         {
@@ -467,7 +441,6 @@ namespace Editor
         }
 
     private:
-        EditorRenderer editorRenderer;
         Array<EditorPlugin*> plugins;
         Array<EditorWidget*> widgets;
         F32 fps = 0.0f;

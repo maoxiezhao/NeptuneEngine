@@ -8,7 +8,6 @@
 
 #include "glfw\include\GLFW\glfw3.h"
 #include "imgui-docking\imgui.h"
-// #include "imgui_impl_glfw.h"
 
 namespace VulkanTest
 {
@@ -273,14 +272,13 @@ namespace ImGuiRenderer
 		ImGui::UpdatePlatformWindows();
 	}
 
-	void Render(GPU::CommandList* cmd)
+	void RenderViewport(GPU::CommandList* cmd)
 	{
 		cmd->BeginEvent("ImGuiRender");
 		ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
 		for (ImGuiViewport* vp : platformIO.Viewports)
 		{
-			ImDrawData* draw_data = vp->DrawData;
-			ImDrawData* drawData = ImGui::GetDrawData();
+			ImDrawData* drawData = vp->DrawData;
 			if (!drawData || drawData->TotalVtxCount == 0)
 				return;
 
@@ -289,11 +287,14 @@ namespace ImGuiRenderer
 			if (fbWidth <= 0 || fbHeight <= 0)
 				return;
 
+			cmd->BeginEvent("ImGuiViewport");
+
 			// Setup vertex buffer and index buffer
 			const U64 vbSize = sizeof(ImDrawVert) * drawData->TotalVtxCount;
 			const U64 ibSize = sizeof(ImDrawIdx) * drawData->TotalIdxCount;
 			ImDrawVert* vertMem = static_cast<ImDrawVert*>(cmd->AllocateVertexBuffer(0, vbSize, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX));
 			ImDrawIdx* indexMem = static_cast<ImDrawIdx*>(cmd->AllocateIndexBuffer(ibSize, VK_INDEX_TYPE_UINT16));
+
 			for (int cmdListIdx = 0; cmdListIdx < drawData->CmdListsCount; cmdListIdx++)
 			{
 				const ImDrawList* drawList = drawData->CmdLists[cmdListIdx];
@@ -304,21 +305,18 @@ namespace ImGuiRenderer
 			}
 
 			// Setup mvp matrix
-			const F32 L = drawData->DisplayPos.x;
-			const F32 R = drawData->DisplayPos.x + drawData->DisplaySize.x;
-			const F32 T = drawData->DisplayPos.y;
-			const F32 B = drawData->DisplayPos.y + drawData->DisplaySize.y;
-
+			F32 posX = drawData->DisplayPos.x;
+			F32 posY = drawData->DisplayPos.y;
+			F32 width = drawData->DisplaySize.x;
+			F32 height = drawData->DisplaySize.y;
 			struct ImGuiConstants
 			{
-				F32  mvp[4][4];
+				F32 mvp[2][4];
 			};
-			F32 mvp[4][4] =
+			F32 mvp[2][4] =
 			{
-				{ 2.0f / (R - L),    0.0f,                 0.0f,       0.0f },
-				{ 0.0f,              2.0f / (T - B),       0.0f,       0.0f },
-				{ 0.0f,              0.0f,                 0.5f,       0.0f },
-				{ (R + L) / (L - R), (T + B) / (B - T),    0.5f,       1.0f },
+				{2.f / width, 0, -1.f - posX * 2.f / width, 0},
+				{0, 2.f / height, -1.f - posY * 2.f / height, 0}
 			};
 			ImGuiConstants* constants = cmd->AllocateConstant<ImGuiConstants>(0, 0);
 			memcpy(&constants->mvp, mvp, sizeof(mvp));
@@ -329,14 +327,14 @@ namespace ImGuiRenderer
 			cmd->SetVertexAttribute(2, 0, VK_FORMAT_R8G8B8A8_UNORM, (U32)IM_OFFSETOF(ImDrawVert, col));
 
 			// Set viewport
-			VkViewport vp = {};
-			vp.x = 0.0f;
-			vp.y = 0.0f;
-			vp.width = (F32)fbWidth;
-			vp.height = (F32)fbHeight;
-			vp.minDepth = 0.0f;
-			vp.maxDepth = 1.0f;
-			cmd->SetViewport(vp);
+			VkViewport viewport = {};
+			viewport.x = 0.0f;
+			viewport.y = 0.0f;
+			viewport.width = vp->Size.x;
+			viewport.height = vp->Size.y;
+			viewport.minDepth = 0.0f;
+			viewport.maxDepth = 1.0f;
+			cmd->SetViewport(viewport);
 
 			// Set states
 			cmd->SetSampler(0, 0, *sampler);
@@ -382,8 +380,32 @@ namespace ImGuiRenderer
 				}
 				vertexOffset += drawList->VtxBuffer.size();
 			}
+
+			cmd->EndEvent();
 		}
 		cmd->EndEvent();
+	}
+
+	void Render()
+	{
+		WSI& wsi = app->GetWSI();
+		wsi.BeginFrame();
+
+		auto device = wsi.GetDevice();
+
+		GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+		cmd->BeginEvent("TriangleTest");
+		GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
+		cmd->BeginRenderPass(rp);
+		{
+			RenderViewport(cmd.get());
+		}
+		cmd->EndRenderPass();
+		cmd->EndEvent();
+
+		device->Submit(cmd);
+
+		wsi.EndFrame();
 	}
 }
 }

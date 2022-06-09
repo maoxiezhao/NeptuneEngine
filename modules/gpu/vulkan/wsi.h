@@ -2,7 +2,8 @@
 
 #include "core\common.h"
 #include "core\platform\platform.h"
-#include "device.h"
+#include "gpu\vulkan\device.h"
+#include "gpu\vulkan\context.h"
 
 namespace VulkanTest
 {
@@ -27,6 +28,7 @@ public:
 		return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	}
 	virtual VkSurfaceKHR CreateSurface(VkInstance instance) = 0;
+	virtual VkSurfaceKHR CreateSurface(VkInstance instance, Platform::WindowType window) = 0;
 
 	virtual bool Init(int width_, int height_, const char* title) = 0;
 	virtual U32  GetWidth() = 0;
@@ -64,6 +66,7 @@ public:
 	~WSI();
 
 	bool Initialize(U32 numThread);
+	bool InitializeExternal(VkSurfaceKHR surface_, GPU::DeviceVulkan& device_, GPU::VulkanContext& context_, I32 width, I32 height);
 	void Uninitialize();
 	void BeginFrame();
 	void EndFrame();
@@ -71,7 +74,10 @@ public:
 	WSIPlatform* GetPlatform();
 
 	GPU::DeviceVulkan* GetDevice();
+	GPU::VulkanContext* GetContext();
 	VkFormat GetSwapchainFormat()const;
+	VkSurfaceKHR GetSurface();
+	VkSurfaceFormatKHR GetSurfaceFormat()const { return surfaceFormat; }
 
 private:
 	bool InitSwapchain(U32 width, U32 height);
@@ -86,8 +92,24 @@ private:
 	void UpdateFrameBuffer(U32 width, U32 height);
 	void DrainSwapchain();
 	void TeardownSwapchain();
-	
+
 	WSIPlatform* platform = nullptr;
 	PresentMode presentMode = PresentMode::SyncToVBlank;
+	bool isExternal = false;
+
+	GPU::VulkanContext* vulkanContext = nullptr;
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	GPU::DeviceVulkan* deviceVulkan = nullptr;
+	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+	std::vector<VkImage> swapchianImages;
+	U32 swapchainWidth = 0;
+	U32 swapchainHeight = 0;
+	VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
+	U32 swapchainImageIndex = 0;
+	bool swapchainIndexHasAcquired = false;
+	bool isSwapchinSuboptimal = false;
+	VkSurfaceFormatKHR surfaceFormat;
+
+	std::vector<GPU::SemaphorePtr> releaseSemaphores;
 };
 }

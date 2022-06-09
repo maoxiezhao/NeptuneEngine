@@ -126,7 +126,7 @@ public:
 
     void DisownImge()
     {
-        isOwnsImge = false;
+        isOwnsImage = false;
     }
 
     VkImageLayout GetSwapchainLayout() const
@@ -193,7 +193,7 @@ private:
     friend struct ImageDeleter;
     friend class Util::ObjectPool<Image>;
 
-    Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const DeviceAllocation& allocation_, const ImageCreateInfo& info_);
+    Image(DeviceVulkan& device_, VkImage image_, VkImageView imageView_, const DeviceAllocation& allocation_, const ImageCreateInfo& info_, VkImageViewType viewType_);
 
 private:
     DeviceVulkan& device;
@@ -202,7 +202,7 @@ private:
     ImageCreateInfo imageInfo;
     VkImageLayout swapchainLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     DeviceAllocation allocation;
-    bool isOwnsImge = true;
+    bool isOwnsImage = true;
     bool isOwnsMemory = true;
 
     VkAccessFlags accessFlags = 0;

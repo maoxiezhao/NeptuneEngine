@@ -30,8 +30,6 @@ App::App()
 
     Platform::Initialize();
     Platform::LogPlatformInfo();
-
-    GPU::DeviceVulkan::InitRenderdocCapture();
 }
 
 App::~App()
@@ -114,7 +112,9 @@ void App::Uninitialize()
 void App::Render()
 {
     PROFILE_BLOCK("Renderer");
+    wsi.BeginFrame();
     renderer->Render();
+    wsi.EndFrame();
 }
 
 void App::ComputeSmoothTimeDelta()
@@ -214,9 +214,7 @@ void App::OnIdle()
     Update(dt);
 
     // Render frame
-    wsi.BeginFrame();
     Render();
-    wsi.EndFrame();
 
     Profiler::EndFrame();
 }

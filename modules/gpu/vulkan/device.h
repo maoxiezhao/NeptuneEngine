@@ -177,6 +177,7 @@ public:
     struct FrameResource
     {
         DeviceVulkan& device;
+        U32 frameIndex;
         std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
 
         // timeline
@@ -213,7 +214,7 @@ public:
         std::vector<BufferBlock> iboBlocks;
         std::vector<BufferBlock> uboBlocks;
 
-        FrameResource(DeviceVulkan& device_);
+        FrameResource(DeviceVulkan& device_, U32 frameIndex_);
         ~FrameResource();
 
         void Begin();
@@ -227,7 +228,7 @@ public:
         return *frameResources[frameIndex];
     }
 
-    void InitFrameContext();
+    void InitFrameContext(U32 count);
 
     // buffer pools
     BufferPool vboPool;
@@ -359,6 +360,11 @@ public:
     RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
     
     CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
+
+    VkFormat GetDefaultDepthStencilFormat() const;
+    VkFormat GetDefaultDepthFormat() const;
+
+    VkInstance GetInstance() { return instance; }
 
     static bool InitRenderdocCapture();
 
