@@ -35,6 +35,36 @@ enum class SwapchainRenderPassType
     DepthStencil
 };
 
+struct SwapChainDesc
+{
+    U32 width = 0;
+    U32 height = 0;
+    U32 bufferCount = 2;
+    VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
+    bool fullscreen = false;
+    bool vsync = true;
+    float clearColor[4] = { 0,0,0,1 };
+};
+
+enum class SwapchainError
+{
+    None,
+    NoSurface,
+    Error
+};
+
+struct SwapChain
+{
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    U32 swapchainWidth = 0;
+    U32 swapchainHeight = 0;
+    VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
+    U32 swapchainImageIndex = 0;
+    std::vector<VkImage> vkImages;
+    std::vector<ImagePtr> images;
+    std::vector<GPU::SemaphorePtr> releaseSemaphores;
+};
+
 struct InitialImageBuffer
 {
     BufferPtr buffer;
@@ -261,7 +291,7 @@ public:
     DeviceVulkan(DeviceVulkan&&) = delete;
 
     void SetContext(VulkanContext& context);
-    void InitSwapchain(std::vector<VkImage>& images, VkFormat format, uint32_t width, uint32_t height);
+    SwapchainError CreateSwapchain(const SwapChainDesc&desc, VkSurfaceKHR surface, SwapChain* swapchain);
     void WaitIdle();
     void WaitIdleNolock();
     bool IsSwapchainTouched();
@@ -356,9 +386,7 @@ public:
     DeviceFeatures GetFeatures()const { return features; }
     U32 GetNumThreads()const { return numThreads; }
 
-    ImageView& GetSwapchainView();
-    RenderPassInfo GetSwapchianRenderPassInfo(SwapchainRenderPassType swapchainRenderPassType);
-    
+    RenderPassInfo GetSwapchianRenderPassInfo(const SwapChain* swapchain, SwapchainRenderPassType swapchainRenderPassType = SwapchainRenderPassType::DepthStencil);  
     CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
 
     VkFormat GetDefaultDepthStencilFormat() const;
@@ -440,13 +468,11 @@ private:
         uint32_t index = 0;
         VkQueue presentQueue = VK_NULL_HANDLE;
         bool consumed = false;
-        std::vector<ImagePtr> swapchainImages;
 
         void Clear()
         {
             acquire.reset();
             release.reset();
-            swapchainImages.clear();
         }
     };
     InternalWSI wsi;

@@ -95,7 +95,7 @@ namespace Util
 		template <typename U>
 		friend class IntrusivePtr;
 
-		IntrusivePtr() = default;
+		IntrusivePtr() : data(nullptr) {}
 
 		explicit IntrusivePtr(T* handle)
 			: data(handle)
@@ -154,8 +154,8 @@ namespace Util
 				typename T::EnabledDeleter,
 				typename T::EnabledReferenceOp>;
 			ReferenceBase* refData = data != nullptr ? static_cast<ReferenceBase*>(data) : nullptr;
-			if (refData)
-				refData->Release();
+			if (data)
+				static_cast<ReferenceBase*>(data)->Release();
 			data = nullptr;
 		}
 

@@ -9,14 +9,6 @@ namespace VulkanTest
 {
 class WSI;
 
-enum class PresentMode
-{
-	SyncToVBlank,		  // Force FIFO
-	UnlockedMaybeTear,    // MAILBOX or IMMEDIATE
-	UnlockedForceTearing, // Force IMMEDIATE
-	UnlockedNoTearing     // Force MAILBOX
-};
-
 class VULKAN_TEST_API WSIPlatform
 {
 public:
@@ -70,46 +62,34 @@ public:
 	void Uninitialize();
 	void BeginFrame();
 	void EndFrame();
+	void Begin();
+	void End();
 	void SetPlatform(WSIPlatform* platform_);
 	WSIPlatform* GetPlatform();
 
 	GPU::DeviceVulkan* GetDevice();
 	GPU::VulkanContext* GetContext();
 	VkFormat GetSwapchainFormat()const;
-	VkSurfaceKHR GetSurface();
-	VkSurfaceFormatKHR GetSurfaceFormat()const { return surfaceFormat; }
+	GPU::ImageView& GetImageView() { return swapchain.images[swapchain.swapchainImageIndex]->GetImageView(); }
+	VkSurfaceKHR GetSurface()const { return surface; }
+	GPU::SwapChain& GetSwapchain() { return swapchain; }
 
 private:
 	bool InitSwapchain(U32 width, U32 height);
-	enum class SwapchainError
-	{
-		None,
-		NoSurface,
-		Error
-	};
-	SwapchainError InitSwapchainImpl(U32 width, U32 height);
-
 	void UpdateFrameBuffer(U32 width, U32 height);
 	void DrainSwapchain();
 	void TeardownSwapchain();
 
 	WSIPlatform* platform = nullptr;
-	PresentMode presentMode = PresentMode::SyncToVBlank;
 	bool isExternal = false;
 
 	GPU::VulkanContext* vulkanContext = nullptr;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	GPU::DeviceVulkan* deviceVulkan = nullptr;
-	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-	std::vector<VkImage> swapchianImages;
-	U32 swapchainWidth = 0;
-	U32 swapchainHeight = 0;
-	VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
-	U32 swapchainImageIndex = 0;
-	bool swapchainIndexHasAcquired = false;
+	GPU::SwapChain swapchain = {};
+	bool vsync = true;
 	bool isSwapchinSuboptimal = false;
-	VkSurfaceFormatKHR surfaceFormat;
-
+	bool swapchainIndexHasAcquired = false;
 	std::vector<GPU::SemaphorePtr> releaseSemaphores;
 };
 }
