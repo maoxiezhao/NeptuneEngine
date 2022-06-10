@@ -266,10 +266,10 @@ namespace Editor
         void Render() override
         {
             wsi.BeginFrame();
-            wsi.Begin();
             ImGuiRenderer::Render();
-            wsi.End();
             wsi.EndFrame();
+
+            wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
         }
 
     public:

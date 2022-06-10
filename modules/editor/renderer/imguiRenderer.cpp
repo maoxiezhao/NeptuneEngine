@@ -18,12 +18,11 @@ namespace ImGuiRenderer
 	GPU::ImagePtr fontTexture;
 	GPU::SamplerPtr sampler;
 
-	struct ImGuiImplData {};
-
-	ImGuiImplData* ImGuiImplGetBackendData()
+	struct ImGui_ImplVulkan_ViewportData
 	{
-		return ImGui::GetCurrentContext() ? (ImGuiImplData*)ImGui::GetIO().BackendRendererUserData : nullptr;
-	}
+		bool WindowOwned;
+		WSI  wsi;
+	};
 
 	void CreateDeviceObjects()
 	{
@@ -123,6 +122,8 @@ namespace ImGuiRenderer
 			ImGuiViewport* parent = ImGui::FindViewportByID(vp->ParentViewportId);
 			args.parent = parent ? parent->PlatformHandle : Platform::INVALID_WINDOW;
 			args.name = "child";
+			args.width = (U32)vp->Size.x;
+			args.height = (U32)vp->Size.y;
 			vp->PlatformHandle = Platform::CreateCustomWindow(args);
 			ASSERT(vp->PlatformHandle != Platform::INVALID_WINDOW);
 			editor->AddWindow((Platform::WindowType)vp->PlatformHandle);
@@ -175,6 +176,43 @@ namespace ImGuiRenderer
 		UpdateImGuiMonitors();
 	}
 
+	void InitRendererIO(App& app_)
+	{
+		ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+		platform_io.Renderer_CreateWindow = [](ImGuiViewport* vp) {
+			ASSERT(vp->PlatformHandle != Platform::INVALID_WINDOW);
+
+			ImGui_ImplVulkan_ViewportData* vd = IM_NEW(ImGui_ImplVulkan_ViewportData)();
+			vp->RendererUserData = vd;
+
+			WSIPlatform* platform = app->GetWSI().GetPlatform();
+			GPU::VulkanContext* context = app->GetWSI().GetContext();
+			VkSurfaceKHR surface = platform->CreateSurface(context->GetInstance(), (Platform::WindowType)vp->PlatformHandle);
+			ASSERT(surface != VK_NULL_HANDLE);
+	
+			bool ret = vd->wsi.InitializeExternal(surface, *app->GetWSI().GetDevice(), *context, (I32)vp->Size.x, (I32)vp->Size.y);
+			ASSERT(ret);
+			vd->WindowOwned = true;
+		};
+		platform_io.Renderer_DestroyWindow = [](ImGuiViewport* vp) {
+			ImGui_ImplVulkan_ViewportData* vd = (ImGui_ImplVulkan_ViewportData*)vp->RendererUserData;
+			if (vd != nullptr)
+			{
+				if (vd->WindowOwned)
+					vd->wsi.Uninitialize();
+				IM_DELETE(vd);
+			}
+			vp->RendererUserData = NULL;
+		};
+		platform_io.Renderer_SetWindowSize = [](ImGuiViewport* vp, ImVec2 size) {
+			ImGui_ImplVulkan_ViewportData* vd = (ImGui_ImplVulkan_ViewportData*)vp->RendererUserData;
+			if (vd == NULL)
+				return;
+
+			vd->wsi.UpdateFrameBuffer((I32)size.x, (I32)size.y);
+		};
+	}
+
 	void Initialize(App& app_)
 	{
 		Logger::Info("Initializing imgui...");
@@ -197,12 +235,13 @@ namespace ImGuiRenderer
 		io.BackendFlags = ImGuiBackendFlags_HasMouseCursors;
 #endif
 		// Setup renderer backend
-		ImGuiImplData* bd = IM_NEW(ImGuiImplData)();
-		io.BackendRendererUserData = (void*)bd;
+		io.BackendRendererUserData = nullptr;
 		io.BackendRendererName = "VulkanTest";
 
 		// Setup platform
 		InitPlatformIO(app_);
+
+		InitRendererIO(app_);
 
 		// Add fonts
 		font = AddFontFromFile(*app, "editor/fonts/notosans-regular.ttf");
@@ -219,19 +258,12 @@ namespace ImGuiRenderer
 	{
 		sampler.reset();
 		fontTexture.reset();
-
-//#ifdef CJING3D_PLATFORM_WIN32
-//		ImGui_ImplGlfw_Shutdown();
-//#endif
 		ImGui::DestroyContext();
 		app = nullptr;
 	}
 
 	void BeginFrame()
 	{
-		auto backendData = ImGuiImplGetBackendData();
-		ASSERT(backendData != nullptr);
-
 		if (!fontTexture)
 			CreateDeviceObjects();
 
@@ -272,140 +304,152 @@ namespace ImGuiRenderer
 		ImGui::UpdatePlatformWindows();
 	}
 
-	void RenderViewport(GPU::CommandList* cmd)
+	void RenderViewport(GPU::CommandList* cmd, ImGuiViewport* vp)
 	{
-		cmd->BeginEvent("ImGuiRender");
+		cmd->BeginEvent("ImGuiRenderViewport");
 		ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
-		for (ImGuiViewport* vp : platformIO.Viewports)
+		ImDrawData* drawData = vp->DrawData;
+		if (!drawData || drawData->TotalVtxCount == 0)
+			return;
+
+		int fbWidth = (int)(drawData->DisplaySize.x * drawData->FramebufferScale.x);
+		int fbHeight = (int)(drawData->DisplaySize.y * drawData->FramebufferScale.y);
+		if (fbWidth <= 0 || fbHeight <= 0)
+			return;
+
+		// Setup vertex buffer and index buffer
+		const U64 vbSize = sizeof(ImDrawVert) * drawData->TotalVtxCount;
+		const U64 ibSize = sizeof(ImDrawIdx) * drawData->TotalIdxCount;
+		ImDrawVert* vertMem = static_cast<ImDrawVert*>(cmd->AllocateVertexBuffer(0, vbSize, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX));
+		ImDrawIdx* indexMem = static_cast<ImDrawIdx*>(cmd->AllocateIndexBuffer(ibSize, VK_INDEX_TYPE_UINT16));
+
+		for (int cmdListIdx = 0; cmdListIdx < drawData->CmdListsCount; cmdListIdx++)
 		{
-			ImDrawData* drawData = vp->DrawData;
-			if (!drawData || drawData->TotalVtxCount == 0)
-				return;
-
-			int fbWidth = (int)(drawData->DisplaySize.x * drawData->FramebufferScale.x);
-			int fbHeight = (int)(drawData->DisplaySize.y * drawData->FramebufferScale.y);
-			if (fbWidth <= 0 || fbHeight <= 0)
-				return;
-
-			cmd->BeginEvent("ImGuiViewport");
-
-			// Setup vertex buffer and index buffer
-			const U64 vbSize = sizeof(ImDrawVert) * drawData->TotalVtxCount;
-			const U64 ibSize = sizeof(ImDrawIdx) * drawData->TotalIdxCount;
-			ImDrawVert* vertMem = static_cast<ImDrawVert*>(cmd->AllocateVertexBuffer(0, vbSize, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX));
-			ImDrawIdx* indexMem = static_cast<ImDrawIdx*>(cmd->AllocateIndexBuffer(ibSize, VK_INDEX_TYPE_UINT16));
-
-			for (int cmdListIdx = 0; cmdListIdx < drawData->CmdListsCount; cmdListIdx++)
-			{
-				const ImDrawList* drawList = drawData->CmdLists[cmdListIdx];
-				memcpy(vertMem, &drawList->VtxBuffer[0], drawList->VtxBuffer.Size * sizeof(ImDrawVert));
-				memcpy(indexMem, &drawList->IdxBuffer[0], drawList->IdxBuffer.Size * sizeof(ImDrawIdx));
-				vertMem += drawList->VtxBuffer.Size;
-				indexMem += drawList->IdxBuffer.Size;
-			}
-
-			// Setup mvp matrix
-			F32 posX = drawData->DisplayPos.x;
-			F32 posY = drawData->DisplayPos.y;
-			F32 width = drawData->DisplaySize.x;
-			F32 height = drawData->DisplaySize.y;
-			struct ImGuiConstants
-			{
-				F32 mvp[2][4];
-			};
-			F32 mvp[2][4] =
-			{
-				{2.f / width, 0, -1.f - posX * 2.f / width, 0},
-				{0, 2.f / height, -1.f - posY * 2.f / height, 0}
-			};
-			ImGuiConstants* constants = cmd->AllocateConstant<ImGuiConstants>(0, 0);
-			memcpy(&constants->mvp, mvp, sizeof(mvp));
-
-			cmd->SetProgram("editor/imGuiVS.hlsl", "editor/imGuiPS.hlsl");
-			cmd->SetVertexAttribute(0, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, pos));
-			cmd->SetVertexAttribute(1, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, uv));
-			cmd->SetVertexAttribute(2, 0, VK_FORMAT_R8G8B8A8_UNORM, (U32)IM_OFFSETOF(ImDrawVert, col));
-
-			// Set viewport
-			VkViewport viewport = {};
-			viewport.x = 0.0f;
-			viewport.y = 0.0f;
-			viewport.width = vp->Size.x;
-			viewport.height = vp->Size.y;
-			viewport.minDepth = 0.0f;
-			viewport.maxDepth = 1.0f;
-			cmd->SetViewport(viewport);
-
-			// Set states
-			cmd->SetSampler(0, 0, *sampler);
-			cmd->SetDefaultTransparentState();
-			cmd->SetBlendState(Renderer::GetBlendState(BlendStateType_Transparent));
-			cmd->SetRasterizerState(Renderer::GetRasterizerState(RasterizerStateType_DoubleSided));
-			cmd->SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-
-			// Will project scissor/clipping rectangles into framebuffer space
-			ImVec2 clipOff = drawData->DisplayPos;         // (0,0) unless using multi-viewports
-			ImVec2 clipScale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
-
-			// Render command lists
-			I32 vertexOffset = 0;
-			U32 indexOffset = 0;
-			for (U32 cmdListIdx = 0; cmdListIdx < (U32)drawData->CmdListsCount; ++cmdListIdx)
-			{
-				const ImDrawList* drawList = drawData->CmdLists[cmdListIdx];
-				for (U32 cmdIndex = 0; cmdIndex < (U32)drawList->CmdBuffer.size(); ++cmdIndex)
-				{
-					const ImDrawCmd* drawCmd = &drawList->CmdBuffer[cmdIndex];
-					ASSERT(!drawCmd->UserCallback);
-
-					// Project scissor/clipping rectangles into framebuffer space
-					ImVec2 clipMin(drawCmd->ClipRect.x - clipOff.x, drawCmd->ClipRect.y - clipOff.y);
-					ImVec2 clipMax(drawCmd->ClipRect.z - clipOff.x, drawCmd->ClipRect.w - clipOff.y);
-					if (clipMax.x < clipMin.x || clipMax.y < clipMin.y)
-						continue;
-
-					// Apply scissor/clipping rectangle
-					VkRect2D scissor;
-					scissor.offset.x = (I32)(clipMin.x);
-					scissor.offset.y = (I32)(clipMin.y);
-					scissor.extent.width = (I32)(clipMax.x - clipMin.x);
-					scissor.extent.height = (I32)(clipMax.y - clipMin.y);
-					cmd->SetScissor(scissor);
-
-					const GPU::Image* texture = (const GPU::Image*)drawCmd->TextureId;
-					cmd->SetTexture(0, 0, texture->GetImageView());
-					cmd->DrawIndexed(drawCmd->ElemCount, indexOffset, vertexOffset);
-
-					indexOffset += drawCmd->ElemCount;
-				}
-				vertexOffset += drawList->VtxBuffer.size();
-			}
-
-			cmd->EndEvent();
+			const ImDrawList* drawList = drawData->CmdLists[cmdListIdx];
+			memcpy(vertMem, &drawList->VtxBuffer[0], drawList->VtxBuffer.Size * sizeof(ImDrawVert));
+			memcpy(indexMem, &drawList->IdxBuffer[0], drawList->IdxBuffer.Size * sizeof(ImDrawIdx));
+			vertMem += drawList->VtxBuffer.Size;
+			indexMem += drawList->IdxBuffer.Size;
 		}
+
+		// Setup mvp matrix
+		F32 posX = drawData->DisplayPos.x;
+		F32 posY = drawData->DisplayPos.y;
+		F32 width = drawData->DisplaySize.x;
+		F32 height = drawData->DisplaySize.y;
+		struct ImGuiConstants
+		{
+			F32 mvp[2][4];
+		};
+		F32 mvp[2][4] =
+		{
+			{2.f / width, 0, -1.f - posX * 2.f / width, 0},
+			{0, 2.f / height, -1.f - posY * 2.f / height, 0}
+		};
+		ImGuiConstants* constants = cmd->AllocateConstant<ImGuiConstants>(0, 0);
+		memcpy(&constants->mvp, mvp, sizeof(mvp));
+
+		cmd->SetProgram("editor/imGuiVS.hlsl", "editor/imGuiPS.hlsl");
+		cmd->SetVertexAttribute(0, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, pos));
+		cmd->SetVertexAttribute(1, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, uv));
+		cmd->SetVertexAttribute(2, 0, VK_FORMAT_R8G8B8A8_UNORM, (U32)IM_OFFSETOF(ImDrawVert, col));
+
+		// Set viewport
+		VkViewport viewport = {};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = vp->Size.x;
+		viewport.height = vp->Size.y;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		cmd->SetViewport(viewport);
+
+		// Set states
+		cmd->SetSampler(0, 0, *sampler);
+		cmd->SetDefaultTransparentState();
+		cmd->SetBlendState(Renderer::GetBlendState(BlendStateType_Transparent));
+		cmd->SetRasterizerState(Renderer::GetRasterizerState(RasterizerStateType_DoubleSided));
+		cmd->SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+		// Will project scissor/clipping rectangles into framebuffer space
+		ImVec2 clipOff = drawData->DisplayPos;         // (0,0) unless using multi-viewports
+		ImVec2 clipScale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+		// Render command lists
+		I32 vertexOffset = 0;
+		U32 indexOffset = 0;
+		for (U32 cmdListIdx = 0; cmdListIdx < (U32)drawData->CmdListsCount; ++cmdListIdx)
+		{
+			const ImDrawList* drawList = drawData->CmdLists[cmdListIdx];
+			for (U32 cmdIndex = 0; cmdIndex < (U32)drawList->CmdBuffer.size(); ++cmdIndex)
+			{
+				const ImDrawCmd* drawCmd = &drawList->CmdBuffer[cmdIndex];
+				ASSERT(!drawCmd->UserCallback);
+
+				// Project scissor/clipping rectangles into framebuffer space
+				ImVec2 clipMin(drawCmd->ClipRect.x - clipOff.x, drawCmd->ClipRect.y - clipOff.y);
+				ImVec2 clipMax(drawCmd->ClipRect.z - clipOff.x, drawCmd->ClipRect.w - clipOff.y);
+				if (clipMax.x < clipMin.x || clipMax.y < clipMin.y)
+					continue;
+
+				// Apply scissor/clipping rectangle
+				VkRect2D scissor;
+				scissor.offset.x = (I32)(clipMin.x);
+				scissor.offset.y = (I32)(clipMin.y);
+				scissor.extent.width = (I32)(clipMax.x - clipMin.x);
+				scissor.extent.height = (I32)(clipMax.y - clipMin.y);
+				cmd->SetScissor(scissor);
+
+				const GPU::Image* texture = (const GPU::Image*)drawCmd->TextureId;
+				cmd->SetTexture(0, 0, texture->GetImageView());
+				cmd->DrawIndexed(drawCmd->ElemCount, indexOffset, vertexOffset);
+
+				indexOffset += drawCmd->ElemCount;
+			}
+			vertexOffset += drawList->VtxBuffer.size();
+		}
+
 		cmd->EndEvent();
 	}
 
 	void Render()
 	{
 		WSI& wsi = app->GetWSI();
-		wsi.BeginFrame();
-
 		auto device = wsi.GetDevice();
 
-		GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
-		cmd->BeginEvent("TriangleTest");
-		GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(&wsi.GetSwapchain(), GPU::SwapchainRenderPassType::ColorOnly);
-		cmd->BeginRenderPass(rp);
+		ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+		for (ImGuiViewport* vp : platformIO.Viewports)
 		{
-			RenderViewport(cmd.get());
+			ImDrawData* drawData = vp->DrawData;
+			if (!drawData || drawData->TotalVtxCount == 0)
+				continue;
+
+			WSI* targetWSI = nullptr;
+			if (vp == ImGui::GetMainViewport())
+			{
+				targetWSI = &wsi;
+			}
+			else
+			{
+				ImGui_ImplVulkan_ViewportData* vd = (ImGui_ImplVulkan_ViewportData*)vp->RendererUserData;
+				if (vd != nullptr)
+					targetWSI = &vd->wsi;
+			}
+
+			if (targetWSI == nullptr)
+				continue;
+
+			targetWSI->PresentBegin();
+			{
+				GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(&targetWSI->GetSwapchain(), GPU::SwapchainRenderPassType::ColorOnly);
+				GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+				cmd->BeginRenderPass(rp);
+				RenderViewport(cmd.get(), vp);
+				cmd->EndRenderPass();
+				device->Submit(cmd);
+			}			
+			targetWSI->PresentEnd();
 		}
-		cmd->EndRenderPass();
-		cmd->EndEvent();
-
-		device->Submit(cmd);
-
-		wsi.EndFrame();
 	}
 }
 }

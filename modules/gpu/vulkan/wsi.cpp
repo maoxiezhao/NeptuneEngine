@@ -102,7 +102,7 @@ bool WSI::InitializeExternal(VkSurfaceKHR surface_, GPU::DeviceVulkan& device_, 
     }
 
     isExternal = true;
-    return false;
+    return true;
 }
 
 void WSI::Uninitialize()
@@ -132,10 +132,10 @@ void WSI::EndFrame()
     deviceVulkan->EndFrameContext();
 }
 
-void WSI::Begin()
+void WSI::PresentBegin()
 {
     // Resize frame buffer
-    if (swapchain.swapchain == VK_NULL_HANDLE || platform->ShouldResize() || isSwapchinSuboptimal)
+    if (platform != nullptr && (swapchain.swapchain == VK_NULL_HANDLE || platform->ShouldResize() || isSwapchinSuboptimal))
         UpdateFrameBuffer(platform->GetWidth(), platform->GetHeight());
 
     // 当前swapchian已经Acquired
@@ -186,7 +186,7 @@ void WSI::Begin()
     } while (result < 0);
 }
 
-void WSI::End()
+void WSI::PresentEnd()
 {
     deviceVulkan->EndFrameContext();
 

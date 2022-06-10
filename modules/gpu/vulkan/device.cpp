@@ -374,9 +374,22 @@ SwapchainError DeviceVulkan::CreateSwapchain(const SwapChainDesc& desc, VkSurfac
             return SwapchainError::Error;
     }
 
+    // clamp the target width, height to boundaries.
+    VkExtent2D swapchainSize;
+    if (surfaceProperties.currentExtent.width != 0xFFFFFFFF && surfaceProperties.currentExtent.width != 0xFFFFFFFF)
+    {
+        swapchainSize = surfaceProperties.currentExtent;
+    }
+    else
+    {
+        swapchainSize = { desc.width, desc.height };
+        swapchainSize.width = std::max(surfaceProperties.minImageExtent.width, std::min(surfaceProperties.maxImageExtent.width, swapchainSize.width));
+        swapchainSize.height = std::max(surfaceProperties.minImageExtent.height, std::min(surfaceProperties.maxImageExtent.height, swapchainSize.height));
+    }
+
     // Check the window is minimized.
-    if (surfaceProperties.maxImageExtent.width == 0 && surfaceProperties.maxImageExtent.height == 0)
-        return SwapchainError::NoSurface;
+    //if (swapchainSize.width == 0 && swapchainSize.height == 0)
+    //    return SwapchainError::NoSurface;
 
     // Get surface formats
     U32 formatCount = 0;
@@ -473,11 +486,6 @@ SwapchainError DeviceVulkan::CreateSwapchain(const SwapChainDesc& desc, VkSurfac
         desiredSwapchainImages = surfaceProperties.minImageCount;
     if ((surfaceProperties.maxImageCount > 0) && (desiredSwapchainImages > surfaceProperties.maxImageCount))
         desiredSwapchainImages = surfaceProperties.maxImageCount;
-
-    // clamp the target width, height to boundaries.
-    VkExtent2D swapchainSize;
-    swapchainSize.width = std::max(std::min(desc.width, surfaceProperties.maxImageExtent.width), surfaceProperties.minImageExtent.width);
-    swapchainSize.height = std::max(std::min(desc.height, surfaceProperties.maxImageExtent.height), surfaceProperties.minImageExtent.height);
 
     // create swapchain
     VkSwapchainKHR oldSwapchain = swapchain->swapchain;

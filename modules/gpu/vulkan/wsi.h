@@ -62,8 +62,9 @@ public:
 	void Uninitialize();
 	void BeginFrame();
 	void EndFrame();
-	void Begin();
-	void End();
+	void PresentBegin();
+	void PresentEnd();
+	void UpdateFrameBuffer(U32 width, U32 height);
 	void SetPlatform(WSIPlatform* platform_);
 	WSIPlatform* GetPlatform();
 
@@ -76,7 +77,6 @@ public:
 
 private:
 	bool InitSwapchain(U32 width, U32 height);
-	void UpdateFrameBuffer(U32 width, U32 height);
 	void DrainSwapchain();
 	void TeardownSwapchain();
 
