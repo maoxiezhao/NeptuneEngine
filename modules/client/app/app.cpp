@@ -66,7 +66,7 @@ void App::Run(std::unique_ptr<WSIPlatform> platform_)
 
         app->Uninitialize();
         data->semaphore->Signal();
-    }, nullptr);
+    }, nullptr, 0);
 
     PROFILE_BLOCK("sleeping");
     semaphore.Wait();

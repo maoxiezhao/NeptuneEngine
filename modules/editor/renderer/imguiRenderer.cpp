@@ -297,8 +297,15 @@ namespace ImGuiRenderer
 		}
 	}
 
+	F32 tickTime = 0;
+	bool p_open = true;
 	void EndFrame()
 	{
+		ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+		ImGui::Begin("Example: Log", &p_open);
+		ImGui::Text("%f", tickTime);
+		ImGui::End();
+
 		ImGui::PopFont();
 		ImGui::Render();
 		ImGui::UpdatePlatformWindows();
@@ -410,6 +417,62 @@ namespace ImGuiRenderer
 		}
 
 		cmd->EndEvent();
+	}
+
+	RenderGraph graph;
+	bool isInitialzied = false;
+
+	void RenderTemp()
+	{
+		WSI& wsi = app->GetWSI();
+		if (isInitialzied == false)
+		{
+			graph.SetDevice(app->GetWSI().GetDevice());
+
+			// Setup backbuffer resource dimension
+			ResourceDimensions dim;
+			dim.width = wsi.GetSwapchain().swapchainWidth;
+			dim.height = wsi.GetSwapchain().swapchainHeight;
+			dim.format = wsi.GetSwapchain().swapchainFormat;
+			graph.SetBackbufferDimension(dim);
+
+			AttachmentInfo backInfo;
+			backInfo.format = dim.format;
+			backInfo.sizeX = (F32)dim.width;
+			backInfo.sizeY = (F32)dim.height;
+
+			// Compose
+			auto& imguiPass = graph.AddRenderPass("ImguiPass", RenderGraphQueueFlag::Graphics);
+			imguiPass.WriteColor("back", backInfo);
+			imguiPass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
+				if (value != nullptr)
+				{
+					value->float32[0] = 0.0f;
+					value->float32[1] = 0.0f;
+					value->float32[2] = 0.0f;
+					value->float32[3] = 1.0f;
+				}
+				return true;
+			});
+			imguiPass.SetBuildCallback([&](GPU::CommandList& cmd) {
+				RenderViewport(&cmd, ImGui::GetMainViewport());
+			});
+			graph.SetBackBufferSource("back");
+			graph.Bake();
+			isInitialzied = true;
+		}
+
+		GPU::DeviceVulkan* device = wsi.GetDevice();
+		wsi.PresentBegin();
+		{
+			graph.SetupAttachments(*device, &wsi.GetImageView());
+			Jobsystem::JobHandle handle;
+			graph.Render(*device, handle);
+			Jobsystem::Wait(&handle);
+	
+			device->MoveReadWriteCachesToReadOnly();
+		}
+		wsi.PresentEnd();
 	}
 
 	void Render()

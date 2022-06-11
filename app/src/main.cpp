@@ -32,7 +32,7 @@ namespace VulkanTest
 
             GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
             cmd->BeginEvent("TriangleTest");
-            GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(GPU::SwapchainRenderPassType::ColorOnly);
+            GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(&wsi->GetSwapchain(), GPU::SwapchainRenderPassType::ColorOnly);
             cmd->BeginRenderPass(rp);
             {
                 cmd->SetDefaultOpaqueState();

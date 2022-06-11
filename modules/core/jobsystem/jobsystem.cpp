@@ -214,6 +214,8 @@ namespace Jobsystem
 
     void Run(void*data, JobFunc func, JobHandle* handle, U8 workerIndex)
     {
+        ASSERT(gManager.Get() != nullptr);
+
         RunInternal(
             func,
             data,
@@ -224,6 +226,8 @@ namespace Jobsystem
 
     void Wait(JobHandle* handle)
     {
+        ASSERT(gManager.Get() != nullptr);
+
         if (handle == nullptr || handle->counter == 0)
             return;
 

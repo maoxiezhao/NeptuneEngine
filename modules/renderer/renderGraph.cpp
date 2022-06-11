@@ -43,7 +43,7 @@ namespace VulkanTest
         std::vector<U32> physicalColorAttachments;  // PhysicalResIndex
 
         std::vector<GPU::RenderPassInfo::SubPass> gpuSubPasses;
-        GPU::RenderPassInfo gpuRenderPassInfo = {};
+        GPU::RenderPassInfo renderPassInfo = {};
         std::vector<ColorClearRequest> colorClearRequests;
         DepthClearRequest depthClearRequest;
         U32 physicalDepthStencilAttachment = (U32)RenderResource::Unused;
@@ -118,6 +118,7 @@ namespace VulkanTest
         std::vector<U32> passStack;
         std::vector<std::unordered_set<U32>> passDependency;
         std::vector<PassBarrier> passBarriers;
+        Jobsystem::JobHandle submitHandle;
 
         // Bake methods
         void HandlePassRecursive(RenderPass& self, const std::unordered_set<U32>& writtenPass, U32 stackCount);
@@ -536,7 +537,7 @@ namespace VulkanTest
             physicalPass.depthClearRequest = {};
 
             // Create render pass info
-            auto& renderPassInfo = physicalPass.gpuRenderPassInfo;
+            auto& renderPassInfo = physicalPass.renderPassInfo;
             renderPassInfo.numSubPasses = (U32)physicalPass.gpuSubPasses.size();
             renderPassInfo.subPasses = physicalPass.gpuSubPasses.data();
             renderPassInfo.clearAttachments = 0;
@@ -1193,13 +1194,29 @@ namespace VulkanTest
         // Assign physical attachments to PhysicalPass::GPURenderPassInfo
         for (auto& physicalPass : physicalPasses)
         {
-            auto& gpuRenderPassInfo = physicalPass.gpuRenderPassInfo;
+            U32 layers = ~0u;
+
+            auto& renderPassInfo = physicalPass.renderPassInfo;
             U32 numColorAttachments = (U32)physicalPass.physicalColorAttachments.size();
             for (U32 i = 0; i < numColorAttachments; i++)
             {
-                gpuRenderPassInfo.colorAttachments[i] = 
-                    physicalAttachments[physicalPass.physicalColorAttachments[i]];
+                auto& att = renderPassInfo.colorAttachments[i];
+                att = physicalAttachments[physicalPass.physicalColorAttachments[i]];
+                if (att->GetImage()->GetCreateInfo().domain == GPU::ImageDomain::Physical)
+                    layers = std::min(layers, att->GetImage()->GetCreateInfo().layers);
             }
+
+            if (physicalPass.physicalDepthStencilAttachment != RenderResource::Unused)
+            {
+                auto& ds = renderPassInfo.depthStencil;
+                ds = physicalAttachments[physicalPass.physicalDepthStencilAttachment];
+                if (ds->GetImage()->GetCreateInfo().domain == GPU::ImageDomain::Physical)
+                    layers = std::min(layers, ds->GetImage()->GetCreateInfo().layers);
+            }
+            else
+            {
+                renderPassInfo.depthStencil = nullptr;
+            }      
         }
     }
 
@@ -1401,7 +1418,7 @@ namespace VulkanTest
 
         // Begin render pass
         cmd.BeginEvent("BeginRenderPass");
-        cmd.BeginRenderPass(physicalPass.gpuRenderPassInfo);
+        cmd.BeginRenderPass(physicalPass.renderPassInfo);
         cmd.EndEvent();
 
         // Handle subpasses
@@ -1445,8 +1462,8 @@ namespace VulkanTest
 
     void RenderGraphImpl::HandleTimelineGPU(GPU::DeviceVulkan& device, const PhysicalPass& physicalPass, GPUPassSubmissionState* state)
     {
-        Jobsystem::JobHandle handle;
-        Jobsystem::Run(&state, [this, &device, &physicalPass](void* data)->void {
+        ASSERT(state->renderingDependency.counter == 0);
+        Jobsystem::Run(state, [this, &device, &physicalPass](void* data)->void {
             GPUPassSubmissionState* state = (GPUPassSubmissionState*)data;
             if (state == nullptr)
                 return;
@@ -1468,10 +1485,9 @@ namespace VulkanTest
             Logger::Print("Pass %s execute", state->name);
 #endif
 
-        }, &handle);
+        }, & state->renderingDependency);
         
-        ASSERT(handle.counter > 0);
-        state->renderingDependency = handle;
+        ASSERT(state->renderingDependency.counter > 0);
     }
 
     void RenderGraphImpl::EnqueueRenderPass(PhysicalPass& physicalPass, GPUPassSubmissionState& state)
@@ -1578,34 +1594,40 @@ namespace VulkanTest
         }
 
         // Sequential submit all states
-        for (auto& state : submissionStates)
-        {
-            if (state.active == false)
-                continue;
+        ASSERT(submitHandle.counter == 0);
+        Jobsystem::Run(nullptr, [this](void* data)->void {
+            for (auto& state : submissionStates)
+            {
+                if (state.active == false)
+                    continue;
 
-            Jobsystem::JobHandle* renderingDependency = nullptr;
-            if (state.renderingDependency)
-                renderingDependency = &state.renderingDependency;
-          
-            // Wait GPU behavior
-            Jobsystem::Wait(renderingDependency);
+                Jobsystem::JobHandle* renderingDependency = nullptr;
+                if (state.renderingDependency)
+                    renderingDependency = &state.renderingDependency;
 
-            // Submit state
-            state.Submit();
+                // Wait GPU behavior
+                Jobsystem::Wait(renderingDependency);
+
+                // Submit state
+                state.Submit();
 
 #if RENDER_GRAPH_LOGGING_LEVEL >= 1
-            Logger::Print("Pass %s submit", state->name);
+                Logger::Print("Pass %s submit", state->name);
 #endif
-        }
+            }
+        }, &submitHandle);
 
         // Flush swapchain
-        Jobsystem::Run(nullptr, [&device](void* data)->void {
+        Jobsystem::Run(nullptr, [&device, this](void* data)->void {
+            Jobsystem::Wait(&submitHandle);
+
             device.FlushFrames();
 
 #if RENDER_GRAPH_LOGGING_LEVEL >= 1
             Logger::Print("FlushFrames");
 #endif
         }, &jobHandle);
+        device.FlushFrames();
     }
 
     void RenderGraphImpl::Log()
