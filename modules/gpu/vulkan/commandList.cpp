@@ -613,9 +613,9 @@ void* CommandList::AllocateConstant(U32 set, U32 binding, VkDeviceSize size)
     return data.data;
 }
 
-void CommandList::CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
+void CommandList::CopyToImage(const Image& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
 {
-    vkCmdCopyBufferToImage(cmd, buffer->GetBuffer(), image->GetImage(), image->GetImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), numBlits, blits);
+    vkCmdCopyBufferToImage(cmd, buffer->GetBuffer(), image.GetImage(), image.GetImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), numBlits, blits);
 }
 
 void CommandList::CopyBuffer(const BufferPtr& dst, const BufferPtr& src)
@@ -679,9 +679,7 @@ void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
 
     ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding];
     resBinding.image.imageView = imageView.GetImageView();
-    resBinding.image.imageLayout = imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal ?
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
-
+    resBinding.image.imageLayout = imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding] = imageView.GetCookie();
     dirtySets |= 1u << set;
 }
@@ -746,19 +744,19 @@ void CommandList::DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 st
     }
 }
 
-void CommandList::ImageBarrier(const ImagePtr& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
+void CommandList::ImageBarrier(const Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
 {
-    ASSERT(image->GetCreateInfo().domain != ImageDomain::Transient);
+    ASSERT(image.GetCreateInfo().domain != ImageDomain::Transient);
 
     VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
     barrier.srcAccessMask = srcAccess;
     barrier.dstAccessMask = dstAccess;
     barrier.oldLayout = oldLayout;
     barrier.newLayout = newLayout;
-    barrier.image = image->GetImage();
-    barrier.subresourceRange.aspectMask = formatToAspectMask(image->GetCreateInfo().format);
-    barrier.subresourceRange.levelCount = image->GetCreateInfo().levels;
-    barrier.subresourceRange.layerCount = image->GetCreateInfo().layers;
+    barrier.image = image.GetImage();
+    barrier.subresourceRange.aspectMask = formatToAspectMask(image.GetCreateInfo().format);
+    barrier.subresourceRange.levelCount = image.GetCreateInfo().levels;
+    barrier.subresourceRange.layerCount = image.GetCreateInfo().layers;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 

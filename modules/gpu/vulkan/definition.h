@@ -273,7 +273,7 @@ namespace GPU
         VkImageLayout initialLayout = VK_IMAGE_LAYOUT_GENERAL;
         ImageDomain domain = ImageDomain::Physical;
 
-        static ImageCreateInfo renderTarget(uint32_t width, uint32_t height, VkFormat format)
+        static ImageCreateInfo RenderTarget(uint32_t width, uint32_t height, VkFormat format)
         {
             ImageCreateInfo info = {};
             info.width = width;
@@ -281,7 +281,7 @@ namespace GPU
             info.format = format;
             info.type = VK_IMAGE_TYPE_2D;
             info.usage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
-                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             info.samples = VK_SAMPLE_COUNT_1_BIT;
             info.initialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             return info;

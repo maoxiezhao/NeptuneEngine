@@ -526,8 +526,8 @@ SwapchainError DeviceVulkan::CreateSwapchain(const SwapChainDesc& desc, VkSurfac
     // Create swapchain image views
     swapchain->images.clear();
 
-    ImageCreateInfo imageCreateInfo = ImageCreateInfo::renderTarget(desc.width, desc.height, desc.format);
-    imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    ImageCreateInfo imageCreateInfo = ImageCreateInfo::RenderTarget(desc.width, desc.height, desc.format);
+    imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     for (int i = 0; i < swapchain->vkImages.size(); i++)
     {
@@ -1244,7 +1244,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
 
         // Add image barrier until finish transfer
         transferCmd->ImageBarrier(
-            imagePtr, 
+            *imagePtr, 
             VK_IMAGE_LAYOUT_UNDEFINED, 
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 
@@ -1252,7 +1252,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         );
 
         transferCmd->BeginEvent("copy_image_to_gpu");
-        transferCmd->CopyToImage(imagePtr, stagingBuffer->buffer, stagingBuffer->numBlits, stagingBuffer->blits.data());
+        transferCmd->CopyToImage(*imagePtr, stagingBuffer->buffer, stagingBuffer->numBlits, stagingBuffer->blits.data());
         transferCmd->EndEvent();
 
         if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] != queueInfo.queues[QUEUE_INDEX_TRANSFER])
@@ -1299,14 +1299,28 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         
             transitionCmd = std::move(graphicsCmd);
         }
+    }
+    else if (createInfo.initialLayout != VK_IMAGE_LAYOUT_UNDEFINED)
+    {
+        // Barrier for the layout transition
+        auto cmd = RequestCommandList(QueueType::QUEUE_TYPE_GRAPHICS);
+        cmd->ImageBarrier(
+            *imagePtr,
+            info.initialLayout,
+            createInfo.initialLayout,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0,
+            imagePtr->GetStageFlags(), 
+            imagePtr->GetAccessFlags()& Image::ConvertLayoutToPossibleAccess(createInfo.initialLayout)
+        );
+        transitionCmd = std::move(cmd);
+    }
 
-        if (transitionCmd)
-        {
-            LOCK();
-            SubmitNolock(transitionCmd, nullptr, 0, nullptr);
-            if (concurrentQueue)
-                FlushFrame(QueueIndices::QUEUE_INDEX_GRAPHICS);
-        }
+    if (transitionCmd)
+    {
+        LOCK();
+        SubmitNolock(transitionCmd, nullptr, 0, nullptr);
+        if (concurrentQueue)
+            FlushFrame(QueueIndices::QUEUE_INDEX_GRAPHICS);
     }
 
     return imagePtr;

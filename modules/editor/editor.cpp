@@ -5,10 +5,12 @@
 #include "renderer\renderer.h"
 #include "renderer\renderPath3D.h"
 #include "editor\renderer\imguiRenderer.h"
+#include "editor\settings.h"
 
 #include "widgets\assetBrowser.h"
 #include "widgets\assetCompiler.h"
 #include "widgets\worldEditor.h"
+#include "widgets\log.h"
 
 #include "plugins\renderer.h"
 
@@ -19,10 +21,15 @@ namespace VulkanTest
 {
 namespace Editor
 {
+    class EditorRenderer : public RenderPath
+    {
+    };
+
     class EditorAppImpl final : public EditorApp
     {
     public:
-        EditorAppImpl()
+        EditorAppImpl() :
+            settings(*this)
         {
             memset(imguiKeyMap, 0, sizeof(imguiKeyMap));
             imguiKeyMap[(int)Platform::Keycode::CTRL] = ImGuiKey_ModCtrl;
@@ -76,13 +83,18 @@ namespace Editor
 
             assetCompiler = AssetCompiler::Create(*this);
             worldEditor = WorldEditor::Create(*this);
+            logWidget = CJING_MAKE_UNIQUE<LogWidget>();
+
+            // Load editor settings
+            LoadSettings();
 
             // Get renderer
             renderer = static_cast<RendererPlugin*>(engine->GetPluginManager().GetPlugin("Renderer"));
             ASSERT(renderer != nullptr);
+            renderer->ActivePath(&editorRenderer);
 
             // Init imgui renderer
-            ImGuiRenderer::Initialize(*this);
+            ImGuiRenderer::Initialize(*this, settings);
 
             // Init actions
             InitActions();
@@ -90,11 +102,15 @@ namespace Editor
             // Load plugins
             LoadPlugins();
 
+            AddWidget(*logWidget);
+
             assetCompiler->InitFinished();
         }
 
         void Uninitialize() override
         {
+            SaveSettings();
+
             FileSystem& fs = engine->GetFileSystem();
             while (fs.HasWork())
                 fs.ProcessAsync();
@@ -103,8 +119,6 @@ namespace Editor
             worldEditor->DestroyWorld();
 
             // Clear widgets
-            for (EditorWidget* widget : widgets)
-                CJING_SAFE_DELETE(widget);
             widgets.clear();
 
             // Clear editor plugins
@@ -120,6 +134,7 @@ namespace Editor
             // Remove system widgets
             assetCompiler.Reset();
             worldEditor.Reset();
+            logWidget.Reset();
 
             // Uninit imgui renderer
             ImGuiRenderer::Uninitialize();
@@ -257,6 +272,7 @@ namespace Editor
             for (auto widget : widgets)
                 widget->Update(deltaTime);
 
+            // Update gui
             OnGUI();
 
             // End imgui frame
@@ -268,7 +284,6 @@ namespace Editor
             wsi.BeginFrame();
             ImGuiRenderer::Render();
             wsi.EndFrame();
-
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
         }
 
@@ -302,7 +317,25 @@ namespace Editor
             toDestroyWindows.push_back({ window, 4 });
         }
 
-        bool showDemoWindow = true;
+        void LoadSettings()
+        {
+            Logger::Info("Loading settings...");
+            settings.Load();
+        }
+
+        void SaveSettings() override
+        {
+            ImGuiIO& io = ImGui::GetIO();
+            if (io.WantSaveIniSettings) 
+            {
+                const char* data = ImGui::SaveIniSettingsToMemory();
+                settings.imguiState = data;
+            }
+
+            settings.Save();
+        }
+
+        bool showDemoWindow = false;
         void OnGUI()
         {
             ImGuiWindowFlags flags = 
@@ -451,6 +484,8 @@ namespace Editor
         U32 fpsFrame = 0;
         Timer fpsTimer;
         Array<Utils::Action*> actions;
+        Settings settings;
+        EditorRenderer editorRenderer;
 
         // Windows
         Array<Platform::WindowType> windows;
@@ -464,6 +499,7 @@ namespace Editor
         // Builtin widgets
         UniquePtr<AssetCompiler> assetCompiler;
         UniquePtr<WorldEditor> worldEditor;
+        UniquePtr<LogWidget> logWidget;
 
         // Imgui
         ImGuiKey imguiKeyMap[255];

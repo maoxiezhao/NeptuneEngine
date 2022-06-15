@@ -49,6 +49,8 @@ namespace VulkanTest::LuaUtils
 		return LuaType<T>::Opt(l, index);
 	}
 
+	bool Execute(lua_State* l, Span<const char> content, const char* name, int nresults);
+
 	template<typename T>
 	inline bool Check(lua_State* l, int index)
 	{

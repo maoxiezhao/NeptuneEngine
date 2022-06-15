@@ -259,14 +259,17 @@ public:
     {
         enqueuePrepareCallback = std::move(func);
     }
+
     void SetBuildCallback(BuildRenderPassFunc func)
     {
         buildRenderPassCallback = std::move(func);
     }
+
     void SetClearDepthStencilCallback(ClearDepthStencilFunc func)
     {
         clearDepthStencilCallback = std::move(func);
     }
+
     void SetClearColorCallback(ClearColorFunc func)
     {
         clearColorCallback = std::move(func);
@@ -305,7 +308,7 @@ public:
     
     RenderTextureResource& ReadTexture(const char* name, VkPipelineStageFlags stages = 0);
     RenderTextureResource& ReadDepthStencil(const char* name);
-    RenderTextureResource& WriteColor(const char* name, const AttachmentInfo& info);
+    RenderTextureResource& WriteColor(const char* name, const AttachmentInfo& info, const char* input = nullptr);
     RenderTextureResource& WriteDepthStencil(const char* name, const AttachmentInfo& info);
 
     RenderBufferResource& ReadStorageBuffer(const char* name);
@@ -420,8 +423,9 @@ public:
 
     RenderPass& AddRenderPass(const char* name, RenderGraphQueueFlag queueFlag);
     void SetBackBufferSource(const char* name);
+    void DisableSwapchain();
     void Bake();
-    void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchin);
+    void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED);
     void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
     void Log();
 

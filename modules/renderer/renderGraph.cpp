@@ -109,6 +109,7 @@ namespace VulkanTest
     {
         GPU::DeviceVulkan* device;
         String backbufferSource;
+        bool swapchainEnable = true;
 
         std::unordered_map<String, U32> nameToRenderPassIndex;
         std::vector<UniquePtr<RenderPass>> renderPasses;
@@ -119,6 +120,9 @@ namespace VulkanTest
         std::vector<std::unordered_set<U32>> passDependency;
         std::vector<PassBarrier> passBarriers;
         Jobsystem::JobHandle submitHandle;
+
+        GPU::ImageView* swapchainAttachment;
+        VkImageLayout swapchainLayout;
 
         // Bake methods
         void HandlePassRecursive(RenderPass& self, const std::unordered_set<U32>& writtenPass, U32 stackCount);
@@ -134,7 +138,7 @@ namespace VulkanTest
         void BuildAliases();
 
         // Runtime methods
-        void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain);
+        void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain, VkImageLayout finalLayout);
         void HandleInvalidateBarrier(const Barrier& barrier, GPUPassSubmissionState& state, bool isGraphicsQueue);
         void HandleSignal(const PhysicalPass& physicalPass, GPUPassSubmissionState& state);
         void HandleFlushBarrier(const Barrier& barrier, GPUPassSubmissionState& state);  
@@ -143,7 +147,9 @@ namespace VulkanTest
         void TransferOwnership(const PhysicalPass& physicalPass);
         void HandleTimelineGPU(GPU::DeviceVulkan& device, const PhysicalPass& physicalPass, GPUPassSubmissionState* state);
         void EnqueueRenderPass(PhysicalPass& physicalPass, GPUPassSubmissionState& state);
+        void SwapchainLayoutTransitionPass();
         void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
+        void Reset();
 
         // Debug
         void Log();
@@ -221,18 +227,23 @@ namespace VulkanTest
         }
     }
 
-    void RenderGraphImpl::TraverseDependencies(RenderPass& renderPass, U32 stackCount)
+    void RenderGraphImpl::TraverseDependencies(RenderPass& pass, U32 stackCount)
     {
-        const RenderTextureResource* depthStencil = renderPass.GetInputDepthStencil();
-        if (depthStencil != nullptr)
+        if (pass.GetInputDepthStencil())
         {
-            HandlePassRecursive(renderPass, depthStencil->GetWrittenPasses(), stackCount);
+            HandlePassRecursive(pass, pass.GetInputDepthStencil()->GetWrittenPasses(), stackCount);
         }
 
-        for (auto res : renderPass.GetInputTextures())
+        for (auto* input : pass.GetInputColors())
+        {
+            if (input != nullptr)
+                HandlePassRecursive(pass, input->GetWrittenPasses(), stackCount);
+        }
+
+        for (auto& res : pass.GetInputTextures())
         {
             if (res.texture != nullptr)
-                HandlePassRecursive(renderPass, res.texture->GetWrittenPasses(), stackCount);
+                HandlePassRecursive(pass, res.texture->GetWrittenPasses(), stackCount);
         }
     }
 
@@ -346,6 +357,24 @@ namespace VulkanTest
                 AddImagePhysicalDimension(input.texture);
             }
 
+            if (!pass->GetInputColors().empty())
+            {
+                auto& inputColors = pass->GetInputColors();
+                for (int i = 0; i < inputColors.size(); i++)
+                {
+                    auto* input = inputColors[i];
+                    if (input != nullptr)
+                    {
+                        AddImagePhysicalDimension(input);
+
+                        if (pass->GetOutputColors()[i]->GetPhysicalIndex() == RenderResource::Unused)
+                            pass->GetOutputColors()[i]->SetPhysicalIndex(input->GetPhysicalIndex());
+                        else if (pass->GetOutputColors()[i]->GetPhysicalIndex() != input->GetPhysicalIndex())
+                            Logger::Error("Cannot alias resources. Index already claimed.");
+                    }
+                }
+            }
+
             for (auto& output : pass->GetOutputColors())
             {
                 AddImagePhysicalDimension(output);
@@ -425,6 +454,15 @@ namespace VulkanTest
                 return false;
             if (DifferentAttachment(nextPass.GetOutputDepthStencil(), prevPass.GetOutputDepthStencil()))
                 return false;
+
+            for (auto* input : nextPass.GetInputColors())
+            {
+                if (input == nullptr)
+                    continue;
+
+                if (FindTexture(prevPass.GetOutputColors(), input))
+                    return true;
+            }
 
             const auto SameAttachment = [](const RenderResource* a, const RenderResource* b) {
                 return a && b && a->GetPhysicalIndex() == b->GetPhysicalIndex();
@@ -710,6 +748,23 @@ namespace VulkanTest
                 barrier.layout = tex.layout;
             }
 
+            for (auto* input : pass.GetInputColors())
+            {
+                if (input == nullptr)
+                    continue;
+
+                Barrier& barrier = GetInvalidateAccess(input->GetPhysicalIndex());
+                barrier.access |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+                barrier.stages |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+                if (barrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+                    barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
+                else if (barrier.layout != VK_IMAGE_LAYOUT_UNDEFINED)
+                    ASSERT_MSG(false, "Layout mismatch.");
+                else
+                    barrier.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            }
+
             /////////////////////////////////////////////////////////////////////
             // Output
             // Push into flush list
@@ -991,9 +1046,15 @@ namespace VulkanTest
             auto& pass = renderPasses[passIndex];
             for (auto& tex : pass->GetInputTextures())
                 AddReaderPass(tex.texture, pass->GetPhysicalIndex());
+            for (auto& input : pass->GetInputColors())
+                AddReaderPass(input, pass->GetPhysicalIndex());
+            if (pass->GetInputDepthStencil())
+                AddReaderPass(pass->GetInputDepthStencil(), pass->GetPhysicalIndex());
 
             for (auto& output : pass->GetOutputColors())
                 AddWriterPass(output, pass->GetPhysicalIndex());
+            if (pass->GetOutputDepthStencil())
+                AddWriterPass(pass->GetOutputDepthStencil(), pass->GetPhysicalIndex());
         }
 
         physicalAliases.resize(physicalDimensions.size());
@@ -1053,7 +1114,7 @@ namespace VulkanTest
         }
     }
 
-    void RenderGraphImpl::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain)
+    void RenderGraphImpl::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain, VkImageLayout finalLayout)
     {
         // Build physical attachments/buffers from physical dimensions
         physicalAttachments.clear();
@@ -1063,6 +1124,9 @@ namespace VulkanTest
         physicalEvents.resize(physicalDimensions.size());
         physicalBuffers.resize(physicalDimensions.size());
         physicalImages.resize(physicalDimensions.size());
+
+        swapchainAttachment = swapchain;
+        swapchainLayout = finalLayout;
 
         // Func to create new image
         auto SetupPhysicalImage = [&](U32 attachment) {
@@ -1543,10 +1607,8 @@ namespace VulkanTest
         for (auto& barrier : physicalPass.invalidate)
             HandleInvalidateBarrier(barrier, state, state.isGraphics);
 
-        // handle signal
-        HandleSignal(physicalPass, state);
-
         // Handle flush barriers
+        HandleSignal(physicalPass, state);
         for (auto& barrier : physicalPass.flush)
             HandleFlushBarrier(barrier, state);
 
@@ -1565,6 +1627,65 @@ namespace VulkanTest
         }
 
         state.active = true;
+    }
+
+    void RenderGraphImpl::SwapchainLayoutTransitionPass()
+    {
+        U32 resIndex = nameToResourceIndex[backbufferSource];
+        U32 index = resources[resIndex]->GetPhysicalIndex();
+        if (physicalEvents[index].imageLayout == swapchainLayout)
+            return;
+
+        bool isGraphics = physicalDimensions[resIndex].queues & (U32)RenderGraphQueueFlag::Graphics;
+        auto& waitSemaphore = isGraphics ? physicalEvents[index].waitGraphicsSemaphore : physicalEvents[index].waitComputeSemaphore;
+
+        GPU::Image* image = physicalAttachments[index]->GetImage();
+
+        auto cmd = device->RequestCommandList(GPU::QueueType::QUEUE_TYPE_GRAPHICS);
+        cmd->BeginEvent("RenderGraphLayoutTransition");
+        if (physicalEvents[index].pieplineBarrierSrcStages != 0)
+        {
+            VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+            barrier.image = image->GetImage();
+            barrier.oldLayout = physicalEvents[index].imageLayout;
+            barrier.newLayout = swapchainLayout;
+            barrier.srcAccessMask = physicalEvents[index].flushAccess;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.subresourceRange.levelCount = image->GetCreateInfo().levels;
+            barrier.subresourceRange.layerCount = image->GetCreateInfo().layers;
+            barrier.subresourceRange.aspectMask = GPU::formatToAspectMask(image->GetCreateInfo().format);
+
+            cmd->Barrier(
+                physicalEvents[index].pieplineBarrierSrcStages,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0, nullptr,
+                1, &barrier
+            );
+
+            physicalEvents[index].imageLayout = swapchainLayout;
+        }
+        else
+        {
+            if (waitSemaphore && waitSemaphore->GetSemaphore() != VK_NULL_HANDLE && !waitSemaphore->IsPendingWait())
+                device->AddWaitSemaphore(GPU::QueueType::QUEUE_TYPE_GRAPHICS, waitSemaphore, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, true);
+
+            cmd->ImageBarrier(*image,
+                physicalEvents[index].imageLayout, swapchainLayout,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+            physicalEvents[index].imageLayout = swapchainLayout;
+        }
+
+        physicalEvents[index].flushAccess = 0;
+        for (auto& e : physicalEvents[index].invalidatedInStages)
+            e = 0;
+        physicalEvents[index].invalidatedInStages[TrailingZeroes(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)] = VK_ACCESS_SHADER_READ_BIT;
+        cmd->EndEvent();
+
+        device->Submit(cmd);
     }
 
     void RenderGraphImpl::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)
@@ -1618,16 +1739,49 @@ namespace VulkanTest
         }, &submitHandle);
 
         // Flush swapchain
-        Jobsystem::Run(nullptr, [&device, this](void* data)->void {
-            Jobsystem::Wait(&submitHandle);
+        if (swapchainPhysicalIndex == RenderResource::Unused)
+        {
+            Jobsystem::Run(nullptr, [&device, this](void* data)->void {
+                Jobsystem::Wait(&submitHandle);
 
-            device.FlushFrames();
+                if (swapchainLayout != VK_IMAGE_LAYOUT_UNDEFINED)
+                    SwapchainLayoutTransitionPass();
+
+                device.FlushFrames();
 
 #if RENDER_GRAPH_LOGGING_LEVEL >= 1
-            Logger::Print("FlushFrames");
+                Logger::Print("FlushFrames");
 #endif
-        }, &jobHandle);
+                }, &jobHandle);
+        }
+        else
+        {
+            Jobsystem::Run(nullptr, [&device, this](void* data)->void {
+                Jobsystem::Wait(&submitHandle);
+                device.FlushFrames();
+
+#if RENDER_GRAPH_LOGGING_LEVEL >= 1
+                Logger::Print("FlushFrames");
+#endif
+                }, &jobHandle);
+        }
+      
         device.FlushFrames();
+    }
+
+    void RenderGraphImpl::Reset()
+    {
+        swapchainEnable = true;
+        nameToRenderPassIndex.clear();
+        renderPasses.clear();
+        resources.clear();
+        nameToResourceIndex.clear();
+        physicalPasses.clear();
+        physicalDimensions.clear();
+        physicalAttachments.clear();
+        physicalBuffers.clear();
+        physicalImages.clear();
+        physicalEvents.clear();
     }
 
     void RenderGraphImpl::Log()
@@ -1972,7 +2126,7 @@ namespace VulkanTest
         return res;
     }
 
-    RenderTextureResource& RenderPass::WriteColor(const char* name, const AttachmentInfo& info)
+    RenderTextureResource& RenderPass::WriteColor(const char* name, const AttachmentInfo& info, const char* input)
     {
         auto& res = graph.GetOrCreateTexture(name);
         res.AddUsedQueue(queue);
@@ -1980,6 +2134,18 @@ namespace VulkanTest
         res.SetImageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
         res.SetAttachmentInfo(info);
         outputColors.push_back(&res);
+
+        if (input != nullptr)
+        {
+            auto& inputRes = graph.GetOrCreateTexture(input);
+            inputRes.PassRead(index);
+            inputRes.SetImageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+            inputColors.push_back(&res);
+        }
+        else
+        {
+            inputColors.push_back(nullptr);
+        }
         return res;
     }
 
@@ -2024,8 +2190,7 @@ namespace VulkanTest
 
     void RenderGraph::Reset()
     {
-        impl->nameToRenderPassIndex.clear();
-        impl->renderPasses.clear();
+        impl->Reset();
     }
 
     void RenderGraph::SetDevice(GPU::DeviceVulkan* device)
@@ -2050,6 +2215,11 @@ namespace VulkanTest
     void RenderGraph::SetBackBufferSource(const char* name)
     {
         impl->backbufferSource = name;
+    }
+
+    void RenderGraph::DisableSwapchain()
+    {
+        impl->swapchainEnable = false;
     }
 
     void RenderGraph::Bake()
@@ -2105,9 +2275,10 @@ namespace VulkanTest
 
         // Set swapchain physcical index
         impl->swapchainPhysicalIndex = backbuffer.GetPhysicalIndex();
+
         auto& backbufferDim = impl->physicalDimensions[impl->swapchainPhysicalIndex];
         bool canAliasBackbuffer = (backbufferDim.queues & (U32)RenderGraphQueueFlag::Compute) == 0 && backbufferDim.isTransient;
-        if (!canAliasBackbuffer || backbufferDim != impl->swapchainDimensions)
+        if (!impl->swapchainEnable || !canAliasBackbuffer || backbufferDim != impl->swapchainDimensions)
         {
             impl->swapchainPhysicalIndex = RenderResource::Unused;
             backbufferDim.queues |= (U32)RenderGraphQueueFlag::Graphics;
@@ -2126,9 +2297,9 @@ namespace VulkanTest
         impl->BuildAliases();
     }
 
-    void RenderGraph::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain)
+    void RenderGraph::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain, VkImageLayout finalLayout)
     {
-        impl->SetupAttachments(device, swapchain);
+        impl->SetupAttachments(device, swapchain, finalLayout);
     }
     
     void RenderGraph::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)

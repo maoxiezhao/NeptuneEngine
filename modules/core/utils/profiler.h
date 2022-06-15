@@ -22,4 +22,5 @@ namespace VulkanTest
 #define PROFILER_CONCAT2(a, b) a ## b
 #define PROFILER_CONCAT(a, b) PROFILER_CONCAT2(a, b)
 #define PROFILE_BLOCK(name) Profiler::Scope PROFILER_CONCAT(profile_scope, __LINE__)(name);
+#define PROFILE_FUNCTION() Profiler::Scope  profile_scope(__FUNCTION__);
 }

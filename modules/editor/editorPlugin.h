@@ -29,6 +29,7 @@ namespace Editor
         virtual void Update(F32 dt) {}
         virtual void EndFrame() {}
         virtual void OnGUI() = 0;
+        virtual bool HasFocus() { return false; }
         virtual const char* GetName() = 0;
     };
 } 

@@ -1,6 +1,7 @@
 #include "renderer.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetCompiler.h"
+#include "editor\widgets\sceneView.h"
 
 namespace VulkanTest
 {
@@ -76,6 +77,7 @@ namespace Editor
 	{
 	private:
 		EditorApp& app;
+		SceneView sceneView;
 
 		TestPlugin testPlugin;
 		TestResourceFactory testResFactory;
@@ -83,13 +85,16 @@ namespace Editor
 	public:
 		RenderPlugin(EditorApp& app_) :
 			app(app_),
-			testPlugin(app_)
+			testPlugin(app_),
+			sceneView(app_)
 		{
 		}
 
 		virtual ~RenderPlugin() 
 		{
 			testResFactory.Uninitialize();
+
+			app.RemoveWidget(sceneView);
 		}
 
 		void Initialize() override
@@ -99,6 +104,10 @@ namespace Editor
 
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.AddPlugin(testPlugin, "txt");
+
+			app.AddWidget(sceneView);
+
+			sceneView.Init();
 		}
 
 		const char* GetName()const override

@@ -112,4 +112,22 @@ namespace VulkanTest::LuaUtils
 
 		return true;
 	}
+
+	bool Execute(lua_State* l, Span<const char> content, const char* name, int nresults)
+	{
+		if (luaL_loadbuffer(l, content.begin(), content.length(), name) != 0)
+		{
+			Logger::Error("%s: %s", name, lua_tostring(l, -1));
+			lua_pop(l, 2);
+			return false;
+		}
+
+		if (lua_pcall(l, 0, nresults, -2) != 0) {
+			Logger::Error(lua_tostring(l, -1));
+			lua_pop(l, 2);
+			return false;
+		}
+		lua_pop(l, 1);
+		return true;
+	}
 }

@@ -244,7 +244,6 @@ namespace VulkanTest
 		String& operator=(const char* str);
 		String& operator=(const std::string& str);
 
-		char* c_str() { return isSmall() ? smallData : bigData; }
 		const char* c_str() const { return isSmall() ? smallData : bigData; }
 		bool  empty() const { return c_str() == nullptr || c_str()[0] == '\0'; }
 		char* data() { return isSmall() ? smallData : bigData; }

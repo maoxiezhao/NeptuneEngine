@@ -213,7 +213,7 @@ namespace ImGuiRenderer
 		};
 	}
 
-	void Initialize(App& app_)
+	void Initialize(App& app_, Editor::Settings& settings)
 	{
 		Logger::Info("Initializing imgui...");
 		app = &app_;
@@ -238,10 +238,11 @@ namespace ImGuiRenderer
 		io.BackendRendererUserData = nullptr;
 		io.BackendRendererName = "VulkanTest";
 
-		// Setup platform
 		InitPlatformIO(app_);
-
 		InitRendererIO(app_);
+
+		if (!settings.imguiState.empty())
+			ImGui::LoadIniSettingsFromMemory(settings.imguiState.c_str());
 
 		// Add fonts
 		font = AddFontFromFile(*app, "editor/fonts/notosans-regular.ttf");
@@ -301,11 +302,6 @@ namespace ImGuiRenderer
 	bool p_open = true;
 	void EndFrame()
 	{
-		ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
-		ImGui::Begin("Example: Log", &p_open);
-		ImGui::Text("%f", tickTime);
-		ImGui::End();
-
 		ImGui::PopFont();
 		ImGui::Render();
 		ImGui::UpdatePlatformWindows();
@@ -469,8 +465,6 @@ namespace ImGuiRenderer
 			Jobsystem::JobHandle handle;
 			graph.Render(*device, handle);
 			Jobsystem::Wait(&handle);
-	
-			device->MoveReadWriteCachesToReadOnly();
 		}
 		wsi.PresentEnd();
 	}

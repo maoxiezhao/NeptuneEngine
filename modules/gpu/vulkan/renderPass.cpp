@@ -110,6 +110,8 @@ void RenderPass::SetupSubPasses(const VkRenderPassCreateInfo& info)
 RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 	device(device_)
 {
+	bool enableTransientLoad = (info.opFlags & RENDER_PASS_OP_ENABLE_TRANSIENT_LOAD_BIT) != 0;
+
 	// Fill color attachments
 	for (int i = 0; i < VULKAN_NUM_ATTACHMENTS; i++)
 		colorAttachments[i] = VK_FORMAT_UNDEFINED;
@@ -139,39 +141,42 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 	{
 		colorAttachments[i] = info.colorAttachments[i]->GetFormat();
 
-		auto& attachment = attachments[i];
-		attachment.flags = 0;
-		attachment.format = colorAttachments[i];
-		attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		attachment.loadOp = CheckLoadOp(info, i);
-		attachment.storeOp = CheckStoreOp(info, i);
-		attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		attachment.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		auto& att = attachments[i];
+		att.flags = 0;
+		att.format = colorAttachments[i];
+		att.samples = VK_SAMPLE_COUNT_1_BIT;
+		att.loadOp = CheckLoadOp(info, i);
+		att.storeOp = CheckStoreOp(info, i);
+		att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		att.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 		const Image* image = info.colorAttachments[i]->GetImage();
 		if (image->GetCreateInfo().domain == ImageDomain::Transient)
 		{
+			if (enableTransientLoad)
+				att.initialLayout = info.colorAttachments[i]->GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			else
+				att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		}
 		else if (image->IsSwapchainImage())
 		{
 			// Keep initial layout
-			if (attachment.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
-				attachment.initialLayout = image->GetSwapchainLayout();
+			if (att.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
+				att.initialLayout = image->GetSwapchainLayout();
 
-			attachment.finalLayout = image->GetSwapchainLayout();
+			att.finalLayout = image->GetSwapchainLayout();
 
 			// 如果我们从PRESENT_SRC_KHR开始Transition，会存在一个external subpass dependency发生在BOTTOM_OF_PIPE.
-			if (attachment.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
+			if (att.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
 				implicitBottomOfPipe |= 1u << i;
 
 			implicitTransitions |= 1u << i;
 		}
 		else
 		{
-			attachment.initialLayout = info.colorAttachments[i]->GetImage()->GetLayoutType() == ImageLayoutType::Optimal ? 
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+			att.initialLayout = info.colorAttachments[i]->GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		}
 	}
 	
@@ -188,16 +193,15 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 		depthStencil = info.depthStencil->GetFormat();
 
-		auto& attachment = attachments[info.numColorAttachments + 1];
-		attachment.format = depthStencil;
-		attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // clear
-		attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachment.initialLayout = dsLayout;
-		attachment.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		auto& att = attachments[info.numColorAttachments + 1];
+		att.format = depthStencil;
+		att.samples = VK_SAMPLE_COUNT_1_BIT;
+		att.samples = VK_SAMPLE_COUNT_1_BIT;
+		att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // clear
+		att.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		att.initialLayout = dsLayout;
 	}
 
 	Util::StackAllocator<VkAttachmentReference, 512> attachmentRefAllocator;

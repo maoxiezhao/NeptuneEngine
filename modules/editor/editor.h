@@ -24,6 +24,8 @@ namespace Editor
         virtual void RemoveWindow(Platform::WindowType window) = 0;
         virtual void DeferredDestroyWindow(Platform::WindowType window) = 0;
 
+        virtual void SaveSettings() = 0;
+
         virtual AssetCompiler& GetAssetCompiler() = 0;
     };
 }   

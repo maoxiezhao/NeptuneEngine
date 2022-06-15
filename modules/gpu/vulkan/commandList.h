@@ -167,7 +167,7 @@ public:
         memcpy(mem, &data, sizeof(T));
     }
 
-    void CopyToImage(const ImagePtr& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
+    void CopyToImage(const Image& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
     void CopyBuffer(const BufferPtr& dst, const BufferPtr& src);
     void CopyBuffer(const BufferPtr& dst, VkDeviceSize dstOffset, const BufferPtr& src, VkDeviceSize srcOffset, VkDeviceSize size);
     void FillBuffer(const BufferPtr& buffer, U32 value);
@@ -185,7 +185,7 @@ public:
     void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);
     void DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 startIndexLocation, U32 baseVertexLocation, U32 startInstanceLocation);
 
-    void ImageBarrier(const ImagePtr& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
+    void ImageBarrier(const Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
     void Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
     void Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned bufferBarrierCount, const VkBufferMemoryBarrier* bufferBarriers, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers);
     void CompleteEvent(const Event& ent);
