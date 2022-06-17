@@ -4,6 +4,11 @@
 
 namespace VulkanTest
 {
+	RenderPathGraph::~RenderPathGraph()
+	{
+		renderGraph.Reset();
+	}
+
 	void RenderPathGraph::Start()
 	{
 	}
@@ -15,10 +20,8 @@ namespace VulkanTest
 
 	void RenderPathGraph::Update(float dt)
 	{
-		WSIPlatform* platform = wsi->GetPlatform();
-		U32 width = platform->GetWidth();
-		U32 height = platform->GetHeight();
-		if (currentBufferSize.x != width || currentBufferSize.y != height)
+		U32x2 internalResolution = GetInternalResolution();
+		if (currentBufferSize.x != internalResolution.x || currentBufferSize.y != internalResolution.y)
 			ResizeBuffers();
 
 		RenderPath::Update(dt);
@@ -35,29 +38,31 @@ namespace VulkanTest
 		device->MoveReadWriteCachesToReadOnly();
 	}
 
+	void RenderPathGraph::DisableSwapchain()
+	{
+		swapchainDisable = true;
+	}
+
 	void RenderPathGraph::ResizeBuffers()
 	{
-		WSIPlatform* platform = wsi->GetPlatform();
-		currentBufferSize = U32x2(
-			platform->GetWidth(),
-			platform->GetHeight()
-		);
+		currentBufferSize = GetInternalResolution();
 
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		renderGraph.Reset();
 		renderGraph.SetDevice(device);
 
-		// Setup backbuffer resource dimension
-		ResourceDimensions dim;
-		dim.width = currentBufferSize.x;
-		dim.height = currentBufferSize.y;
-		dim.format = wsi->GetSwapchainFormat();
-		renderGraph.SetBackbufferDimension(dim);
+		if (currentBufferSize.x == 0 || currentBufferSize.y == 0)
+			return;
+
+		backbufferDim.width = currentBufferSize.x;
+		backbufferDim.height = currentBufferSize.y;
+		backbufferDim.format = wsi->GetSwapchain().swapchainFormat;
+		renderGraph.SetBackbufferDimension(backbufferDim);
 
 		AttachmentInfo backInfo;
-		backInfo.format = dim.format;
-		backInfo.sizeX = (F32)dim.width;
-		backInfo.sizeY = (F32)dim.height;
+		backInfo.format = backbufferDim.format;
+		backInfo.sizeX = (F32)backbufferDim.width;
+		backInfo.sizeY = (F32)backbufferDim.height;
 
 		// Setup render graph
 		outputColors.clear();
@@ -65,9 +70,10 @@ namespace VulkanTest
 		
 		// Compose
 		auto& composePass = renderGraph.AddRenderPass("Compose", RenderGraphQueueFlag::Graphics);
-		composePass.WriteColor("back", backInfo);
+		composePass.WriteColor("back", backInfo, "back");
 		for(const auto& color : outputColors)
 			composePass.ReadTexture(color.c_str());
+
 		composePass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
 			if (value != nullptr)
 			{
@@ -78,11 +84,22 @@ namespace VulkanTest
 			}
 			return true;
 		});
+
 		composePass.SetBuildCallback([&](GPU::CommandList& cmd) {
 			Compose(renderGraph, &cmd);
 		});
+
+		if (swapchainDisable)
+			renderGraph.DisableSwapchain();
+
 		renderGraph.SetBackBufferSource("back");
 		renderGraph.Bake();
 		renderGraph.Log();
+	}
+
+	U32x2 RenderPathGraph::GetInternalResolution() const
+	{
+		auto platform = wsi->GetPlatform();
+		return U32x2(platform->GetWidth(), platform->GetHeight());
 	}
 }

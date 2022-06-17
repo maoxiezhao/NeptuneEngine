@@ -33,6 +33,10 @@ public:
 		return *engine;
 	}
 
+	struct RendererPlugin* GetRenderer() {
+		return renderer;
+	}
+
 	virtual U32 GetDefaultWidth() {
 		return DEFAULT_WIDTH;
 	}

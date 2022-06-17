@@ -24,11 +24,7 @@ namespace Editor
         const char* GetName();
 
     private:
-        void Bake(I32 w, I32 h);
-
         EditorApp& app;
-        RenderGraph graph;
-        I32x2 viewportSize;
     };
 }
 } 

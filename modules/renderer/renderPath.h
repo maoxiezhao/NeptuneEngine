@@ -25,14 +25,18 @@ namespace VulkanTest
 			wsi = wsi_;
 		}
 
-		void SetScene(RenderScene* scene_) 
-		{
-			// ASSERT(scene_ != nullptr);
+		void SetScene(RenderScene* scene_)  {
 			scene = scene_;
+		}
+
+		RenderScene* GetScene() {
+			return scene;
 		}
 
 	protected:
 		WSI* wsi = nullptr;
+
+	private:
 		RenderScene* scene = nullptr;
 	};
 }

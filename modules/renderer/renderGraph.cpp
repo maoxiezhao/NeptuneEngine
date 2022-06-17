@@ -1550,8 +1550,6 @@ namespace VulkanTest
 #endif
 
         }, & state->renderingDependency);
-        
-        ASSERT(state->renderingDependency.counter > 0);
     }
 
     void RenderGraphImpl::EnqueueRenderPass(PhysicalPass& physicalPass, GPUPassSubmissionState& state)

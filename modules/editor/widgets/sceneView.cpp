@@ -17,8 +17,6 @@ namespace Editor
 
 	void SceneView::Init()
 	{
-		WSI& wsi = app.GetWSI();
-		graph.SetDevice(wsi.GetDevice());
 	}
 
 	void SceneView::Update(F32 dt)
@@ -45,15 +43,17 @@ namespace Editor
 				return;
 			}
 
-			if ((I32)size.x != viewportSize.x || (I32)size.y != viewportSize.y)
-				Bake((I32)size.x, (I32)size.y);
+			EditorRenderer& editorRenderer = app.GetEditorRenderer();
+			U32x2 viewportSize = editorRenderer.GetViewportSize();
+			if ((U32)size.x != viewportSize.x || (U32)size.y != viewportSize.y)
+			{
+				editorRenderer.SetViewportSize((U32)size.x, (U32)size.y);
+				editorRenderer.ResizeBuffers();
+			}
+		
+			app.GetRenderer()->Render();
 
-			GPU::DeviceVulkan* device = app.GetWSI().GetDevice();
-			graph.SetupAttachments(*device, nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			Jobsystem::JobHandle handle;
-			graph.Render(*device, handle);
-			Jobsystem::Wait(&handle);
-
+			auto& graph = editorRenderer.GetRenderGraph();
 			auto& backRes = graph.GetOrCreateTexture("back");
 			ImGui::Image(graph.GetPhysicalTexture(backRes).GetImage(), size);
 		}
@@ -65,43 +65,6 @@ namespace Editor
 	const char* SceneView::GetName()
 	{
 		return "SceneView";
-	}
-
-	void SceneView::Bake(I32 w, I32 h)
-	{
-		viewportSize.x = w;
-		viewportSize.y = h;
-
-		WSI& wsi = app.GetWSI();
-
-		//auto imageInfo = GPU::ImageCreateInfo::RenderTarget((U32)w, (U32)h, wsi.GetSwapchain().swapchainFormat);
-		//renderTarget = device->CreateImage(imageInfo, nullptr);
-
-		// Setup backbuffer resource dimension
-		graph.Reset();
-
-		ResourceDimensions dim;
-		dim.width = w;
-		dim.height = h;
-		dim.format = wsi.GetSwapchain().swapchainFormat;
-		graph.SetBackbufferDimension(dim);
-
-		AttachmentInfo backInfo;
-		backInfo.format = dim.format;
-		backInfo.sizeX = (F32)dim.width;
-		backInfo.sizeY = (F32)dim.height;
-
-		// Compose
-		auto& imguiPass = graph.AddRenderPass("MainPass", RenderGraphQueueFlag::Graphics);
-		imguiPass.WriteColor("back", backInfo, "back");
-		imguiPass.SetBuildCallback([&](GPU::CommandList& cmd) {
-			cmd.SetDefaultOpaqueState();
-			cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
-			cmd.Draw(3);
-		});
-		graph.SetBackBufferSource("back");
-		graph.DisableSwapchain();
-		graph.Bake();
 	}
 }
 }

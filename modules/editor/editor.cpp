@@ -2,8 +2,6 @@
 #include "editorUtils.h"
 #include "core\utils\profiler.h"
 #include "core\platform\platform.h"
-#include "renderer\renderer.h"
-#include "renderer\renderPath3D.h"
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
 
@@ -21,9 +19,15 @@ namespace VulkanTest
 {
 namespace Editor
 {
-    class EditorRenderer : public RenderPath
+    void EditorRenderer::Render()
     {
-    };
+        GPU::DeviceVulkan* device = wsi->GetDevice();
+        auto& graph = GetRenderGraph();
+        graph.SetupAttachments(*device, nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL); // Used for sceneView
+        Jobsystem::JobHandle handle;
+        graph.Render(*device, handle);
+        Jobsystem::Wait(&handle);
+    }
 
     class EditorAppImpl final : public EditorApp
     {
@@ -91,7 +95,9 @@ namespace Editor
             // Get renderer
             renderer = static_cast<RendererPlugin*>(engine->GetPluginManager().GetPlugin("Renderer"));
             ASSERT(renderer != nullptr);
-            renderer->ActivePath(&editorRenderer);
+            editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>();
+            editorRenderer->DisableSwapchain();
+            renderer->ActivePath(editorRenderer.Get());
 
             // Init imgui renderer
             ImGuiRenderer::Initialize(*this, settings);
@@ -140,6 +146,7 @@ namespace Editor
             ImGuiRenderer::Uninitialize();
 
             // Reset engine
+            editorRenderer.Reset();
             engine.Reset();
 
             // Uninit platform
@@ -241,6 +248,11 @@ namespace Editor
             default:
                 break;
             }
+        }
+
+        EditorRenderer& GetEditorRenderer()
+        {
+            return *editorRenderer;
         }
 
         AssetCompiler& GetAssetCompiler()
@@ -485,7 +497,7 @@ namespace Editor
         Timer fpsTimer;
         Array<Utils::Action*> actions;
         Settings settings;
-        EditorRenderer editorRenderer;
+        UniquePtr<EditorRenderer> editorRenderer;
 
         // Windows
         Array<Platform::WindowType> windows;

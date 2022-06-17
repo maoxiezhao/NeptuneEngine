@@ -7,14 +7,10 @@ namespace VulkanTest
 {
 	void RenderPath3D::Update(float dt)
 	{
+		RenderScene* scene = GetScene();
 		ASSERT(scene != nullptr);
 
 		RenderPath2D::Update(dt);
-
-		// Update render scene
-		// if (GetSceneUpdateEnabled()) {
-		//	scene->Update(dt, false);
-		// }
 
 		// Update main camera
 		camera = scene->GetMainCamera();
@@ -35,43 +31,37 @@ namespace VulkanTest
 
 	void RenderPath3D::SetupPasses(RenderGraph& renderGraph)
 	{
-		// Prepare frame pass
-		auto& prepareFramePass = renderGraph.AddRenderPass("PrepareFrame", RenderGraphQueueFlag::Graphics);
-		prepareFramePass.SetBuildCallback([&](GPU::CommandList& cmd) {
-			Renderer::UpdateRenderData(visibility, cmd);
-		});
-
-		// Depth prepass
-		auto& depthPrepassPass = renderGraph.AddRenderPass("DepthPrepass", RenderGraphQueueFlag::Graphics);
-		depthPrepassPass.SetBuildCallback([&](GPU::CommandList& cmd) {
-			
-		});
-
-		// Shadow maps
-		auto& shadowMapPass = renderGraph.AddRenderPass("ShadowMap", RenderGraphQueueFlag::Graphics);
-		shadowMapPass.SetBuildCallback([&](GPU::CommandList& cmd) {
-			
-		});
+		AttachmentInfo rtAttachmentInfo;
+		rtAttachmentInfo.format = backbufferDim.format;
+		rtAttachmentInfo.sizeX = (F32)backbufferDim.width;
+		rtAttachmentInfo.sizeY = (F32)backbufferDim.height;
 		
 		// Main opaque pass
 		auto& opaquePass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
+		opaquePass.WriteColor("rtFinal3D", rtAttachmentInfo, "rtFinal3D");
 		opaquePass.SetBuildCallback([&](GPU::CommandList& cmd) {
-			
+
+			//VkViewport viewport = {};
+			//viewport.x = 0.0f;
+			//viewport.y = 0.0f;
+			//viewport.width = rtAttachmentInfo.sizeX;
+			//viewport.height = rtAttachmentInfo.sizeY;
+			//viewport.minDepth = 0.0f;
+			//viewport.maxDepth = 1.0f;
+			//cmd.SetViewport(viewport);
+
+			cmd.SetDefaultOpaqueState();
+			cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
+			cmd.Draw(3);
 		});
 
-		// Transparent
-		auto& transparentPass = renderGraph.AddRenderPass("Transparent", RenderGraphQueueFlag::Graphics);
-		transparentPass.SetBuildCallback([&](GPU::CommandList& cmd) {
-			
-		});
-		AddOutputColor("final3D");
-
+		AddOutputColor("rtFinal3D");
 		RenderPath2D::SetupPasses(renderGraph);
 	}
 
 	void RenderPath3D::Compose(RenderGraph& renderGraph, GPU::CommandList* cmd)
 	{
-		auto res = renderGraph.GetOrCreateTexture("final3D");
+		auto res = renderGraph.GetOrCreateTexture("rtFinal3D");
 		auto& imgFinal3D = renderGraph.GetPhysicalTexture(res);
 
 		ImageUtil::Params params = {};
