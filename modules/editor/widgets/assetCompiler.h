@@ -20,6 +20,7 @@ namespace Editor
             virtual ~IPlugin() {}
             virtual bool Compile(const Path& path) = 0;
             virtual void RegisterResource(AssetCompiler& compiler, const char* path);
+            virtual std::vector<const char*> GetSupportExtensions() = 0;
         };
 
         struct ResourceItem 
@@ -34,7 +35,8 @@ namespace Editor
         virtual ~AssetCompiler() {};
 
         virtual void InitFinished() = 0;
-        virtual void AddPlugin(IPlugin& plugin, const char* ext) = 0;
+        virtual void AddPlugin(IPlugin& plugin, const std::vector<const char*>& exts) = 0;
+        virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
         virtual void AddDependency(const Path& parent, const Path& dep) = 0;
         virtual bool Compile(const Path& path) = 0;
@@ -43,6 +45,8 @@ namespace Editor
         virtual ResourceType GetResourceType(const char* path) const = 0;
         virtual void RegisterExtension(const char* extension, ResourceType type) = 0;
         virtual void AddResource(ResourceType type, const char* path) = 0;
+        virtual const HashMap<U64, ResourceItem>& LockResources() = 0;
+        virtual void UnlockResources() = 0;
     };
 }
 }

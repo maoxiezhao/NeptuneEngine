@@ -87,6 +87,7 @@ namespace Editor
 
             assetCompiler = AssetCompiler::Create(*this);
             worldEditor = WorldEditor::Create(*this);
+            assetBrowser = AssetBrowser::Create(*this);
             logWidget = CJING_MAKE_UNIQUE<LogWidget>();
 
             // Load editor settings
@@ -108,9 +109,11 @@ namespace Editor
             // Load plugins
             LoadPlugins();
 
+            AddWidget(*assetBrowser);
             AddWidget(*logWidget);
 
             assetCompiler->InitFinished();
+            assetBrowser->InitFinished();
         }
 
         void Uninitialize() override
@@ -138,6 +141,7 @@ namespace Editor
             actions.clear();
 
             // Remove system widgets
+            assetBrowser.Reset();
             assetCompiler.Reset();
             worldEditor.Reset();
             logWidget.Reset();
@@ -510,6 +514,7 @@ namespace Editor
 
         // Builtin widgets
         UniquePtr<AssetCompiler> assetCompiler;
+        UniquePtr<AssetBrowser> assetBrowser;
         UniquePtr<WorldEditor> worldEditor;
         UniquePtr<LogWidget> logWidget;
 

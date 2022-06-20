@@ -31,6 +31,13 @@ namespace Editor
         virtual void OnGUI() = 0;
         virtual bool HasFocus() { return false; }
         virtual const char* GetName() = 0;
+
+        bool IsOpen()const {
+            return isOpen;
+        }
+
+    protected:
+        bool isOpen = true;
     };
 } 
 } 

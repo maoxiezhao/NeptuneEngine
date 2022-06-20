@@ -106,8 +106,9 @@ namespace VulkanTest
 
     App* CreateApplication(int, char**)
     {
+#ifdef DEBUG_RENDERDOC
         GPU::DeviceVulkan::InitRenderdocCapture();
-
+#endif
         try
         {
             App* app = Editor::EditorApp::Create();

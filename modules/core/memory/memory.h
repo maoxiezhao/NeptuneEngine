@@ -87,7 +87,7 @@ inline void operator delete(void*, VulkanTest::NewPlaceHolder, void*) { }
 #define CJING_DELETE_ARR(ptr, count) VulkanTest::Memory::ArrayDestructFunc(ptr, count); VulkanTest::Memory::Free(ptr);
 
 #define CJING_MALLOC(size)  VulkanTest::Memory::Alloc(size, __FILE__, __LINE__)
-#define CJING_MALLOC_ALIGN(size, align)  VulkanTest::Memory::AlignAlloc(size, align, __FILE__, __LINE__)
+#define CJING_MALLOC_ALIGN(size, align)  VulkanTest::Memory::AllocAligned(size, align, __FILE__, __LINE__)
 #define CJING_REMALLOC(ptr, size)  VulkanTest::Memory::Realloc(ptr, size, __FILE__, __LINE__)
 #define CJING_REMALLOC_ALIGN(ptr, size, align)  VulkanTest::Memory::ReallocAligned(ptr, size, align, __FILE__, __LINE__)
 #define CJING_FREE(ptr) VulkanTest::Memory::Free(ptr);

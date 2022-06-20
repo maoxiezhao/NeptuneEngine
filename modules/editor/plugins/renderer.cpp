@@ -2,74 +2,31 @@
 #include "editor\editor.h"
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\sceneView.h"
+#include "renderer\model.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
-	class TestResource final : public Resource
-	{
-	public:
-		DECLARE_RESOURCE(TestResource);
-
-		TestResource(const Path& path_, ResourceFactory& resFactory_) :
-			Resource(path_, resFactory_)
-		{
-		}
-
-		virtual ~TestResource()
-		{
-		}
-
-	protected:
-		bool OnLoaded(U64 size, const U8* mem) override
-		{
-			ASSERT(mem != nullptr);
-			ASSERT(size > 0);
-			data = (U8*)CJING_MALLOC(size);
-			memcpy(data, mem, size);
-			return true;
-		}
-
-		void OnUnLoaded() override
-		{
-			CJING_SAFE_FREE(data);
-		}
-
-	private:
-		U8* data = nullptr;
-	};
-
-	DEFINE_RESOURCE(TestResource);
-
-	class TestResourceFactory : public ResourceFactory
-	{
-	protected:
-		Resource* CreateResource(const Path& path)override
-		{
-			return CJING_NEW(TestResource)(path, *this);
-		}
-
-		virtual void DestroyResource(Resource* res)override
-		{
-			CJING_SAFE_DELETE(res);
-		}
-	};
-
-	struct TestPlugin final : AssetCompiler::IPlugin
+	struct ModelPlugin final : AssetCompiler::IPlugin
 	{
 	private:
 		EditorApp& app;
 
 	public:
-		TestPlugin(EditorApp& app_) : app(app_) 
+		ModelPlugin(EditorApp& app_) : app(app_)
 		{
-			app_.GetAssetCompiler().RegisterExtension("txt", TestResource::ResType);
+			app_.GetAssetCompiler().RegisterExtension("obj", Model::ResType);
 		}
 
 		bool Compile(const Path& path)
 		{
 			return app.GetAssetCompiler().CopyCompile(path);
+		}
+
+		std::vector<const char*> GetSupportExtensions()
+		{
+			return { "obj" };
 		}
 	};
 
@@ -79,31 +36,25 @@ namespace Editor
 		EditorApp& app;
 		SceneView sceneView;
 
-		TestPlugin testPlugin;
-		TestResourceFactory testResFactory;
+		ModelPlugin modelPlugin;
 
 	public:
 		RenderPlugin(EditorApp& app_) :
 			app(app_),
-			testPlugin(app_),
+			modelPlugin(app_),
 			sceneView(app_)
 		{
 		}
 
 		virtual ~RenderPlugin() 
 		{
-			testResFactory.Uninitialize();
-
 			app.RemoveWidget(sceneView);
 		}
 
 		void Initialize() override
 		{
-			ResourceManager& resManager = app.GetEngine().GetResourceManager();
-			testResFactory.Initialize(TestResource::ResType, resManager);
-
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
-			assetCompiler.AddPlugin(testPlugin, "txt");
+			assetCompiler.AddPlugin(modelPlugin);
 
 			app.AddWidget(sceneView);
 

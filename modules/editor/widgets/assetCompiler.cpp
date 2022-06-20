@@ -1,7 +1,6 @@
 #include "assetCompiler.h"
 #include "editor\editor.h"
 #include "core\platform\platform.h"
-#include "core\collections\hashMap.h"
 
 namespace VulkanTest
 {
@@ -489,11 +488,31 @@ namespace Editor
             }
         }
 
-        void AddPlugin(IPlugin& plugin, const char* ext) override
+        const HashMap<U64, ResourceItem>& LockResources()override
         {
-            ScopedMutex lock(mutex);
-            const RuntimeHash hash(ext);
-            plugins.insert(hash.GetHashValue(), &plugin);
+            resMutex.Lock();
+            return resources;
+        }
+
+        void UnlockResources()override
+        {
+            resMutex.Unlock();
+        }
+
+        void AddPlugin(IPlugin& plugin, const std::vector<const char*>& exts) override
+        {
+            for (const auto& ext : exts)
+            {
+                const RuntimeHash hash(ext);
+                ScopedMutex lock(mutex);
+                plugins.insert(hash.GetHashValue(), &plugin);
+            }
+        }
+
+        void AddPlugin(IPlugin& plugin) override
+        {
+            const auto& exts = plugin.GetSupportExtensions();
+            AddPlugin(plugin, exts);
         }
 
         void RemovePlugin(IPlugin& plugin) override
