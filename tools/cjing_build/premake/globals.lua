@@ -151,7 +151,7 @@ function setup_env_from_options()
 end
 
 function setup_env_from_action()
-    if _ACTION == "vs2017" or _ACTION == "vs2019" then
+    if _ACTION == "vs2019" or _ACTION == "vs2022" then
         current_platform = "win32"
     end
 

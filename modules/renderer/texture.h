@@ -9,6 +9,18 @@ namespace VulkanTest
 	public:
 		DECLARE_RESOURCE(Texture);
 
+		enum TextureType
+		{
+			DIFFUSE,
+			NORMAL,
+			SPECULAR,
+			SHININESS,
+			AMBIENT,
+			EMISSIVE,
+			REFLECTION,
+			COUNT
+		};
+
 		Texture(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~Texture();
 

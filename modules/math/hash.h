@@ -41,12 +41,12 @@ inline std::enable_if_t<std::is_enum<T>::value, uint64_t> HashFunc(uint64_t Inpu
 }
 
 // Hasher
-template<typename T>
-inline std::enable_if_t<!std::is_enum<T>::value, uint64_t> HashFunc(uint64_t Input, const T& Data)
-{
-	static_assert(false, "This Type of Hash function not defined");
-	return 0;
-}
+//template<typename T>
+//inline std::enable_if_t<!std::is_enum<T>::value, uint64_t> HashFunc(uint64_t Input, const T& Data)
+//{
+//	static_assert(false, "This Type of Hash function not defined");
+//	return 0;
+//}
 
 uint64_t HashFunc(uint64_t Input, const char* Data);
 inline uint64_t HashFunc(uint64_t Input, uint32_t Data) { return FNV1aHash(Input, &Data, 4); }
@@ -65,12 +65,12 @@ inline uint64_t HashFunc(uint64_t Input, float Data)
 	return HashFunc(Input, u.u32);
 }
 
-template<typename T>
-inline uint32_t HashFunc(uint32_t Input, const T& Data)
-{
-	static_assert(false, "This Type of Hash function not defined");
-	return 0;
-}
+//template<typename T>
+//inline uint32_t HashFunc(uint32_t Input, const T& Data)
+//{
+//	static_assert(false, "This Type of Hash function not defined");
+//	return 0;
+//}
 inline uint32_t HashFunc(uint32_t Input, uint32_t Data) { return SDBHash(Input, &Data, 4); }
 inline uint32_t HashFunc(uint32_t Input, int32_t Data) { return SDBHash(Input, &Data, 4); }
 

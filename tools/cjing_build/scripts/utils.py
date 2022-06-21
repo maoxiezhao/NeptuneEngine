@@ -83,7 +83,8 @@ def copy_file_or_create_dir(src_file, dst_file):
 ## vs utils
 #################################################################
 support_vs_version = [
-    "vs2019"
+    "vs2019",
+    "vs2022"
 ]
 
 custom_vs_dir_path = ""

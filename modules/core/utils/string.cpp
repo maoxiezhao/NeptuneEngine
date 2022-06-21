@@ -194,7 +194,7 @@ namespace VulkanTest
 	{
 		char* c = output.begin();
 		char* num_start = output.begin();
-		U32 length = output.length();
+		U32 length = (U32)output.length();
 		if (length > 0)
 		{
 			if (value == 0)
@@ -227,7 +227,7 @@ namespace VulkanTest
 	{
 		char* c = output.begin();
 		char* num_start = output.begin();
-		U32 length = output.length();
+		U32 length = (U32)output.length();
 		if (length > 0)
 		{
 			if (value == 0)
@@ -254,6 +254,52 @@ namespace VulkanTest
 			}
 		}
 		return false;
+	}
+
+	static char MakeLowercase(char c)
+	{
+		return c >= 'A' && c <= 'Z' ? c - ('A' - 'a') : c;
+	}
+
+	bool MakeLowercase(Span<char> dst, const char* src)
+	{
+		char* destination = dst.begin();
+		U32 length = (U32)dst.length();
+		if (!src)
+		{
+			return false;
+		}
+
+		while (*src && length)
+		{
+			*destination = MakeLowercase(*src);
+			--length;
+			++destination;
+			++src;
+		}
+		if (length > 0)
+		{
+			*destination = 0;
+			return true;
+		}
+		return false;
+	}
+
+	bool MakeLowercase(Span<char> dst, Span<const char> src)
+	{
+		char* destination = dst.begin();
+		if (src.length() + 1 > dst.length()) 
+			return false;
+
+		const char* source = src.begin();
+		while (source != src.end())
+		{
+			*destination = MakeLowercase(*source);
+			++destination;
+			++source;
+		}
+		*destination = 0;
+		return true;
 	}
 
 	U32 HashFunc(U32 Input, const String& Data)

@@ -29,6 +29,8 @@ namespace VulkanTest
 	bool EndsWith(const char* str, const char* substr);
 	bool ToCString(U32 value, Span<char> output);
 	bool ToCString(U64 value, Span<char> output);
+	bool MakeLowercase(Span<char> dst, const char* src);
+	bool MakeLowercase(Span<char> dst, Span<const char> src);
 
 	template<size_t N>
 	bool CopyString(char(&destination)[N], const char* source)

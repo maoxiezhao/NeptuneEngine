@@ -3,6 +3,7 @@
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\sceneView.h"
 #include "renderer\model.h"
+#include "objImporter.h"
 
 namespace VulkanTest
 {
@@ -12,16 +13,54 @@ namespace Editor
 	{
 	private:
 		EditorApp& app;
+		OBJImporter objImporter;
+
+		struct Meta
+		{
+			F32 scale = 1.0f;
+		};
 
 	public:
-		ModelPlugin(EditorApp& app_) : app(app_)
+		ModelPlugin(EditorApp& app_) : 
+			app(app_),
+			objImporter(app_)
 		{
 			app_.GetAssetCompiler().RegisterExtension("obj", Model::ResType);
 		}
 
 		bool Compile(const Path& path)
 		{
-			return app.GetAssetCompiler().CopyCompile(path);
+			char ext[5] = {};
+			CopyString(Span(ext), Path::GetExtension(path.ToSpan()));
+			MakeLowercase(Span(ext), ext);
+
+			if (EqualString(ext, "obj"))
+			{
+				Meta meta = GetMeta(path);
+				OBJImporter::ImportConfig cfg = {};
+				cfg.scale = meta.scale;
+
+				if (!objImporter.Import(path.c_str()))
+				{
+					Logger::Error("Failed to import %s", path.c_str());
+					return false;
+				}
+
+				objImporter.Write(path.c_str(), cfg);
+				return true;
+			}
+			else
+			{
+				ASSERT(false);
+				return false;
+			}
+		}
+
+		Meta GetMeta(const Path& path)const
+		{
+			Meta meta = {};
+
+			return meta;
 		}
 
 		std::vector<const char*> GetSupportExtensions()

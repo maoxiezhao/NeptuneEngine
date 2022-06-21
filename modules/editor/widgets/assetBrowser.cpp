@@ -57,10 +57,6 @@ namespace Editor
         { 
         }
 
-        void EndFrame() override
-        {
-        }
-
         void OnGUI() override
         {
             // Set default directory
