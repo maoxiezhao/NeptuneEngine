@@ -164,7 +164,6 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 	// parse push constant buffers
 	if (!pushConstants.empty())
 	{
-		// ���������ȡ��һ��constant�Ĵ�С
 		// At least on older validation layers, it did not do a static analysis to determine similar information
 		layout.pushConstantSize = pushConstants.front()->offset + pushConstants.front()->size;
 	}
@@ -411,12 +410,123 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout res
 		Logger::Error("Failed to create pipeline layout.");
 		return;
 	}
+
+	CreateUpdateTemplates();
 }
 
 PipelineLayout::~PipelineLayout()
 {
 	if (pipelineLayout != VK_NULL_HANDLE)
 		vkDestroyPipelineLayout(device.device, pipelineLayout, nullptr);
+
+	for (auto& ut : updateTemplate)
+	{
+		if (ut != VK_NULL_HANDLE)
+			vkDestroyDescriptorUpdateTemplate(device.device, ut, nullptr);
+	}
+}
+
+void PipelineLayout::CreateUpdateTemplates()
+{
+	for (unsigned descSet = 0; descSet < VULKAN_NUM_DESCRIPTOR_SETS; descSet++)
+	{
+		if ((resLayout.descriptorSetMask & (1u << descSet)) == 0)
+			continue;
+		if ((resLayout.bindlessSetMask & (1u << descSet)) != 0)
+			continue;
+
+		VkDescriptorUpdateTemplateEntry updateEntries[VULKAN_NUM_BINDINGS];
+		U32 updateCount = 0;
+		U32 offset = 0;
+		auto& setLayout = resLayout.sets[descSet];
+		// Sampled image
+		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE)],
+			[&](U32 bit) {
+				auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][bit];
+				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
+				auto& entry = updateEntries[updateCount++];
+				entry.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+				entry.dstBinding = binding.unrolledBinding;
+				entry.dstArrayElement = 0;
+				entry.descriptorCount = binding.arraySize;
+				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;
+				entry.stride = sizeof(ResourceBinding);
+				offset+= binding.arraySize;
+			});
+
+		// Storage image
+		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_STORAGE_IMAGE)],
+			[&](U32 bit) {
+				auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][bit];
+				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
+				auto& entry = updateEntries[updateCount++];
+				entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+				entry.dstBinding = binding.unrolledBinding;
+				entry.dstArrayElement = 0;
+				entry.descriptorCount = binding.arraySize;
+				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;
+				entry.stride = sizeof(ResourceBinding);
+				offset += binding.arraySize;
+			});
+
+		// Constant buffers
+		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER)],
+			[&](U32 bit) {
+				auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][bit];
+				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
+				auto& entry = updateEntries[updateCount++];
+				entry.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+				entry.dstBinding = binding.unrolledBinding;
+				entry.dstArrayElement = 0;
+				entry.descriptorCount = binding.arraySize;
+				entry.offset = offsetof(ResourceBinding, buffer) + sizeof(ResourceBinding) * offset;
+				entry.stride = sizeof(ResourceBinding);
+				offset += binding.arraySize;
+			});
+
+		// Input attachment
+		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT)],
+			[&](U32 bit) {
+				auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][bit];
+				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
+				auto& entry = updateEntries[updateCount++];
+				entry.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+				entry.dstBinding = binding.unrolledBinding;
+				entry.dstArrayElement = 0;
+				entry.descriptorCount = binding.arraySize;
+				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;
+				entry.stride = sizeof(ResourceBinding);
+				offset += binding.arraySize;
+			});
+
+		// Sampler
+		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_SAMPLER)],
+			[&](U32 bit) {
+				auto& binding = setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLER][bit];
+				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
+				auto& entry = updateEntries[updateCount++];
+				entry.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+				entry.dstBinding = binding.unrolledBinding;
+				entry.dstArrayElement = 0;
+				entry.descriptorCount = binding.arraySize;
+				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;
+				entry.stride = sizeof(ResourceBinding);
+				offset += binding.arraySize;
+			});
+
+		VkDescriptorUpdateTemplateCreateInfo info = { VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO };
+		info.pipelineLayout = pipelineLayout;
+		info.descriptorSetLayout = descriptorSetAllocators[descSet]->GetSetLayout();
+		info.templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
+		info.set = descSet;
+		info.descriptorUpdateEntryCount = updateCount;
+		info.pDescriptorUpdateEntries = updateEntries;
+		info.pipelineBindPoint = (resLayout.stagesForSets[descSet] & VK_SHADER_STAGE_COMPUTE_BIT) ?
+			VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
+
+		if (vkCreateDescriptorUpdateTemplate(device.device, &info, nullptr, &updateTemplate[descSet]) != VK_SUCCESS)
+			Logger::Error("Failed to create descriptor update template.");
+	}
 }
 
 }

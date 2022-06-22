@@ -67,11 +67,19 @@ namespace GPU
 			return descriptorSetAllocators[set];
 		}
 
+		VkDescriptorUpdateTemplate GetUpdateTemplate(U32 set)const
+		{
+			return updateTemplate[set];
+		}
+
 	private:
+		void CreateUpdateTemplates();
+
 		DeviceVulkan& device;
 		CombinedResourceLayout resLayout;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		DescriptorSetAllocator* descriptorSetAllocators[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+		VkDescriptorUpdateTemplate updateTemplate[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 	};
 
 	class Shader : public Util::IntrusiveHashMapEnabled<Shader>

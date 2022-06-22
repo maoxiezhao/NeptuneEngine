@@ -961,6 +961,11 @@ void CommandList::FlushDescriptorSet(U32 set)
     uint32_t numDynamicOffsets = 0;
     uint32_t dynamicOffsets[VULKAN_NUM_BINDINGS];
 
+#define USE_UPDATE_TEMPLATE
+#ifdef USE_UPDATE_TEMPLATE
+    std::vector<ResourceBinding> resourceBindings;
+#endif
+
     // Calculate descriptor set layout hash
     HashCombiner hasher;
     const DescriptorSetLayout& setLayout = resLayout.sets[set];
@@ -976,6 +981,8 @@ void CommandList::FlushDescriptorSet(U32 set)
                     ASSERT(numDynamicOffsets < VULKAN_NUM_BINDINGS);
                     dynamicOffsets[numDynamicOffsets++] = bindings.bindings[set][maskbit][binding + i].dynamicOffset;
                 }
+
+                resourceBindings.push_back(bindings.bindings[set][maskbit][binding + i]);
             }
         });
     }
@@ -983,8 +990,14 @@ void CommandList::FlushDescriptorSet(U32 set)
     auto allocated = allocator->GetOrAllocate(threadIndex, hasher.Get());
 	if (!allocated.second) 
     {
-        // allocated.first -> VkDescriptorSet, rebuild descriptor set
+#ifdef USE_UPDATE_TEMPLATE
+        auto updateTemplate = currentLayout->GetUpdateTemplate(set);
+        ASSERT(updateTemplate);
+
+        vkUpdateDescriptorSetWithTemplate(device.device, allocated.first, updateTemplate, resourceBindings.data());
+#else
         UpdateDescriptorSet(device, allocated.first, resLayout.sets[set], bindings.bindings[set]);
+#endif
     }
 
     vkCmdBindDescriptorSets(
