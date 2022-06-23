@@ -4,6 +4,7 @@
 #include "luaException.h"
 
 #include "core\utils\path.h"
+#include "math\math.hpp"
 
 namespace VulkanTest::LuaUtils
 {
@@ -172,6 +173,25 @@ namespace VulkanTest::LuaUtils
 	};
 
 	template<>
+	struct LuaTypeNormalMapping<lua_CFunction>
+	{
+		static void Push(lua_State* l, lua_CFunction value)
+		{
+			lua_pushcfunction(l, value);
+		}
+
+		static lua_CFunction Get(lua_State* l, int index)
+		{
+			return lua_tocfunction(l, index);
+		}
+
+		static bool Check(lua_State* l, int index)
+		{
+			return lua_iscfunction(l, index);
+		}
+	};
+
+	template<>
 	struct LuaTypeNormalMapping<Path>
 	{
 		static void Push(lua_State* l, const Path& p)
@@ -198,4 +218,49 @@ namespace VulkanTest::LuaUtils
 			return lua_isstring(l, index);
 		}
 	};
+
+	template<typename T, size_t N>
+	struct LuaTypeArrayNumberMapping
+	{
+		static void Push(lua_State* l, const T& value)
+		{
+			lua_createtable(l, N, 0);
+			for (int i = 1; i <= N; i++)
+			{
+				lua_pushnumber(l, value.data[i - 1]);
+				lua_rawseti(l, -2, i);
+			}
+		}
+
+		static T Get(lua_State* l, int index)
+		{
+			T ret = {};
+			for (int i = 1; i <= N; i++)
+			{
+				lua_rawgeti(l, index, i);
+				ret.data[i - 1] = (F32)lua_tonumber(l, -1);
+				lua_pop(l, 1);
+			}
+			return ret;
+		}
+
+		static T Opt(lua_State* l, int index, const T& defValue)
+		{
+			return lua_isnoneornil(l, index) ? defValue : Get(l, index);
+		}
+
+		static bool Check(lua_State* l, int index)
+		{
+			if (lua_istable(l, index) == 0)
+				return false;
+			lua_len(l, index);
+			int dim = lua_tointeger(l, -1);
+			lua_pop(l, 1);
+			return dim == N;
+		}
+	};
+
+	template<> struct LuaTypeNormalMapping<F32x2> : LuaTypeArrayNumberMapping<F32x2, 2> {};
+	template<> struct LuaTypeNormalMapping<F32x3> : LuaTypeArrayNumberMapping<F32x3, 3> {};
+	template<> struct LuaTypeNormalMapping<F32x4> : LuaTypeArrayNumberMapping<F32x4, 4> {};
 }

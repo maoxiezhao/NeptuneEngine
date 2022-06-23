@@ -42,6 +42,8 @@ namespace VulkanTest
 			return Write(&value, sizeof(T));
 		}
 
+		IOutputStream& operator<<(const char* str);
+
 		inline IOutputStream& operator<<(bool data)
 		{
 			Write((uint32_t)(data ? 1 : 0));

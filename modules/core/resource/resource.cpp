@@ -191,10 +191,10 @@ namespace VulkanTest
 		}
 		else
 		{
-			bool ret = OnLoaded(size - sizeof(resHeader), mem + sizeof(resHeader));
+			bool ret = OnLoaded(size - sizeof(*resHeader), mem + sizeof(*resHeader));
 			if (ret == false)
 			{
-				Logger::Error("Failed to load resource $s", GetPath().c_str());
+				Logger::Error("Failed to load resource %s", GetPath().c_str());
 				failedDepCount++;
 			}	
 			resSize = resHeader->originSize;

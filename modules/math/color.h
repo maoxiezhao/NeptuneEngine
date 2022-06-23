@@ -11,7 +11,7 @@ namespace VulkanTest {
 
 		constexpr Color4(U32 color) : rgba(color) {};
 		constexpr Color4(U8 r = 0, U8 g = 0, U8 b = 0, U8 a = 0) : rgba(r << 0 | g << 8 | b << 16 | a << 24) {};
-		constexpr Color4(const Vec4& value) { Convert(value); }
+		constexpr Color4(const F32x4& value) { Convert(value); }
 
 		constexpr U8 GetR()const { return (rgba >> 0) & 0xFF; }
 		constexpr U8 GetG()const { return (rgba >> 8) & 0xFF; }
@@ -31,9 +31,9 @@ namespace VulkanTest {
 		U32 GetRGBA()const { return rgba; }
 
 		// convert to 0.0-1.0
-		constexpr Vec3 ToFloat3() const
+		constexpr F32x3 ToFloat3() const
 		{
-			return Vec3(
+			return F32x3(
 				((rgba >> 0) & 0xff) / 255.0f,
 				((rgba >> 8) & 0xff) / 255.0f,
 				((rgba >> 16) & 0xff) / 255.0f
@@ -41,9 +41,9 @@ namespace VulkanTest {
 		}
 
 		// convert to 0.0-1.0
-		constexpr Vec4 ToFloat4() const
+		constexpr F32x4 ToFloat4() const
 		{
-			return Vec4(
+			return F32x4(
 				((rgba >> 0) & 0xff) / 255.0f,
 				((rgba >> 8) & 0xff) / 255.0f,
 				((rgba >> 16) & 0xff) / 255.0f,
@@ -51,7 +51,7 @@ namespace VulkanTest {
 			);
 		}
 
-		static constexpr Color4 Convert(const Vec3& value)
+		static constexpr Color4 Convert(const F32x3& value)
 		{
 			return Color4(
 				(U8)(value[0] * 255.0f),
@@ -60,7 +60,7 @@ namespace VulkanTest {
 			);
 		}
 
-		static constexpr Color4 Convert(const Vec4& value)
+		static constexpr Color4 Convert(const F32x4& value)
 		{
 			return Color4(
 				(U8)(value[0] * 255.0f),

@@ -80,6 +80,23 @@ namespace VulkanTest::LuaUtils
 		return !(*this == ref_);
 	}
 
+	LuaRef LuaRef::CreateRef(lua_State* l)
+	{
+		return LuaRef(l, luaL_ref(l, LUA_REGISTRYINDEX));
+	}
+
+	LuaRef LuaRef::CreateRef(lua_State* l, int index)
+	{
+		lua_pushvalue(l, index);
+		return LuaRef(l, luaL_ref(l, LUA_REGISTRYINDEX));
+	}
+
+	LuaRef LuaRef::CreateGlobalRef(lua_State* l)
+	{
+		lua_pushglobaltable(l);
+		return CreateRef(l);
+	}
+
 	void LuaRef::Clear()
 	{
 		if (l != nullptr && ref != LUA_REFNIL && ref != LUA_NOREF) {
@@ -111,6 +128,13 @@ namespace VulkanTest::LuaUtils
 			return false;
 
 		return true;
+	}
+
+	void AddFunction(lua_State* l, const char* name, lua_CFunction function)
+	{
+		lua_pushglobaltable(l);
+		lua_pushcfunction(l, function);
+		lua_setfield(l, -2, name);
 	}
 
 	bool Execute(lua_State* l, Span<const char> content, const char* name, int nresults)

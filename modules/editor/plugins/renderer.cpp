@@ -3,12 +3,38 @@
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\sceneView.h"
 #include "renderer\model.h"
+#include "renderer\material.h"
 #include "objImporter.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
+	// Material editor plugin
+	struct MaterialPlugin final : AssetCompiler::IPlugin
+	{
+	private:
+		EditorApp& app;
+
+	public:
+		MaterialPlugin(EditorApp& app_) :
+			app(app_)
+		{
+			app_.GetAssetCompiler().RegisterExtension("mat", Material::ResType);
+		}
+	
+		bool Compile(const Path& path)override
+		{
+			return app.GetAssetCompiler().CopyCompile(path);
+		}
+
+		std::vector<const char*> GetSupportExtensions()
+		{
+			return { "mat" };
+		}
+	};
+
+	// Model editor plugin
 	struct ModelPlugin final : AssetCompiler::IPlugin
 	{
 	private:
@@ -28,7 +54,7 @@ namespace Editor
 			app_.GetAssetCompiler().RegisterExtension("obj", Model::ResType);
 		}
 
-		bool Compile(const Path& path)
+		bool Compile(const Path& path)override
 		{
 			char ext[5] = {};
 			CopyString(Span(ext), Path::GetExtension(path.ToSpan()));
@@ -46,7 +72,8 @@ namespace Editor
 					return false;
 				}
 
-				objImporter.Write(path.c_str(), cfg);
+				objImporter.WriteModel(path.c_str(), cfg);
+				objImporter.WriteMaterials(path.c_str(), cfg);
 				return true;
 			}
 			else
@@ -76,17 +103,23 @@ namespace Editor
 		SceneView sceneView;
 
 		ModelPlugin modelPlugin;
+		MaterialPlugin materialPlugin;
 
 	public:
 		RenderPlugin(EditorApp& app_) :
 			app(app_),
 			modelPlugin(app_),
+			materialPlugin(app_),
 			sceneView(app_)
 		{
 		}
 
 		virtual ~RenderPlugin() 
 		{
+			AssetCompiler& assetCompiler = app.GetAssetCompiler();
+			assetCompiler.RemovePlugin(modelPlugin);
+			assetCompiler.RemovePlugin(materialPlugin);
+
 			app.RemoveWidget(sceneView);
 		}
 
@@ -94,6 +127,7 @@ namespace Editor
 		{
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.AddPlugin(modelPlugin);
+			assetCompiler.AddPlugin(materialPlugin);
 
 			app.AddWidget(sceneView);
 

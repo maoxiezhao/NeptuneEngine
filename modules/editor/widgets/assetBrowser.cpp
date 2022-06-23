@@ -46,10 +46,13 @@ namespace Editor
         ~AssetBrowserImpl()
         {
             UnloadSelectedResources();
+
+            editor.GetAssetCompiler().GetListChangedCallback().Unbind<&AssetBrowserImpl::OnResourceListChanged>(this);
         }
 
         void InitFinished() override
         {
+            editor.GetAssetCompiler().GetListChangedCallback().Bind<&AssetBrowserImpl::OnResourceListChanged>(this);
             initialized = true;
         }
 
@@ -111,6 +114,27 @@ namespace Editor
 
         void RemovePlugin(IPlugin& plugin) override
         {
+        }
+
+        void OnResourceListChanged(const Path& path)
+        {
+            Span<const char> dir = Path::GetDir(path.c_str());
+            if (dir.length() > 0 && (*(dir.pEnd - 1) == '/' || *(dir.pEnd - 1) == '\\'))
+                --dir.pEnd; // == dir[len - 1] = '\0'
+
+            if (!EqualString(dir, curDir.toSpan()))
+                return;
+
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            const StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), path.c_str());
+            if (Platform::DirExists(fullPath.c_str()))
+            {
+                SetCurrentDir(curDir);
+                return;
+            }
+
+            fileInfos.clear();
+            AddResTile(path);
         }
 
         void SetCurrentDir(const char* path)
@@ -282,7 +306,7 @@ namespace Editor
                                 break;
                             }
 
-                            FileInfo& tile = fileInfos[j];
+                            FileInfo& tile = fileInfos[idx];
                             bool selected = selectedResources.find([&](Resource* res) {
                                 return res->GetPath().GetHash() == tile.filePathHash;
                             }) >= 0;
@@ -329,6 +353,13 @@ namespace Editor
             ImGui::SetCursorPos(pos);
             ImGui::Text("%s", info.filename.c_str());
             ImGui::EndGroup();
+
+            if (selected)
+            {
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                const U32 color = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
+                dl->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), color, 0, 0, 3.f);
+            }
         }
 
         void SelectResource(const Path& path)

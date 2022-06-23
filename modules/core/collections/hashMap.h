@@ -299,6 +299,31 @@ namespace VulkanTest
 			return { this, pos };
 		}
 
+		template <typename F>
+		void eraseIf(F predicate) 
+		{
+			for (U32 i = 0; i < capacity; ++i) 
+			{
+				if (!keys[i].valid) 
+					continue;
+
+				if (!predicate(values[i]))
+					continue;
+
+				((K*)keys[i].keyMem)->~K();
+				values[i].~V();
+				keys[i].valid = false;
+				--size;
+
+				U32 pos = (i + 1) & mask;
+				while (keys[pos].valid)
+				{
+					rehash(pos);
+					pos = (pos + 1) % capacity;
+				}
+			}
+		}
+
 		void erase(const Iterator& iter) 
 		{
 			ASSERT(iter.isValid());
@@ -315,6 +340,14 @@ namespace VulkanTest
 				rehash(pos);
 				pos = (pos + 1) % capacity;
 			}
+		}
+
+		void erase(const K& key) 
+		{
+			const U32 pos = findPos(key);
+			ASSERT(pos < capacity);
+			if (keys[pos].valid) 
+				erase(Iterator{ this, pos });
 		}
 
 		Iterator begin() 

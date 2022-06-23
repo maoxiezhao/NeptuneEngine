@@ -160,6 +160,7 @@ namespace Renderer
 	};
 	RenderResourceFactory<Texture> textureFactory;
 	RenderResourceFactory<Model> modelFactory;
+	MaterialFactory materialFactory;
 
 	GPU::BlendState stockBlendStates[BlendStateType_Count] = {};
 	GPU::RasterizerState stockRasterizerState[RasterizerStateType_Count] = {};
@@ -239,11 +240,13 @@ namespace Renderer
 		ResourceManager& resManager = engine.GetResourceManager();
 		textureFactory.Initialize(Texture::ResType, resManager);
 		modelFactory.Initialize(Model::ResType, resManager);
+		materialFactory.Initialize(Material::ResType, resManager);
 	}
 
 	void Renderer::Uninitialize()
 	{
 		// Uninitialize resource factories
+		materialFactory.Uninitialize();
 		modelFactory.Uninitialize();
 		textureFactory.Uninitialize();
 

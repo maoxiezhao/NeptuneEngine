@@ -19,15 +19,17 @@ namespace Editor
 			F32 scale;
 		};
 
-		struct ImportGeometry
-		{
-			const tinyobj::shape_t* shape = nullptr;
-		};
-
 		struct ImportMesh
 		{
 			const tinyobj::mesh_t* mesh = nullptr;
 			const tinyobj::material_t* material = nullptr;
+			std::string name;
+			int submesh = -1;
+			Array<F32x3> vertexPositions;
+			Array<F32x3> vertexNormals;
+			Array<F32x4> vertexTangents;
+			Array<F32x2> vertexUvset_0;
+			Array<U32> indices;
 		};
 
 		struct ImportTexture
@@ -47,18 +49,34 @@ namespace Editor
 		};
 
 		bool Import(const char* filename);
-		void Write(const char* filepath, const ImportConfig& cfg);
+		void WriteModel(const char* filepath, const ImportConfig& cfg);
+		void WriteMaterials(const char* filepath, const ImportConfig& cfg);
 
 	private:
+		void PostprocessMeshes(const ImportConfig& cfg);
+		void GetImportMeshName(const ImportMesh& mesh, char(&out)[256]);
+		void WriteHeader(OutputMemoryStream& outMem);
+		void WriteMeshes(OutputMemoryStream& outMem, const ImportConfig& cfg);
+		bool AreIndices16Bit(const ImportMesh& mesh) const;
+		
+		template <typename T> 
+		void Write(const T& obj) {
+			outMem.Write(&obj, sizeof(obj)); 
+		}
+		void Write(const void* ptr, size_t size) { 
+			outMem.Write(ptr, size);
+		}
+		void WriteString(const char* str);
+
 		EditorApp& editor;
 
 		tinyobj::attrib_t objAttrib;
 		std::vector<tinyobj::shape_t> objShapes;
 		std::vector<tinyobj::material_t> objMaterials;
 
-		Array<ImportGeometry> geometries;
 		Array<ImportMesh> meshes;
 		Array<ImportMaterial> materials;
+		OutputMemoryStream outMem;
 	};
 }
 }

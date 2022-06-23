@@ -20,6 +20,7 @@ namespace VulkanTest
 	bool CatNString(Span<char> dst, const char* source, size_t n);
 	int  CompareString(const char* lhs, const char* rhs);
 	bool EqualString(const char* lhs, const char* rhs);
+	bool EqualString(Span<const char> lhs, Span<const char> rhs);
 	int  FindStringChar(const char* str, const char c, int pos);
 	int  ReverseFindChar(const char* str, const char c);
 	int  FindSubstring(const char* str, const char* substr, int pos);

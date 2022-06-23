@@ -14,6 +14,16 @@ namespace VulkanTest
 	public:
 		DECLARE_RESOURCE(Model);
 
+#pragma pack(1)
+		struct FileHeader
+		{
+			U32 magic;
+			U32 version;
+		};
+#pragma pack()
+		static const U32 FILE_MAGIC;
+		static const U32 FILE_VERSION;
+
 		Model(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~Model();
 	

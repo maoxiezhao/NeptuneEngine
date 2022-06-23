@@ -47,6 +47,7 @@ namespace Editor
         virtual void AddResource(ResourceType type, const char* path) = 0;
         virtual const HashMap<U64, ResourceItem>& LockResources() = 0;
         virtual void UnlockResources() = 0;
+        virtual DelegateList<void(const Path& path)>& GetListChangedCallback() = 0;
     };
 }
 }

@@ -19,6 +19,26 @@ namespace VulkanTest::LuaUtils
 		bool operator ==(const LuaRef& ref_)const;
 		bool operator !=(const LuaRef& ref_)const;
 
+		static LuaRef CreateRef(lua_State* l);
+		static LuaRef CreateRef(lua_State* l, int index);
+		static LuaRef CreateGlobalRef(lua_State* l);
+
+		template<typename T>
+		static std::enable_if_t<std::is_function<T>::value, LuaRef>
+			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
+		{
+			lua_pushcclosure(l, func, 1);
+			return CreateRef(l);
+		}
+
+		template<typename T>
+		static std::enable_if_t<!std::is_function<T>::value, LuaRef>
+			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
+		{
+			lua_pushcclosure(l, func, 1);
+			return CreateRef(l);
+		}
+
 		void Clear();
 		void Push()const;
 		bool IsEmpty()const;
@@ -30,6 +50,7 @@ namespace VulkanTest::LuaUtils
 	};
 
 	bool LoadBuffer(lua_State* l, const char* data, size_t size, const char* name);
+	void AddFunction(lua_State* l, const char* name, lua_CFunction function);
 
 	template<typename T>
 	inline void Push(lua_State* l, const T& v)
@@ -41,6 +62,13 @@ namespace VulkanTest::LuaUtils
 	inline T Get(lua_State* l, int index)
 	{
 		return LuaType<T>::Get(l, index);
+	}
+
+	template<typename T>
+	inline T RawGet(lua_State* l, int idx, int n)
+	{
+		lua_rawgeti(l, idx, n);
+		return LuaType<T>::Get(l, -1);
 	}
 
 	template<typename T>

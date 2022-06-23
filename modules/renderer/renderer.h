@@ -3,6 +3,7 @@
 #include "enums.h"
 #include "gpu\vulkan\device.h"
 #include "core\plugin\plugin.h"
+#include "core\utils\profiler.h"
 #include "core\collections\array.h"
 #include "renderScene.h"
 #include "culling.h"

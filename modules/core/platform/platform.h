@@ -13,6 +13,7 @@
 #endif
 
 #include "core\common.h"
+#include "core\utils\delegate.h"
 #include "file.h"
 
 #include <string.h>
@@ -367,6 +368,15 @@ namespace Platform {
 	bool GetNextFile(FileIterator* it, ListEntry& info);
 
 	void DebugOutput(const char* msg);
+
+
+	struct VULKAN_TEST_API FileSystemWatcher
+	{
+		virtual ~FileSystemWatcher() {}
+
+		static UniquePtr<FileSystemWatcher> Create(const char* path);
+		virtual Delegate<void(const char*)>& GetCallback() = 0;
+	};
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// Library

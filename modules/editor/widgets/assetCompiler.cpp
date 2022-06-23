@@ -1,6 +1,7 @@
 #include "assetCompiler.h"
 #include "editor\editor.h"
 #include "core\platform\platform.h"
+#include "imgui-docking\imgui.h"
 
 namespace VulkanTest
 {
@@ -66,11 +67,20 @@ namespace Editor
         Mutex toCompileMutex;
         Mutex compiledMutex;
         HashMap<Path, Array<Path>> dependencies;
+        U32 batchCompileCount = 0;
+        U32 batchRemainningCount = 0;
 
         Mutex mutex;
         CompilerTask compilerTask;
         Semaphore semaphore;
         LoadHook lookHook;
+
+        UniquePtr<Platform::FileSystemWatcher> watcher;
+        Mutex changedMutex;
+        Array<Path> changedDirs;
+        Array<Path> changedFiles;
+        HashMap<Path, bool> changedMap;
+        DelegateList<void(const Path& path)> onListChanged;
 
         Mutex resMutex;
         HashMap<U64, ResourceItem> resources;
@@ -89,6 +99,9 @@ namespace Editor
         {
             Engine& engine = editor.GetEngine();
             FileSystem& fs = engine.GetFileSystem();
+
+            watcher = Platform::FileSystemWatcher::Create(fs.GetBasePath());
+            watcher->GetCallback().Bind<&AssetCompilerImpl::OnFileChanged>(this);
 
             // Setup compiler task
             compilerTask.Create("CompilerTask");
@@ -290,6 +303,7 @@ namespace Editor
 
         void Update(F32 dt) override
         {
+            // Process compiled jobs
             for (int i = 0; i < MAX_PROCESS_COMPILED_JOB_COUNT; i++)
             {
                 CompileJob compiled = PopCompiledQueue();
@@ -326,6 +340,109 @@ namespace Editor
                         PushToCompileQueue(dep);
                 }
             }
+
+            // Handle changed dirs
+            HandleChangedDirs();
+
+            // Handle changed files
+            HandleChangedFiles();
+        }
+
+        void HandleChangedDirs()
+        {
+            for (;;)
+            {
+                Path targetPath;
+                {
+                    ScopedMutex lock(changedMutex);
+                    if (changedDirs.empty())
+                        break;
+
+                    targetPath = changedDirs.back();
+                    changedDirs.pop_back();
+                    changedMap.erase(targetPath);
+                }
+
+                if (!targetPath.IsEmpty())
+                {
+                    FileSystem& fs = editor.GetEngine().GetFileSystem();
+                    const U64 listLastmodified = fs.GetLastModTime(EXPORT_RESOURCE_LIST);
+                    const StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), targetPath.c_str());
+
+                    // Check directory is deleted
+                    if (Platform::DirExists(fullPath.c_str()))
+                    {
+                        ProcessDirectory(targetPath.c_str(), listLastmodified);
+                        onListChanged.Invoke(targetPath);
+                    }
+                    else
+                    {
+                        // Remove all resources under the deleted directory
+                        ScopedMutex lock(resMutex);
+                        resources.eraseIf([&](const ResourceItem& ri) {
+                            if (!StartsWith(ri.path.c_str(), targetPath.c_str()))
+                                return false;
+                            return true;
+                        });
+                        onListChanged.Invoke(targetPath);
+                    }
+                }
+            }
+        }
+
+        void HandleChangedFiles()
+        {
+            for (;;)
+            {
+                Path targetPath;
+                {
+                    ScopedMutex lock(changedMutex);
+                    if (changedFiles.empty())
+                        break;
+
+                    targetPath = changedFiles.back();
+                    changedFiles.pop_back();
+                    changedMap.erase(targetPath);
+                }
+
+                if (EqualString(Path::GetExtension(targetPath.ToSpan()).data(), "meta"))
+                {
+                    char tmp[MAX_PATH_LENGTH];
+                    CopyNString(Span(tmp), targetPath.c_str(), targetPath.Length() - 5);    // remove ".meta"
+                    targetPath = tmp;
+                }
+
+                FileSystem& fs = editor.GetEngine().GetFileSystem();
+                auto resType = GetResourceType(targetPath.c_str());
+                if (resType != ResourceType::INVALID_TYPE)
+                {
+                    bool isExists = fs.FileExists(targetPath.c_str());
+                    if (isExists)
+                    {
+                        RegisterResource(targetPath.c_str());
+                        PushToCompileQueue(targetPath);
+                    }
+                    else
+                    {
+                        ScopedMutex lock(resMutex);
+                        resources.eraseIf([&](const ResourceItem& ri) {
+                            if (!EndsWith(ri.path.c_str(), targetPath.c_str()))
+                                return false;
+                            return true;
+                        });
+                        onListChanged.Invoke(targetPath);
+                    }
+                }
+                else
+                {
+                    auto it = dependencies.find(targetPath);
+                    if (it.isValid())
+                    {
+                        for (const Path& dep : it.value())
+                            PushToCompileQueue(dep);
+                    }
+                }
+            }
         }
 
         void AddDependency(const Path& parent, const Path& dep)override
@@ -349,11 +466,73 @@ namespace Editor
 
         void OnGUI() override
         {
+            if (batchRemainningCount == 0)
+                return;
+
+            const F32 uiWidth = std::max(300.f, ImGui::GetIO().DisplaySize.x * 0.33f);
+            const ImVec2 pos = ImGui::GetMainViewport()->Pos;
+            ImGui::SetNextWindowPos(ImVec2((ImGui::GetIO().DisplaySize.x - uiWidth) * 0.5f + pos.x, 30 + pos.y));
+            ImGui::SetNextWindowSize(ImVec2(uiWidth, -1));
+            ImGui::SetNextWindowSizeConstraints(ImVec2(-FLT_MAX, 0), ImVec2(FLT_MAX, 200));
+            ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
+                | ImGuiWindowFlags_NoFocusOnAppearing
+                | ImGuiWindowFlags_NoInputs
+                | ImGuiWindowFlags_NoNav
+                | ImGuiWindowFlags_AlwaysAutoResize
+                | ImGuiWindowFlags_NoMove
+                | ImGuiWindowFlags_NoSavedSettings;
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
+
+            if (ImGui::Begin("Resource compilation", nullptr, flags)) 
+            {
+                ImGui::Text("%s", "Compiling resources...");
+                ImGui::ProgressBar(((float)batchCompileCount - batchRemainningCount) / batchCompileCount);
+
+                // Show the current res in progress
+                StaticString<MAX_PATH_LENGTH> path;
+                {
+                    ScopedMutex lock(toCompileMutex);
+                    path = inprogressRes.c_str();
+                }
+                ImGui::TextWrapped("%s", path.data);
+            }
+            ImGui::End();
+            ImGui::PopStyleVar();
         }
 
         const char* GetName() override
         {
             return "AssetCompiler";
+        }
+
+        void OnFileChanged(const char* path)
+        {
+            if (StartsWith(path, "."))
+                return;
+            if (EndsWith(path, ".log") || EndsWith(path, ".ini"))
+                return;
+
+            const char* basePath = editor.GetEngine().GetFileSystem().GetBasePath();
+            const StaticString<MAX_PATH_LENGTH> fullPath(basePath, "/", path);
+
+            if (Platform::DirExists(fullPath.c_str()))
+            {
+                ScopedMutex lock(changedMutex);
+                if (!changedMap.find(Path(path)).isValid())
+                {
+                    changedDirs.push_back(Path(path));
+                    changedMap.insert(Path(path), true);
+                }
+            }
+            else
+            {
+                ScopedMutex lock(changedMutex);
+                if (!changedMap.find(Path(path)).isValid())
+                {
+                    changedFiles.push_back(Path(path));
+                    changedMap.insert(Path(path), true);
+                }
+            }
         }
 
         Resource* GetResource(const Path& path)
@@ -485,6 +664,7 @@ namespace Editor
                     type,
                     GetDirHash(path)
                 });
+                onListChanged.Invoke(pathObj);
             }
         }
 
@@ -559,6 +739,8 @@ namespace Editor
             job.path = path;
 
             toCompileJobs.push_back(job);
+            batchCompileCount++;
+            batchRemainningCount++;
             semaphore.Signal();
         }
 
@@ -570,6 +752,11 @@ namespace Editor
 
             CompileJob compiled = compiledJobs.back();
             compiledJobs.pop_back();
+
+            batchRemainningCount--;
+            if (batchRemainningCount == 0)
+                batchCompileCount = 0;
+
             return compiled;
         }
 
@@ -659,6 +846,11 @@ namespace Editor
                     }
                 }
             }
+        }
+
+        DelegateList<void(const Path& path)>& GetListChangedCallback()
+        {
+            return onListChanged;
         }
     };
 

@@ -4,6 +4,12 @@
 
 namespace VulkanTest
 {
+	IOutputStream& IOutputStream::operator << (const char* str)
+	{
+		Write(str, StringLength(str));
+		return *this;
+	}
+
 	OutputMemoryStream::OutputMemoryStream() :
 		data(nullptr),
 		size(0),
@@ -85,13 +91,13 @@ namespace VulkanTest
 
 	bool OutputMemoryStream::Write(const void* buffer, U64 size_)
 	{
-		if (!size) 
+		if (!size_)
 			return true;
 
 		if (size + size_ > capacity)
 			Reserve((size + size_) << 1);
 		
-		memcpy((U8*)data + size, data, size_);
+		memcpy((U8*)data + size, buffer, size_);
 		size += size_;
 		return true;
 	}

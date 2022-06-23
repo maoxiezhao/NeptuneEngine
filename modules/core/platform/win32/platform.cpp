@@ -6,6 +6,7 @@
 
 #include "platform\platform.h"
 #include "core\utils\string.h"
+#include "core\utils\profiler.h"
 
 #include <array>
 
@@ -35,6 +36,13 @@ namespace Platform {
 		*cout = 0;
 	}
 
+	static void WCharToCharArray(const WCHAR* src, char* dest, int len) 
+	{
+		for (unsigned int i = 0; i < len / sizeof(WCHAR); ++i) {
+			dest[i] = static_cast<char>(src[i]);
+		}
+		dest[len / sizeof(WCHAR)] = '\0';
+	}
 
 	template <int N> 
 	static void CharToWChar(WCHAR(&out)[N], const char* in)
@@ -1090,6 +1098,154 @@ namespace Platform {
 	void MemRelease(void* ptr, size_t size)
 	{
 		VirtualFree(ptr, 0, MEM_RELEASE);
+	}
+
+	struct FileSystemWatcherImpl;
+
+	class FileSystemWatcherTask final : public Thread
+	{
+	public:
+		FileSystemWatcherTask(const char* path_, FileSystemWatcherImpl& watcher_) :
+			path(path_),
+			watcher(watcher_)
+		{}
+
+		I32 Task() override;
+	
+		StaticString<MAX_PATH_LENGTH> path;
+		FileSystemWatcherImpl& watcher;
+		volatile bool finished = false;
+		HANDLE ioHandle;
+		DWORD received;
+		OVERLAPPED overlapped;
+		U8 info[4096];
+	};
+
+	struct FileSystemWatcherImpl final : FileSystemWatcher 
+	{
+		FileSystemWatcherImpl() = default;
+		~FileSystemWatcherImpl() override 
+		{
+			if (task) 
+			{
+				CancelIoEx(task->ioHandle, nullptr);
+				CloseHandle(task->ioHandle);
+
+				task->Destroy();
+				CJING_SAFE_DELETE(task);
+			}
+		}
+
+		bool Start(LPCSTR path) 
+		{
+			task = CJING_NEW(FileSystemWatcherTask)(path, *this);
+			if (!task->Create("Filesystem watcher"))
+			{
+				CJING_SAFE_DELETE(task);
+				task = nullptr;
+				return false;
+			}
+			return true;
+		}
+
+		Delegate<void(const char*)>& GetCallback() override { 
+			return callback;
+		}
+
+		Delegate<void(const char*)> callback;
+		FileSystemWatcherTask* task = nullptr;
+	};
+
+	static void CALLBACK Notify(DWORD status, DWORD tferred, LPOVERLAPPED over)
+	{
+		auto* task = (FileSystemWatcherTask*)over->hEvent;
+		if (status == ERROR_OPERATION_ABORTED) 
+		{
+			task->finished = true;
+			return;
+		}
+
+		if (tferred == 0) 
+			return;
+
+		FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)task->info;
+		while (info) 
+		{
+			auto action = info->Action;
+			switch (action) 
+			{
+			case FILE_ACTION_RENAMED_NEW_NAME:
+			case FILE_ACTION_ADDED:
+			case FILE_ACTION_MODIFIED:
+			case FILE_ACTION_REMOVED: 
+			{
+				char tmp[MAX_PATH];
+				WCharToCharArray(info->FileName, tmp, info->FileNameLength);
+				task->watcher.callback.Invoke(tmp);
+			} 
+			break;
+			case FILE_ACTION_RENAMED_OLD_NAME:
+				char tmp[MAX_PATH];
+				WCharToCharArray(info->FileName, tmp, info->FileNameLength);
+				task->watcher.callback.Invoke(tmp);
+				break;
+			default: 
+				ASSERT(false); 
+				break;
+			}
+			info = info->NextEntryOffset == 0 ? nullptr : (FILE_NOTIFY_INFORMATION*)(((U8*)info) + info->NextEntryOffset);
+		}
+	}
+
+	I32 FileSystemWatcherTask::Task()
+	{
+		ioHandle = CreateFileA(path.c_str(), 
+			FILE_LIST_DIRECTORY, 
+			FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, 
+			nullptr, 
+			OPEN_EXISTING, 
+			FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, 
+			nullptr
+		);
+		if (ioHandle == INVALID_HANDLE_VALUE)
+			return -1;
+
+		memset(&overlapped, 0, sizeof(overlapped));
+		overlapped.hEvent = this;
+		finished = false;
+
+		while (!finished)
+		{
+			PROFILE_BLOCK("Watching directory change");
+			static const DWORD READ_DIR_CHANGE_FILTER = 
+				FILE_NOTIFY_CHANGE_CREATION | 
+				FILE_NOTIFY_CHANGE_LAST_WRITE | 
+				FILE_NOTIFY_CHANGE_SIZE | 
+				FILE_NOTIFY_CHANGE_DIR_NAME | 
+				FILE_NOTIFY_CHANGE_FILE_NAME;
+			BOOL status = ReadDirectoryChangesW(
+				ioHandle, 
+				info, sizeof(info), 
+				TRUE, 
+				READ_DIR_CHANGE_FILTER, 
+				&received, 
+				&overlapped, 
+				&Notify);
+			if (status == FALSE) 
+				break;
+
+			SleepEx(INFINITE, TRUE); // Wakeup when io finished
+		}
+
+		return 0;
+	}
+
+	UniquePtr<FileSystemWatcher> FileSystemWatcher::Create(const char* path)
+	{
+		auto watcher = CJING_MAKE_UNIQUE<FileSystemWatcherImpl>();
+		if (!watcher->Start(path))
+			return UniquePtr<FileSystemWatcher>();
+		return watcher.Move();
 	}
 }
 }

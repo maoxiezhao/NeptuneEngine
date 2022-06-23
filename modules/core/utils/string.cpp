@@ -132,6 +132,12 @@ namespace VulkanTest
 		return strcmp(lhs, rhs) == 0;
 	}
 
+	bool EqualString(Span<const char> lhs, Span<const char> rhs)
+	{
+		if (rhs.length() != lhs.length()) return false;
+		return strncmp(lhs.begin(), rhs.begin(), lhs.length()) == 0;
+	}
+
 	int FindStringChar(const char* str, const char c, int pos)
 	{
 		const char* ret = strchr(str + pos, c);
