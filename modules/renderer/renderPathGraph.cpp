@@ -94,7 +94,6 @@ namespace VulkanTest
 
 		renderGraph.SetBackBufferSource("back");
 		renderGraph.Bake();
-		renderGraph.Log();
 	}
 
 	U32x2 RenderPathGraph::GetInternalResolution() const

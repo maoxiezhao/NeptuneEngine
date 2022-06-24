@@ -137,8 +137,32 @@ namespace VulkanTest::LuaUtils
 		lua_setfield(l, -2, name);
 	}
 
+	int traceback(lua_State* L) 
+	{
+		if (!lua_isstring(L, 1)) return 1;
+
+		lua_getglobal(L, "debug");
+		if (!lua_istable(L, -1)) {
+			lua_pop(L, 1);
+			return 1;
+		}
+
+		lua_getfield(L, -1, "traceback");
+		if (!lua_isfunction(L, -1)) {
+			lua_pop(L, 2);
+			return 1;
+		}
+
+		lua_pushvalue(L, 1);
+		lua_pushinteger(L, 2);
+		lua_call(L, 2, 1);
+
+		return 1;
+	}
+
 	bool Execute(lua_State* l, Span<const char> content, const char* name, int nresults)
 	{
+		lua_pushcfunction(l, traceback);
 		if (luaL_loadbuffer(l, content.begin(), content.length(), name) != 0)
 		{
 			Logger::Error("%s: %s", name, lua_tostring(l, -1));

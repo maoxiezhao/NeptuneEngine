@@ -11,6 +11,9 @@ namespace Editor
 	Settings::Settings(EditorApp& app_) :
 		app(app_)
 	{
+		window.x = window.y = 0;
+		window.w = window.h = -1;
+
 		globalState = luaL_newstate();
 		luaL_openlibs(globalState);
 		lua_newtable(globalState);
@@ -24,6 +27,7 @@ namespace Editor
 
 	bool Settings::Load()
 	{
+		lua_State* l = globalState;
 		FileSystem& fs = app.GetEngine().GetFileSystem();
 		if (!fs.FileExists(SETTINGS_PATH))
 		{
@@ -39,15 +43,15 @@ namespace Editor
 		}
 
 		Span<const char> content((const char*)buf.Data(), (U32)buf.Size());
-		if (!LuaUtils::Execute(globalState, content, "settings", 0))
+		if (!LuaUtils::Execute(l, content, "settings", 0))
 			return false;
 		
 		// Check the version
 		bool validVersion = false;
-		lua_getglobal(globalState, "version");
-		if (LuaUtils::Get<int>(globalState, -1) == 1)
+		lua_getglobal(l, "version");
+		if (LuaUtils::Get<int>(l, -1) == 1)
 			validVersion = true;
-		lua_pop(globalState, 1);
+		lua_pop(l, 1);
 
 		if (validVersion == false)
 		{
@@ -55,11 +59,23 @@ namespace Editor
 			return false;
 		}
 
-		lua_getglobal(globalState, "imgui");
-		if (lua_type(globalState, -1) == LUA_TSTRING) {
-			imguiState = lua_tostring(globalState, -1);
+		// Load window settings
+		lua_getglobal(l, "window");
+		if (lua_type(l, -1) == LUA_TTABLE)
+		{
+			window.x = LuaUtils::GetField<I32>(l, "x");
+			window.y = LuaUtils::GetField<I32>(l, "y");
+			window.w = LuaUtils::GetField<I32>(l, "w");
+			window.h = LuaUtils::GetField<I32>(l, "h");
 		}
-		lua_pop(globalState, 1);
+		lua_pop(l, 1);
+
+		// Load imgui settings
+		lua_getglobal(l, "imgui");
+		if (lua_type(l, -1) == LUA_TSTRING) {
+			imguiState = lua_tostring(l, -1);
+		}
+		lua_pop(l, 1);
 
 		return true;
 	}
@@ -76,6 +92,12 @@ namespace Editor
 
 		// Version
 		file->Write("version = 1\n");
+
+		*file << "window = { x = " 
+			<< window.x
+			<< ", y = " << window.y
+			<< ", w = " << window.w
+			<< ", h = " << window.h << " }\n";
 
 		// Imgui state
 		file->Write("imgui = [[");

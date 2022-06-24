@@ -1,0 +1,33 @@
+#pragma once
+
+#include "editor\common.h"
+#include "editor\editorPlugin.h"
+
+namespace VulkanTest
+{
+namespace Editor
+{
+    class EditorApp;
+
+    class VULKAN_EDITOR_API PropertyWidget : public EditorWidget
+    {
+    public:
+        struct IPlugin
+        {
+            virtual ~IPlugin() {}
+            virtual void Update() {}
+            virtual void OnGUI(PropertyWidget& property) = 0;
+        };
+
+        explicit PropertyWidget(EditorApp& editor_);
+        virtual ~PropertyWidget();
+
+        void Update(F32 dt);
+        void OnGUI() override;
+        const char* GetName();
+
+    private:
+        EditorApp& editor;
+    };
+}
+}

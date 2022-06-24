@@ -110,6 +110,7 @@ namespace VulkanTest
         GPU::DeviceVulkan* device;
         String backbufferSource;
         bool swapchainEnable = true;
+        bool isBaked = false;
 
         std::unordered_map<String, U32> nameToRenderPassIndex;
         std::vector<UniquePtr<RenderPass>> renderPasses;
@@ -2215,6 +2216,11 @@ namespace VulkanTest
         impl->backbufferSource = name;
     }
 
+    const char* RenderGraph::GetBackBufferSource()
+    {
+        return impl->backbufferSource.c_str();
+    }
+
     void RenderGraph::DisableSwapchain()
     {
         impl->swapchainEnable = false;
@@ -2235,6 +2241,8 @@ namespace VulkanTest
 
         std::vector<UniquePtr<RenderPass>>& renderPasses = impl->renderPasses;
         RenderResource& backbuffer = *impl->resources[it->second];
+
+        Logger::Info("RenderGraph baking... backbuffer:%s size:%dx%d", backbuffer.name.c_str(), impl->swapchainDimensions.width, impl->swapchainDimensions.height);
 
         impl->passDependency.clear();
         impl->passDependency.resize(impl->renderPasses.size());
@@ -2293,6 +2301,9 @@ namespace VulkanTest
 
         // Build aliases
         impl->BuildAliases();
+
+        impl->isBaked = true;
+        Logger::Info("RenderGraph finishd baking.");
     }
 
     void RenderGraph::SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain, VkImageLayout finalLayout)
@@ -2304,11 +2315,58 @@ namespace VulkanTest
     {
         impl->Render(device, jobHandle);
     }
-    
+
+    bool RenderGraph::IsBaked()
+    {
+        bool ret = impl->isBaked;
+        impl->isBaked = false;
+        return ret;
+    }
+
     void RenderGraph::Log()
     {
         impl->Log();
+    }
+
+    void RenderGraph::ExportGraphviz()
+    {
         impl->DebugExportGraphviz();
+    }
+
+    void RenderGraph::GetDebugRenderPassInfos(std::vector<DebugRenderPassInfo>& infos)
+    {
+        for (auto& physicalPass : impl->physicalPasses)
+        {
+            for (auto& subpass : physicalPass.passes)
+            {
+                RenderPass& pass = *impl->renderPasses[subpass];
+
+                DebugRenderPassInfo info = {};
+                info.name = pass.name;
+
+                // Input
+                for (auto& tex : pass.GetInputTextures())
+                    info.reads.push_back(tex.texture->GetName());
+
+                for (auto& buffer : pass.GetInputBuffers())
+                    info.reads.push_back(buffer->GetName());
+
+                if (pass.GetInputDepthStencil())
+                    info.reads.push_back(pass.GetInputDepthStencil()->GetName());
+
+                // Output
+                for (auto& tex :pass.GetOutputColors())
+                    info.writes.push_back(tex->GetName());
+
+                for (auto& buffer : pass.GetOutputBuffers())
+                    info.writes.push_back(buffer->GetName());
+
+                if (pass.GetOutputDepthStencil())
+                    info.writes.push_back(pass.GetOutputDepthStencil()->GetName());
+
+                infos.push_back(info);
+            }  
+        }
     }
 
     RenderTextureResource& RenderGraph::GetOrCreateTexture(const char* name)

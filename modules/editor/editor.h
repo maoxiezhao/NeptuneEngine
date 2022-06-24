@@ -11,6 +11,7 @@ namespace VulkanTest
 namespace Editor
 {
     class AssetCompiler;
+    class EntityListWidget;
 
     class VULKAN_EDITOR_API EditorRenderer : public RenderPath3D
     {
@@ -54,6 +55,7 @@ namespace Editor
 
         virtual EditorRenderer& GetEditorRenderer() = 0;
         virtual AssetCompiler& GetAssetCompiler() = 0;
+        virtual EntityListWidget& GetEntityList() = 0;
     };
 }   
 } 

@@ -10,6 +10,54 @@ namespace VulkanTest
 		return *this;
 	}
 
+	IOutputStream& IOutputStream::operator<<(I32 data)
+	{
+		char temp[20];
+		ToCString(data, Span(temp));
+		Write(temp, StringLength(temp));
+		return *this;
+	}
+
+	IOutputStream& IOutputStream::operator<<(I64 data)
+	{
+		char temp[40];
+		ToCString(data, Span(temp));
+		Write(temp, StringLength(temp));
+		return *this;
+	}
+
+	IOutputStream& IOutputStream::operator<<(U32 data)
+	{
+		char temp[20];
+		ToCString(data, Span(temp));
+		Write(temp, StringLength(temp));
+		return *this;
+	}
+
+	IOutputStream& IOutputStream::operator<<(U64 data)
+	{
+		char temp[40];
+		ToCString(data, Span(temp));
+		Write(temp, StringLength(temp));
+		return *this;
+	}
+
+	IOutputStream& IOutputStream::operator<<(F32 data)
+	{
+		char tmp[30];
+		ToCString(data, Span(tmp), 6);
+		Write(tmp, StringLength(tmp));
+		return *this;
+	}
+
+	IOutputStream& IOutputStream::operator<<(F64 data)
+	{
+		char temp[40];
+		ToCString(data, Span(temp), 12);
+		Write(temp, StringLength(temp));
+		return *this;
+	}
+
 	OutputMemoryStream::OutputMemoryStream() :
 		data(nullptr),
 		size(0),

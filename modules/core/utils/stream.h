@@ -43,73 +43,20 @@ namespace VulkanTest
 		}
 
 		IOutputStream& operator<<(const char* str);
-
-		inline IOutputStream& operator<<(bool data)
-		{
-			Write((uint32_t)(data ? 1 : 0));
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(char data)
-		{
-			Write((int8_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(unsigned char data)
-		{
-			Write((uint8_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(int data)
-		{
-			Write((int64_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(unsigned int data)
-		{
-			Write((uint64_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(long data)
-		{
-			Write((int64_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(unsigned long data)
-		{
-			Write((uint64_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(long long data)
-		{
-			Write((int64_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(unsigned long long data)
-		{
-			Write((uint64_t)data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(float data)
-		{
-			Write(data);
-			return *this;
-		}
-
-		inline IOutputStream& operator<<(double data)
-		{
-			Write(data);
-			return *this;
-		}
+		IOutputStream& operator<<(I32 data);
+		IOutputStream& operator<<(I64 data);
+		IOutputStream& operator<<(U32 data);
+		IOutputStream& operator<<(U64 data);
+		IOutputStream& operator<<(F32 data);
+		IOutputStream& operator<<(F64 data);
     };
+
+	template <>
+	inline bool IOutputStream::Write<bool>(const bool& value)
+	{
+		U8 v = value;
+		return Write(&v, sizeof(v));
+	}
 
 	struct VULKAN_TEST_API OutputMemoryStream final : public IOutputStream
 	{

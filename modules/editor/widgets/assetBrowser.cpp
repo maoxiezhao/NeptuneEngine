@@ -35,7 +35,7 @@ namespace Editor
         };
         Array<FileInfo> fileInfos;  // All file infos in the current directory
 
-        Array<IPlugin*> plugins;
+        HashMap<U64, IPlugin*> plugins;
 
     public:
         AssetBrowserImpl(EditorApp& editor_) :
@@ -58,6 +58,8 @@ namespace Editor
 
         void Update(F32 dt) override
         { 
+            for (auto kvp : plugins) 
+                kvp->Update();
         }
 
         void OnGUI() override
@@ -110,10 +112,12 @@ namespace Editor
 
         void AddPlugin(IPlugin& plugin) override
         {
+            plugins.insert(plugin.GetResourceType().GetHashValue(), &plugin);
         }
 
         void RemovePlugin(IPlugin& plugin) override
         {
+            plugins.erase(plugin.GetResourceType().GetHashValue());
         }
 
         void OnResourceListChanged(const Path& path)
@@ -187,6 +191,53 @@ namespace Editor
 
         void OnDetailsGUI()
         {
+            if (!isOpen)
+                return;
+
+            if (ImGui::Begin("Asset inspector##asset_inspector", &isOpen, ImGuiWindowFlags_AlwaysVerticalScrollbar))
+            {
+                if (selectedResources.empty())
+                {
+                    ImGui::End();
+                    return;
+                }
+
+                if (selectedResources.size() == 1)
+                {
+                    Resource* res = selectedResources[0];
+                    const char* path = res->GetPath().c_str();
+                    ImGuiUtils::Label("Selected resource");
+                    ImGui::TextUnformatted(path);
+                    ImGui::Separator();
+
+                    ImGuiUtils::Label("Status");
+                    ImGui::TextUnformatted(res->IsFailure() ? "failure" : (res->IsReady() ? "Ready" : "Not ready"));
+                    ImGuiUtils::Label("Compiled size");
+                    if (res->IsReady()) {
+                        ImGui::Text("%.2f KB", res->Size() / 1024.f);
+                    }
+                    else {
+                        ImGui::TextUnformatted("N/A");
+                    }
+
+                    // Plugin does the own OnGUI
+                    ResourceType resType = editor.GetAssetCompiler().GetResourceType(path);
+                    auto it = plugins.find(resType.GetHashValue());
+                    if (it.isValid())
+                    {
+                        ImGui::Separator();
+                        it.value()->OnGui(res);
+                    }
+                }
+                else
+                {
+                    ImGui::Separator();
+                    ImGuiUtils::Label("Selected resource");
+                    ImGui::TextUnformatted("multiple");
+                    ImGui::Separator();
+                }
+            }
+            ImGui::End();
         }
 
         void OnDirColumnGUI()

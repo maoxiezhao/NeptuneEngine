@@ -21,6 +21,8 @@ namespace Editor
 
             virtual void OnGui(Span<class Resource*> resource) = 0;
             virtual void OnResourceUnloaded(Resource* resource) = 0;
+            virtual void Update() {}
+            virtual ResourceType GetResourceType() const = 0;
         };
 
         static UniquePtr<AssetBrowser> Create(EditorApp& app);

@@ -9,6 +9,9 @@
 #include "widgets\assetCompiler.h"
 #include "widgets\worldEditor.h"
 #include "widgets\log.h"
+#include "widgets\property.h"
+#include "widgets\entityList.h"
+#include "widgets\renderGraph.h"
 
 #include "plugins\renderer.h"
 
@@ -67,6 +70,18 @@ namespace Editor
         {
         }
 
+        virtual U32 GetDefaultWidth() {
+            return 1600;
+        }
+
+        virtual U32 GetDefaultHeight() {
+            return 900;
+        }
+
+        virtual const char* GetWindowTitle() {
+            return "VulkanEditor";
+        }
+
         void Initialize() override
         {
             // Init platform
@@ -78,7 +93,8 @@ namespace Editor
             ASSERT(ret);
 
             // Add main window
-            windows.push_back(platform->GetWindow());
+            mainWindow = platform->GetWindow();
+            windows.push_back(mainWindow);
 
             // Create game engine
             Engine::InitConfig config = {};
@@ -88,6 +104,9 @@ namespace Editor
             assetCompiler = AssetCompiler::Create(*this);
             worldEditor = WorldEditor::Create(*this);
             assetBrowser = AssetBrowser::Create(*this);
+            renderGraphWidget = RenderGraphWidget::Create(*this);
+            propertyWidget = CJING_MAKE_UNIQUE<PropertyWidget>(*this);
+            entityListWidget = CJING_MAKE_UNIQUE<EntityListWidget>(*this);
             logWidget = CJING_MAKE_UNIQUE<LogWidget>();
 
             // Load editor settings
@@ -110,6 +129,9 @@ namespace Editor
             LoadPlugins();
 
             AddWidget(*assetBrowser);
+            AddWidget(*entityListWidget);
+            AddWidget(*renderGraphWidget);
+            AddWidget(*propertyWidget);
             AddWidget(*logWidget);
 
             assetCompiler->InitFinished();
@@ -144,6 +166,9 @@ namespace Editor
             assetBrowser.Reset();
             assetCompiler.Reset();
             worldEditor.Reset();
+            entityListWidget.Reset();
+            renderGraphWidget.Reset();
+            propertyWidget.Reset();
             logWidget.Reset();
 
             // Uninit imgui renderer
@@ -161,7 +186,6 @@ namespace Editor
         void OnEvent(const Platform::WindowEvent& ent) override
         {
             bool isFocused = IsFocused();
-            Platform::WindowType mainWindow = platform->GetWindow();
             switch (ent.type)
             {
             case Platform::WindowEvent::Type::MOUSE_MOVE: {
@@ -234,6 +258,11 @@ namespace Editor
                     if (vp)
                         vp->PlatformRequestMove = true;
                 }
+                if (ent.window == mainWindow)
+                {
+                    settings.window.x = ent.winMove.x;
+                    settings.window.y = ent.winMove.y;
+                }
                 break;
             }
             case Platform::WindowEvent::Type::WINDOW_SIZE:
@@ -245,7 +274,11 @@ namespace Editor
                 }
 
                 if (ent.window == mainWindow && ent.winSize.w > 0 && ent.winSize.h > 0)
+                {
+                    settings.window.w = ent.winSize.w;
+                    settings.window.h = ent.winSize.h;
                     platform->NotifyResize(ent.winSize.w, ent.winSize.h);
+                }
 
                 break;
 
@@ -262,6 +295,11 @@ namespace Editor
         AssetCompiler& GetAssetCompiler()
         {
             return *assetCompiler;
+        }
+
+        EntityListWidget& GetEntityList()
+        {
+            return *entityListWidget;
         }
 
     protected:
@@ -337,6 +375,16 @@ namespace Editor
         {
             Logger::Info("Loading settings...");
             settings.Load();
+
+            if (settings.window.w > 0 && settings.window.h > 0)
+            {
+                Platform::WindowRect rect = Platform::GetWindowScreenRect(mainWindow);
+                rect.left = settings.window.x;
+                rect.top = settings.window.y;
+                //rect.width = settings.window.w;
+                //rect.height = settings.window.h;
+                Platform::SetWindowScreenRect(mainWindow, rect);
+            }
         }
 
         void SaveSettings() override
@@ -362,9 +410,8 @@ namespace Editor
 
             const bool hasviewports = ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable;
 
-            Platform::WindowType window = platform->GetWindow();
-            Platform::WindowRect rect = Platform::GetClientBounds(window);
-            Platform::WindowPoint point = hasviewports ? Platform::ToScreen(window, rect.left, rect.top) : Platform::WindowPoint();
+            Platform::WindowRect rect = Platform::GetClientBounds(mainWindow);
+            Platform::WindowPoint point = hasviewports ? Platform::ToScreen(mainWindow, rect.left, rect.top) : Platform::WindowPoint();
             if (rect.width > 0 && rect.height > 0)
             {
                 ImGui::SetNextWindowSize(ImVec2((float)rect.width, (float)rect.height));
@@ -397,8 +444,11 @@ namespace Editor
                 OnFileMenu();
                 ImGui::PopStyleVar(2);
 
+                auto rect = Platform::GetClientBounds(mainWindow);
+
                 StaticString<128> fpsTxt("");
-                fpsTxt << "FPS: ";
+                fpsTxt << (U32)rect.width << "x" << (U32)rect.height;
+                fpsTxt << " FPS: ";
                 fpsTxt << (U32)(fps + 0.5f);
                 auto stats_size = ImGui::CalcTextSize(fpsTxt);
                 ImGui::SameLine(ImGui::GetContentRegionMax().x - stats_size.x);
@@ -504,6 +554,7 @@ namespace Editor
         UniquePtr<EditorRenderer> editorRenderer;
 
         // Windows
+        Platform::WindowType mainWindow;
         Array<Platform::WindowType> windows;
         struct WindowToDestroy 
         {
@@ -517,6 +568,9 @@ namespace Editor
         UniquePtr<AssetBrowser> assetBrowser;
         UniquePtr<WorldEditor> worldEditor;
         UniquePtr<LogWidget> logWidget;
+        UniquePtr<PropertyWidget> propertyWidget;
+        UniquePtr<EntityListWidget> entityListWidget;
+        UniquePtr<RenderGraphWidget> renderGraphWidget;
 
         // Imgui
         ImGuiKey imguiKeyMap[255];

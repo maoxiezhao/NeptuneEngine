@@ -65,10 +65,21 @@ namespace VulkanTest::LuaUtils
 	}
 
 	template<typename T>
+	inline T GetField(lua_State* l, const char* name, int index = -1)
+	{
+		lua_getfield(l, index, name);
+		T v =  LuaType<T>::Get(l, -1);
+		lua_pop(l, 1);
+		return v;
+	}
+
+	template<typename T>
 	inline T RawGet(lua_State* l, int idx, int n)
 	{
 		lua_rawgeti(l, idx, n);
-		return LuaType<T>::Get(l, -1);
+		T v = LuaType<T>::Get(l, -1);
+		lua_pop(l, 1);
+		return v;
 	}
 
 	template<typename T>

@@ -28,8 +28,12 @@ namespace VulkanTest
 	void ReverseString(char* str, size_t n);
 	bool StartsWith(const char* str, const char* substr);
 	bool EndsWith(const char* str, const char* substr);
+	bool ToCString(I32 value, Span<char> output);
+	bool ToCString(I64 value, Span<char> output);
 	bool ToCString(U32 value, Span<char> output);
 	bool ToCString(U64 value, Span<char> output);
+	bool ToCString(F32 value, Span<char> output, int afterPoint);
+	bool ToCString(F64 value, Span<char> output, int afterPoint);
 	bool MakeLowercase(Span<char> dst, const char* src);
 	bool MakeLowercase(Span<char> dst, Span<const char> src);
 

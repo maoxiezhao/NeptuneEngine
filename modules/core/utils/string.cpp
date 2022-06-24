@@ -196,6 +196,42 @@ namespace VulkanTest
 		return EqualString(str + len - len2, substr);
 	}
 
+	bool ToCString(I32 value, Span<char> output)
+	{
+		char* c = output.begin();
+		U32 length = output.length();
+		if (length > 0)
+		{
+			if (value < 0)
+			{
+				value = -value;
+				--length;
+				*c = '-';
+				++c;
+			}
+			return ToCString((U32)value, Span(c, length));
+		}
+		return false;
+	}
+
+	bool ToCString(I64 value, Span<char> output)
+	{
+		char* c = output.begin();
+		U32 length = output.length();
+		if (length > 0)
+		{
+			if (value < 0)
+			{
+				value = -value;
+				--length;
+				*c = '-';
+				++c;
+			}
+			return ToCString((U64)value, Span(c, length));
+		}
+		return false;
+	}
+
 	bool ToCString(U32 value, Span<char> output)
 	{
 		char* c = output.begin();
@@ -260,6 +296,189 @@ namespace VulkanTest
 			}
 		}
 		return false;
+	}
+
+
+	static bool Increment(const char* output, char* end, bool is_space_after)
+	{
+		char carry = 1;
+		char* c = end;
+		while (c >= output)
+		{
+			if (*c == '.')
+			{
+				--c;
+			}
+			*c += carry;
+			if (*c > '9')
+			{
+				*c = '0';
+				carry = 1;
+			}
+			else
+			{
+				carry = 0;
+				break;
+			}
+			--c;
+		}
+		if (carry && is_space_after)
+		{
+			char* c = end + 1; // including '\0' at the end of the String
+			while (c >= output)
+			{
+				*(c + 1) = *c;
+				--c;
+			}
+			++c;
+			*c = '1';
+			return true;
+		}
+		return !carry;
+	}
+
+	bool ToCString(F32 value, Span<char> out, int afterPoint)
+	{
+		char* output = out.begin();
+		U32 length = out.length();
+		if (length < 2)
+		{
+			return false;
+		}
+		if (value < 0)
+		{
+			*output = '-';
+			++output;
+			value = -value;
+			--length;
+		}
+		// int part
+		int exponent = value == 0 ? 0 : (int)log10(value);
+		double num = value;
+		char* c = output;
+		if (num  < 1 && num > -1 && length > 1)
+		{
+			*c = '0';
+			++c;
+			--length;
+		}
+		else
+		{
+			while ((num >= 1 || exponent >= 0) && length > 1)
+			{
+				const double power = pow(10.0, (double)exponent);
+				char digit = (char)floor(num / power);
+				num -= digit * power;
+				*c = digit + '0';
+				--exponent;
+				--length;
+				++c;
+			}
+		}
+		// decimal part
+		double dec_part = num;
+		if (length > 1 && afterPoint > 0)
+		{
+			*c = '.';
+			++c;
+			--length;
+		}
+		else if (length > 0 && afterPoint == 0)
+		{
+			*c = 0;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+		while (length > 1 && afterPoint > 0)
+		{
+			dec_part *= 10;
+			char tmp = (char)dec_part;
+			*c = tmp + '0';
+			dec_part -= tmp;
+			++c;
+			--length;
+			--afterPoint;
+		}
+		*c = 0;
+		if ((int)(dec_part + 0.5f))
+			Increment(output, c - 1, length > 1);
+
+		return true;
+	}
+
+	bool ToCString(F64 value, Span<char> out, int afterPoint)
+	{
+		char* output = out.begin();
+		U32 length = out.length();
+		if (length < 2)
+		{
+			return false;
+		}
+		if (value < 0)
+		{
+			*output = '-';
+			++output;
+			value = -value;
+			--length;
+		}
+		// int part
+		int exponent = value == 0 ? 0 : (int)log10(value);
+		double num = value;
+		char* c = output;
+		if (num  < 1 && num > -1 && length > 1)
+		{
+			*c = '0';
+			++c;
+			--length;
+		}
+		else
+		{
+			while ((num >= 1 || exponent >= 0) && length > 1)
+			{
+				double power = (double)pow(10, exponent);
+				char digit = (char)floor(num / power);
+				num -= digit * power;
+				*c = digit + '0';
+				--exponent;
+				--length;
+				++c;
+			}
+		}
+		// decimal part
+		double dec_part = num;
+		if (length > 1 && afterPoint > 0)
+		{
+			*c = '.';
+			++c;
+			--length;
+		}
+		else if (length > 0 && afterPoint == 0)
+		{
+			*c = 0;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+		while (length > 1 && afterPoint > 0)
+		{
+			dec_part *= 10;
+			char tmp = (char)dec_part;
+			*c = tmp + '0';
+			dec_part -= tmp;
+			++c;
+			--length;
+			--afterPoint;
+		}
+		*c = 0;
+		if ((int)(dec_part + 0.5f))
+			Increment(output, c - 1, length > 1);
+
+		return true;
 	}
 
 	static char MakeLowercase(char c)

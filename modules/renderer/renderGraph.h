@@ -412,6 +412,13 @@ private:
     std::vector<RenderTextureResource*> inputAttachments;
 };
 
+struct DebugRenderPassInfo
+{
+    String name;
+    std::vector<String> reads;
+    std::vector<String> writes;
+};
+
 class VULKAN_TEST_API RenderGraph
 {
 public:
@@ -423,11 +430,18 @@ public:
 
     RenderPass& AddRenderPass(const char* name, RenderGraphQueueFlag queueFlag);
     void SetBackBufferSource(const char* name);
+    const char* GetBackBufferSource();
     void DisableSwapchain();
     void Bake();
     void SetupAttachments(GPU::DeviceVulkan& device, GPU::ImageView* swapchain, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED);
     void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
     void Log();
+    void ExportGraphviz();
+
+    // Editor begin 
+    bool IsBaked();
+    void GetDebugRenderPassInfos(std::vector<DebugRenderPassInfo>& infos);
+    // Editor end
 
     RenderTextureResource& GetOrCreateTexture(const char* name);
     RenderBufferResource& GetOrCreateBuffer(const char* name);

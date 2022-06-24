@@ -76,6 +76,10 @@ namespace VulkanTest
 			return path;
 		}
 
+		U64 Size() const { 
+			return resSize;
+		}
+
 		U32 GetRefCount()const {
 			return refCount;
 		}

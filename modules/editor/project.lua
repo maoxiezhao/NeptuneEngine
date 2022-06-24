@@ -19,6 +19,10 @@ files
 { 
     third_party_location .. "/imgui-docking/**.h",
     third_party_location .. "/imgui-docking/**.cpp",
+
+    third_party_location .. "/imnodes/imnodes_internal.h",
+    third_party_location .. "/imnodes/imnodes.h",
+    third_party_location .. "/imnodes/imnodes.cpp",
 }
 
 -- removefiles 
@@ -30,6 +34,10 @@ vpaths {
     ["imgui"] = {
         third_party_location .. "/imgui-docking/**.h",
         third_party_location .. "/imgui-docking/**.cpp",
+
+        third_party_location .. "/imnodes/imnodes_internal.h",
+        third_party_location .. "/imnodes/imnodes.h",
+        third_party_location .. "/imnodes/imnodes.cpp",
     },
     ["*"] = {
         "**.c",

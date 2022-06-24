@@ -18,6 +18,14 @@ namespace Editor
 		bool Load();
 		bool Save();
 
+		struct Rect
+		{
+			int x, y;
+			int w, h;
+		};
+
+		Rect window;
+
 		String imguiState;
 
 	private:

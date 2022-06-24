@@ -17,12 +17,18 @@ namespace VulkanTest
 			material->SetColor(c);
 			return 0;
 		}
+
+		int texture(lua_State* l)
+		{
+			return 0;
+		}
 	}
 
 	MaterialFactory::MaterialFactory()
 	{	
 #define DEFINE_LUA_FUNC(func) luaConfig.AddFunc(#func, LuaAPI::func);
 		DEFINE_LUA_FUNC(color)
+		DEFINE_LUA_FUNC(texture)
 
 #undef DEFINE_LUA_FUNC
 	}
@@ -62,7 +68,7 @@ namespace VulkanTest
 		if (!luaConfig.Load(content))
 			return false;
 
-		return false;
+		return true;
 	}
 
 	void Material::OnUnLoaded()

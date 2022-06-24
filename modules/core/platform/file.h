@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\memory\memory.h"
 #include "core\utils\string.h"
+#include "core\utils\stream.h"
 
 namespace VulkanTest
 {
@@ -40,24 +41,18 @@ namespace VulkanTest
 		PathType type = PathType::File;
 	};
 
-	class File
+	class File : public IOutputStream
 	{
 	public:
 		virtual ~File() {}
 		virtual bool   Read(void* buffer, size_t bytes) = 0;
-		virtual bool   Write(const void* buffer, size_t bytes) = 0;
+		virtual bool   Write(const void* buffer, U64 size) = 0;
 		virtual bool   Seek(size_t offset) = 0;
 		virtual size_t Tell() const = 0;
 		virtual size_t Size() const = 0;
 		virtual FileFlags GetFlags() const = 0;
 		virtual bool IsValid() const = 0;
 		virtual void  Close() = 0;
-
-		template <typename T> 
-		bool Write(const T& value)
-		{
-			return Write(&value, sizeof(T));
-		}
 
 		bool Write(const char* str)
 		{
