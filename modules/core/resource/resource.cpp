@@ -12,19 +12,25 @@ namespace VulkanTest
 		type = StringID(typeName);
 	}
 
+	void ResourceDeleter::operator()(Resource* res)
+	{
+		if (res->resFactory.IsUnloadEnable())
+			res->DoUnload();
+	}
+
 	Resource::~Resource() = default;
 
-	void Resource::IncRefCount()
-	{
-		refCount++;
-	}
+	//void Resource::IncRefCount()
+	//{
+	//	refCount++;
+	//}
 
-	void Resource::DecRefCount()
-	{
-		ASSERT(refCount > 0);
-		if (--refCount == 0 && resFactory.IsUnloadEnable())
-			DoUnload();
-	}
+	//void Resource::DecRefCount()
+	//{
+	//	ASSERT(refCount > 0);
+	//	if (--refCount == 0 && resFactory.IsUnloadEnable())
+	//		DoUnload();
+	//}
 
 	void Resource::Refresh()
 	{
@@ -37,8 +43,42 @@ namespace VulkanTest
 		CheckState();
 	}
 
+	void Resource::AddDependency(Resource& depRes)
+	{
+		ASSERT(desiredState != State::EMPTY);
+
+		depRes.cb.Bind<&Resource::OnStateChanged>(this);
+		if (depRes.IsEmpty())
+			emptyDepCount++;
+		if (depRes.IsFailure())
+			failedDepCount++;
+
+		CheckState();
+	}
+
+	void Resource::RemoveDependency(Resource& depRes)
+	{
+		depRes.cb.Unbind<&Resource::OnStateChanged>(this);
+		if (depRes.IsEmpty())
+		{
+			ASSERT(emptyDepCount > 1 || (emptyDepCount == 1 && !asyncHandle.IsValid()));
+			emptyDepCount--;
+		}
+		if (depRes.IsFailure())
+		{
+			ASSERT(failedDepCount > 0);
+			failedDepCount--;
+		}
+
+		CheckState();
+	}
+
+	ResourceManager& Resource::GetResourceManager()
+	{
+		return resFactory.GetResourceManager();
+	}
+
 	Resource::Resource(const Path& path_, ResourceFactory& resFactory_) :
-		refCount(0),
 		emptyDepCount(1),
 		failedDepCount(0),
 		currentState(State::EMPTY),

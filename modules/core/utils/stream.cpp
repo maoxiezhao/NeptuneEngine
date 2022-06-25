@@ -50,6 +50,38 @@ namespace VulkanTest
 		return *this;
 	}
 
+	InputMemoryStream::InputMemoryStream(const void* data_, U64 size_) :
+		data((const U8*)data_),
+		size(size_),
+		pos(0)
+	{
+	}
+
+	bool InputMemoryStream::Read(void* buffer_, U64 size_)
+	{
+		if (pos + size_ > size)
+		{
+			memset(buffer_, 0, size_);
+			return false;
+		}
+
+		if (size_ > 0)
+			memcpy(buffer_, (char*)data + pos, size_);
+
+		pos += size_;
+		return true;
+	}
+
+	const char* InputMemoryStream::ReadString()
+	{
+		const char* ret = (const char*)data + pos;
+		const char* end = (const char*)data + size;
+		while (pos < size && data[pos]) ++pos;
+		ASSERT(pos < size);
+		++pos;
+		return ret;
+	}
+
 	IOutputStream& IOutputStream::operator<<(F64 data)
 	{
 		char temp[40];

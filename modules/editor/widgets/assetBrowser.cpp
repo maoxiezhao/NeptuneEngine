@@ -431,7 +431,7 @@ namespace Editor
             {
                 for (auto plugin : plugins)
                     plugin->OnResourceUnloaded(res);
-                res->DecRefCount();
+                res->Release();
             }
 
             selectedResources.clear();

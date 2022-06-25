@@ -213,7 +213,7 @@ namespace Editor
             for (Resource* res : onInitLoad)
             {
                 PushToCompileQueue(res->GetPath());
-                res->DecRefCount();
+                res->Release();
             }
             onInitLoad.clear();
 
@@ -796,7 +796,7 @@ namespace Editor
                 // Will process after initialized
                 if (initialized == false)
                 {
-                    res.IncRefCount();
+                    res.AddReference();
                     onInitLoad.push_back(&res);
                     return ResourceManager::LoadHook::Action::DEFERRED;
                 }

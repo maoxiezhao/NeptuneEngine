@@ -68,10 +68,12 @@ namespace VulkanTest
 		if (!luaConfig.Load(content))
 			return false;
 
+		Logger::Print("Material loaded %s", GetPath().c_str());
 		return true;
 	}
 
 	void Material::OnUnLoaded()
 	{
+		Logger::Print("Material unloaded %s", GetPath().c_str());
 	}
 }

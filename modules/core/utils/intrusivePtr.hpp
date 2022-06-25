@@ -23,6 +23,11 @@ namespace Util
 			return --count == 0;
 		}
 
+		inline int GetRef()
+		{
+			return (int)count;
+		}
+
 	private:
 		size_t count = 1;
 	};
@@ -46,6 +51,11 @@ namespace Util
 			return result == 1;
 		}
 
+		inline int GetRef()
+		{
+			return (int)count.load();
+		}
+
 	private:
 		std::atomic_size_t count;
 	};
@@ -53,7 +63,7 @@ namespace Util
 	template <typename T>
 	class IntrusivePtr;
 
-	template <typename T, typename Deleter = std::default_delete<T>, typename ReferenceOps = SingleThreadCounter>
+	template <typename T, typename Deleter = std::default_delete<T>, typename ReferenceOps = MultiThreadCounter>
 	class IntrusivePtrEnabled
 	{
 	public:
@@ -71,6 +81,11 @@ namespace Util
 		void AddReference()
 		{
 			refCount.AddRef();
+		}
+
+		int GetReference()
+		{
+			return refCount.GetRef();
 		}
 
 		IntrusivePtrEnabled() = default;

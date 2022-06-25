@@ -435,5 +435,35 @@ namespace GPU
         VkBorderColor borderColor;
         VkBool32 unnormalizedCoordinates;
     };
+
+    struct InputLayout
+    {
+        enum { MAX_ATTRIBUTES = 16 };
+        static const uint32_t APPEND_ALIGNED_ELEMENT = ~0u;
+
+        struct Attribute
+        {
+            VkFormat format = VK_FORMAT_UNDEFINED;
+            VkDeviceSize offset = 0;
+            InputClassification slotClass = InputClassification::PER_VERTEX_DATA;
+        };
+        Attribute attributes[MAX_ATTRIBUTES];
+        U8 attributeCount = 0;
+
+        void AddAttribute(VkFormat format, VkDeviceSize offset = 0, InputClassification slotClass = InputClassification::PER_VERTEX_DATA)
+        {
+            if (attributeCount >= LengthOf(attributes)) 
+            {
+                ASSERT(false);
+                return;
+            }
+
+            Attribute& attr = attributes[attributeCount];
+            attr.format = format;
+            attr.offset = offset;
+            attr.slotClass = slotClass;
+            ++attributeCount;
+        }
+    };
 }
 }

@@ -571,7 +571,7 @@ void DeviceVulkan::InitFrameContext(U32 count)
     frameBufferAllocator.Clear();
     frameResources.clear();
 
-    for (int frameIndex = 0; frameIndex < count; frameIndex++)
+    for (U32 frameIndex = 0; frameIndex < count; frameIndex++)
     {
         auto frameResource = std::make_unique<FrameResource>(*this, frameIndex);
         frameResources.emplace_back(std::move(frameResource));

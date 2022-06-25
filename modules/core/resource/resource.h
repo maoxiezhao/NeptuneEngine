@@ -5,6 +5,7 @@
 #include "core\utils\path.h"
 #include "core\utils\stringID.h"
 #include "core\utils\delegate.h"
+#include "core\utils\intrusivePtr.hpp"
 
 namespace VulkanTest
 {
@@ -43,7 +44,13 @@ namespace VulkanTest
 		bool isCompressed = false;
 	};
 
-	class VULKAN_TEST_API Resource
+	class Resource;
+	struct ResourceDeleter
+	{
+		void operator()(Resource* res);
+	};
+
+	class VULKAN_TEST_API Resource : public Util::IntrusivePtrEnabled<Resource, ResourceDeleter>
 	{
 	public:
 		friend class ResourceFactory;
@@ -80,12 +87,12 @@ namespace VulkanTest
 			return resSize;
 		}
 
-		U32 GetRefCount()const {
-			return refCount;
-		}
-		void IncRefCount();
-		void DecRefCount();
+		//void IncRefCount();
+		//void DecRefCount();
 		void Refresh();
+
+		void AddDependency(Resource& depRes);
+		void RemoveDependency(Resource& depRes);
 
 		void SetHooked(bool isHooked) {
 			hooked = isHooked;
@@ -98,6 +105,8 @@ namespace VulkanTest
 		ResourceFactory& GetResourceFactoyr() {
 			return resFactory;
 		}
+
+		ResourceManager& GetResourceManager();
 
 		using StateChangedCallback = DelegateList<void(State, State)>;
 
@@ -122,6 +131,8 @@ namespace VulkanTest
 		U64 resSize;
 
 	private:
+		friend struct ResourceDeleter;
+
 		Resource(const Resource&) = delete;
 		void operator=(const Resource&) = delete;
 		
@@ -129,12 +140,14 @@ namespace VulkanTest
 		void OnStateChanged(State oldState, State newState);
 
 		Path path;
-		U32 refCount;
 		bool hooked = false;
 		State currentState;
 		StateChangedCallback cb;
 		AsyncLoadHandle asyncHandle;
 	};
+
+	template<typename T>
+	using ResPtr = Util::IntrusivePtr<T>;
 
 #define DECLARE_RESOURCE(CLASS_NAME)															\
 	static const ResourceType ResType;                                                          \

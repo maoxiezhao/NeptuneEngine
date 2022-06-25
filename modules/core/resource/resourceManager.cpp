@@ -45,7 +45,7 @@ namespace VulkanTest
 		std::vector<Resource*> toRemoved;
 		for (auto& kvp : resources)
 		{
-			if (kvp.second->GetRefCount() == 0)
+			if (kvp.second->GetReference() == 0)
 				toRemoved.push_back(kvp.second);
 		}
 
@@ -78,14 +78,14 @@ namespace VulkanTest
 				ASSERT(res->IsHooked() == false);
 				res->SetHooked(true);
 				res->desiredState = Resource::State::READY;
-				res->IncRefCount(); // Hook
-				res->IncRefCount(); // Self
+				res->AddReference(); // Hook
+				// res->AddReference(); // Self
 				return res;
 			}
 			res->DoLoad();
 		}
 
-		res->IncRefCount();
+		// res->AddReference();
 		return res;
 	}
 
@@ -171,7 +171,7 @@ namespace VulkanTest
 	void ResourceManager::LoadHook::ContinueLoad(Resource& res)
 	{
 		ASSERT(res.IsEmpty());
-		res.DecRefCount();
+		res.Release();
 		res.SetHooked(false);
 		res.desiredState = Resource::State::EMPTY;
 		res.DoLoad();

@@ -65,10 +65,17 @@ namespace VulkanTest
 		void Uninitialzie();
 		void RemoveUnreferenced();
 
+		// TODO: to remove
 		template<typename T>
 		T* LoadResource(const Path& path)
 		{
 			return static_cast<T*>(LoadResource(T::ResType, path));
+		}
+
+		template<typename T>
+		ResPtr<T> LoadResourcePtr(const Path& path)
+		{
+			return ResPtr<T>(LoadResource<T>(path));
 		}
 
 		Resource* LoadResource(ResourceType type, const Path& path);

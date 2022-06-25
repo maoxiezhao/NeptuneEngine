@@ -25,6 +25,9 @@ namespace Editor
 			const tinyobj::material_t* material = nullptr;
 			std::string name;
 			int submesh = -1;
+			U32 lod = 0;
+			bool import = true;
+
 			Array<F32x3> vertexPositions;
 			Array<F32x3> vertexNormals;
 			Array<F32x4> vertexTangents;
@@ -55,10 +58,13 @@ namespace Editor
 	private:
 		void PostprocessMeshes(const ImportConfig& cfg);
 		void GetImportMeshName(const ImportMesh& mesh, char(&out)[256]);
-		void WriteHeader(OutputMemoryStream& outMem);
-		void WriteMeshes(OutputMemoryStream& outMem, const ImportConfig& cfg);
+		void WriteHeader();
+		void WriteMesh(const char* src, const ImportMesh& mesh);
+		void WriteMeshes(const char* src, I32 meshIdx, const ImportConfig& cfg);
+		void WriteGeometry(const ImportConfig& cfg);
 		bool AreIndices16Bit(const ImportMesh& mesh) const;
-		
+		I32 GetAttributeCount(const ImportMesh& mesh)const;
+
 		template <typename T> 
 		void Write(const T& obj) {
 			outMem.Write(&obj, sizeof(obj)); 

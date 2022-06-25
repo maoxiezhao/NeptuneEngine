@@ -273,7 +273,7 @@ namespace Editor
 		}
 	}
 
-	void OBJImporter::WriteHeader(OutputMemoryStream& outMem)
+	void OBJImporter::WriteHeader()
 	{
 		Model::FileHeader header;
 		header.magic = Model::FILE_MAGIC;
@@ -281,16 +281,104 @@ namespace Editor
 		outMem.Write(&header, sizeof(header));
 	}
 
-	void OBJImporter::WriteMeshes(OutputMemoryStream& outMem, const ImportConfig& cfg)
+	void OBJImporter::WriteMesh(const char* src, const ImportMesh& mesh)
 	{
+		// Mesh format:
+		// ----------------------------------
+		// Mesh name
+		// Matrial path
+		// AttrCount
+		// Attr1 (Semantic, Type, Count)
+		// Attr2 (Semantic, Type, Count)
+
+		const PathInfo srcInfo(src);
+
+		// Mesh name
+		char name[256];
+		GetImportMeshName(mesh, name);
+		I32 nameLen = (I32)StringLength(name);
+		Write(nameLen);
+		Write(name, nameLen);
+
+		// Material path		
+		StaticString<MAX_PATH_LENGTH + 128> matPath(srcInfo.dir, mesh.material->name.c_str(), ".mat");
+		const I32 len = StringLength(matPath.c_str());
+		Write(len);
+		Write(matPath.c_str(), len);
+
+		// Attributes (pos, normal, texcoord)
+		U32 attrCount = GetAttributeCount(mesh);
+		Write(attrCount);
+		Write(Mesh::AttributeSemantic::POSITION);
+		Write(Mesh::AttributeType::F32);
+		Write((U8)3);
+
+		Write(Mesh::AttributeSemantic::NORMAL);
+		Write(Mesh::AttributeType::F32);
+		Write((U8)3);
+
+		Write(Mesh::AttributeSemantic::TEXCOORD0);
+		Write(Mesh::AttributeType::F32);
+		Write((U8)2);
+	}
+
+	void OBJImporter::WriteMeshes(const char* src, I32 meshIdx, const ImportConfig& cfg)
+	{
+		// Meshes format:
+		// -------------------------
+		// MeshCount
+		// Mesh1
+		// Mesh2
+
+		// Write mesh count
+		I32 meshCount = 0;
+		if (meshIdx <= 0) 
+		{
+			for (auto& mesh : meshes) 
+			{
+				if (mesh.import && mesh.lod == 0)
+					meshCount++;
+			}
+		}
+		else 
+		{
+			meshCount = 1;
+		}
+		Write(meshCount);
+
+		// Write meshes
+		if (meshIdx <= 0) 
+		{
+			for (auto& mesh : meshes)
+			{
+				if (mesh.import && mesh.lod == 0)
+					WriteMesh(src, mesh);
+			}
+		}
+		else 
+		{
+			WriteMesh(src, meshes[meshIdx]);
+		}
+	}
+
+	void OBJImporter::WriteGeometry(const ImportConfig& cfg)
+	{
+		// Indices
+		// VertexData
+		// -- Count
+		// -- Vertex
+		// -- Normals
+		// -- Texcoords
+
 		// Write indices
 		for (const auto& importMesh : meshes)
 		{
 			const bool are16bit = AreIndices16Bit(importMesh);
 			if (are16bit)
 			{
-				Write(sizeof(U16));
-				Write(importMesh.indices.size());
+				I32 indexSize = sizeof(U16);
+				Write(indexSize);
+				Write((I32)importMesh.indices.size());
 				for (U32 i : importMesh.indices)
 				{
 					ASSERT(i <= (1 << 16));
@@ -300,8 +388,9 @@ namespace Editor
 			}
 			else
 			{
-				Write(sizeof(U32));
-				Write(importMesh.indices.size());
+				I32 indexSize = sizeof(U32);
+				Write(indexSize);
+				Write((I32)importMesh.indices.size());
 				Write(&importMesh.indices[0], sizeof(U32) * importMesh.indices.size());
 			}
 		}
@@ -310,18 +399,22 @@ namespace Editor
 		for (const auto& importMesh : meshes)
 		{
 			Write(importMesh.vertexPositions.size());
-			for (int i = 0; i < importMesh.vertexPositions.size(); i++)
-			{
-				Write(importMesh.vertexPositions[i]);
-				Write(importMesh.vertexNormals[i]);
-				Write(importMesh.vertexUvset_0[i]);
-			}
+			Write(importMesh.vertexPositions.data(), importMesh.vertexPositions.size() * sizeof(F32x3));
+			Write(importMesh.vertexNormals.data(), importMesh.vertexNormals.size() * sizeof(F32x3));
+			Write(importMesh.vertexUvset_0.data(), importMesh.vertexUvset_0.size() * sizeof(F32x2));
 		}
 	}
 
 	bool OBJImporter::AreIndices16Bit(const ImportMesh& mesh) const
 	{
-		return mesh.indices.size() < (1 << 16);
+		// TODO: mesh only support U32 now..
+		// return mesh.indices.size() < (1 << 16);
+		return false;
+	}
+
+	I32 OBJImporter::GetAttributeCount(const ImportMesh& mesh) const
+	{
+		return 3; // Pos & Normals & UV
 	}
 
 	void OBJImporter::WriteString(const char* str)
@@ -338,8 +431,16 @@ namespace Editor
 			return;
 
 		outMem.Clear();
-		WriteHeader(outMem);
-		WriteMeshes(outMem, cfg);
+
+		// Model format:
+		// ---------------------------
+		// Model header
+		// Meshes
+		// Geometry
+
+		WriteHeader();
+		WriteMeshes(filepath, -1, cfg);
+		WriteGeometry(cfg);
 
 		editor.GetAssetCompiler().WriteCompiled(filepath, Span(outMem.Data(), outMem.Size()));
 	}
@@ -390,10 +491,9 @@ namespace Editor
 
 			auto diffuseColor = material.material->diffuse;
 			outMem << "color {" 
-				<< diffuseColor[0]
-				<< "," << diffuseColor[1]
-				<< "," << diffuseColor[2]
-				<< ",1}\n";
+				<< diffuseColor[0] << ","
+				<< diffuseColor[1] << ","
+				<< diffuseColor[2] << ",1}\n";
 
 			if (!file->Write(outMem.Data(), outMem.Size()))
 				Logger::Error("Failed to write mat file %s", matPath.c_str());

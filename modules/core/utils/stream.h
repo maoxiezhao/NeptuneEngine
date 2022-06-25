@@ -9,28 +9,13 @@ namespace VulkanTest
         virtual bool Read(void* buffer, U64 size) = 0;
         virtual const void* GetBuffer() const = 0;
         virtual U64 Size() const = 0;
-        
-        template <typename T>
-        void Read(T& value) 
-        { 
-			Read(&value, sizeof(T));
-        }
 
-		template <typename T> T Read()
-		{
-			T v;
-			Read(&v, sizeof(v));
-			return v;
+		template <typename T> 
+		void Read(T& value) {
+			Read(&value, sizeof(T)); 
 		}
+		template <typename T> T Read();
     };
-
-    template <>
-    inline bool IInputStream::Read<bool>()
-    {
-        U8 v;
-        Read(&v, sizeof(v));
-        return v != 0;
-    }
 
     struct VULKAN_TEST_API IOutputStream
     {
@@ -57,6 +42,34 @@ namespace VulkanTest
 		U8 v = value;
 		return Write(&v, sizeof(v));
 	}
+
+	struct VULKAN_TEST_API InputMemoryStream  final : public IInputStream
+	{
+		InputMemoryStream(const void* data_, U64 size_);
+
+		bool Read(void* buffer_, U64 size_) override;
+		const char* ReadString();
+
+		const void* GetBuffer() const override {
+			return data;
+		}
+		U64 Size() const override {
+			return size;
+		}
+		U64 GetPos()const {
+			return pos;
+		}
+		void SetPos(U64 pos_) {
+			pos = pos_;
+		}
+
+		using IInputStream::Read;
+
+	private:
+		const U8* data;
+		U64 size;
+		U64 pos;
+	};
 
 	struct VULKAN_TEST_API OutputMemoryStream final : public IOutputStream
 	{
@@ -95,4 +108,20 @@ namespace VulkanTest
 		U64 capacity;
 		U64 size;
 	};
+
+	template <typename T> 
+	T IInputStream::Read()
+	{
+		T v;
+		read(&v, sizeof(v));
+		return v;
+	}
+
+	template <>
+	inline bool IInputStream::Read<bool>()
+	{
+		U8 v;
+		Read(&v, sizeof(v));
+		return v != 0;
+	}
 } 

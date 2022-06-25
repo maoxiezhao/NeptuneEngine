@@ -225,6 +225,10 @@ namespace VulkanTest
             return data_; 
         }
 
+        const T* data() const {
+            return data_;
+        }
+
         const T& operator[](U32 index) const {
             ASSERT(index < size_);
             return data_[index];
