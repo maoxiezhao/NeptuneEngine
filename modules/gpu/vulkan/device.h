@@ -377,6 +377,7 @@ public:
     void SetName(const Sampler& sampler, const char* name);
 
     bool IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags required, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
+    U64 GetMinOffsetAlignment() const;
 
     ImmutableSampler* GetStockSampler(StockSampler type);
     uint64_t GenerateCookie();

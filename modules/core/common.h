@@ -173,6 +173,17 @@ inline void ForEachBitRange(uint32_t value, const T& func)
 	}
 }
 
+constexpr U32 AlignTo(U32 value, U32 alignment)
+{
+	return ((value + alignment - 1) / alignment) * alignment;
+}
+
+constexpr U64 AlignTo(U64 value, U64 alignment)
+{
+	return ((value + alignment - 1) / alignment) * alignment;
+}
+
+
 template<typename T>
 class Span
 {

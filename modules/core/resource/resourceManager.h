@@ -78,6 +78,11 @@ namespace VulkanTest
 			return ResPtr<T>(LoadResource<T>(path));
 		}
 
+		ResPtr<Resource> LoadResourcePtr(ResourceType type, const Path& path)
+		{
+			return ResPtr<Resource>(LoadResource(type, path));
+		}
+
 		Resource* LoadResource(ResourceType type, const Path& path);
 		
 		ResourceFactory* GetFactory(ResourceType type);

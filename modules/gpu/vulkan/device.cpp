@@ -1772,6 +1772,11 @@ bool DeviceVulkan::IsImageFormatSupported(VkFormat format, VkFormatFeatureFlags 
     return (flags & required) == required;
 }
 
+U64 DeviceVulkan::GetMinOffsetAlignment() const
+{
+    return (U64)std::max((VkDeviceSize)1, features.properties2.properties.limits.minStorageBufferOffsetAlignment);
+}
+
 ImmutableSampler* DeviceVulkan::GetStockSampler(StockSampler type)
 {
     return stockSamplers[(int)type];

@@ -18,11 +18,33 @@ namespace VulkanTest
 		}
 	}
 
-	void Mesh::CreateRenderData()
+	bool Mesh::CreateRenderData()
 	{
 		GPU::DeviceVulkan* device = Renderer::GetDevice();
 		GPU::BufferCreateInfo bufferInfo = {};
-	
+		bufferInfo.domain = GPU::BufferDomain::Device;
+		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+			VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+
+		U64 alignment = device->GetMinOffsetAlignment();
+		U64 totalSize =
+			AlignTo(indices.size() * sizeof(U32), alignment) +
+			AlignTo(vertexPos.size() * sizeof(F32x3), alignment) +
+			AlignTo(vertexNor.size() * sizeof(F32x3), alignment) +
+			AlignTo(vertexUV.size() * sizeof(F32x2), alignment);
+
+		Array<U8> bufferData;
+		bufferData.resize(totalSize);
+
+
+		bufferInfo.size = totalSize;
+		auto buffer = device->CreateBuffer(bufferInfo, bufferData.data());
+		if (!buffer)
+			return false;
+		device->SetName(*buffer, "MeshBuffer");
+
 		
 	}
 
@@ -227,11 +249,8 @@ namespace VulkanTest
 					mesh.vertexUV.resize(vertexCount);
 					mem.Read(mesh.vertexUV.data(), sizeof(F32x2) * vertexCount);
 					break;
-				case Mesh::AttributeSemantic::COLOR0:
-					mesh.vertexColor.resize(vertexCount);
-					mem.Read(mesh.vertexColor.data(), sizeof(U32) * vertexCount);
-					break;
 				default:
+					ASSERT(false);
 					break;
 				}
 			}
@@ -239,7 +258,10 @@ namespace VulkanTest
 
 		// Create render datas
 		for (auto& mesh : meshes)
-			mesh.CreateRenderData();
+		{
+			if (!mesh.CreateRenderData())
+				return false;
+		}
 
 		return true;
 	}

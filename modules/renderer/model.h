@@ -52,7 +52,6 @@ namespace VulkanTest
 		Array<F32x3> vertexPos;
 		Array<F32x3> vertexNor;
 		Array<F32x2> vertexUV;
-		Array<U32> vertexColor;
 		Array<U32> indices;
 
 		GPU::BufferPtr vboPos;
@@ -60,7 +59,7 @@ namespace VulkanTest
 		GPU::BufferPtr vboUV;
 		GPU::BufferPtr ibo;
 
-		void CreateRenderData();
+		bool CreateRenderData();
 	};
 
 	class VULKAN_TEST_API Model final : public Resource

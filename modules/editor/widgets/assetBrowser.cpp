@@ -20,7 +20,7 @@ namespace Editor
         bool showThumbnails = true;
         float thumbnailSize = 1.f;
 
-        Array<Resource*> selectedResources;
+        Array<ResPtr<Resource>> selectedResources;
         I32 contextResource = -1;
 
         MaxPathString curDir;
@@ -204,7 +204,7 @@ namespace Editor
 
                 if (selectedResources.size() == 1)
                 {
-                    Resource* res = selectedResources[0];
+                    Resource* res = selectedResources[0].get();
                     const char* path = res->GetPath().c_str();
                     ImGuiUtils::Label("Selected resource");
                     ImGui::TextUnformatted(path);
@@ -358,7 +358,7 @@ namespace Editor
                             }
 
                             FileInfo& tile = fileInfos[idx];
-                            bool selected = selectedResources.find([&](Resource* res) {
+                            bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
                                 return res->GetPath().GetHash() == tile.filePathHash;
                             }) >= 0;
                             ShowThumbnail(tile, thumbnailSize * TILE_SIZE, selected);
@@ -368,7 +368,7 @@ namespace Editor
                     else
                     {
                         FileInfo& tile = fileInfos[j];
-                        bool selected = selectedResources.find([&](Resource* res) {
+                        bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
                             return res->GetPath().GetHash() == tile.filePathHash;
                         }) >= 0;
                         ImGui::Selectable(tile.filepath, selected);
@@ -417,9 +417,12 @@ namespace Editor
         {
             auto& resManager = editor.GetEngine().GetResourceManager();
             const ResourceType resType = editor.GetAssetCompiler().GetResourceType(path.c_str());
-            Resource* res = resManager.LoadResource(resType, path);
-            if (res != nullptr)
-                SelectResource(res);
+            ResPtr<Resource> res = resManager.LoadResourcePtr(resType, path);
+            if (res)
+            {
+                UnloadSelectedResources();
+                selectedResources.push_back(std::move(res));
+            }
         }
 
         void UnloadSelectedResources()
@@ -430,17 +433,11 @@ namespace Editor
             for (auto res : selectedResources)
             {
                 for (auto plugin : plugins)
-                    plugin->OnResourceUnloaded(res);
+                    plugin->OnResourceUnloaded(res.get());
                 res->Release();
             }
 
             selectedResources.clear();
-        }
-
-        void SelectResource(Resource* res)
-        {
-            UnloadSelectedResources();
-            selectedResources.push_back(res);
         }
     };
 
