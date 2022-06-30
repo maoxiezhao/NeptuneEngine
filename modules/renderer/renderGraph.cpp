@@ -1491,7 +1491,7 @@ namespace VulkanTest
         {
             auto& passIndex = physicalPass.passes[i];
             auto& pass = *renderPasses[passIndex];
-            cmd.BeginEvent("DoRenderPass");
+            cmd.BeginEvent(pass.GetName().c_str());
             pass.BuildRenderPass(cmd);
             cmd.EndEvent();
 
@@ -2407,6 +2407,10 @@ namespace VulkanTest
     {
         if (res == nullptr || res->GetPhysicalIndex() == RenderResource::Unused)
             return nullptr;
+
+        if (impl->physicalAttachments.empty())
+            return nullptr;
+
         return impl->physicalAttachments[res->GetPhysicalIndex()];
     }
 

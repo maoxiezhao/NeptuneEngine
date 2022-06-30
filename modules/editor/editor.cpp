@@ -17,6 +17,7 @@
 
 #include "imgui-docking\imgui.h"
 #include "renderer\imguiRenderer.h"
+#include "renderer\model.h"
 
 namespace VulkanTest
 {
@@ -24,6 +25,8 @@ namespace Editor
 {
     void EditorRenderer::Render()
     {
+        UpdateRenderData();
+
         GPU::DeviceVulkan* device = wsi->GetDevice();
         auto& graph = GetRenderGraph();
         graph.SetupAttachments(*device, nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL); // Used for sceneView
@@ -329,13 +332,28 @@ namespace Editor
             // Update gui
             OnGUI();
 
+            // Test
+            // Renderer::UpdateGeometryBuffer();
+
             // End imgui frame
             ImGuiRenderer::EndFrame();
         }
 
+        struct ShaderGeometry
+        {
+            I32 vbPos;
+            I32 vbNor;
+            I32 vbUVs;
+            I32 ib;
+        };
+
         void Render() override
         {
             wsi.BeginFrame();
+
+            for (auto widget : widgets)
+                widget->Render();
+
             ImGuiRenderer::Render();
             wsi.EndFrame();
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();

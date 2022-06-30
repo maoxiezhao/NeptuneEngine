@@ -348,7 +348,7 @@ void ShaderProgram::Bake()
 						}
 
 						// Allows us to have one unified descriptor set layout for bindless.
-						resLayout.stagesForBindings[set][maskbit] = VK_SHADER_STAGE_ALL;
+						resLayout.stagesForBindings[set][binding] = VK_SHADER_STAGE_ALL;
 					}
 					else if (arraySize == 0)
 					{
@@ -388,7 +388,7 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout res
 			auto allocator = &device.RequestDescriptorSetAllocator(resLayout_.sets[i], resLayout_.stagesForBindings[i]);
 			descriptorSetAllocators[i] = allocator;
 			layouts[i] = allocator->GetSetLayout();
-			numSets = i + 1;
+			numSets++;
 		}
 	}
 

@@ -182,6 +182,31 @@ namespace VulkanTest
 		return true;
 	}
 
+	bool OutputMemoryStream::Write(const void* buffer, U64 size_, U64 alignment)
+	{
+		if (!size_)
+			return true;
+
+		U64 alignmentSize = AlignTo(size_, alignment);
+		if (size + alignmentSize > capacity)
+			Reserve((size + alignmentSize) << 1);
+
+		memcpy((U8*)data + size, buffer, size_);
+		size += alignmentSize;
+		return true;
+	}
+
+	void OutputMemoryStream::Skip(U64 size_)
+	{
+		if (!size_)
+			return;
+
+		if (size + size_ > capacity)
+			Reserve((size + size_) << 1);
+
+		size += size_;
+	}
+
 	void OutputMemoryStream::Resize(U64 newSize)
 	{
 		size = newSize;

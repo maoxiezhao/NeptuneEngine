@@ -109,6 +109,7 @@ namespace GPU
 
 		allocatedDescriptors += count;
 		allocatedSets++;
+
 		set = AllocateDescriptorSet(count);
 		return set != VK_NULL_HANDLE;
 	}
@@ -146,6 +147,36 @@ namespace GPU
 		vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
 	}
 
+	void BindlessDescriptorPool::SetBuffer(int binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range)
+	{
+		VkDescriptorBufferInfo bufferInfo = {};
+		bufferInfo.buffer = buffer;
+		bufferInfo.offset = offset;
+		bufferInfo.range = range;
+
+		VkWriteDescriptorSet write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		write.dstArrayElement = binding;
+		write.descriptorCount = 1;
+		write.dstSet = set;
+		write.pBufferInfo = &bufferInfo;
+
+		vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
+	}
+
+	void BindlessDescriptorPool::SetUniformTexelBuffer(int binding, VkBufferView bufferView)
+	{
+		VkWriteDescriptorSet write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+		write.dstBinding = 0;
+		write.dstArrayElement = binding;
+		write.descriptorCount = 1;
+		write.dstSet = set;
+		write.pTexelBufferView = &bufferView;
+
+		vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
+	}
+
 	BindlessDescriptorPool::BindlessDescriptorPool(DeviceVulkan& device_, VkDescriptorPool pool_, DescriptorSetAllocator* allocator_, U32 totalSets_, U32 totalDescriptors_) :
 		device(device_),
 		pool(pool_),
@@ -162,6 +193,14 @@ namespace GPU
 		info.descriptorPool = pool;
 		info.descriptorSetCount = 1;
 		info.pSetLayouts = &setLayout;
+
+		VkDescriptorSetVariableDescriptorCountAllocateInfoEXT count_info =
+		{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT };
+
+		uint32_t numDesc = numDescriptors;
+		count_info.descriptorSetCount = 1;
+		count_info.pDescriptorCounts = &numDesc;
+		info.pNext = &count_info;
 
 		VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 		if (vkAllocateDescriptorSets(device.device, &info, &descriptorSet) != VK_SUCCESS)
@@ -210,7 +249,7 @@ namespace GPU
 		}
 		else
 		{
-			for (int i = 0; i < device.GetNumThreads(); i++)
+			for (U32 i = 0; i < device.GetNumThreads(); i++)
 				perThreads.emplace_back(new PerThread());
 		}
 
@@ -232,7 +271,7 @@ namespace GPU
 					// Calculate array size and pool size
 					U32 arraySize = binding.arraySize;
 					U32 poolArraySize = 0;
-					if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY)
+					if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY || isBindless)
 					{
 						arraySize = GetBindlessArraySize(device, static_cast<DescriptorSetType>(maskbit));
 						if (arraySize <= 0)
@@ -256,6 +295,7 @@ namespace GPU
 						nullptr 								// pImmutableSamplers
 					});
 					poolSize.push_back({ descriptorType, poolArraySize });
+					descriptorCount = poolArraySize;
 					types++;
 				}
 				ASSERT(types <= 1);
@@ -369,7 +409,7 @@ namespace GPU
 			return VK_NULL_HANDLE;
 
 		VkDescriptorPoolSize size = poolSize[0];
-		if (numDescriptors >= size.descriptorCount)
+		if (numDescriptors > size.descriptorCount)
 		{
 			Logger::Warning("Allocate more than max bindless descriptors.");
 			return VK_NULL_HANDLE;
@@ -389,6 +429,86 @@ namespace GPU
 			return VK_NULL_HANDLE;
 		}
 		return pool;
+	}
+
+	void BindlessDescriptorHandlerDeleter::operator()(BindlessDescriptorHandler* buffer)
+	{
+		buffer->device.bindlessDescriptorHandlers.free(buffer);
+	}
+
+	BindlessDescriptorHandler::~BindlessDescriptorHandler()
+	{
+		if (index >= 0)
+			device.ReleaseBindlessResource(index, type);
+	}
+
+	BindlessDescriptorHandler::BindlessDescriptorHandler(DeviceVulkan& device_, BindlessReosurceType type_, I32 index_) :
+		device(device_),
+		type(type_),
+		index(index_)
+	{
+	}
+
+	void BindlessDescriptorHeap::Init(DeviceVulkan& device, DescriptorSetAllocator* setAllocator)
+	{
+		U32 descriptorCount = setAllocator->GetDescriptorCount();
+		if (descriptorCount <= 0)
+			return;
+
+		VkDescriptorPool vkPool = setAllocator->AllocateBindlessPool(1, descriptorCount);
+		if (vkPool == VK_NULL_HANDLE)
+			return;
+
+		pool = BindlessDescriptorPoolPtr(device.bindlessDescriptorPools.allocate(device, vkPool, setAllocator, 1, descriptorCount));
+		if (!pool)
+			return;
+
+		pool->AllocateDescriptors(descriptorCount);
+
+		freelist.reserve(descriptorCount);
+		for (U32 i = 0; i < descriptorCount; ++i)
+			freelist.push_back(descriptorCount - i - 1);
+
+		initialized = true;
+	}
+
+	void BindlessDescriptorHeap::Destroy()
+	{
+		if (pool)
+			pool.reset();
+
+		initialized = false;
+	}
+
+	I32 BindlessDescriptorHeap::Allocate()
+	{
+		ASSERT(initialized);
+		if (!freelist.empty())
+		{
+			I32 ret = freelist.back();
+			freelist.pop_back();
+			return ret;
+		}
+		return -1;
+	}
+
+	void BindlessDescriptorHeap::Free(I32 index)
+	{
+		ASSERT(initialized);
+		if (index >= 0)
+			freelist.push_back(index);
+	}
+
+	VkDescriptorSet BindlessDescriptorHeap::GetDescriptorSet() const
+	{
+		ASSERT(initialized);
+		return pool->GetDescriptorSet();
+	}
+
+	BindlessDescriptorPool& BindlessDescriptorHeap::GetPool()
+	{
+		ASSERT(initialized);
+		return *pool;
 	}
 }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "definition.h"
+#include "buffer.h"
 
 namespace VulkanTest
 {
@@ -11,7 +12,8 @@ namespace GPU
 		SampledImage,
 		StorageImage,
 		StorageBuffer,
-		Sampler
+		Sampler,
+		Count
 	};
 
 	enum DescriptorSetType
@@ -61,6 +63,8 @@ namespace GPU
 		VkDescriptorSet GetDescriptorSet()const;
 
 		void SetTexture(int binding, const ImageView& iamgeView, VkImageLayout imageLayout);
+		void SetBuffer(int binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
+		void SetUniformTexelBuffer(int binding, VkBufferView bufferView);
 
 	private:
 		friend class DeviceVulkan;
@@ -92,8 +96,11 @@ namespace GPU
 		void BeginFrame();
 		void Clear();
 
-		VkDescriptorSetLayout GetSetLayout()
-		{
+		I32 GetDescriptorCount()const {
+			return descriptorCount;
+		}
+
+		VkDescriptorSetLayout GetSetLayout() {
 			return setLayout;
 		}
 
@@ -105,6 +112,7 @@ namespace GPU
 		DescriptorSetLayout layoutInfo;
 		VkDescriptorSetLayout setLayout;
 		std::vector<VkDescriptorPoolSize> poolSize;
+		I32 descriptorCount = 0;
 
 		class DescriptorSetNode : public Util::TempHashMapItem<DescriptorSetNode>
 		{
@@ -122,6 +130,62 @@ namespace GPU
 		std::vector<std::unique_ptr<PerThread>> perThreads;
 
 		bool isBindless = false;
+	};
+
+	class BindlessDescriptorHandler;
+	class BindlessDescriptorHeap;
+
+	struct BindlessDescriptorHandlerDeleter
+	{
+		void operator()(BindlessDescriptorHandler* buffer);
+	};
+	class VULKAN_TEST_API BindlessDescriptorHandler : public IntrusivePtrEnabled<BindlessDescriptorHandler, BindlessDescriptorHandlerDeleter>
+	{
+	public:
+		~BindlessDescriptorHandler();
+
+		BindlessDescriptorHandler(const BindlessDescriptorHandler& rhs) = delete;
+		void operator=(const BindlessDescriptorHandler& rhs) = delete;
+	
+		I32 GetIndex()const {
+			return index;
+		}
+
+	private:
+		friend class DeviceVulkan;
+		friend struct BindlessDescriptorHandlerDeleter;
+		friend class Util::ObjectPool<BindlessDescriptorHandler>;
+
+		BindlessDescriptorHandler(DeviceVulkan& device_, BindlessReosurceType type_, I32 index_);
+
+		DeviceVulkan& device;
+		BindlessReosurceType type;
+		I32 index;
+	};
+	using BindlessDescriptorPtr = IntrusivePtr<BindlessDescriptorHandler>;
+
+	class VULKAN_TEST_API BindlessDescriptorHeap
+	{
+	public:
+		BindlessDescriptorHeap() = default;
+		~BindlessDescriptorHeap() = default;
+
+		void Init(DeviceVulkan& device, DescriptorSetAllocator* setAllocator);
+		void Destroy();
+		I32 Allocate();
+		void Free(I32 index);
+
+		VkDescriptorSet GetDescriptorSet()const;
+		BindlessDescriptorPool& GetPool();
+
+		bool IsInitialized()const {
+			return initialized;
+		}
+
+	private:
+		BindlessDescriptorPoolPtr pool;
+		Array<I32> freelist;
+		bool initialized = false;
 	};
 }
 }

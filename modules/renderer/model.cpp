@@ -5,8 +5,7 @@
 
 namespace VulkanTest
 {
-	Mesh::Mesh(ResPtr<Material>&& mat_, const GPU::InputLayout& inputLayout_, U8 stride_, const char* name_, const AttributeSemantic* semantics_):
-		material(std::move(mat_)),
+	Mesh::Mesh(const GPU::InputLayout& inputLayout_, U8 stride_, const char* name_, const AttributeSemantic* semantics_):
 		inputLayout(inputLayout_),
 		stride(stride_),
 		name(name_)
@@ -35,17 +34,59 @@ namespace VulkanTest
 			AlignTo(vertexNor.size() * sizeof(F32x3), alignment) +
 			AlignTo(vertexUV.size() * sizeof(F32x2), alignment);
 
-		Array<U8> bufferData;
-		bufferData.resize(totalSize);
+		OutputMemoryStream output;
+		output.Reserve(totalSize);
 
+		// Create index buffer
+		ib.offset = output.Size();
+		ib.size = indices.size() * sizeof(U32);
+		output.Write(indices.data(), ib.size, alignment);
 
-		bufferInfo.size = totalSize;
-		auto buffer = device->CreateBuffer(bufferInfo, bufferData.data());
+		F32x3 _min = F32x3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+		F32x3 _max = F32x3(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
+	
+		// VertexBuffer position
+		vbPos.offset = output.Size();
+		vbPos.size = vertexPos.size() * sizeof(F32x3);
+		output.Write(vertexPos.data(), vbPos.size, alignment);
+		for (size_t i = 0; i < vertexPos.size(); i++)
+		{
+			const F32x3& pos = vertexPos[i];
+			_min = Min(_min, pos);
+			_max = Max(_max, pos);
+		}
+
+		aabb = AABB(_min, _max);
+
+		// VertexBuffer normal
+		if (!vertexNor.empty())
+		{
+			vbNor.offset = output.Size();
+			vbNor.size = vertexNor.size() * sizeof(F32x3);
+			output.Write(vertexNor.data(), vbNor.size, alignment);
+		}
+
+		// VertexBuffer uvs
+		if (!vertexUV.empty())
+		{
+			vbUVs.offset = output.Size();
+			vbUVs.size = vertexUV.size() * sizeof(F32x2);
+			output.Write(vertexUV.data(), vbUVs.size, alignment);
+		}
+
+		bufferInfo.size = output.Size();
+		auto buffer = device->CreateBuffer(bufferInfo, output.Data());
 		if (!buffer)
 			return false;
 		device->SetName(*buffer, "MeshBuffer");
+		generalBuffer = buffer;
 
-		
+		// Create bindless descriptor
+		vbPos.srv = device->CreateBindlessStroageBuffer(*buffer, vbPos.offset, vbPos.size);
+		vbNor.srv = device->CreateBindlessStroageBuffer(*buffer, vbNor.offset, vbNor.size);
+		vbUVs.srv = device->CreateBindlessStroageBuffer(*buffer, vbUVs.offset, vbUVs.size);
+
+		return true;
 	}
 
 	DEFINE_RESOURCE(Model);
@@ -94,8 +135,11 @@ namespace VulkanTest
 	{
 		for (auto& mesh : meshes)
 		{
-			RemoveDependency(*mesh.material);
-			mesh.material.reset();
+			for (auto& subset : mesh.subsets)
+			{
+				RemoveDependency(*subset.material);
+				subset.material.reset();
+			}
 		}
 		meshes.clear();
 	}
@@ -167,13 +211,6 @@ namespace VulkanTest
 			meshName[strSize] = 0;
 			mem.Read(meshName, strSize);
 
-			// Read material path
-			I32 matPathSize;
-			mem.Read(matPathSize);
-			char matPath[MAX_PATH_LENGTH];
-			matPath[matPathSize] = 0;
-			mem.Read(matPath, matPathSize);
-
 			// Read attributes
 			U32 attrCount;
 			mem.Read(attrCount);
@@ -199,13 +236,35 @@ namespace VulkanTest
 				offset += GetTypeSize(type) * compCount;
 			}
 
-			U32 stride = offset;
+			// Read mesh subsets
+			I32 subsetCount = 0;
+			mem.Read(subsetCount);
 
-			// Create mesh instance
-			ResPtr<Material> material = GetResourceManager().LoadResourcePtr<Material>(Path(matPath));
-			AddDependency(*material);
+			Array<Mesh::MeshSubset> subsets;
+			for (int j = 0; j < subsetCount; j++)
+			{
+				Mesh::MeshSubset subset = {};
 
-			meshes.emplace(std::move(material), layout, stride, meshName, semantics);
+				// Read material path
+				I32 matPathSize;
+				mem.Read(matPathSize);
+				char matPath[MAX_PATH_LENGTH];
+				matPath[matPathSize] = 0;
+				mem.Read(matPath, matPathSize);
+
+				// Create mesh instance
+				ResPtr<Material> material = GetResourceManager().LoadResourcePtr<Material>(Path(matPath));
+				AddDependency(*material);
+				subset.material = material;
+
+				mem.Read(subset.indexOffset);
+				mem.Read(subset.indexCount);
+
+				subsets.push_back(subset);
+			}
+
+			meshes.emplace(layout, offset, meshName, semantics);
+			meshes.back().subsets = std::move(subsets);
 		}
 
 		// Read indices
@@ -223,7 +282,7 @@ namespace VulkanTest
 			if (indicesCount <= 0)
 				return false;
 
-			mesh.indices.resize(sizeof(U32) * indicesCount);
+			mesh.indices.resize(indicesCount);
 			mem.Read(mesh.indices.data(), sizeof(U32) * indicesCount);
 		}
 

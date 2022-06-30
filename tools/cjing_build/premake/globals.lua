@@ -49,6 +49,7 @@ env_dir = "../"
 net_lib = ""
 current_platform = "unknown"
 is_static_plugin = true
+renderdoc_debug = true
 work_dir = nil
 build_editor = true
 build_app = false
@@ -94,6 +95,10 @@ function setup_project_definines()
 
     if is_static_plugin then 
         defines { "STATIC_PLUGINS" }
+    end 
+
+    if renderdoc_debug then 
+        defines { "DEBUG_RENDERDOC" }
     end 
 end 
 

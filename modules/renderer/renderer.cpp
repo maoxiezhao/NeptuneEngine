@@ -229,6 +229,21 @@ namespace Renderer
 	{
 	}
 
+	// Test
+	ResPtr<Model> testModel;
+	GPU::BufferPtr geometryBuffer;
+	U32 geometryArraySize = 0;
+	GPU::BufferPtr geometryUploadBuffer[2];
+	GPU::BindlessDescriptorPtr bindlessGeometryBuffer;
+
+	GPU::BufferPtr materialBuffer;
+	U32 materialArraySize = 0;
+	GPU::BufferPtr materialUploadBuffer[2];
+	GPU::BindlessDescriptorPtr bindlessMaterialBuffer;
+
+	ShaderSceneCB sceneCB;
+	CameraComponent camera;
+
 	void Renderer::Initialize(Engine& engine)
 	{
 		Logger::Info("Render initialized");
@@ -241,10 +256,24 @@ namespace Renderer
 		textureFactory.Initialize(Texture::ResType, resManager);
 		modelFactory.Initialize(Model::ResType, resManager);
 		materialFactory.Initialize(Material::ResType, resManager);
+
+		// test
+		testModel = resManager.LoadResourcePtr<Model>(Path("models/cornellbox.obj"));
 	}
 
 	void Renderer::Uninitialize()
 	{
+		testModel.reset();
+		geometryBuffer.reset();
+		geometryUploadBuffer[0].reset();
+		geometryUploadBuffer[1].reset();
+		bindlessGeometryBuffer.reset();
+
+		materialBuffer.reset();
+		materialUploadBuffer[0].reset();
+		materialUploadBuffer[1].reset();
+		bindlessMaterialBuffer.reset();
+
 		// Uninitialize resource factories
 		materialFactory.Uninitialize();
 		modelFactory.Uninitialize();
@@ -278,7 +307,7 @@ namespace Renderer
 
 	void UpdateFrameData(const Visibility& visible, RenderScene& scene, F32 delta)
 	{
-
+		UpdateGeometryBuffer();
 	}
 
 	void UpdateRenderData(const Visibility& visible, GPU::CommandList& cmd)
@@ -292,13 +321,6 @@ namespace Renderer
 		cb.viewProjection = camera.viewProjection;
 		cmd.BindConstant(cb, 0, CBSLOT_RENDERER_CAMERA);
 	}
-
-	struct ObjectPushConstants
-	{
-		U32 geometryIndex;
-		I32 instances;
-		U32 instance_offset;
-	};
 
 	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, RENDERPASS renderPass, U32 renderFlags)
 	{
@@ -354,6 +376,241 @@ namespace Renderer
 
 		if (!queue.Empty())
 			DrawMeshes(cmd, queue, RENDERPASS::RENDERPASS_MAIN, 0);
+
+		cmd.EndEvent();
+	}
+
+	/// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/// <Test>
+	/// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	void BindCommonResources(GPU::CommandList& cmd)
+	{
+		cmd.BindConstant(sceneCB, 0, 2);
+
+		Renderer::BindCameraCB(camera, cmd);
+
+		auto heap = cmd.GetDevice().GetBindlessDescriptorHeap(GPU::BindlessReosurceType::StorageBuffer);
+		if (heap != nullptr)
+			cmd.SetBindless(1, heap->GetDescriptorSet());
+	}
+
+	void UpdateGeometryBuffer()
+	{
+		if (!testModel || !testModel->IsReady())
+			return;
+
+		GPU::DeviceVulkan& device = *GetDevice();
+
+		// Create material buffer
+		Array<Material*> materials;
+		for (int i = 0; i < testModel->GetMeshCount(); i++)
+		{
+			auto& mesh = testModel->GetMesh(i);
+			for (auto& subset : mesh.subsets)
+			{
+				if (subset.material)
+					materials.push_back(subset.material.get());
+			}
+		}
+
+		materialArraySize = materials.size();
+
+		U32 materialBufferSize = materialArraySize * sizeof(ShaderMaterial);
+		if (materialArraySize > 0 && (!materialBuffer || materialBuffer->GetCreateInfo().size < materialBufferSize))
+		{
+			GPU::BufferCreateInfo info = {};
+			info.domain = GPU::BufferDomain::Device;
+			info.size = materialBufferSize * 2;
+			info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+				VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
+				VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+				VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+			materialBuffer = device.CreateBuffer(info, nullptr);
+			device.SetName(*materialBuffer, "matiralBuffer");
+
+			info.domain = GPU::BufferDomain::LinkedDeviceHost;
+			info.usage = 0;
+
+			for (int i = 0; i < ARRAYSIZE(materialUploadBuffer); i++)
+			{
+				materialUploadBuffer[i] = device.CreateBuffer(info, nullptr);
+				device.SetName(*materialUploadBuffer[i], "materialUploadBuffer");
+			}
+
+			bindlessMaterialBuffer = device.CreateBindlessStroageBuffer(*materialBuffer, 0, materialBuffer->GetCreateInfo().size);
+		}
+
+		// Update upload material buffer
+		ShaderMaterial* materialMapped = (ShaderMaterial*)device.MapBuffer(*materialUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
+		if (materialMapped == nullptr)
+			return;
+		for (int i = 0; i < materials.size(); i++)
+		{
+			auto& material = materials[i];
+
+			ShaderMaterial shaderMaterial;
+			shaderMaterial.baseColor = material->GetColor().ToFloat4();
+
+			memcpy(materialMapped + i, &shaderMaterial, sizeof(ShaderMaterial));
+		}
+		device.UnmapBuffer(*materialUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
+
+		// Create geometry buffer
+		geometryArraySize = 0;
+		for (int i = 0; i < testModel->GetMeshCount(); i++)
+		{
+			Mesh& mesh = testModel->GetMesh(i);
+			mesh.geometryOffset = geometryArraySize;
+			geometryArraySize += mesh.subsets.size();
+		}
+
+		U32 geometryBufferSize = geometryArraySize * sizeof(ShaderGeometry);
+		if (geometryArraySize > 0 && (!geometryBuffer || geometryBuffer->GetCreateInfo().size < geometryBufferSize))
+		{
+			GPU::BufferCreateInfo info = {};
+			info.domain = GPU::BufferDomain::Device;
+			info.size = geometryBufferSize * 2;
+			info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+				VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
+				VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+				VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+			geometryBuffer = device.CreateBuffer(info, nullptr);
+			device.SetName(*geometryBuffer, "geometryBuffer");
+
+			info.domain = GPU::BufferDomain::LinkedDeviceHost;
+			info.usage = 0;
+
+			for (int i = 0; i < ARRAYSIZE(geometryUploadBuffer); i++)
+			{
+				geometryUploadBuffer[i] = device.CreateBuffer(info, nullptr);
+				device.SetName(*geometryUploadBuffer[i], "geometryUploadBuffer");
+			}
+
+			bindlessGeometryBuffer = device.CreateBindlessStroageBuffer(*geometryBuffer, 0, geometryBuffer->GetCreateInfo().size);
+		}
+
+		// Update upload geometry buffer
+		ShaderGeometry* geometryMapped = (ShaderGeometry*)device.MapBuffer(*geometryUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
+		if (geometryMapped == nullptr)
+			return;
+
+		for (int i = 0; i < testModel->GetMeshCount(); i++)
+		{
+			Mesh& mesh = testModel->GetMesh(i);
+
+			ShaderGeometry geometry;
+			geometry.vbPos = mesh.vbPos.srv->GetIndex();
+			geometry.vbNor = mesh.vbNor.srv->GetIndex();
+			geometry.vbUVs = mesh.vbUVs.srv->GetIndex();
+			geometry.ib = 0;
+
+			U32 subsetIndex = 0;
+			for (auto& subset : mesh.subsets)
+			{
+				U32 materialIndex = 0;
+				for (auto material : materials)
+				{
+					if (subset.material.get() == material)
+						break;
+
+					materialIndex++;
+				}
+				subset.materialIndex = materialIndex;
+
+				memcpy(geometryMapped + mesh.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+				subsetIndex++;
+			}
+		}
+
+		device.UnmapBuffer(*geometryUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
+
+		// Update scene
+		sceneCB.geometrybuffer = bindlessGeometryBuffer->GetIndex();
+		sceneCB.materialbuffer = bindlessMaterialBuffer->GetIndex();
+
+		// Update camera
+		camera.up = F32x3(0.0f, 1.0f, 0.0f);
+		camera.eye = F32x3(0.0f, 0.0f, 0.0f);
+		camera.at = F32x3(0.0f, 0.0f, 1.0f);
+		camera.width = (F32)1600;
+		camera.height = (F32)900;
+		camera.UpdateCamera();
+	}
+
+	void UpdateRenderData(GPU::CommandList& cmd)
+	{
+		auto& device = cmd.GetDevice();
+		if (geometryBuffer && geometryArraySize > 0)
+		{
+			auto uploadBuffer = geometryUploadBuffer[device.GetFrameIndex()];
+			if (uploadBuffer)
+			{
+				cmd.CopyBuffer(geometryBuffer, uploadBuffer);
+				cmd.BufferBarrier(*geometryBuffer,
+					VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+					VK_ACCESS_SHADER_READ_BIT);
+			}
+		}
+
+		if (materialBuffer && materialArraySize > 0)
+		{
+			auto uploadBuffer = materialUploadBuffer[device.GetFrameIndex()];
+			if (uploadBuffer)
+			{
+				cmd.CopyBuffer(materialBuffer, uploadBuffer);
+				cmd.BufferBarrier(*materialBuffer,
+					VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+					VK_ACCESS_SHADER_READ_BIT);
+			}
+		}
+	}
+
+	void DrawModel(GPU::CommandList& cmd)
+	{
+		if (!testModel || !testModel->IsReady())
+			return;
+
+		if (!geometryBuffer || !materialBuffer)
+			return;
+
+		Model& model = *testModel;
+		I32 modelCount = model.GetMeshCount();
+		if (modelCount <= 0)
+			return;
+
+		auto& device = cmd.GetDevice();
+		cmd.BeginEvent("DrawMeshes");
+
+		BindCommonResources(cmd);
+		cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+		for (int i = 0; i < modelCount; i++)
+		{
+			Mesh& mesh = model.GetMesh(i);
+
+			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, VK_INDEX_TYPE_UINT32);
+
+			for (U32 subsetIndex = 0; subsetIndex < mesh.subsets.size(); subsetIndex++)
+			{
+				auto& subset = mesh.subsets[subsetIndex];
+				if (subset.indexCount <= 0)
+					continue;
+
+				ObjectPushConstants push;
+				push.geometryIndex = mesh.geometryOffset + subsetIndex;
+				push.materialIndex = subset.materialIndex;
+
+				cmd.PushConstants(&push, 0, sizeof(push));
+				cmd.SetDefaultOpaqueState();
+				cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
+				cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);
+			}
+		}
 
 		cmd.EndEvent();
 	}

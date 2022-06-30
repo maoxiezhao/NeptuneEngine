@@ -202,6 +202,7 @@ public:
     ObjectPool<BufferView> bufferViews;
     ObjectPool<ImageView> imageViews;
     ObjectPool<Event> eventPool;
+    ObjectPool<BindlessDescriptorHandler> bindlessDescriptorHandlers;
 
     // per frame resource
     struct FrameResource
@@ -225,6 +226,9 @@ public:
         std::vector<VkDescriptorPool> destroyedDescriptorPool;
         std::vector<VkSampler> destroyedSamplers;
         std::vector<VkEvent> recyledEvents;
+
+        // bindless
+        std::vector<std::pair<I32, BindlessReosurceType>> destroyedBindlessResources;
 
         // memory
         std::vector<DeviceAllocation> destroyedAllocations;
@@ -251,6 +255,11 @@ public:
     };
     std::vector<std::unique_ptr<FrameResource>> frameResources;
     uint32_t frameIndex = 0;
+
+    constexpr U32 GetFrameIndex()
+    {
+        return frameIndex;
+    }
 
     FrameResource& CurrentFrameResource()
     {
@@ -309,7 +318,6 @@ public:
     Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
     ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
-    DescriptorSetAllocator* GetBindlessDescriptorSetAllocator(BindlessReosurceType type);
     BindlessDescriptorPoolPtr GetBindlessDescriptorPool(BindlessReosurceType type, U32 numSets, U32 numDescriptors);
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
     SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable = false);
@@ -331,6 +339,9 @@ public:
     BufferViewPtr CreateBufferView(const BufferViewCreateInfo& viewInfo);
     DeviceAllocationOwnerPtr AllocateMemmory(const MemoryAllocateInfo& allocInfo);
 
+    BindlessDescriptorPtr CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize range);
+    BindlessDescriptorPtr CreateBindlessUniformTexelBuffer(const BufferView& bufferView);
+
     void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);
     void ReleaseImageView(VkImageView imageView);
@@ -344,6 +355,7 @@ public:
     void RecycleSemaphore(VkSemaphore semaphore);
     void ReleaseEvent(VkEvent ent);
     void FreeMemory(const DeviceAllocation& allocation);
+    void ReleaseBindlessResource(I32 index, BindlessReosurceType type);
 
     void ReleaseFrameBufferNolock(VkFramebuffer buffer);
     void ReleaseImageNolock(VkImage image);
@@ -358,6 +370,7 @@ public:
     void RecycleSemaphoreNolock(VkSemaphore semaphore);
     void ReleaseEventNolock(VkEvent ent);
     void FreeMemoryNolock(const DeviceAllocation& allocation);
+    void ReleaseBindlessResourceNoLock(I32 index, BindlessReosurceType type);
 
     void* MapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
     void UnmapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
@@ -392,8 +405,11 @@ public:
 
     VkFormat GetDefaultDepthStencilFormat() const;
     VkFormat GetDefaultDepthFormat() const;
-
+    constexpr U64 GetFrameCount() const { return FRAMECOUNT; }
+    static constexpr U32 GetBufferCount() { return BUFFERCOUNT; }
     VkInstance GetInstance() { return instance; }
+
+    BindlessDescriptorHeap* GetBindlessDescriptorHeap(BindlessReosurceType type);
 
     static bool InitRenderdocCapture();
 
@@ -405,6 +421,9 @@ private:
 private:
     friend class CommandList;
 
+    U64 FRAMECOUNT = 0;
+    static const U32 BUFFERCOUNT = 2;
+
     void AddFrameCounter();
     void DecrementFrameCounter();
 
@@ -415,11 +434,25 @@ private:
 
     // bindless
     void InitBindless();
+    DescriptorSetAllocator* GetBindlessDescriptorSetAllocator(BindlessReosurceType type);
 
-    DescriptorSetAllocator* bindlessSampledImages = nullptr;
-    DescriptorSetAllocator* bindlessStorageBuffers = nullptr;
-    DescriptorSetAllocator* bindlessStorageImages = nullptr;
-    DescriptorSetAllocator* bindlessSamplers = nullptr;
+    DescriptorSetAllocator* bindlessSampledImagesSetAllocator = nullptr;
+    DescriptorSetAllocator* bindlessStorageBuffersSetAllocator = nullptr;
+    DescriptorSetAllocator* bindlessStorageImagesSetAllocator = nullptr;
+    DescriptorSetAllocator* bindlessSamplersSetAllocator = nullptr;
+
+    struct BindlessHandler
+    {
+        BindlessDescriptorHeap bindlessStorageBuffers;
+        BindlessDescriptorHeap bindlessUniformTexelBuffers;
+
+        ~BindlessHandler()
+        {
+            bindlessStorageBuffers.Destroy();
+            bindlessUniformTexelBuffers.Destroy();
+        }
+    }
+    bindlessHandler;
 
     // copy from CPU to GPU before submitting graphics or compute work.
     struct

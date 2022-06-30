@@ -347,7 +347,7 @@ namespace ImGuiRenderer
 		F32 mvp[2][4] =
 		{
 			{2.f / width, 0, -1.f - posX * 2.f / width, 0},
-			{0, 2.f / height, -1.f - posY * 2.f / height, 0}
+			{0, -2.f / height, 1.f + posY * 2.f / height, 0}
 		};
 		ImGuiConstants* constants = cmd->AllocateConstant<ImGuiConstants>(0, 0);
 		memcpy(&constants->mvp, mvp, sizeof(mvp));
@@ -360,9 +360,9 @@ namespace ImGuiRenderer
 		// Set viewport
 		VkViewport viewport = {};
 		viewport.x = 0.0f;
-		viewport.y = 0.0f;
+		viewport.y = vp->Size.y;
 		viewport.width = vp->Size.x;
-		viewport.height = vp->Size.y;
+		viewport.height = -vp->Size.y;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 		cmd->SetViewport(viewport);

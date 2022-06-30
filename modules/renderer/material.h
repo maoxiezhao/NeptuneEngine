@@ -33,7 +33,7 @@ namespace VulkanTest
 		Material(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~Material();
 	
-		F32x4 GetColor() const { return color.ToFloat4(); }
+		Color4 GetColor() const { return color; }
 		void SetColor(const F32x4& color_) { color = Color4(color_); }
 
 	protected:

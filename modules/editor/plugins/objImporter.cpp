@@ -108,8 +108,11 @@ namespace Editor
 		for (auto& shape : objShapes)
 		{
 			// Gather meshes
+			auto& mesh = meshes.emplace();
+			mesh.mesh = &shape.mesh;
+			mesh.name = shape.name;
+
 			std::unordered_map<int, int> materialHash = {};
-			std::vector<int> registeredMaterials;
 			for (size_t i = 0; i < shape.mesh.indices.size(); i += 3)
 			{
 				tinyobj::index_t reorderedIndices[] = {
@@ -117,67 +120,65 @@ namespace Editor
 					shape.mesh.indices[i + 1],
 					shape.mesh.indices[i + 2],
 				};
-
 				for (auto& index : reorderedIndices)
 				{
 					int materialIndex = std::max(0, shape.mesh.material_ids[i / 3]); // this indexes the material library
 					if (materialHash.count(materialIndex) == 0)
 					{
 						materialHash[materialIndex] = 1;
-						registeredMaterials.push_back(materialIndex);
+						
+						auto& subset = mesh.subsets.emplace();
+						subset.material = &objMaterials[materialIndex];
+						subset.indexOffset = i;
 					}
-				}
-			}
 
-			for (int j = 0; j < registeredMaterials.size(); j++)
-			{
-				auto& mesh = meshes.emplace();
-				mesh.mesh = &shape.mesh;
-				mesh.material = &objMaterials[registeredMaterials[j]];
-				mesh.name = shape.name;
-				mesh.submesh = registeredMaterials.size() > 1 ? j : -1;
+					mesh.subsets.back().indexCount++;
+				}
 			}
 		}
 
 		// Gather materials
 		for (auto& mesh : meshes)
 		{
-			if (mesh.material == nullptr)
-				continue;
+			for (auto& subset : mesh.subsets)
+			{
+				if (subset.material == nullptr)
+					continue;
 
-			ImportMaterial& mat = materials.emplace();
-			mat.material = mesh.material;
+				ImportMaterial& mat = materials.emplace();
+				mat.material = subset.material;
 
-			auto GatherTexture = [this, &mat, &fs, srcDir](Texture::TextureType type) {
-				
-				std::string texname;
-				switch (type)
-				{
-				case Texture::DIFFUSE:
-					texname = mat.material->diffuse_texname;
-					break;
-				case Texture::NORMAL:
-					texname = mat.material->normal_texname;
-					break;
-				case Texture::SPECULAR:
-					texname = mat.material->specular_texname;
-					break;
-				default:
-					break;
-				}
-				if (texname.empty())
-					return;
+				auto GatherTexture = [this, &mat, &fs, srcDir](Texture::TextureType type) {
 
-				ImportTexture& tex = mat.textures[(U32)type];
-				tex.type = type;
-				tex.path = Path::Join(Span(srcDir), Span(texname.c_str(), texname.size()));
-				tex.isValid = fs.FileExists(tex.path.c_str());
-				tex.import = true;
-			};
+					std::string texname;
+					switch (type)
+					{
+					case Texture::DIFFUSE:
+						texname = mat.material->diffuse_texname;
+						break;
+					case Texture::NORMAL:
+						texname = mat.material->normal_texname;
+						break;
+					case Texture::SPECULAR:
+						texname = mat.material->specular_texname;
+						break;
+					default:
+						break;
+					}
+					if (texname.empty())
+						return;
 
-			GatherTexture(Texture::TextureType::DIFFUSE);
-			GatherTexture(Texture::TextureType::NORMAL);
-			GatherTexture(Texture::TextureType::SPECULAR);
+					ImportTexture& tex = mat.textures[(U32)type];
+					tex.type = type;
+					tex.path = Path::Join(Span(srcDir), Span(texname.c_str(), texname.size()));
+					tex.isValid = fs.FileExists(tex.path.c_str());
+					tex.import = true;
+				};
+
+				GatherTexture(Texture::TextureType::DIFFUSE);
+				GatherTexture(Texture::TextureType::NORMAL);
+				GatherTexture(Texture::TextureType::SPECULAR);
+			}
 		}
 
 		return true;
@@ -185,9 +186,10 @@ namespace Editor
 
 	static const bool transformToLH = true;
 
+	
+
 	void OBJImporter::PostprocessMeshes(const ImportConfig& cfg)
 	{
-		std::unordered_map<size_t, uint32_t> uniqueVertices = {};
 		for (auto& importMesh : meshes)
 		{
 			importMesh.vertexPositions.clear();
@@ -196,66 +198,68 @@ namespace Editor
 			importMesh.vertexUvset_0.clear();
 			importMesh.indices.clear();
 
-			for (size_t i = 0; i < importMesh.mesh->indices.size(); i += 3)
+			std::unordered_map<size_t, uint32_t> uniqueVertices = {};
+
+			for (auto& subset : importMesh.subsets)
 			{
-				tinyobj::index_t reorderedIndices[] = {
-					importMesh.mesh->indices[i + 0],
-					importMesh.mesh->indices[i + 1],
-					importMesh.mesh->indices[i + 2],
-				};
+				subset.uniqueIndexOffset = importMesh.indices.size();
 
-				for (auto& index : reorderedIndices)
+				for (size_t i = 0; i < subset.indexCount; i += 3)
 				{
-					int materialIndex = std::max(0, importMesh.mesh->material_ids[i / 3]); // this indexes the material library
-					if (importMesh.material != &objMaterials[materialIndex])
-						continue;
-
-					F32x3 pos = F32x3(
-						objAttrib.vertices[index.vertex_index * 3 + 0],
-						objAttrib.vertices[index.vertex_index * 3 + 1],
-						objAttrib.vertices[index.vertex_index * 3 + 2]
-					);
-
-					F32x3 nor = F32x3(0, 0, 0);
-					if (!objAttrib.normals.empty())
+					tinyobj::index_t reorderedIndices[] = {
+						importMesh.mesh->indices[subset.indexOffset + i + 0],
+						importMesh.mesh->indices[subset.indexOffset + i + 1],
+						importMesh.mesh->indices[subset.indexOffset + i + 2],
+					};
+					for (auto& index : reorderedIndices)
 					{
-						nor = F32x3(
-							objAttrib.normals[index.normal_index * 3 + 0],
-							objAttrib.normals[index.normal_index * 3 + 1],
-							objAttrib.normals[index.normal_index * 3 + 2]
+						F32x3 pos = F32x3(
+							objAttrib.vertices[index.vertex_index * 3 + 0],
+							objAttrib.vertices[index.vertex_index * 3 + 1],
+							objAttrib.vertices[index.vertex_index * 3 + 2]
 						);
-					}
 
-					F32x2 tex = F32x2(0, 0);
-					if (index.texcoord_index >= 0 && !objAttrib.texcoords.empty())
-					{
-						tex = F32x2(
-							objAttrib.texcoords[index.texcoord_index * 2 + 0],
-							1 - objAttrib.texcoords[index.texcoord_index * 2 + 1]
-						);
-					}
+						F32x3 nor = F32x3(0, 0, 0);
+						if (!objAttrib.normals.empty())
+						{
+							nor = F32x3(
+								objAttrib.normals[index.normal_index * 3 + 0],
+								objAttrib.normals[index.normal_index * 3 + 1],
+								objAttrib.normals[index.normal_index * 3 + 2]
+							);
+						}
 
-					if (transformToLH)
-					{
-						pos.z *= -1;
-						nor.z *= -1;
-					}
+						F32x2 tex = F32x2(0, 0);
+						if (index.texcoord_index >= 0 && !objAttrib.texcoords.empty())
+						{
+							tex = F32x2(
+								objAttrib.texcoords[index.texcoord_index * 2 + 0],
+								1 - objAttrib.texcoords[index.texcoord_index * 2 + 1]
+							);
+						}
 
-					HashCombiner hash;
-					hash.HashCombine(index.vertex_index);
-					hash.HashCombine(index.normal_index);
-					hash.HashCombine(index.texcoord_index);
-					hash.HashCombine(materialIndex);
-			
-					auto vertexHash = hash.Get();
-					if (uniqueVertices.count(vertexHash) == 0)
-					{
-						uniqueVertices[vertexHash] = (uint32_t)importMesh.vertexPositions.size();
-						importMesh.vertexPositions.push_back(pos);
-						importMesh.vertexNormals.push_back(nor);
-						importMesh.vertexUvset_0.push_back(tex);
+						if (transformToLH)
+						{
+							pos.z *= -1;
+							nor.z *= -1;
+						}
+
+						HashCombiner hash;
+						hash.HashCombine(index.vertex_index);
+						hash.HashCombine(index.normal_index);
+						hash.HashCombine(index.texcoord_index);
+
+						auto vertexHash = hash.Get();
+						if (uniqueVertices.count(vertexHash) == 0)
+						{
+							uniqueVertices[vertexHash] = (uint32_t)importMesh.vertexPositions.size();
+							importMesh.vertexPositions.push_back(pos);
+							importMesh.vertexNormals.push_back(nor);
+							importMesh.vertexUvset_0.push_back(tex);
+						}
+						importMesh.indices.push_back(uniqueVertices[vertexHash]);
+						subset.uniqueIndexCount++;
 					}
-					importMesh.indices.push_back(uniqueVertices[vertexHash]);
 				}
 			}
 		}
@@ -264,13 +268,6 @@ namespace Editor
 	void OBJImporter::GetImportMeshName(const ImportMesh& mesh, char(&out)[256])
 	{
 		CopyString(out, mesh.name.c_str());
-		if (mesh.submesh >= 0)
-		{
-			CatString(out, "_");
-			char tmp[32];
-			ToCString((U32)mesh.submesh, Span(tmp));
-			CatString(out, tmp);
-		}
 	}
 
 	void OBJImporter::WriteHeader()
@@ -286,10 +283,15 @@ namespace Editor
 		// Mesh format:
 		// ----------------------------------
 		// Mesh name
-		// Matrial path
 		// AttrCount
 		// Attr1 (Semantic, Type, Count)
 		// Attr2 (Semantic, Type, Count)
+		// SubsetCount
+		// Subset1
+		// Subset2
+		//   MatPath
+		//   indexOffset
+		//   indexCount
 
 		const PathInfo srcInfo(src);
 
@@ -299,12 +301,6 @@ namespace Editor
 		I32 nameLen = (I32)StringLength(name);
 		Write(nameLen);
 		Write(name, nameLen);
-
-		// Material path		
-		StaticString<MAX_PATH_LENGTH + 128> matPath(srcInfo.dir, mesh.material->name.c_str(), ".mat");
-		const I32 len = StringLength(matPath.c_str());
-		Write(len);
-		Write(matPath.c_str(), len);
 
 		// Attributes (pos, normal, texcoord)
 		U32 attrCount = GetAttributeCount(mesh);
@@ -320,6 +316,19 @@ namespace Editor
 		Write(Mesh::AttributeSemantic::TEXCOORD0);
 		Write(Mesh::AttributeType::F32);
 		Write((U8)2);
+
+		// Material path		
+		Write(mesh.subsets.size());
+		for(const auto& subset : mesh.subsets)
+		{
+			StaticString<MAX_PATH_LENGTH + 128> matPath(srcInfo.dir, subset.material->name.c_str(), ".mat");
+			const I32 len = StringLength(matPath.c_str());
+			Write(len);
+			Write(matPath.c_str(), len);
+
+			Write(subset.uniqueIndexOffset);
+			Write(subset.uniqueIndexCount);
+		}
 	}
 
 	void OBJImporter::WriteMeshes(const char* src, I32 meshIdx, const ImportConfig& cfg)

@@ -21,8 +21,7 @@ namespace GPU
         BufferView(DeviceVulkan& device_, VkBufferView view_, const BufferViewCreateInfo& info_);
         ~BufferView();
 
-        VkBufferView GetBufferView()
-        {
+        VkBufferView GetBufferView() const {
             return view;
         }
 

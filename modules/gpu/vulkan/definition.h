@@ -7,6 +7,7 @@
 #include "core\utils\stackAllocator.h"
 #include "core\utils\tempHashMap.h"
 #include "core\utils\intrusiveHashMap.hpp"
+#include "core\collections\Array.h"
 #include "math\hash.h"
 
 // #include "vulkanCache.h"
@@ -290,14 +291,18 @@ namespace GPU
         static ImageCreateInfo TransientRenderTarget(uint32_t width, uint32_t height, VkFormat format)
         {
             ImageCreateInfo info = {};
+            info.domain = ImageDomain::Transient;
             info.width = width;
             info.height = height;
             info.format = format;
             info.type = VK_IMAGE_TYPE_2D;
-            info.usage = (IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
-                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            info.usage = (IsFormatHasDepthOrStencil(format) ? 
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
+                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
             info.samples = VK_SAMPLE_COUNT_1_BIT;
-            info.initialLayout = IsFormatHasDepth(format) || IsFormatHasStencil(format) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            info.flags = 0;
+            info.misc = 0;
+            info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             return info;
         }
 
@@ -465,5 +470,16 @@ namespace GPU
             ++attributeCount;
         }
     };
+
+    struct Viewport
+    {
+        float x = 0;
+        float y = 0;
+        float width = 0;
+        float height = 0;
+        float minDepth = 0;
+        float maxDepth = 1;
+    };
+
 }
 }

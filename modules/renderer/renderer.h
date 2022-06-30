@@ -47,6 +47,11 @@ namespace VulkanTest
 
 		void DrawScene(GPU::CommandList& cmd, const Visibility& vis);
 
+		// Test
+		void UpdateRenderData(GPU::CommandList& cmd);
+		void UpdateGeometryBuffer();
+		void DrawModel(GPU::CommandList& cmd);
+
 		// Plugin interface
 		RendererPlugin* CreatePlugin(Engine& engine);
 	}

@@ -51,15 +51,20 @@ namespace Editor
 				editorRenderer.ResizeBuffers();
 			}
 		
-			app.GetRenderer()->Render();
-
 			auto& graph = editorRenderer.GetRenderGraph();
 			auto& backRes = graph.GetOrCreateTexture("back");
-			ImGui::Image(graph.GetPhysicalTexture(backRes).GetImage(), size);
+			auto backTex = graph.TryGetPhysicalTexture(&backRes);
+			if (backTex)
+				ImGui::Image(graph.GetPhysicalTexture(backRes).GetImage(), size);
 		}
 
 		ImGui::End();
 		ImGui::PopStyleVar();
+	}
+
+	void SceneView::Render()
+	{
+		app.GetRenderer()->Render();
 	}
 
 	const char* SceneView::GetName()

@@ -22,11 +22,20 @@ namespace Editor
 		struct ImportMesh
 		{
 			const tinyobj::mesh_t* mesh = nullptr;
-			const tinyobj::material_t* material = nullptr;
+			
 			std::string name;
-			int submesh = -1;
 			U32 lod = 0;
 			bool import = true;
+
+			struct MeshSubset
+			{
+				const tinyobj::material_t* material = nullptr;
+				U32 indexOffset = 0;
+				U32 indexCount = 0;
+				U32 uniqueIndexOffset = 0;
+				U32 uniqueIndexCount = 0;
+			};
+			Array<MeshSubset> subsets;
 
 			Array<F32x3> vertexPositions;
 			Array<F32x3> vertexNormals;

@@ -25,6 +25,7 @@ namespace VulkanTest
 
 	protected:
 		virtual void SetupPasses(RenderGraph& renderGraph) = 0;
+		virtual void UpdateRenderData();
 		virtual void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) = 0;
 
 		virtual U32x2 GetInternalResolution()const;

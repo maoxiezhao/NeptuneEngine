@@ -21,6 +21,7 @@ namespace Editor
         void Update(F32 dt);
         void EndFrame() override;
         void OnGUI() override;
+        void Render() override;
         const char* GetName();
 
     private:

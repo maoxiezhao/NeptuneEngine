@@ -1,6 +1,9 @@
 #include "context.h"
 #include "core\platform\platform.h"
 
+#define VOLK_IMPLEMENTATION
+#include "volk\volk.h"
+
 #include <set>
 #include <array>
 
@@ -225,7 +228,7 @@ bool VulkanContext::CreateInstance(std::vector<const char*> instanceExt)
     }
 
     // volk load instance
-    volkLoadInstance(instance);
+    volkLoadInstanceOnly(instance);
 
 #ifdef VULKAN_DEBUG
     if (debugLayer)

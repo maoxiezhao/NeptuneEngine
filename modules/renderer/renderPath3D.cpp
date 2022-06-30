@@ -31,32 +31,50 @@ namespace VulkanTest
 
 	void RenderPath3D::SetupPasses(RenderGraph& renderGraph)
 	{
+		GPU::DeviceVulkan* device = wsi->GetDevice();
+
 		AttachmentInfo rtAttachmentInfo;
 		rtAttachmentInfo.format = backbufferDim.format;
 		rtAttachmentInfo.sizeX = (F32)backbufferDim.width;
 		rtAttachmentInfo.sizeY = (F32)backbufferDim.height;
 		
+		AttachmentInfo depth;
+		depth.format = device->GetDefaultDepthFormat();
+		depth.sizeX = (F32)backbufferDim.width;
+		depth.sizeY = (F32)backbufferDim.height;
+
 		// Main opaque pass
 		auto& opaquePass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
 		opaquePass.WriteColor("rtFinal3D", rtAttachmentInfo, "rtFinal3D");
+		opaquePass.WriteDepthStencil("depth", depth);
+		opaquePass.SetClearDepthStencilCallback([](VkClearDepthStencilValue* value) {
+			if (value != nullptr)
+			{
+				value->depth = 0.0f;
+				value->stencil = 1.0f;
+			}
+			return true;
+		});
 		opaquePass.SetBuildCallback([&](GPU::CommandList& cmd) {
 
-			//VkViewport viewport = {};
-			//viewport.x = 0.0f;
-			//viewport.y = 0.0f;
-			//viewport.width = rtAttachmentInfo.sizeX;
-			//viewport.height = rtAttachmentInfo.sizeY;
-			//viewport.minDepth = 0.0f;
-			//viewport.maxDepth = 1.0f;
-			//cmd.SetViewport(viewport);
+			GPU::Viewport viewport;
+			viewport.width = (F32)backbufferDim.width;
+			viewport.height = (F32)backbufferDim.height;
+			cmd.SetViewport(viewport);
 
-			cmd.SetDefaultOpaqueState();
-			cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
-			cmd.Draw(3);
+			Renderer::DrawModel(cmd);
 		});
 
 		AddOutputColor("rtFinal3D");
 		RenderPath2D::SetupPasses(renderGraph);
+	}
+
+	void RenderPath3D::UpdateRenderData()
+	{
+		GPU::DeviceVulkan* device = wsi->GetDevice();
+		auto cmd = device->RequestCommandList(GPU::QueueType::QUEUE_TYPE_GRAPHICS);
+		Renderer::UpdateRenderData(*cmd);
+		device->Submit(cmd);
 	}
 
 	void RenderPath3D::Compose(RenderGraph& renderGraph, GPU::CommandList* cmd)

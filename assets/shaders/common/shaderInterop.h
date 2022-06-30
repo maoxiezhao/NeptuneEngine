@@ -18,12 +18,14 @@ using int3 = VulkanTest::I32x3;
 using int4 = VulkanTest::I32x4;
 
 #define CONSTANTBUFFER(name, type, slot)
+#define PUSHCONSTANT(name, type)
 
 #else
 
 #define PASTE1(a, b) a##b
 #define PASTE(a, b) PASTE1(a, b)
 #define CONSTANTBUFFER(name, type, slot) ConstantBuffer< type > name : register(PASTE(b, slot))
+#define PUSHCONSTANT(name, type) [[vk::push_constant]] type name;
 
 #endif
 
@@ -31,6 +33,7 @@ using int4 = VulkanTest::I32x4;
 // These are usable by all shaders
 #define CBSLOT_RENDERER_FRAME					0
 #define CBSLOT_RENDERER_CAMERA					1
+#define CBSLOT_RENDERER_SCENE                   2
 
 struct CameraCB
 {
@@ -38,5 +41,33 @@ struct CameraCB
 };
 
 CONSTANTBUFFER(g_xCamera, CameraCB, CBSLOT_RENDERER_CAMERA);
+
+struct ShaderGeometry
+{
+	int vbPos;
+	int vbNor;
+	int vbUVs;
+	int ib;
+};
+
+struct ShaderMaterial
+{
+	float4 baseColor;
+};
+
+struct ShaderSceneCB
+{
+	int geometrybuffer;
+	int materialbuffer;
+};
+CONSTANTBUFFER(g_xScene, ShaderSceneCB, CBSLOT_RENDERER_SCENE);
+
+struct ObjectPushConstants
+{
+	uint geometryIndex;
+	uint materialIndex;
+	uint padding2;
+	uint padding3;
+};
 
 #endif

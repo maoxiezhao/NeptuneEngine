@@ -84,7 +84,8 @@ namespace VulkanTest
 		void operator =(OutputMemoryStream&& rhs);
 
 		bool Write(const void* buffer, U64 size_)override;
-
+		bool Write(const void* buffer, U64 size_, U64 alignment);
+		void Skip(U64 size_);
 		void Resize(U64 newSize);
 		void Reserve(U64 newSize);
 		void Clear();

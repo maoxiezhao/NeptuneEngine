@@ -89,20 +89,27 @@ void RenderPass::SetupSubPasses(const VkRenderPassCreateInfo& info)
 		memcpy(subpassInfo.inputAttachments, subpass.pInputAttachments, subpass.inputAttachmentCount * sizeof(*subpass.pInputAttachments));
 	
 		U32 samples = 0;
-		for (auto& colorAtt : subpassInfo.colorAttachments)
+		for (U32 att = 0; att < subpassInfo.numColorAttachments; att++)
 		{
+			auto& colorAtt = subpassInfo.colorAttachments[att];
 			if (colorAtt.attachment == VK_ATTACHMENT_UNUSED)
 				continue;
 
-			samples = info.pAttachments[colorAtt.attachment].samples;
+			U32 samp = info.pAttachments[colorAtt.attachment].samples;
+			if (samples && (samp != samples))
+				ASSERT(samp == samples);
+			samples = samp;
 		}
 
 		if (subpassInfo.depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED)
 		{
-			samples = info.pAttachments[subpassInfo.depthStencilAttachment.attachment].samples;
+			U32 samp = info.pAttachments[subpassInfo.depthStencilAttachment.attachment].samples;
+			if (samples && (samp != samples))
+				ASSERT(samp == samples);
+			samples = samp;
 		}
 
-		assert(samples > 0);
+		ASSERT(samples > 0);
 		subpassInfo.samples = samples;
 	}
 }
@@ -183,25 +190,62 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 	// Depth stencil
 	if (info.depthStencil)
 	{
-		VkImageLayout dsLayout = VK_IMAGE_LAYOUT_GENERAL;
-		if (info.depthStencil->GetImage()->GetLayoutType() == ImageLayoutType::Optimal)
-		{
-			bool dsReadOnly = (info.opFlags & RENDER_PASS_OP_DEPTH_STENCIL_READ_ONLY_BIT) != 0;
-			dsLayout = dsReadOnly ?
-				VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		}
-
+		bool dsReadOnly = (info.opFlags & RENDER_PASS_OP_DEPTH_STENCIL_READ_ONLY_BIT) != 0;
+		VkImageLayout dsLayout = info.depthStencil->GetImage()->GetImageLayout(dsReadOnly ? 
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL :
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		);
 		depthStencil = info.depthStencil->GetFormat();
 
-		auto& att = attachments[info.numColorAttachments + 1];
+		VkAttachmentLoadOp dsLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		if (info.opFlags & RENDER_PASS_OP_CLEAR_DEPTH_STENCIL_BIT)
+			dsLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		else if (info.opFlags & RENDER_PASS_OP_LOAD_DEPTH_STENCIL_BIT)
+			dsLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
+		VkAttachmentStoreOp dsStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		if (info.opFlags & RENDER_PASS_OP_STORE_DEPTH_STENCIL_BIT)
+			dsStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+		auto img = info.depthStencil->GetImage();
+		auto& att = attachments[info.numColorAttachments];
+		att.flags = 0;
 		att.format = depthStencil;
-		att.samples = VK_SAMPLE_COUNT_1_BIT;
-		att.samples = VK_SAMPLE_COUNT_1_BIT;
-		att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // clear
-		att.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		att.initialLayout = dsLayout;
+		att.samples = img->GetCreateInfo().samples;
+		att.loadOp = dsLoadOp;
+		att.storeOp = dsStoreOp;
+		att.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+		if (formatToAspectMask(depthStencil) & VK_IMAGE_ASPECT_STENCIL_BIT)
+		{
+			att.stencilLoadOp = dsLoadOp;
+			att.stencilStoreOp = dsStoreOp;
+		}
+		else
+		{
+			att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		}
+
+		if (img->GetCreateInfo().domain == ImageDomain::Transient)
+		{
+			if (att.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
+				att.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			if (att.stencilLoadOp == VK_ATTACHMENT_LOAD_OP_LOAD)
+				att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+
+			// For transient attachments we force the layouts.
+			att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+			att.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+			implicitTransitions = 1u << info.numColorAttachments;
+		}
+		else
+		{
+			att.initialLayout = dsLayout;
+		}
 	}
 
 	Util::StackAllocator<VkAttachmentReference, 512> attachmentRefAllocator;

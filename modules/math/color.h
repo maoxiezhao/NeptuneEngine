@@ -11,7 +11,7 @@ namespace VulkanTest {
 
 		constexpr Color4(U32 color) : rgba(color) {};
 		constexpr Color4(U8 r = 0, U8 g = 0, U8 b = 0, U8 a = 0) : rgba(r << 0 | g << 8 | b << 16 | a << 24) {};
-		constexpr Color4(const F32x4& value) { Convert(value); }
+		constexpr Color4(const F32x4& value) { rgba = Convert(value).rgba; }
 
 		constexpr U8 GetR()const { return (rgba >> 0) & 0xFF; }
 		constexpr U8 GetG()const { return (rgba >> 8) & 0xFF; }

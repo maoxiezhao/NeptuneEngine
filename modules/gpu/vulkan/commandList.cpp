@@ -245,7 +245,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpas
 
     viewport = {
         float(rect.offset.x), float(rect.offset.y),
-        float(rect.extent.width), float(rect.extent.height),
+        float(rect.extent.width), float(rect.extent.height),   // Flipping the viewport, because of the Y+ of the NDC is down
         0.0f, 1.0f
     };
     scissor = rect;
@@ -710,6 +710,17 @@ void CommandList::SetViewport(const VkViewport& viewport_)
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_VIEWPORT_BIT);
 }
 
+void CommandList::SetViewport(const Viewport& viewport_)
+{
+    viewport.x = viewport_.x;
+    viewport.y = viewport_.y + viewport_.height;
+    viewport.width = viewport_.width;
+    viewport.height = -viewport_.height;    // Flipping the viewport, because of the Y+ of the NDC is down
+    viewport.minDepth = viewport_.minDepth;
+    viewport.maxDepth = viewport_.maxDepth;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_VIEWPORT_BIT);
+}
+
 void CommandList::NextSubpass(VkSubpassContents contents)
 {
     pipelineState.subpassIndex++;
@@ -744,8 +755,25 @@ void CommandList::DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 st
     }
 }
 
+void CommandList::BufferBarrier(const Buffer& buffer, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
+{
+    ASSERT(!frameBuffer);
+
+    VkBufferMemoryBarrier barrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    barrier.srcAccessMask = srcAccess;
+    barrier.dstAccessMask = dstAccess;
+    barrier.buffer = buffer.GetBuffer();
+    barrier.offset = 0;
+    barrier.size = buffer.GetCreateInfo().size;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+}
+
 void CommandList::ImageBarrier(const Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
 {
+    ASSERT(!frameBuffer);
     ASSERT(image.GetCreateInfo().domain != ImageDomain::Transient);
 
     VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
@@ -765,6 +793,8 @@ void CommandList::ImageBarrier(const Image& image, VkImageLayout oldLayout, VkIm
 
 void CommandList::Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
 {
+    ASSERT(!frameBuffer);
+
     VkMemoryBarrier barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
     barrier.srcAccessMask = srcAccess;
     barrier.dstAccessMask = dstAccess;
@@ -773,6 +803,8 @@ void CommandList::Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess
 
 void CommandList::Barrier(VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, unsigned bufferBarrierCount, const VkBufferMemoryBarrier* bufferBarriers, unsigned imageBarrierCount, const VkImageMemoryBarrier* imageBarriers)
 {
+    ASSERT(!frameBuffer);
+
     vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, bufferBarrierCount, bufferBarriers, imageBarrierCount, imageBarriers);
 }
 

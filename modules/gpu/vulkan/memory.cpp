@@ -115,14 +115,12 @@ namespace GPU
 		vmaVulkanFunc.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2;
 		vmaVulkanFunc.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2;
 
-#ifndef DEBUG_RENDERDOC
 		if (device->features.features_1_2.bufferDeviceAddress)
 		{
 			allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 			vmaVulkanFunc.vkBindBufferMemory2KHR = vkBindBufferMemory2;
 			vmaVulkanFunc.vkBindImageMemory2KHR = vkBindImageMemory2;
 		}
-#endif
 
 		allocatorInfo.pVulkanFunctions = &vmaVulkanFunc;
 
@@ -170,7 +168,6 @@ namespace GPU
 		}
 		return ret;
 	}
-
 
 	bool DeviceAllocator::Allocate(U32 size, U32 alignment, U32 typeBits, const MemoryAllocateUsage& usage, DeviceAllocation* allocation)
 	{

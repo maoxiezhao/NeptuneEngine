@@ -5,9 +5,6 @@
 #include "core\platform\platform.h"
 #include "core\platform\atomic.h"
 
-#define VOLK_IMPLEMENTATION
-#include "volk\volk.h"
-
 namespace VulkanTest
 {
 namespace GPU
@@ -325,12 +322,12 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     InitStockSamplers();
 
     // Create frame resources
-    InitFrameContext(2);
+    InitFrameContext(GetBufferCount());
 
     // Init buffer pools
     vboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
     iboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 256);
-    uboPool.Init(this, 256 * 1024, 16, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
+    uboPool.Init(this, 256 * 1024, std::max<VkDeviceSize>(16u, features.properties2.properties.limits.minUniformBufferOffsetAlignment), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
     uboPool.SetSpillSize(VULKAN_MAX_UBO_SIZE);
 
     // Init managers
@@ -667,6 +664,7 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
     VkFormat colorFormats[VULKAN_NUM_ATTACHMENTS];
     VkFormat depthStencilFormat = VkFormat::VK_FORMAT_UNDEFINED;
     
+    U32 lazy = 0;
     U32 optimal = 0;
     // Color attachments
     for (U32 i = 0; i < renderPassInfo.numColorAttachments; i++)
@@ -674,6 +672,8 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
         const ImageView& imageView = *renderPassInfo.colorAttachments[i];
         colorFormats[i] = imageView.GetInfo().format;
 
+        if (imageView.GetImage()->GetCreateInfo().domain == ImageDomain::Transient)
+            lazy |= 1u << i;
         if (imageView.GetImage()->GetLayoutType() == ImageLayoutType::Optimal)
             optimal |= 1u << i;
 
@@ -685,6 +685,8 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
     {
         depthStencilFormat = renderPassInfo.depthStencil->GetInfo().format;
  
+        if (renderPassInfo.depthStencil->GetImage()->GetCreateInfo().domain == ImageDomain::Transient)
+            lazy |= 1u << renderPassInfo.numColorAttachments;
         if (renderPassInfo.depthStencil->GetImage()->GetLayoutType() == ImageLayoutType::Optimal)
             optimal |= 1u << renderPassInfo.numColorAttachments;
     }
@@ -720,6 +722,8 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
         hash.HashCombine(renderPassInfo.storeAttachments);
         hash.HashCombine(optimal);
     }
+
+    hash.HashCombine(lazy);
 
     LOCK();
     auto findIt = renderPasses.find(hash.Get());
@@ -882,13 +886,13 @@ DescriptorSetAllocator* DeviceVulkan::GetBindlessDescriptorSetAllocator(Bindless
     switch (type)
     {
     case BindlessReosurceType::SampledImage:
-        return bindlessSampledImages;
+        return bindlessSampledImagesSetAllocator;
     case BindlessReosurceType::StorageImage:
-        return bindlessStorageImages;
+        return bindlessStorageImagesSetAllocator;
     case BindlessReosurceType::StorageBuffer:
-        return bindlessStorageBuffers;
+        return bindlessStorageBuffersSetAllocator;
     case BindlessReosurceType::Sampler:
-        return bindlessSamplers;
+        return bindlessSamplersSetAllocator;
     default:
         break;
     }
@@ -1367,10 +1371,8 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
     info.usage = createInfo.usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     info.flags = 0;
 
-#ifndef DEBUG_RENDERDOC
     if (features.features_1_2.bufferDeviceAddress == VK_TRUE)
         info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-#endif
 
     if (queueFamilies.size() > 1)
     {
@@ -1485,6 +1487,34 @@ DeviceAllocationOwnerPtr DeviceVulkan::AllocateMemmory(const MemoryAllocateInfo&
     return DeviceAllocationOwnerPtr(allocations.allocate(*this, alloc));
 }
 
+BindlessDescriptorPtr DeviceVulkan::CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize range)
+{
+    auto heap = GetBindlessDescriptorHeap(BindlessReosurceType::StorageBuffer);
+    if (heap == nullptr || !heap->IsInitialized())
+        return BindlessDescriptorPtr();
+
+    I32 index = heap->Allocate();
+    if (index < 0)
+        return BindlessDescriptorPtr();
+
+    heap->GetPool().SetBuffer(index, buffer.GetBuffer(), offset, range);
+    return BindlessDescriptorPtr(bindlessDescriptorHandlers.allocate(*this, BindlessReosurceType::StorageBuffer, index));
+}
+
+BindlessDescriptorPtr DeviceVulkan::CreateBindlessUniformTexelBuffer(const BufferView& bufferView)
+{
+    auto heap = GetBindlessDescriptorHeap(BindlessReosurceType::SampledImage);
+    if (heap == nullptr || !heap->IsInitialized())
+        return BindlessDescriptorPtr();
+
+    I32 index = heap->Allocate();
+    if (index < 0)
+        return BindlessDescriptorPtr();
+
+    heap->GetPool().SetUniformTexelBuffer(index, bufferView.GetBufferView());
+    return BindlessDescriptorPtr(bindlessDescriptorHandlers.allocate(*this, BindlessReosurceType::StorageBuffer, index));
+}
+
 void DeviceVulkan::NextFrameContext()
 {
     DRAIN_FRAME_LOCK();
@@ -1508,6 +1538,7 @@ void DeviceVulkan::NextFrameContext()
 #endif
 
     // update frameIndex
+    FRAMECOUNT++;
     frameIndex++;
     if (frameIndex >= frameResources.size())
         frameIndex = 0;
@@ -1662,6 +1693,12 @@ void DeviceVulkan::FreeMemory(const DeviceAllocation& allocation)
     CurrentFrameResource().destroyedAllocations.push_back(allocation);
 }
 
+void DeviceVulkan::ReleaseBindlessResource(I32 index, BindlessReosurceType type)
+{
+    LOCK();
+    CurrentFrameResource().destroyedBindlessResources.push_back({ index, type });
+}
+
 void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
 {
     LOCK();
@@ -1736,6 +1773,11 @@ void DeviceVulkan::ReleasePipelineNolock(VkPipeline pipeline)
 void DeviceVulkan::FreeMemoryNolock(const DeviceAllocation& allocation)
 {
     CurrentFrameResource().destroyedAllocations.push_back(allocation);
+}
+
+void DeviceVulkan::ReleaseBindlessResourceNoLock(I32 index, BindlessReosurceType type)
+{
+    CurrentFrameResource().destroyedBindlessResources.push_back({ index, type });
 }
 
 void DeviceVulkan::ReleaseSemaphoreNolock(VkSemaphore semaphore)
@@ -2350,6 +2392,12 @@ void DeviceVulkan::FrameResource::Begin()
         device.eventManager.Recyle(ent);
     for (auto& allocation : destroyedAllocations)
         allocation.Free(device.memory);
+    for (auto& kvp : destroyedBindlessResources)
+    {
+        auto heap = device.GetBindlessDescriptorHeap(kvp.second);
+        if (heap)
+            heap->Free(kvp.first);
+    }
 
     destroyedFrameBuffers.clear();
     destroyedSamplers.clear();
@@ -2362,6 +2410,7 @@ void DeviceVulkan::FrameResource::Begin()
     destroyedPipelines.clear();
     recyledEvents.clear();
     destroyedAllocations.clear();
+    destroyedBindlessResources.clear();
 
     // reset recyle semaphores
     auto& recyleSemaphores = recycledSemaphroes;
@@ -2566,26 +2615,42 @@ void DeviceVulkan::InitBindless()
     {
         DescriptorSetLayout tmpLayout = layout;
         tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE] = 1;
-        bindlessSampledImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessSampledImagesSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessHandler.bindlessUniformTexelBuffers.Init(*this, bindlessSampledImagesSetAllocator);
     }
     if (features.features_1_2.descriptorBindingStorageBufferUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
         tmpLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_BUFFER] = 1;
-        bindlessStorageBuffers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessStorageBuffersSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessHandler.bindlessStorageBuffers.Init(*this, bindlessStorageBuffersSetAllocator);
     }
     if (features.features_1_2.descriptorBindingStorageImageUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
         tmpLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE] = 1;
-        bindlessStorageImages = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessStorageImagesSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
     if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
         tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLER] = 1;
-        bindlessSamplers = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessSamplersSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
     }
+}
+
+BindlessDescriptorHeap* DeviceVulkan::GetBindlessDescriptorHeap(BindlessReosurceType type)
+{
+    switch (type)
+    {
+    case BindlessReosurceType::SampledImage:
+        return &bindlessHandler.bindlessUniformTexelBuffers;
+    case BindlessReosurceType::StorageBuffer:
+        return &bindlessHandler.bindlessStorageBuffers;
+    default:
+        break;
+    }
+    return nullptr;
 }
 
 void DeviceVulkan::SyncPendingBufferBlocks()
@@ -2658,6 +2723,8 @@ ImagePtr TransientAttachmentAllcoator::RequsetAttachment(U32 w, U32 h, VkFormat 
     imageInfo.layers = layers;
 
     node = attachments.Emplace(hash.Get(), device.CreateImage(imageInfo, nullptr));
+    node->image->SetInternalSyncObject();
+    node->image->GetImageView().SetInternalSyncObject();
     return node->image;
 }
 

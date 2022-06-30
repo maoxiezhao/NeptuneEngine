@@ -85,7 +85,13 @@ namespace VulkanTest
 			return true;
 		});
 
-		composePass.SetBuildCallback([&](GPU::CommandList& cmd) {
+		composePass.SetBuildCallback([&](GPU::CommandList& cmd) 
+		{
+			GPU::Viewport viewport;
+			viewport.width = (F32)backbufferDim.width;
+			viewport.height = (F32)backbufferDim.height;
+			cmd.SetViewport(viewport);
+
 			Compose(renderGraph, &cmd);
 		});
 
@@ -94,6 +100,10 @@ namespace VulkanTest
 
 		renderGraph.SetBackBufferSource("back");
 		renderGraph.Bake();
+	}
+
+	void RenderPathGraph::UpdateRenderData()
+	{
 	}
 
 	U32x2 RenderPathGraph::GetInternalResolution() const
