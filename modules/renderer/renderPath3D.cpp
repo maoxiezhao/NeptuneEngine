@@ -45,7 +45,17 @@ namespace VulkanTest
 
 		// Main opaque pass
 		auto& opaquePass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
-		opaquePass.WriteColor("rtFinal3D", rtAttachmentInfo, "rtFinal3D");
+		opaquePass.WriteColor("rtFinal3D", rtAttachmentInfo);
+		opaquePass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
+			if (value != nullptr)
+			{
+				value->float32[0] = 0.0f;
+				value->float32[1] = 0.0f;
+				value->float32[2] = 0.0f;
+				value->float32[3] = 1.0f;
+			}
+			return true;
+			});
 		opaquePass.WriteDepthStencil("depth", depth);
 		opaquePass.SetClearDepthStencilCallback([](VkClearDepthStencilValue* value) {
 			if (value != nullptr)
@@ -61,6 +71,8 @@ namespace VulkanTest
 			viewport.width = (F32)backbufferDim.width;
 			viewport.height = (F32)backbufferDim.height;
 			cmd.SetViewport(viewport);
+
+			Renderer::BindCameraCB(*camera, cmd);
 
 			Renderer::DrawModel(cmd);
 		});

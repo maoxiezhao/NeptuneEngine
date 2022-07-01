@@ -19,8 +19,8 @@ VMATH_DEFINE_ARITH_OP(/)
 
 #define VMATH_DEFINE_MOD_OP(op) \
 template <typename T> inline TVec2<T>& operator op(TVec2<T> &a, const TVec2<T> &b) { a.x op b.x; a.y op b.y; return a; }                \
-template <typename T> inline TVec3<T>& operator op(TVec3<T> &a, const TVec3<T> &b) { a.x op b.x; a.y op b.y; a.z op b.y; return a; }    \
-template <typename T> inline TVec4<T>& operator op(TVec4<T> &a, const TVec4<T> &b) { a.x op b.x; a.y op b.y; a.z op b.y; a.w op b.w; return a; }    \
+template <typename T> inline TVec3<T>& operator op(TVec3<T> &a, const TVec3<T> &b) { a.x op b.x; a.y op b.y; a.z op b.z; return a; }    \
+template <typename T> inline TVec4<T>& operator op(TVec4<T> &a, const TVec4<T> &b) { a.x op b.x; a.y op b.y; a.z op b.z; a.w op b.w; return a; }    \
 template <typename T> inline TVec2<T>& operator op(TVec2<T> &a, T b) { a.x op b; a.y op b; return a; }                                  \
 template <typename T> inline TVec3<T>& operator op(TVec3<T> &a, T b) { a.x op b; a.y op b; a.z op b; return a; }                        \
 template <typename T> inline TVec4<T>& operator op(TVec4<T> &a, T b) { a.x op b; a.y op b; a.z op b;  a.w op b; return a; }

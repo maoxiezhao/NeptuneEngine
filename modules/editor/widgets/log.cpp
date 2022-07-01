@@ -85,7 +85,7 @@ namespace Editor
 
 			if (ImGui::BeginChild("log_messages", ImVec2(0, 0), true))
 			{
-				for (int i = 0; i < messages.size(); ++i)
+				for (U32 i = 0; i < messages.size(); ++i)
 				{
 					auto& msg = messages[i];
 					if ((levelFilter & (1 << (int)msg.level)) == 0) 

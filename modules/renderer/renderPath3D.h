@@ -15,6 +15,14 @@ namespace VulkanTest
 			return sceneUpdateEnable;
 		}
 
+		void SetCamera(CameraComponent* camera_) {
+			camera = camera_;
+		}
+
+		CameraComponent* GetCamera() {
+			return camera;
+		}
+
 	protected:
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void UpdateRenderData() override;

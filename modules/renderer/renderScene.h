@@ -4,6 +4,7 @@
 #include "core\scene\world.h"
 #include "core\collections\array.h"
 #include "math\geometry.h"
+#include "math\math.hpp"
 #include "renderGraph.h"
 #include "enums.h"
 #include "model.h"
@@ -30,6 +31,7 @@ namespace VulkanTest
 		Frustum frustum;
 
 		void UpdateCamera();
+		void UpdateTransform(const Transform& transform);
 	};
 
 	struct MeshComponent

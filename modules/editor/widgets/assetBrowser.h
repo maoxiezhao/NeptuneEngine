@@ -28,7 +28,6 @@ namespace Editor
         static UniquePtr<AssetBrowser> Create(EditorApp& app);
         virtual ~AssetBrowser() {};
 
-        virtual void InitFinished() = 0;
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
     };

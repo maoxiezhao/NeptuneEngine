@@ -687,6 +687,11 @@ namespace Platform {
 		return data.index;
 	}
 
+	WindowType GetFocusedWindow()
+	{
+		return ::GetActiveWindow();
+	}
+
 	void ShowMessageBox(const char* msg)
 	{
 		WCHAR tmp[2048];
@@ -871,6 +876,12 @@ namespace Platform {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 		return true;
+	}
+
+	bool IsKeyDown(Keycode key)
+	{
+		const SHORT res = GetAsyncKeyState((int)key);
+		return (res & 0x8000) != 0;
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////

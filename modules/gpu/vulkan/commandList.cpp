@@ -269,7 +269,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpas
     // check is depth stencil and clear depth stencil
     if (renderPassInfo.depthStencil != nullptr)
     {
-        clearColors[renderPassInfo.numColorAttachments].depthStencil = { 1.0f, 0 };
+        clearColors[renderPassInfo.numColorAttachments].depthStencil = renderPassInfo.clearDepthStencil;
         numClearColor = renderPassInfo.numColorAttachments + 1;
     }
 
@@ -329,7 +329,7 @@ void CommandList::SetDefaultOpaqueState()
 
     // depth
     DepthStencilState& dsd = pipelineState.depthStencilState;
-    dsd.depthEnable = false;
+    dsd.depthEnable = true;
     dsd.depthWriteMask = DEPTH_WRITE_MASK_ALL;
     dsd.depthFunc = VK_COMPARE_OP_GREATER;
     dsd.stencilEnable = false;
@@ -338,7 +338,7 @@ void CommandList::SetDefaultOpaqueState()
     RasterizerState& rs = pipelineState.rasterizerState;
     rs.fillMode = FILL_SOLID;
     rs.cullMode = VK_CULL_MODE_NONE;
-    rs.frontCounterClockwise = false;
+    rs.frontCounterClockwise = true;
     rs.depthBias = 0;
     rs.depthBiasClamp = 0;
     rs.slopeScaledDepthBias = 0;
@@ -372,7 +372,7 @@ void CommandList::SetDefaultTransparentState()
 
     // depth
     DepthStencilState& dsd = pipelineState.depthStencilState;
-    dsd.depthEnable = false;
+    dsd.depthEnable = true;
     dsd.depthWriteMask = DEPTH_WRITE_MASK_ALL;
     dsd.depthFunc = VK_COMPARE_OP_GREATER;
     dsd.stencilEnable = false;

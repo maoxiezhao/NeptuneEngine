@@ -37,6 +37,14 @@ namespace VulkanTest
         frustum.Compute(LoadFMat4x4(viewProjection));
     }
 
+    void CameraComponent::UpdateTransform(const Transform& transform)
+    {
+        MATRIX mat = LoadFMat4x4(transform.world);
+        eye = StoreF32x3(Vector3Transform(VectorSet(0, 0, 0, 1), mat));
+        at = StoreF32x3(Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 0, 1, 0), mat)));
+        up = StoreF32x3(Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 1, 0, 0), mat)));
+    }
+
     class MeshUpdateSystem : public ISystem
     {
     public:

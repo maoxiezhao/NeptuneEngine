@@ -1,5 +1,6 @@
 #include "renderGraph.h"
 #include "editor\editor.h"
+#include "editor\widgets\sceneView.h"
 #include "renderer\renderGraph.h"
 #include "imgui-docking\imgui.h"
 #include "imnodes\imnodes.h"
@@ -118,6 +119,7 @@ namespace Editor
 	{
 	private:
 		EditorApp& editor;
+		SceneView* sceneView = nullptr;
 		NodeIDGrenerator idGenerator;
 		NodeIDGrenerator edgeIDGenerator;
 		Array<RenderPassNode> renderPassNodes;
@@ -138,10 +140,15 @@ namespace Editor
 			ImNodes::DestroyContext();
 		}
 
+		void InitFinished() override
+		{
+			sceneView = (SceneView*)editor.GetWidget("SceneView");
+			ASSERT(sceneView);
+		}
+
 		void Update(F32 dt)override
 		{
-			EditorRenderer& editorRenderer = editor.GetEditorRenderer();
-			RenderGraph& renderGraph = editorRenderer.GetRenderGraph();
+			RenderGraph& renderGraph = sceneView->GetRenderer().GetRenderGraph();
 			if (renderGraph.IsBaked())
 				OnRenderGraphBaked();
 		}
@@ -152,8 +159,7 @@ namespace Editor
 
 			if (ImGui::Begin("RenderGraph##renderGraph", &isOpen))
 			{
-				EditorRenderer& editorRenderer = editor.GetEditorRenderer();
-				RenderGraph& renderGraph = editorRenderer.GetRenderGraph();
+				RenderGraph& renderGraph = sceneView->GetRenderer().GetRenderGraph();
 
 				if (ImGui::Button("Log"))
 					renderGraph.Log();
@@ -197,9 +203,7 @@ namespace Editor
 			renderPassOutputIDs.clear();
 			renderPassDepth.clear();
 
-			RenderGraph& renderGraph = editor.GetEditorRenderer().GetRenderGraph();
-
-			// TODO: use Array
+			RenderGraph& renderGraph = sceneView->GetRenderer().GetRenderGraph();
 			std::vector<DebugRenderPassInfo> infos;
 			renderGraph.GetDebugRenderPassInfos(infos);
 

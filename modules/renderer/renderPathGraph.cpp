@@ -9,15 +9,6 @@ namespace VulkanTest
 		renderGraph.Reset();
 	}
 
-	void RenderPathGraph::Start()
-	{
-	}
-
-	void RenderPathGraph::Stop()
-	{
-		renderGraph.Reset();
-	}
-
 	void RenderPathGraph::Update(float dt)
 	{
 		U32x2 internalResolution = GetInternalResolution();

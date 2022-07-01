@@ -16,8 +16,6 @@ namespace VulkanTest
 
 	struct VULKAN_TEST_API RendererPlugin : public IPlugin
 	{
-		virtual void ActivePath(RenderPath* renderPath) = 0;
-		virtual void Render() = 0;
 		virtual GPU::DeviceVulkan* GetDevice() = 0;
 		virtual RenderScene* GetScene() = 0;
 	};

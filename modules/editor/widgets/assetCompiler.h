@@ -34,7 +34,6 @@ namespace Editor
 
         virtual ~AssetCompiler() {};
 
-        virtual void InitFinished() = 0;
         virtual void AddPlugin(IPlugin& plugin, const std::vector<const char*>& exts) = 0;
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;

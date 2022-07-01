@@ -25,48 +25,6 @@ public:
 	void Initialize() override
 	{
 		Renderer::Initialize(engine);
-
-		// Activate the default render path if no custom path is set
-		if (GetActivePath() == nullptr) {
-			ActivePath(&defaultPath);
-		}
-	}
-	
-	void OnGameStart() override
-	{
-		if (activePath != nullptr)
-			activePath->Start();
-	}
-	
-	void OnGameStop() override
-	{
-		if (activePath != nullptr)
-			activePath->Stop();
-	}
-
-	void FixedUpdate() override
-	{
-		PROFILE_BLOCK("RendererFixedUpdate");
-		if (activePath != nullptr)
-			activePath->FixedUpdate();
-	}
-
-	void Update(F32 delta) override
-	{
-		PROFILE_BLOCK("RendererUpdate");
-		if (activePath != nullptr)
-			activePath->Update(delta);
-	}
-
-	void Render() override
-	{
-		if (activePath != nullptr)
-		{
-			// Render
-			Profiler::BeginBlock("RendererRender");
-			activePath->Render();
-			Profiler::EndBlock();
-		}
 	}
 
 	GPU::DeviceVulkan* GetDevice() override
@@ -84,31 +42,14 @@ public:
 		return "Renderer";
 	}
 
-	void CreateScene(World& world) override {
+	void CreateScene(World& world) override 
+	{
 		UniquePtr<RenderScene> newScene = RenderScene::CreateScene(*this, engine, world);
 		world.AddScene(newScene.Move());
-		
-		scene = dynamic_cast<RenderScene*>(world.GetScene("Renderer"));
-
-		if (activePath != nullptr)
-			activePath->SetScene(scene);
-	}
-
-	void ActivePath(RenderPath* renderPath) override
-	{
-		activePath = renderPath;
-		activePath->SetWSI(&engine.GetWSI());
-		activePath->SetScene(scene);
-	}
-
-	RenderPath* GetActivePath()
-	{
-		return activePath;
 	}
 
 private:
 	Engine& engine;
-	RenderPath* activePath = nullptr;
 	RenderPath3D defaultPath;
 	RenderScene* scene = nullptr;
 };
@@ -242,7 +183,6 @@ namespace Renderer
 	GPU::BindlessDescriptorPtr bindlessMaterialBuffer;
 
 	ShaderSceneCB sceneCB;
-	CameraComponent camera;
 
 	void Renderer::Initialize(Engine& engine)
 	{
@@ -312,7 +252,6 @@ namespace Renderer
 
 	void UpdateRenderData(const Visibility& visible, GPU::CommandList& cmd)
 	{
-
 	}
 
 	void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd)
@@ -387,8 +326,6 @@ namespace Renderer
 	void BindCommonResources(GPU::CommandList& cmd)
 	{
 		cmd.BindConstant(sceneCB, 0, 2);
-
-		Renderer::BindCameraCB(camera, cmd);
 
 		auto heap = cmd.GetDevice().GetBindlessDescriptorHeap(GPU::BindlessReosurceType::StorageBuffer);
 		if (heap != nullptr)
@@ -528,14 +465,6 @@ namespace Renderer
 		// Update scene
 		sceneCB.geometrybuffer = bindlessGeometryBuffer->GetIndex();
 		sceneCB.materialbuffer = bindlessMaterialBuffer->GetIndex();
-
-		// Update camera
-		camera.up = F32x3(0.0f, 1.0f, 0.0f);
-		camera.eye = F32x3(0.0f, 0.0f, 0.0f);
-		camera.at = F32x3(0.0f, 0.0f, 1.0f);
-		camera.width = (F32)1600;
-		camera.height = (F32)900;
-		camera.UpdateCamera();
 	}
 
 	void UpdateRenderData(GPU::CommandList& cmd)

@@ -26,6 +26,7 @@ namespace Editor
     {
         virtual ~EditorWidget() {}
 
+        virtual void InitFinished() {};
         virtual void Update(F32 dt) {}
         virtual void EndFrame() {}
         virtual void OnGUI() = 0;

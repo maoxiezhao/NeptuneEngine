@@ -109,6 +109,7 @@ namespace Platform {
 	void SetMouseCursorVisible(bool isVisible);
 	WindowPoint GetMouseScreenPos();
 	void SetMouseScreenPos(int x, int y);
+	void GrabMouse(WindowType window);
 
 	enum class Keycode : U8 
 	{
@@ -344,9 +345,11 @@ namespace Platform {
 	WindowRect GetWindowScreenRect(WindowType window);
 	WindowPoint ToScreen(WindowType window, I32 x, I32 y);
 	U32 GetMonitors(Span<Monitor> monitors);
+	WindowType GetFocusedWindow();
 	void ShowMessageBox(const char* msg);
 
 	bool GetWindowEvent(WindowEvent& event);
+	bool IsKeyDown(Keycode key);
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// File 

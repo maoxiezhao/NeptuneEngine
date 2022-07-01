@@ -14,8 +14,11 @@ namespace Editor::Utils
 
 		StaticString<32> label;
 		StaticString<32> name;
+		Platform::Keycode shortcut;
 		Delegate<void()> func;
 		Delegate<bool()> isSelected;
+
+		bool IsActive();
 	};
 }
 }

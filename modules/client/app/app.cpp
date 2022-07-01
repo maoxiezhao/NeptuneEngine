@@ -113,7 +113,9 @@ void App::Render()
 {
     PROFILE_BLOCK("Renderer");
     wsi.BeginFrame();
-    renderer->Render();
+    if (GetActivePath()) {
+        GetActivePath()->Render();
+    }
     wsi.EndFrame();
 }
 
@@ -132,15 +134,29 @@ void App::ComputeSmoothTimeDelta()
     smoothTimeDelta = t / (LengthOf(tmp) - 4);
 }
 
+void App::ActivePath(RenderPath* renderPath_)
+{
+    renderPath = renderPath_;
+    renderPath->SetWSI(&wsi);
+}
+
 void App::Update(F32 deltaTime)
 {
     PROFILE_BLOCK("Update");
     engine->Update(*world, deltaTime);
+
+    if (GetActivePath()) {
+        GetActivePath()->Update(deltaTime);
+    }
 }
 
 void App::FixedUpdate()
 {
     engine->FixedUpdate(*world);
+
+    if (GetActivePath()) {
+        GetActivePath()->FixedUpdate();
+    }
 }
 
 bool App::Poll()

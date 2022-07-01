@@ -1,6 +1,5 @@
 #include "editor.h"
 #include "editorUtils.h"
-#include "core\utils\profiler.h"
 #include "core\platform\platform.h"
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
@@ -23,18 +22,6 @@ namespace VulkanTest
 {
 namespace Editor
 {
-    void EditorRenderer::Render()
-    {
-        UpdateRenderData();
-
-        GPU::DeviceVulkan* device = wsi->GetDevice();
-        auto& graph = GetRenderGraph();
-        graph.SetupAttachments(*device, nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL); // Used for sceneView
-        Jobsystem::JobHandle handle;
-        graph.Render(*device, handle);
-        Jobsystem::Wait(&handle);
-    }
-
     class EditorAppImpl final : public EditorApp
     {
     public:
@@ -118,9 +105,6 @@ namespace Editor
             // Get renderer
             renderer = static_cast<RendererPlugin*>(engine->GetPluginManager().GetPlugin("Renderer"));
             ASSERT(renderer != nullptr);
-            editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>();
-            editorRenderer->DisableSwapchain();
-            renderer->ActivePath(editorRenderer.Get());
 
             // Init imgui renderer
             ImGuiRenderer::Initialize(*this, settings);
@@ -137,8 +121,14 @@ namespace Editor
             AddWidget(*propertyWidget);
             AddWidget(*logWidget);
 
+            // Load settings again for actions
+            LoadSettings();
+
+            // assetCompiler do InitFinished first
             assetCompiler->InitFinished();
-            assetBrowser->InitFinished();
+            
+            for (auto widget : widgets)
+                widget->InitFinished();
         }
 
         void Uninitialize() override
@@ -178,7 +168,6 @@ namespace Editor
             ImGuiRenderer::Uninitialize();
 
             // Reset engine
-            editorRenderer.Reset();
             engine.Reset();
 
             // Uninit platform
@@ -188,18 +177,23 @@ namespace Editor
 
         void OnEvent(const Platform::WindowEvent& ent) override
         {
+            windowEvents.push_back(ent);
+
             bool isFocused = IsFocused();
             switch (ent.type)
             {
             case Platform::WindowEvent::Type::MOUSE_MOVE: {
-                ImGuiIO& io = ImGui::GetIO();
-                const Platform::WindowPoint cp = Platform::GetMouseScreenPos();
-                if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-                    io.AddMousePosEvent((float)cp.x, (float)cp.y);
-                }
-                else {
-                    const Platform::WindowRect screenRect = Platform::GetWindowScreenRect(mainWindow);
-                    io.AddMousePosEvent((float)cp.x - screenRect.left, (float)cp.y - screenRect.top);
+                if (!mouseCaptured)
+                {
+                    ImGuiIO& io = ImGui::GetIO();
+                    const Platform::WindowPoint cp = Platform::GetMouseScreenPos();
+                    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+                        io.AddMousePosEvent((float)cp.x, (float)cp.y);
+                    }
+                    else {
+                        const Platform::WindowRect screenRect = Platform::GetWindowScreenRect(mainWindow);
+                        io.AddMousePosEvent((float)cp.x - screenRect.left, (float)cp.y - screenRect.top);
+                    }
                 }
                 break;
             }
@@ -290,11 +284,6 @@ namespace Editor
             }
         }
 
-        EditorRenderer& GetEditorRenderer()
-        {
-            return *editorRenderer;
-        }
-
         AssetCompiler& GetAssetCompiler()
         {
             return *assetCompiler;
@@ -303,6 +292,11 @@ namespace Editor
         EntityListWidget& GetEntityList()
         {
             return *entityListWidget;
+        }
+
+        WorldEditor& GetWorldEditor() override
+        {
+            return *worldEditor;
         }
 
     protected:
@@ -332,11 +326,10 @@ namespace Editor
             // Update gui
             OnGUI();
 
-            // Test
-            // Renderer::UpdateGeometryBuffer();
-
             // End imgui frame
             ImGuiRenderer::EndFrame();
+
+            windowEvents.clear();
         }
 
         struct ShaderGeometry
@@ -368,6 +361,16 @@ namespace Editor
         void AddWidget(EditorWidget& widget) override
         {
             widgets.push_back(&widget);
+        }
+
+        EditorWidget* GetWidget(const char* name) override
+        {
+            for (auto widget : widgets)
+            {
+                if (EqualString(widget->GetName(), name))
+                    return widget;
+            }
+            return nullptr;
         }
 
         void RemoveWidget(EditorWidget& widget) override
@@ -405,6 +408,26 @@ namespace Editor
             }
         }
 
+        void AddAction(Utils::Action* action)
+        {
+            actions.push_back(action);
+        }
+
+        void RemoveAction(Utils::Action* action)
+        {
+            actions.erase(action);
+        }
+
+        Array<Utils::Action*>& GetActions()
+        {
+            return actions;
+        }
+
+        void SetCursorCaptured(bool capture)
+        {
+            mouseCaptured = capture;
+        }
+
         void SaveSettings() override
         {
             ImGuiIO& io = ImGui::GetIO();
@@ -415,6 +438,11 @@ namespace Editor
             }
 
             settings.Save();
+        }
+
+        const Array<Platform::WindowEvent>& GetWindowEvents()const override
+        {
+            return windowEvents;
         }
 
         bool showDemoWindow = false;
@@ -569,7 +597,6 @@ namespace Editor
         Timer fpsTimer;
         Array<Utils::Action*> actions;
         Settings settings;
-        UniquePtr<EditorRenderer> editorRenderer;
 
         // Windows
         Platform::WindowType mainWindow;
@@ -580,6 +607,8 @@ namespace Editor
             U32 counter = 0;
         };
         Array<WindowToDestroy> toDestroyWindows;
+        Array<Platform::WindowEvent> windowEvents;
+        bool mouseCaptured = false;
 
         // Builtin widgets
         UniquePtr<AssetCompiler> assetCompiler;

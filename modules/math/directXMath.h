@@ -20,9 +20,11 @@
 
 #include "vMath.h"
 
+using namespace DirectX;
+using namespace DirectX::PackedVector;
+
 namespace VulkanTest 
 {
-	using namespace DirectX;
 	using VECTOR = XMVECTOR;
 	using MATRIX = XMMATRIX;
 
@@ -77,6 +79,16 @@ namespace VulkanTest
 		return XMMatrixLookToLH(EyePosition, EyeDirection, UpDirection);
 	}
 
+	inline VECTOR XM_CALLCONV VectorSet(float x, float y, float z, float w)
+	{
+		return XMVectorSet(x, y, z, w);
+	}
+
+	inline VECTOR XM_CALLCONV Vector3TransformNormal(VECTOR v, MATRIX m)
+	{
+		return XMVector3TransformNormal(v, m);
+	}
+
 	inline MATRIX XM_CALLCONV MatrixInverse(MATRIX M)
 	{
 		return XMMatrixInverse(nullptr, M);
@@ -85,6 +97,26 @@ namespace VulkanTest
 	inline MATRIX XM_CALLCONV MatrixTranspose(MATRIX M)
 	{
 		return XMMatrixTranspose(M);
+	}
+
+	inline VECTOR XM_CALLCONV Vector3Transform(VECTOR v, MATRIX m)
+	{
+		return XMVector3Transform(v, m);
+	}
+
+	inline VECTOR XM_CALLCONV Vector4Transform(VECTOR v, MATRIX m)
+	{
+		return XMVector4Transform(v, m);
+	}
+
+	inline VECTOR XM_CALLCONV Vector3Normalize(VECTOR v)
+	{
+		return XMVector3Normalize(v);
+	}
+	
+	inline VECTOR XM_CALLCONV Vector4Normalize(VECTOR v)
+	{
+		return XMVector4Normalize(v);
 	}
 
 	inline VECTOR XM_CALLCONV PlaneNormalize(VECTOR v)
@@ -125,6 +157,36 @@ namespace VulkanTest
 	inline F32 XM_CALLCONV VectorGetZ(VECTOR V)
 	{
 		return XMVectorGetZ(V);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixScalingFromVector(VECTOR scale)
+	{
+		return XMMatrixScalingFromVector(scale);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixRotationQuaternion(VECTOR quaternion)
+	{
+		return XMMatrixRotationQuaternion(quaternion);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixTranslationFromVector(VECTOR offset)
+	{
+		return XMMatrixTranslationFromVector(offset);
+	}
+
+	inline VECTOR XM_CALLCONV QuaternionRotationRollPitchYaw(float Pitch, float Yaw, float Roll)
+	{
+		return XMQuaternionRotationRollPitchYaw(Pitch, Yaw, Roll);
+	}
+
+	inline VECTOR XM_CALLCONV QuaternionMultiply(VECTOR q1, VECTOR q2)
+	{
+		return XMQuaternionMultiply(q1, q2);
+	}
+
+	inline VECTOR XM_CALLCONV QuaternionNormalize(VECTOR q)
+	{
+		return XMQuaternionNormalize(q);
 	}
 
 	////////////////////////////////////////////////////////////////////////////

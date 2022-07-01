@@ -1,11 +1,14 @@
 #include "settings.h"
 #include "editor.h"
 #include "core\filesystem\filesystem.h"
+#include "core\scripts\luaUtils.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
+	// TODO: use ScriptConfig to replace hands-write codes
+
 	static const char SETTINGS_PATH[] = "editor.ini";
 
 	Settings::Settings(EditorApp& app_) :
@@ -77,6 +80,26 @@ namespace Editor
 		}
 		lua_pop(l, 1);
 
+		// Load actions
+		auto& actions = app.GetActions();
+		lua_getglobal(l, "actions");
+		if (lua_type(l, -1) == LUA_TTABLE)
+		{
+			for (auto action : actions)
+			{
+				lua_getfield(l, -1, action->name);
+				if (lua_type(l, -1) == LUA_TTABLE)
+				{
+					lua_getfield(l, -1, "shortcut");
+					if (lua_isnumber(l, -1))
+						action->shortcut = (Platform::Keycode)lua_tonumber(l, -1);
+					lua_pop(l, 1);
+				}
+				lua_pop(l, 1);
+			}
+		}
+		lua_pop(l, 1);
+
 		return true;
 	}
 
@@ -103,6 +126,16 @@ namespace Editor
 		file->Write("imgui = [[");
 		file->Write(imguiState.c_str());
 		file->Write("]]\n");
+
+		// Actions
+		auto& actions = app.GetActions();
+		*file << "actions = {\n";
+		for (auto action : actions)
+		{
+			*file << "\t" << action->name << " = { shortcut = "
+				<< (int)action->shortcut << "},\n";
+		}
+		*file << "}\n";
 
 		file->Close();
 		return true;

@@ -10,6 +10,11 @@ namespace VulkanTest
     {
         class EditorApp;
 
+        struct WorldView
+        {
+            virtual ~WorldView() = default;
+        };
+
         class VULKAN_EDITOR_API WorldEditor : public EditorWidget
         {
         public:

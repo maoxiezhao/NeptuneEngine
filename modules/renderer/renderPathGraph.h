@@ -11,8 +11,6 @@ namespace VulkanTest
 		RenderPathGraph() = default;
 		virtual ~RenderPathGraph();
 
-		void Start()override;
-		void Stop()override;
 		void Update(float dt)override;
 		void Render() override;
 

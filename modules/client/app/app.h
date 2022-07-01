@@ -6,6 +6,7 @@
 #include "core\platform\platform.h"
 #include "core\scene\world.h"
 #include "gpu\vulkan\wsi.h"
+#include "renderer\renderPath.h"
 
 namespace VulkanTest
 {
@@ -76,6 +77,9 @@ protected:
 
 	void ComputeSmoothTimeDelta();
 
+	void ActivePath(RenderPath* renderPath_);
+	inline RenderPath* GetActivePath() { return renderPath; }
+
 protected:
 	std::unique_ptr<WSIPlatform> platform;
 	UniquePtr<Engine> engine;
@@ -93,6 +97,7 @@ protected:
 	bool requestedShutdown = false;
 	World* world = nullptr;
 	struct RendererPlugin* renderer = nullptr;
+	RenderPath* renderPath = nullptr;
 };
 
 UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config, App& app);
