@@ -116,6 +116,10 @@ function setup_project()
     setup_project_definines()
 end 
 
+function setup_shaderinterop_includedir()
+    includedirs { asset_location .. "/shaders/common" }
+end 
+
 -----------------------------------------------------------------------------------
 -- main
 -----------------------------------------------------------------------------------

@@ -112,7 +112,10 @@ void WSI::Uninitialize()
         TeardownSwapchain();
 
         if (surface != VK_NULL_HANDLE)
+        {
             vkDestroySurfaceKHR(vulkanContext->GetInstance(), surface, nullptr);
+            surface = VK_NULL_HANDLE;
+        }
     }
 
     if (!isExternal)

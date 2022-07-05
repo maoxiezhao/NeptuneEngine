@@ -209,6 +209,11 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 	return true;
 }
 
+void ShaderProgramDeleter::operator()(ShaderProgram* owner)
+{
+	owner->device->programs.free(owner);
+}
+
 ShaderProgram::ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info) :
 	device(device_)
 {
@@ -368,7 +373,7 @@ void ShaderProgram::Bake()
 	SetPipelineLayout(device->RequestPipelineLayout(resLayout));
 }
 
-void ShaderProgram::SetShader(ShaderStage stage, Shader* shader)
+void ShaderProgram::SetShader(ShaderStage stage, const Shader* shader)
 {
 	shaders[(int)stage] = shader;
 }

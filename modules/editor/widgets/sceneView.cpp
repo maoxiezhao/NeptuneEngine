@@ -25,11 +25,12 @@ namespace Editor
 		// Culling for main camera
 		visibility.Clear();
 		visibility.camera = camera;
+		visibility.scene = scene;
 		visibility.flags = Visibility::ALLOW_EVERYTHING;
 		scene->UpdateVisibility(visibility);
 
 		// Update per frame data
-		Renderer::UpdateFrameData(visibility, *scene, dt);
+		Renderer::UpdateFrameData(visibility, *scene, dt, frameCB);
 	}
 
 	void EditorRenderer::Render()
@@ -145,6 +146,9 @@ namespace Editor
 		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
 		ASSERT(scene);
 		editorRenderer->SetScene(scene);
+
+		// Test
+		scene->CreateMeshInstance("test", Path("models/cornellbox.obj"));
 	}
 
 	void SceneView::Update(F32 dt)
@@ -171,6 +175,8 @@ namespace Editor
 	void SceneView::OnGUI()
 	{
 		PROFILE_FUNCTION();
+
+		shouldRender = false;
 
 		ImVec2 viewPos;
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -209,6 +215,8 @@ namespace Editor
 
 			// Maybe should call it in SceneView::Update()
 			editorRenderer->Update(worldView->deltaTime);
+
+			shouldRender = true;
 		}
 
 		if (isMouseCaptured && (Platform::GetFocusedWindow() != ImGui::GetWindowViewport()->PlatformHandle))
@@ -220,7 +228,8 @@ namespace Editor
 
 	void SceneView::Render()
 	{
-		editorRenderer->Render();
+		if (shouldRender)
+			editorRenderer->Render();
 	}
 
 	const char* SceneView::GetName()

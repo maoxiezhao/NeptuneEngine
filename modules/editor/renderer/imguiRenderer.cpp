@@ -370,8 +370,8 @@ namespace ImGuiRenderer
 		// Set states
 		cmd->SetSampler(0, 0, *sampler);
 		cmd->SetDefaultTransparentState();
-		cmd->SetBlendState(Renderer::GetBlendState(BlendStateType_Transparent));
-		cmd->SetRasterizerState(Renderer::GetRasterizerState(RasterizerStateType_DoubleSided));
+		cmd->SetBlendState(Renderer::GetBlendState(BSTYPE_TRANSPARENT));
+		cmd->SetRasterizerState(Renderer::GetRasterizerState(RSTYPE_DOUBLE_SIDED));
 		cmd->SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
 		// Will project scissor/clipping rectangles into framebuffer space

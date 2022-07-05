@@ -4,17 +4,17 @@ namespace VulkanTest
 {
 	enum RasterizerStateTypes
 	{
-		RasterizerStateType_Back,
-		RasterizerStateType_Front,
-		RasterizerStateType_DoubleSided,
-		RasterizerStateType_Count
+		RSTYPE_BACK,
+		RSTYPE_FRONT,
+		RSTYPE_DOUBLE_SIDED,
+		RSTYPE_COUNT
 	};
 
 	enum BlendStateTypes
 	{
-		BlendStateType_Opaque,
-		BlendStateType_Transparent,
-		BlendStateType_Count
+		BSTYPE_OPAQUE,
+		BSTYPE_TRANSPARENT,
+		BSTYPE_COUNT
 	};
 
 	enum RENDERPASS
@@ -23,5 +23,14 @@ namespace VulkanTest
 		RENDERPASS_PREPASS,
 		RENDERPASS_SHADOE,
 		RENDERPASS_COUNT
+	};
+
+	enum ShaderType
+	{
+		SHADERTYPE_VS_OBJECT,
+
+		SHADERTYPE_PS_OBJECT,
+
+		SHADERTYPE_COUNT
 	};
 }

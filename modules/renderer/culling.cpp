@@ -11,12 +11,12 @@ namespace VulkanTest
         {
             vis.frustum = vis.camera->frustum;
 
-            auto& meshes = scene.GetMeshes();
-            for (auto& kvp : meshes)
-            {
-                if (vis.frustum.CheckBoxFast(kvp.second->aabb))
-                    vis.objects.push_back(kvp.first);
-            }
+            //auto& meshes = scene.GetMeshes();
+            //for (auto& kvp : meshes)
+            //{
+            //    if (vis.frustum.CheckBoxFast(kvp.second->aabb))
+            //        vis.objects.push_back(kvp.first);
+            //}
         }
     };
 

@@ -67,6 +67,24 @@ namespace VulkanTest
 			return world->GetSingletonComponent<C>();
 		}
 
+		template<typename T, typename Func>
+		void SetComponenetOnAdded(Func&& func)
+		{
+			world->SetComponenetOnAdded(ECS_MOV(func));
+		}
+
+		template<typename T, typename Func>
+		void SetComponenetOnRemoved(Func&& func)
+		{
+			world->SetComponenetOnRemoved<T>(ECS_MOV(func));
+		}
+
+		template<typename... Comps>
+		inline ECS::QueryBuilder<Comps...> CreateQuery()
+		{
+			return ECS::QueryBuilder<Comps...>(world.get());
+		}
+
 		template<typename... Args>
 		ECS::SystemBuilder<Args...> CreateSystem()
 		{

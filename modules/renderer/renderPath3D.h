@@ -33,5 +33,6 @@ namespace VulkanTest
 
 		Visibility visibility;
 		CameraComponent* camera = nullptr;
+		FrameCB frameCB = {};
 	};
 }

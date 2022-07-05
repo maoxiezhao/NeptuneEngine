@@ -329,6 +329,7 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     iboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 256);
     uboPool.Init(this, 256 * 1024, std::max<VkDeviceSize>(16u, features.properties2.properties.limits.minUniformBufferOffsetAlignment), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
     uboPool.SetSpillSize(VULKAN_MAX_UBO_SIZE);
+    stagingPool.Init(this, 64 * 1024, std::max<VkDeviceSize>(16u, features.properties2.properties.limits.optimalBufferCopyOffsetAlignment), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 32);
 
     // Init managers
     memory.Initialize(this);
@@ -785,18 +786,23 @@ EventPtr DeviceVulkan::RequestSignalEvent(VkPipelineStageFlags stages)
     return ret;
 }
 
-Shader& DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout)
+Shader* DeviceVulkan::RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout)
 {
     HashCombiner hash;
     hash.HashCombine(static_cast<const U32*>(pShaderBytecode), bytecodeLength);
 
     auto findIt = shaders.find(hash.Get());
     if (findIt != nullptr)
-        return *findIt;
+        return findIt;
 
-    Shader& shader = *shaders.emplace(hash.Get(), *this, stage, pShaderBytecode, bytecodeLength, layout);
-    shader.SetHash(hash.Get());
+    Shader* shader = shaders.emplace(hash.Get(), *this, stage, pShaderBytecode, bytecodeLength, layout);
+    shader->SetHash(hash.Get());
     return shader;
+}
+
+Shader* DeviceVulkan::RequestShaderByHash(HashValue hash)
+{
+    return shaders.find(hash);
 }
 
 void DeviceVulkan::SetName(const Image& image, const char* name)
@@ -841,7 +847,7 @@ void DeviceVulkan::SetName(const Sampler& sampler, const char* name)
     }
 }
 
-ShaderProgram* DeviceVulkan::RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)])
+ShaderProgram* DeviceVulkan::RequestProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)])
 {
     HashCombiner hasher;
     for (int i = 0; i < static_cast<U32>(ShaderStage::Count); i++)
@@ -982,7 +988,7 @@ void DeviceVulkan::RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize siz
 
 void DeviceVulkan::RequestVertexBufferBlockNolock(BufferBlock& block, VkDeviceSize size)
 {
-    RequestBufferBlock(block, size, vboPool, CurrentFrameResource().vboBlocks, pendingBufferBlocks.vbo);
+    RequestBufferBlock(block, size, vboPool, CurrentFrameResource().vboBlocks, &pendingBufferBlocks.vbo);
 }
 
 void DeviceVulkan::RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size)
@@ -993,7 +999,7 @@ void DeviceVulkan::RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size
 
 void DeviceVulkan::RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size)
 {
-    RequestBufferBlock(block, size, iboPool, CurrentFrameResource().iboBlocks, pendingBufferBlocks.ibo);
+    RequestBufferBlock(block, size, iboPool, CurrentFrameResource().iboBlocks, &pendingBufferBlocks.ibo);
 }
 
 void DeviceVulkan::RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize size)
@@ -1004,10 +1010,21 @@ void DeviceVulkan::RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize si
 
 void DeviceVulkan::RequestUniformBufferBlockNoLock(BufferBlock& block, VkDeviceSize size)
 {
-    RequestBufferBlock(block, size, uboPool, CurrentFrameResource().uboBlocks, pendingBufferBlocks.ubo);
+    RequestBufferBlock(block, size, uboPool, CurrentFrameResource().uboBlocks, &pendingBufferBlocks.ubo);
 }
 
-void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>& pending)
+void DeviceVulkan::RequestStagingBufferBlock(BufferBlock& block, VkDeviceSize size)
+{
+    LOCK();
+    RequestStagingBufferBlockNolock(block, size);
+}
+
+void DeviceVulkan::RequestStagingBufferBlockNolock(BufferBlock& block, VkDeviceSize size)
+{
+    RequestBufferBlock(block, size, stagingPool, CurrentFrameResource().stagingBlocks, nullptr);
+}
+
+void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>* pending)
 {
     if (block.mapped != nullptr)
         UnmapBuffer(*block.cpu, MemoryAccessFlag::MEMORY_ACCESS_WRITE_BIT);
@@ -1019,10 +1036,11 @@ void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, Buf
     }
     else
     {
-        if (block.cpu != block.gpu)
+        if (block.cpu != block.gpu )
         {
             // Pending this block, is will copy from gpu to cpu before submit
-            pending.push_back(block);
+            ASSERT(pending != nullptr);
+            pending->push_back(block);
         }
 
         if (block.capacity == pool.GetBlockSize())
@@ -1256,7 +1274,7 @@ ImagePtr DeviceVulkan::CreateImageFromStagingBuffer(const ImageCreateInfo& creat
         );
 
         transferCmd->BeginEvent("copy_image_to_gpu");
-        transferCmd->CopyToImage(*imagePtr, stagingBuffer->buffer, stagingBuffer->numBlits, stagingBuffer->blits.data());
+        transferCmd->CopyToImage(*imagePtr, *stagingBuffer->buffer, stagingBuffer->numBlits, stagingBuffer->blits.data());
         transferCmd->EndEvent();
 
         if (queueInfo.queues[QUEUE_INDEX_GRAPHICS] != queueInfo.queues[QUEUE_INDEX_TRANSFER])
@@ -1425,7 +1443,7 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
             // Request async transfer cmd to copy staging buffer
             cmd = RequestCommandList(QueueType::QUEUE_TYPE_ASYNC_TRANSFER);
             cmd->BeginEvent("Fill_buffer_staging");
-            cmd->CopyBuffer(bufferPtr, stagingBuffer);
+            cmd->CopyBuffer(*bufferPtr, *stagingBuffer);
             cmd->EndEvent();
         }
         else
@@ -1885,6 +1903,7 @@ void DeviceVulkan::WaitIdleNolock()
     vboPool.Reset();
     iboPool.Reset();
     uboPool.Reset();
+    stagingPool.Reset();
     for (auto& frame : frameResources)
     {
         frame->vboBlocks.clear();
@@ -2365,9 +2384,12 @@ void DeviceVulkan::FrameResource::Begin()
         device.iboPool.RecycleBlock(block);
     for (auto& block : uboBlocks)
         device.uboPool.RecycleBlock(block);
+    for (auto& block : stagingBlocks)
+        device.stagingPool.RecycleBlock(block);
     vboBlocks.clear();
     iboBlocks.clear();
     uboBlocks.clear();
+    stagingBlocks.clear();
 
     // Clear destroyed resources
     for (auto& buffer : destroyedFrameBuffers)
@@ -2666,7 +2688,7 @@ void DeviceVulkan::SyncPendingBufferBlocks()
     for (auto& block : pendingBufferBlocks.vbo)
     {
         ASSERT(block.offset != 0);
-        cmd->CopyBuffer(block.gpu, block.cpu);
+        cmd->CopyBuffer(*block.gpu, *block.cpu);
         usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     }
     pendingBufferBlocks.vbo.clear();
@@ -2674,7 +2696,7 @@ void DeviceVulkan::SyncPendingBufferBlocks()
     for (auto& block : pendingBufferBlocks.ibo)
     {
         ASSERT(block.offset != 0);
-        cmd->CopyBuffer(block.gpu, block.cpu);
+        cmd->CopyBuffer(*block.gpu, *block.cpu);
         usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     }
     pendingBufferBlocks.ibo.clear();
@@ -2682,7 +2704,7 @@ void DeviceVulkan::SyncPendingBufferBlocks()
     for (auto& block : pendingBufferBlocks.ubo)
     {
         ASSERT(block.offset != 0);
-        cmd->CopyBuffer(block.gpu, block.cpu);
+        cmd->CopyBuffer(*block.gpu, *block.cpu);
         usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     }
     pendingBufferBlocks.ubo.clear();

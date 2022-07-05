@@ -4,6 +4,7 @@
 #include "core\resource\resourceManager.h"
 #include "core\scripts\luaConfig.h"
 #include "math\color.h"
+#include "renderer\shader.h"
 
 namespace VulkanTest
 {
@@ -42,5 +43,6 @@ namespace VulkanTest
 
 	private:
 		Color4 color;
+		ResPtr<Shader> shader;
 	};
 }

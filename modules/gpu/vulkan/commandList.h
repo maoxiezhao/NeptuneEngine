@@ -127,6 +127,7 @@ private:
     BufferBlock vboBlock;
     BufferBlock iboBlock;
     BufferBlock uboBlock;
+    BufferBlock stagingBlock;
 
     // render pass runtime 
     FrameBuffer* frameBuffer = nullptr;
@@ -167,9 +168,17 @@ public:
         memcpy(mem, &data, sizeof(T));
     }
 
-    void CopyToImage(const Image& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits);
-    void CopyBuffer(const BufferPtr& dst, const BufferPtr& src);
-    void CopyBuffer(const BufferPtr& dst, VkDeviceSize dstOffset, const BufferPtr& src, VkDeviceSize srcOffset, VkDeviceSize size);
+    void UpdateBuffer(const Buffer* buffer, const void* data, VkDeviceSize size)
+    {
+        if (buffer == nullptr || data == nullptr)
+            return;
+        void* mem = UpdateBuffer(*buffer, 0, size);
+        memcpy(mem, data, size);
+    }
+    void* UpdateBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize size);
+    void CopyToImage(const Image& image, const Buffer& buffer, U32 numBlits, const VkBufferImageCopy* blits);
+    void CopyBuffer(const Buffer& dst, const Buffer& src);
+    void CopyBuffer(const Buffer& dst, VkDeviceSize dstOffset, const Buffer& src, VkDeviceSize srcOffset, VkDeviceSize size);
     void FillBuffer(const BufferPtr& buffer, U32 value);
     void SetBindless(U32 set, VkDescriptorSet descriptorSet);
     void SetSampler(U32 set, U32 binding, const Sampler& sampler);
@@ -242,8 +251,10 @@ public:
     void SetDefaultOpaqueState();
     void SetDefaultTransparentState();
     void SetPrimitiveTopology(VkPrimitiveTopology topology);
-    void SetProgram(ShaderProgram* program);
+    void SetShaderProgram(ShaderProgram* program);
     void SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines = {});
+    void SetProgram(const Shader* vertex, const Shader* fragment);
+    void SetProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
 
 private:
     friend class DeviceVulkan;

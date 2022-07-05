@@ -247,6 +247,7 @@ public:
         std::vector<BufferBlock> vboBlocks;
         std::vector<BufferBlock> iboBlocks;
         std::vector<BufferBlock> uboBlocks;
+        std::vector<BufferBlock> stagingBlocks;
 
         FrameResource(DeviceVulkan& device_, U32 frameIndex_);
         ~FrameResource();
@@ -273,6 +274,7 @@ public:
     BufferPool vboPool;
     BufferPool iboPool;
     BufferPool uboPool;
+    BufferPool stagingPool;
 
     // vulkan object cache
     VulkanCache<Shader> shaders;
@@ -315,8 +317,9 @@ public:
     SemaphorePtr RequestEmptySemaphore();
     EventPtr RequestEvent();
     EventPtr RequestSignalEvent(VkPipelineStageFlags stages);
-    Shader& RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
-    ShaderProgram* RequestProgram(Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
+    Shader* RequestShader(ShaderStage stage, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout = nullptr);
+    Shader* RequestShaderByHash(HashValue hash);
+    ShaderProgram* RequestProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
     BindlessDescriptorPoolPtr GetBindlessDescriptorPool(BindlessReosurceType type, U32 numSets, U32 numDescriptors);
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
@@ -329,7 +332,8 @@ public:
     void RequestIndexBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
     void RequestUniformBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestUniformBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
-    void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>& pending);
+    void RequestStagingBufferBlock(BufferBlock& block, VkDeviceSize size);
+    void RequestStagingBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
     InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
@@ -462,6 +466,7 @@ private:
         std::vector<BufferBlock> ubo;
     }
     pendingBufferBlocks;
+    void RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>* pending);
     void SyncPendingBufferBlocks();
 
     // queue data

@@ -49,5 +49,6 @@ solution (sln_name)
         function(SOURCE_DIR)
             -- vulkan header
             includedirs { "../3rdparty/vulkan/include" }
+            includedirs { "../assets/shaders/common" }
         end
     )

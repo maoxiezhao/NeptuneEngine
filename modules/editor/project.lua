@@ -52,3 +52,5 @@ if renderer == "vulkan" then
     -- vulkan header
     includedirs { third_party_location .. "/vulkan/include" }
 end 
+
+setup_shaderinterop_includedir()

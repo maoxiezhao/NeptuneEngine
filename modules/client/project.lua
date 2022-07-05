@@ -14,3 +14,5 @@ files
     "**.h",
     "**.inl",
 }
+
+setup_shaderinterop_includedir()

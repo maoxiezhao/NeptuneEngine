@@ -7,7 +7,7 @@ ByteAddressBuffer bindless_buffers[] : register(space1);
 
 inline ShaderSceneCB GetScene()
 {
-	return g_xScene;
+	return g_xFrame.scene;
 }
 
 inline CameraCB GetCamera()

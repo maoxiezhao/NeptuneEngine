@@ -69,6 +69,7 @@ namespace Editor
         F32 cameraSpeed = 0.5f;
         UniquePtr<EditorRenderer> editorRenderer;
         WorldEditor& worldEditor;
+        bool shouldRender = false;
 
         Utils::Action moveForwardAction;
         Utils::Action moveBackAction;

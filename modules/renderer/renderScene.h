@@ -6,12 +6,18 @@
 #include "math\geometry.h"
 #include "math\math.hpp"
 #include "renderGraph.h"
+#include "shaderInterop.h"
 #include "enums.h"
 #include "model.h"
 
 namespace VulkanTest
 {
 	struct RendererPlugin;
+
+	struct TransformComponent
+	{
+		Transform transform;
+	};
 
 	struct CameraComponent
 	{
@@ -36,23 +42,9 @@ namespace VulkanTest
 
 	struct MeshComponent
 	{
-		Array<F32x3> vertexPos;
-		Array<U32> indices;
-
-		struct MeshSubset
-		{
-			U32 indexOffset = 0;
-			U32 indexCount = 0;
-		};
-		Array<MeshSubset> subsets;
-
-		// TEST
-		AABB aabb;
-
-		GPU::BufferPtr vboPos;
-		GPU::BufferPtr ibo;
-
-		void SetupRenderData();
+		ResPtr<Model> model;
+		Mesh* mesh = nullptr;
+		U32 meshCount = 0;
 	};
 
 	class VULKAN_TEST_API RenderPassPlugin
@@ -75,20 +67,21 @@ namespace VulkanTest
 	{
 	public:
 		template<typename T>
-		using EntityMap = std::unordered_map<ECS::EntityID, T>;
+		using EntityMap = std::unordered_map<T, ECS::EntityID>;
 
 		static UniquePtr<RenderScene> CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world);
 
+		virtual void UpdateVisibility(struct Visibility& vis) = 0;
+		virtual void UpdateRenderData(GPU::CommandList& cmd) = 0;
+
+		virtual const ShaderSceneCB& GetShaderScene()const = 0;
+
+		// Camera
 		virtual CameraComponent* GetMainCamera() = 0;
 
-		// Scene methods
-		virtual void UpdateVisibility(struct Visibility& vis) = 0;
-
-		// Entity create methods
-		virtual ECS::EntityID CreateMesh(const char* name) = 0;
-	
-		// Temp getter
-		virtual EntityMap<MeshComponent*>& GetMeshes() = 0;
+		// MeshInstance
+		virtual ECS::EntityID CreateMeshInstance(const char* name, const Path& path) = 0;
+		virtual void ForEachMeshes(std::function<void(ECS::EntityID, MeshComponent&)> func) = 0;
 
 		template<typename C>
 		C* GetComponent(ECS::EntityID entity)

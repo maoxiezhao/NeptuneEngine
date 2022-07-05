@@ -21,6 +21,7 @@ namespace VulkanTest
 		};
 		U32 flags = EMPTY;
 
+        RenderScene* scene = nullptr;
         struct CameraComponent* camera = nullptr;
         Frustum frustum;
 

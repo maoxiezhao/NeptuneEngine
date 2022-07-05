@@ -39,7 +39,7 @@ namespace VulkanTest
 
 		State oldState = currentState;
 		currentState = State::EMPTY;
-		cb.Invoke(oldState, currentState);
+		cb.Invoke(oldState, currentState, *this);
 		CheckState();
 	}
 
@@ -147,7 +147,7 @@ namespace VulkanTest
 		if (currentState != State::FAILURE && failedDepCount > 0)
 		{
 			currentState = State::FAILURE;
-			cb.Invoke(oldState, currentState);
+			cb.Invoke(oldState, currentState, *this);
 		}
 
 		if (failedDepCount == 0)
@@ -155,13 +155,13 @@ namespace VulkanTest
 			if (currentState != State::READY && desiredState != State::EMPTY && emptyDepCount == 0)
 			{
 				currentState = State::READY;
-				cb.Invoke(oldState, currentState);
+				cb.Invoke(oldState, currentState, *this);
 			}
 
 			if (currentState != State::EMPTY && emptyDepCount > 0)
 			{
 				currentState = State::EMPTY;
-				cb.Invoke(oldState, currentState);
+				cb.Invoke(oldState, currentState,*this);
 			}
 		}
 	}
@@ -247,7 +247,7 @@ namespace VulkanTest
 		asyncHandle = AsyncLoadHandle::INVALID;		
 	}
 
-	void Resource::OnStateChanged(State oldState, State newState)
+	void Resource::OnStateChanged(State oldState, State newState, Resource& res)
 	{
 		ASSERT(oldState != newState);
 		ASSERT(currentState != State::EMPTY || desiredState != State::EMPTY);

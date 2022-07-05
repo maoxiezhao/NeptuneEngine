@@ -108,7 +108,8 @@ namespace VulkanTest
 
 		ResourceManager& GetResourceManager();
 
-		using StateChangedCallback = DelegateList<void(State, State)>;
+		using StateChangedCallback = DelegateList<void(State, State, Resource&)>;
+		StateChangedCallback& GetStateChangedCallback() { return cb; }
 
 	protected:
 		Resource(const Path& path_, ResourceFactory& resFactory_);
@@ -137,7 +138,7 @@ namespace VulkanTest
 		void operator=(const Resource&) = delete;
 		
 		void OnFileLoaded(U64 size, const U8* mem, bool success);
-		void OnStateChanged(State oldState, State newState);
+		void OnStateChanged(State oldState, State newState, Resource& res);
 
 		Path path;
 		bool hooked = false;

@@ -110,10 +110,15 @@ namespace GPU
 
 	struct ShaderProgramInfo
 	{
-		Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
+		const Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
 	};
 
-	struct ShaderProgram : public Util::IntrusiveHashMapEnabled<ShaderProgram>, public InternalSyncObject
+	struct ShaderProgram;
+	struct ShaderProgramDeleter
+	{
+		void operator()(ShaderProgram* owner);
+	};
+	struct ShaderProgram : public Util::IntrusiveHashMapEnabled<ShaderProgram>, public InternalSyncObject, public IntrusivePtrEnabled<ShaderProgram, ShaderProgramDeleter>
 	{
 	public:
 		ShaderProgram(DeviceVulkan* device_, const ShaderProgramInfo& info);
@@ -144,15 +149,18 @@ namespace GPU
 		void MoveToReadOnly();
 
 	private:
+		friend struct ShaderProgramDeleter;
+		friend class Util::ObjectPool<ShaderProgram>;
+
 		void Bake();
-		void SetShader(ShaderStage stage, Shader* shader);
+		void SetShader(ShaderStage stage, const Shader* shader);
 
 		DeviceVulkan* device;
 		PipelineLayout* pipelineLayout = nullptr;
-		Shader* shaders[UINT(ShaderStage::Count)] = {};
+		const Shader* shaders[UINT(ShaderStage::Count)] = {};
 		U32 shaderCount = 0;
 		VulkanCache<Util::IntrusivePODWrapper<VkPipeline>> pipelines;
 	};
-
+	using ShaderProgramPtr = IntrusivePtr<ShaderProgram>;
 }
 }

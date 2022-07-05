@@ -212,6 +212,7 @@ CommandList::~CommandList()
     ASSERT(vboBlock.mapped == nullptr);
     ASSERT(iboBlock.mapped == nullptr);
     ASSERT(uboBlock.mapped == nullptr);
+    ASSERT(stagingBlock.mapped == nullptr);
 }
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents)
@@ -402,7 +403,7 @@ void CommandList::SetPrimitiveTopology(VkPrimitiveTopology topology)
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
-void CommandList::SetProgram(ShaderProgram* program)
+void CommandList::SetShaderProgram(ShaderProgram* program)
 {
     if (pipelineState.shaderProgram == program)
         return;
@@ -462,7 +463,21 @@ void CommandList::SetProgram(const std::string& vertex, const std::string& fragm
    }
 
    auto* variant = tempProgram->RegisterVariant(defines);
-   SetProgram(variant->GetProgram());
+   SetShaderProgram(variant->GetProgram());
+}
+
+void CommandList::SetProgram(const Shader* vertex, const Shader* fragment)
+{
+    const Shader* shaders[static_cast<U32>(ShaderStage::Count)];
+    memset(shaders, 0, sizeof(shaders));
+    shaders[(U32)ShaderStage::VS] = vertex;
+    shaders[(U32)ShaderStage::PS] = fragment;
+    SetShaderProgram(device.RequestProgram(shaders));
+}
+
+void CommandList::SetProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)])
+{
+    SetShaderProgram(device.RequestProgram(shaders));
 }
 
 void CommandList::ResetCommandContext()
@@ -489,11 +504,13 @@ void CommandList::EndCommandBuffer()
         device.RequestIndexBufferBlockNoLock(iboBlock, 0);
     if (uboBlock.mapped != nullptr)
         device.RequestUniformBufferBlockNoLock(uboBlock, 0);
+    if (stagingBlock.mapped != nullptr)
+        device.RequestUniformBufferBlockNoLock(stagingBlock, 0);
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
 {
-    SetProgram(pipelineState_.shaderProgram);
+    SetShaderProgram(pipelineState_.shaderProgram);
     pipelineState = pipelineState_;
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
@@ -613,23 +630,39 @@ void* CommandList::AllocateConstant(U32 set, U32 binding, VkDeviceSize size)
     return data.data;
 }
 
-void CommandList::CopyToImage(const Image& image, const BufferPtr& buffer, U32 numBlits, const VkBufferImageCopy* blits)
+void* CommandList::UpdateBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize size)
 {
-    vkCmdCopyBufferToImage(cmd, buffer->GetBuffer(), image.GetImage(), image.GetImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), numBlits, blits);
+    if (size == 0)
+        return nullptr;
+
+    auto data = stagingBlock.Allocate(size);
+    if (data.data == nullptr)
+    {
+        device.RequestStagingBufferBlock(stagingBlock, size);
+        data = stagingBlock.Allocate(size);
+    }
+
+    CopyBuffer(buffer, offset, *stagingBlock.cpu, data.offset, size);
+    return data.data;
 }
 
-void CommandList::CopyBuffer(const BufferPtr& dst, const BufferPtr& src)
+void CommandList::CopyToImage(const Image& image, const Buffer& buffer, U32 numBlits, const VkBufferImageCopy* blits)
 {
-    CopyBuffer(dst, 0, src, 0, src->GetCreateInfo().size);
+    vkCmdCopyBufferToImage(cmd, buffer.GetBuffer(), image.GetImage(), image.GetImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), numBlits, blits);
 }
 
-void CommandList::CopyBuffer(const BufferPtr& dst, VkDeviceSize dstOffset, const BufferPtr& src, VkDeviceSize srcOffset, VkDeviceSize size)
+void CommandList::CopyBuffer(const Buffer& dst, const Buffer& src)
+{
+    CopyBuffer(dst, 0, src, 0, src.GetCreateInfo().size);
+}
+
+void CommandList::CopyBuffer(const Buffer& dst, VkDeviceSize dstOffset, const Buffer& src, VkDeviceSize srcOffset, VkDeviceSize size)
 {
     VkBufferCopy region = {};
     region.srcOffset = srcOffset;
     region.dstOffset = dstOffset;
     region.size = size;
-    vkCmdCopyBuffer(cmd, src->GetBuffer(), dst->GetBuffer(), 1, &region);
+    vkCmdCopyBuffer(cmd, src.GetBuffer(), dst.GetBuffer(), 1, &region);
 }
 
 void CommandList::FillBuffer(const BufferPtr& buffer, U32 value)

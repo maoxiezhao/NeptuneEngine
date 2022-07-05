@@ -134,6 +134,14 @@ bool ShaderTemplate::Initialize()
 	return true;
 }
 
+void ShaderTemplate::Recompile()
+{	
+	for (auto& variant : variants.GetReadOnly())
+		RecompileVariant(variant);
+	for (auto& variant : variants.GetReadWrite())
+		RecompileVariant(variant);
+}
+
 ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& defines)
 {
 	HashCombiner hasher;
@@ -150,7 +158,34 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 
 	ShaderTemplateVariant* ret = variants.allocate();
 	ret->hash = completeHash;
+	if (!CompileShader(ret, defines))
+		return nullptr;
 
+	ret->instance++;
+	ret->SetHash(hash);
+
+	if (!defines.empty())
+		ret->defines = defines;
+
+	variants.insert(hash, ret);
+	return ret;
+}
+
+void ShaderTemplate::RecompileVariant(ShaderTemplateVariant& variant)
+{
+	if (!CompileShader(&variant, variant.defines))
+	{
+		Logger::Error("Failed to compile shader:%s", path.c_str());
+		for (auto& define : variant.defines)
+			Logger::Error("  Define: %s", define.c_str());
+		return;
+	}
+
+	variant.instance++;
+}
+
+bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderVariantMap& defines)
+{
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	{
 		ScopedMutex holder(lock);
@@ -177,8 +212,8 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 				if (!output.errorMessage.empty())
 					Logger::Error(output.errorMessage.c_str());
 
-				ret->spirv.resize(output.shadersize);
-				memcpy(ret->spirv.data(), output.shaderdata, output.shadersize);
+				variant->spirv.resize(output.shadersize);
+				memcpy(variant->spirv.data(), output.shaderdata, output.shadersize);
 			}
 			else
 			{
@@ -186,28 +221,24 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 				if (!output.errorMessage.empty())
 					Logger::Error(output.errorMessage.c_str());
 
-				variants.free(ret);
-				return nullptr;
+				variants.free(variant);
+				return false;
 			}
 		}
 		else
 		{
-			if (!Helper::FileRead(exportShaderPath, ret->spirv))
+			if (!Helper::FileRead(exportShaderPath, variant->spirv))
 			{
 				Logger::Error("Failed to load export shader:%s", exportShaderPath.c_str());
-				return nullptr;
+				return false;
 			}
 		}
 	}
+	return true;
+#else
+	ASSERT(false);
+	return nullptr;
 #endif
-	ret->instance++;
-	ret->SetHash(hash);
-
-	if (!defines.empty())
-		ret->defines = defines;
-
-	variants.insert(hash, ret);
-	return ret;
 }
 
 ShaderTemplateProgram::ShaderTemplateProgram(DeviceVulkan& device_, ShaderStage stage, ShaderTemplate* shaderTemplate) :
@@ -240,7 +271,7 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 		if (shaderTemplates[i] != nullptr)
 			newVariant->shaderVariants[i] = shaderTemplates[i]->RegisterVariant(defines);
 	}
-	newVariant->GetProgram();
+	// newVariant->GetProgram();
 	newVariant->SetHash(hash);
 	variantCache.insert(hash, newVariant);
 
@@ -279,11 +310,25 @@ Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
 	{
 		Shader* newShader = nullptr;
 		if (!variant->spirv.empty())
-			newShader = &device.RequestShader(
+		{
+			newShader = device.RequestShader(
 				stage,
-				variant->spirv.data(), 
+				variant->spirv.data(),
 				variant->spirv.size(),
 				nullptr);
+
+			// TODO: TEMP
+			if (newShader && newShader->GetHash() != 0)
+			{
+				variant->spirvHash = newShader->GetHash();
+				variant->spirv.clear();
+			}
+		}
+		else
+		{
+			ASSERT(variant->spirvHash);
+			newShader = device.RequestShaderByHash(variant->spirvHash);
+		}
 
 		if (newShader == nullptr)
 			return nullptr;
@@ -363,7 +408,7 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 		return program.load(std::memory_order_relaxed);
 
 	// Request shaders
-	Shader* shaders[static_cast<int>(ShaderStage::Count)] = {};
+	const Shader* shaders[static_cast<int>(ShaderStage::Count)] = {};
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 	{
 		shaders[i] = nullptr;
@@ -372,11 +417,25 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 		{
 			Shader* newShader = nullptr;
 			if (!shaderVariants[i]->spirv.empty())
-				newShader = &device.RequestShader(
-					static_cast<ShaderStage>(i), 
-					shaderVariants[i]->spirv.data(), 
+			{
+				newShader = device.RequestShader(
+					static_cast<ShaderStage>(i),
+					shaderVariants[i]->spirv.data(),
 					shaderVariants[i]->spirv.size(),
 					nullptr);
+				
+				// TODO: TEMP
+				if (newShader && newShader->GetHash() != 0)
+				{
+					shaderVariants[i]->spirvHash = newShader->GetHash();
+					shaderVariants[i]->spirv.clear();
+				}
+			}
+			else
+			{
+				ASSERT(shaderVariants[i]->spirvHash);
+				newShader = device.RequestShaderByHash(shaderVariants[i]->spirvHash);
+			}
 
 			if (newShader == nullptr)
 				return nullptr;

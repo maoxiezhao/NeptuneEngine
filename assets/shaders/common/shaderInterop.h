@@ -33,7 +33,18 @@ using int4 = VulkanTest::I32x4;
 // These are usable by all shaders
 #define CBSLOT_RENDERER_FRAME					0
 #define CBSLOT_RENDERER_CAMERA					1
-#define CBSLOT_RENDERER_SCENE                   2
+
+struct ShaderSceneCB
+{
+	int geometrybuffer;
+	int materialbuffer;
+};
+
+struct FrameCB
+{
+	ShaderSceneCB scene;
+};
+CONSTANTBUFFER(g_xFrame, FrameCB, CBSLOT_RENDERER_FRAME);
 
 struct CameraCB
 {
@@ -54,13 +65,6 @@ struct ShaderMaterial
 {
 	float4 baseColor;
 };
-
-struct ShaderSceneCB
-{
-	int geometrybuffer;
-	int materialbuffer;
-};
-CONSTANTBUFFER(g_xScene, ShaderSceneCB, CBSLOT_RENDERER_SCENE);
 
 struct ObjectPushConstants
 {

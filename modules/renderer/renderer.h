@@ -25,16 +25,17 @@ namespace VulkanTest
 		void Initialize(Engine& engine);
 		void Uninitialize();
 
-		void UpdateFrameData(const Visibility& visible, RenderScene& scene, F32 delta);
-		void UpdateRenderData(const Visibility& visible, GPU::CommandList& cmd);
+		void UpdateFrameData(const Visibility& visible, RenderScene& scene, F32 delta, FrameCB& frameCB);
+		void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd);
 
 		void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd);
 
 		GPU::DeviceVulkan* GetDevice();
 		RenderScene* GetScene();
 
-		const GPU::BlendState& GetBlendState(BlendStateTypes types);
-		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes types);
+		const GPU::BlendState& GetBlendState(BlendStateTypes type);
+		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);
+		const GPU::Shader* GetShader(ShaderType type);
 
 		enum class RenderQueueType
 		{
@@ -44,11 +45,6 @@ namespace VulkanTest
 		};
 
 		void DrawScene(GPU::CommandList& cmd, const Visibility& vis);
-
-		// Test
-		void UpdateRenderData(GPU::CommandList& cmd);
-		void UpdateGeometryBuffer();
-		void DrawModel(GPU::CommandList& cmd);
 
 		// Plugin interface
 		RendererPlugin* CreatePlugin(Engine& engine);

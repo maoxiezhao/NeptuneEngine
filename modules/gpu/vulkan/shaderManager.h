@@ -29,6 +29,7 @@ public:
 	~ShaderTemplate();
 
 	bool Initialize();
+	void Recompile();
 
 	ShaderTemplateVariant* RegisterVariant(const ShaderVariantMap& defines);
 
@@ -39,6 +40,9 @@ public:
 
 private:
 	friend class ShaderTemplateProgram;
+
+	void RecompileVariant(ShaderTemplateVariant& variant);
+	bool CompileShader(ShaderTemplateVariant* variant, const ShaderVariantMap& defines);
 
 	DeviceVulkan& device;
 	std::string path;
@@ -68,7 +72,8 @@ private:
 
 private:
 	DeviceVulkan& device;
-	const ShaderTemplateVariant* shaderVariants[static_cast<U32>(ShaderStage::Count)] = {};
+	// const ShaderTemplateVariant* shaderVariants[static_cast<U32>(ShaderStage::Count)] = {};
+	ShaderTemplateVariant* shaderVariants[static_cast<U32>(ShaderStage::Count)] = {};
 	std::atomic<ShaderProgram*> program = nullptr;
 	std::atomic<U32> shaderInstances[static_cast<U32>(ShaderStage::Count)] = {};
 	Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};

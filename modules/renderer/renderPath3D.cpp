@@ -21,12 +21,13 @@ namespace VulkanTest
 
 		// Culling for main camera
 		visibility.Clear();
+		visibility.scene = scene;
 		visibility.camera = camera;
 		visibility.flags = Visibility::ALLOW_EVERYTHING;
 		scene->UpdateVisibility(visibility);
 
 		// Update per frame data
-		Renderer::UpdateFrameData(visibility, *scene, dt);
+		Renderer::UpdateFrameData(visibility, *scene, dt, frameCB);
 	}
 
 	void RenderPath3D::SetupPasses(RenderGraph& renderGraph)
@@ -73,8 +74,7 @@ namespace VulkanTest
 			cmd.SetViewport(viewport);
 
 			Renderer::BindCameraCB(*camera, cmd);
-
-			Renderer::DrawModel(cmd);
+			Renderer::DrawScene(cmd, visibility);
 		});
 
 		AddOutputColor("rtFinal3D");
@@ -85,7 +85,7 @@ namespace VulkanTest
 	{
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		auto cmd = device->RequestCommandList(GPU::QueueType::QUEUE_TYPE_GRAPHICS);
-		Renderer::UpdateRenderData(*cmd);
+		Renderer::UpdateRenderData(visibility, frameCB, *cmd);
 		device->Submit(cmd);
 	}
 
