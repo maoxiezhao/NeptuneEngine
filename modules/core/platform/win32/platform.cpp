@@ -88,37 +88,33 @@ namespace Platform {
 		struct Rec
 		{
 			WindowEvent e;
-			Rec* prev;
 			Rec* next = nullptr;
 		};
 
 		void pushBack(const WindowEvent& e)
 		{
 			Rec* n = CJING_NEW(Rec);
-			n->prev = back;
-			if (back) back->next = n;
-			back = n;
-			if (!front) front = n;
+			if (list)
+				n->next = list;
+			list = n;
 			n->e = e;
 		}
 
 		WindowEvent popFront()
 		{
-			ASSERT(front);
-			WindowEvent e = front->e;
-			Rec* tmp = front;
-			front = tmp->next;
-			if (!front) back = nullptr;
+			ASSERT(list);
+			WindowEvent e = list->e;
+			Rec* tmp = list;
+			list = tmp->next;
 			CJING_SAFE_DELETE(tmp);
 			return e;
 		}
 
 		bool empty() const {
-			return !front;
+			return !list;
 		}
 
-		Rec* front = nullptr;
-		Rec* back = nullptr;
+		Rec* list = nullptr;
 		DefaultAllocator allocator;
 	};
 

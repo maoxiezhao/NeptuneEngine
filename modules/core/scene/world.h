@@ -4,6 +4,7 @@
 #include "core\engine.h"
 #include "core\plugin\plugin.h"
 #include "core\memory\memory.h"
+#include "core\utils\delegate.h"
 #include "ecs\ecs\ecs.h"
 
 namespace VulkanTest
@@ -45,8 +46,10 @@ namespace VulkanTest
 		ECS::EntityID CreateEntityID(const char* name);
 		ECS::EntityID FindEntity(const char* name);
 		ECS::EntityID EntityExists(ECS::EntityID entity)const;
+		ECS::EntityID GetEntityParent(ECS::EntityID entity);
 		void DeleteEntity(ECS::EntityID entity);
 		void SetEntityName(ECS::EntityID entity, const char* name);
+		const char* GetEntityName(ECS::EntityID entity);
 		bool HasComponent(ECS::EntityID entity, ECS::EntityID compID);
 
 		template<typename C>
@@ -65,6 +68,12 @@ namespace VulkanTest
 		C* GetSingletonComponent()
 		{
 			return world->GetSingletonComponent<C>();
+		}
+
+		template <typename Func>
+		void EachChildren(ECS::EntityID entity, Func&& func)
+		{
+			world->EachChildren(entity, ECS_MOV(func));
 		}
 
 		template<typename T, typename Func>
@@ -97,9 +106,15 @@ namespace VulkanTest
 		void AddScene(UniquePtr<IScene>&& scene);
 		std::vector<UniquePtr<IScene>>& GetScenes();
 
+		DelegateList<void(ECS::EntityID)>& EntityCreated() { return entityCreated; }
+		DelegateList<void(ECS::EntityID)>& EntityDestroyed() { return entityDestroyed; }
+
 	private:
 		Engine* engine;
 		ECS_UNIQUE_PTR<ECS::World> world;
 		std::vector<UniquePtr<IScene>> scenes;
+
+		DelegateList<void(ECS::EntityID)> entityCreated;
+		DelegateList<void(ECS::EntityID)> entityDestroyed;
 	};
 }

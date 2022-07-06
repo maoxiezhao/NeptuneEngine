@@ -480,4 +480,8 @@ namespace VulkanTest
     {
         return CJING_MAKE_UNIQUE<RenderSceneImpl>(rendererPlugin, engine, world);
     }
+
+    void RenderScene::Reflect()
+    {
+    }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\collections\Array.h"
 
 namespace VulkanTest
 {
@@ -100,13 +101,11 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>();
-			for (int i = 0; i < delegates.size(); i++)
+			for (U32 i = 0; i < delegates.size(); i++)
 			{
 				if (delegates[i] == cb)
 				{
-					// TODO: use custom array
-					auto it = delegates.begin() + i;
-					delegates.erase(it);
+					delegates.swapAndPop(i);
 					break;
 				}
 			}
@@ -117,13 +116,11 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>(ptr);
-			for (int i = 0; i < delegates.size(); i++)
+			for (U32 i = 0; i < delegates.size(); i++)
 			{
 				if (delegates[i] == cb)
 				{
-					// TODO: use custom array
-					auto it = delegates.begin() + i;
-					delegates.erase(it);
+					delegates.swapAndPop(i);
 					break;
 				}
 			}
@@ -135,8 +132,7 @@ namespace VulkanTest
 				d.Invoke(args...);
 		}
 
-
 	private:
-		std::vector<DelegateT> delegates;
+		Array<DelegateT> delegates;
 	};
 }

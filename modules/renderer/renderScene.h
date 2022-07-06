@@ -70,6 +70,7 @@ namespace VulkanTest
 		using EntityMap = std::unordered_map<T, ECS::EntityID>;
 
 		static UniquePtr<RenderScene> CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world);
+		static void Reflect();
 
 		virtual void UpdateVisibility(struct Visibility& vis) = 0;
 		virtual void UpdateRenderData(GPU::CommandList& cmd) = 0;

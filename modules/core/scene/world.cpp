@@ -34,7 +34,9 @@ namespace VulkanTest
 
 	const ECS::EntityBuilder& World::CreateEntity(const char* name)
 	{
-		return world->CreateEntity(name);
+		const auto& builder = world->CreateEntity(name);
+		entityCreated.Invoke(builder.entity);
+		return builder;
 	}
 
 	const ECS::EntityBuilder& World::CreatePrefab(const char* name)
@@ -44,7 +46,9 @@ namespace VulkanTest
 
 	ECS::EntityID World::CreateEntityID(const char* name)
 	{
-		return world->CreateEntityID(name);
+		ECS::EntityID id = world->CreateEntityID(name);
+		entityCreated.Invoke(id);
+		return id;
 	}
 
 	ECS::EntityID World::FindEntity(const char* name)
@@ -57,14 +61,25 @@ namespace VulkanTest
 		return world->EntityExists(entity);
 	}
 
+	ECS::EntityID World::GetEntityParent(ECS::EntityID entity)
+	{
+		return world->GetParent(entity);
+	}
+
 	void World::DeleteEntity(ECS::EntityID entity)
 	{
+		entityDestroyed.Invoke(entity);
 		return world->DeleteEntity(entity);
 	}
 
 	void World::SetEntityName(ECS::EntityID entity, const char* name)
 	{
 		world->SetEntityName(entity, name);
+	}
+
+	const char* World::GetEntityName(ECS::EntityID entity)
+	{
+		return world->GetEntityName(entity);
 	}
 
 	bool World::HasComponent(ECS::EntityID entity, ECS::EntityID compID)

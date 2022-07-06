@@ -103,6 +103,17 @@ namespace VulkanTest
             return data_[size_ - 1];
         }
 
+        int indexOf(const T& item) const
+        {
+            for (U32 i = 0; i < size_; ++i) 
+            {
+                if (data_[i] == item) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         void erase(const T& value)
         {
             for(U32 i = 0; i < size_; i++)
@@ -147,15 +158,12 @@ namespace VulkanTest
             } 
             else 
             {
+                data_[index].~T();
                 if (index != size_ - 1)
                 {
                     // Move the last item to the current item
-                    new (NewPlaceHolder(), data_ + index) T(static_cast<T&&>(data_[size_ - 1])); 
+                    new (data_ + index) T(static_cast<T&&>(data_[size_ - 1])); 
                     data_[size_ - 1].~T();
-                }
-                else
-                {
-                    data_[index].~T();
                 }
             }
             size_--;
@@ -257,7 +265,7 @@ namespace VulkanTest
             ASSERT(dst > src || dst + count < src);
             for (U32 i = count - 1; i < count; --i) 
             {
-                new (NewPlaceHolder(), dst + i) T(static_cast<T&&>(src[i]));    // Move construct
+                new (dst + i) T(static_cast<T&&>(src[i]));    // Move construct
                 src[i].~T();
             }
         }
