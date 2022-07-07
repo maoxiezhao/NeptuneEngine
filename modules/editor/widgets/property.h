@@ -8,6 +8,7 @@ namespace VulkanTest
 namespace Editor
 {
     class EditorApp;
+    class WorldEditor;
 
     class VULKAN_EDITOR_API PropertyWidget : public EditorWidget
     {
@@ -27,7 +28,12 @@ namespace Editor
         const char* GetName();
 
     private:
+        void ShowBaseProperties(ECS::EntityID entity);
+        
         EditorApp& editor;
+        WorldEditor& worldEditor;
+
+        char componentFilter[32];
     };
 }
 }

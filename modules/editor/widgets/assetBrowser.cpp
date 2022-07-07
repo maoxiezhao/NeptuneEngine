@@ -3,7 +3,6 @@
 #include "editor\editor.h"
 #include "core\platform\platform.h"
 #include "imgui-docking\imgui.h"
-#include "imguiUtils.h"
 
 namespace VulkanTest
 {
@@ -92,7 +91,7 @@ namespace Editor
             OnDirColumnGUI();
 
             ImGui::SameLine();
-            ImGuiUtils::VSplitter("vsplit1", &leftSize);
+            ImGuiEx::VSplitter("vsplit1", &leftSize);
             if (leftSize.x >= 120)
                 leftColumnWidth = leftSize.x;
             ImGui::SameLine();
@@ -206,13 +205,13 @@ namespace Editor
                 {
                     Resource* res = selectedResources[0].get();
                     const char* path = res->GetPath().c_str();
-                    ImGuiUtils::Label("Selected resource");
+                    ImGuiEx::Label("Selected resource");
                     ImGui::TextUnformatted(path);
                     ImGui::Separator();
 
-                    ImGuiUtils::Label("Status");
+                    ImGuiEx::Label("Status");
                     ImGui::TextUnformatted(res->IsFailure() ? "failure" : (res->IsReady() ? "Ready" : "Not ready"));
-                    ImGuiUtils::Label("Compiled size");
+                    ImGuiEx::Label("Compiled size");
                     if (res->IsReady()) {
                         ImGui::Text("%.2f KB", res->Size() / 1024.f);
                     }
@@ -232,7 +231,7 @@ namespace Editor
                 else
                 {
                     ImGui::Separator();
-                    ImGuiUtils::Label("Selected resource");
+                    ImGuiEx::Label("Selected resource");
                     ImGui::TextUnformatted("multiple");
                     ImGui::Separator();
                 }
@@ -391,7 +390,7 @@ namespace Editor
             }
             else
             {
-                ImGuiUtils::Rect(imgSize.x, imgSize.y, 0xffffFFFF);
+                ImGuiEx::Rect(imgSize.x, imgSize.y, 0xffffFFFF);
 
                 // TODO:
                 // Create custom thumbnail image

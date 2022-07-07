@@ -1,11 +1,10 @@
-#pragma once
 
 #include "imgui-docking\imgui.h"
-
-#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui-docking\imgui_internal.h"
 
-namespace ImGuiUtils
+using namespace ImGui;
+
+namespace ImGuiEx
 {
 	void Label(const char* label) 
 	{

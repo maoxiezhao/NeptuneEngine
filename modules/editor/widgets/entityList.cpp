@@ -17,10 +17,6 @@ namespace Editor
 	{
 	}
 
-	void EntityListWidget::Update(F32 dt)
-	{
-	}
-
 	void EntityListWidget::OnGUI()
 	{
 		if (!isOpen) return;
@@ -108,6 +104,15 @@ namespace Editor
 			else 
 			{
 				nodeOpen = false;
+			}
+		}
+
+		if (ImGui::IsItemVisible())
+		{
+			if (!ImGui::BeginDragDropSource())
+			{
+				if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+					worldEditor.SelectEntities(Span(&entity, 1), ImGui::GetIO().KeyCtrl);
 			}
 		}
 

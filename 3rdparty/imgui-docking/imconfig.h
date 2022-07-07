@@ -123,3 +123,10 @@ namespace ImGui
     void MyFunction(const char* name, const MyMatrix44& v);
 }
 */
+
+// Include imgui_user.inl at the end of imgui.cpp to access private data/functions that aren't exposed.
+// Prefer just including imgui_internal.h from your code rather than using this define. If a declaration is missing from imgui_internal.h add it or request it on the github.
+#define IMGUI_INCLUDE_IMGUI_USER_INL
+
+// Include imgui_user.h at the end of imgui.h (convenient for user to only explicitly include vanilla imgui.h)
+#define IMGUI_INCLUDE_IMGUI_USER_H

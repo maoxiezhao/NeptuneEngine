@@ -58,6 +58,9 @@ namespace VulkanTest
             virtual World* GetWorld() = 0;
             virtual void NewWorld() = 0;
             virtual void DestroyWorld() = 0;
+
+            virtual void SelectEntities(Span<const ECS::EntityID> entities, bool toggle) = 0;
+
             virtual EntityFolder& GetEntityFolder() = 0;
             virtual const Array<ECS::EntityID>& GetSelectedEntities() const = 0;
         };

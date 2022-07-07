@@ -17,7 +17,6 @@ namespace Editor
         explicit EntityListWidget(EditorApp& editor_);
         virtual ~EntityListWidget();
 
-        void Update(F32 dt);
         void OnGUI() override;
         const char* GetName();
 

@@ -120,6 +120,42 @@ namespace Editor
             world = nullptr;
         }
 
+        static void FastRemoveDuplicates(Array<ECS::EntityID>& entities) 
+        {
+            qsort(entities.begin(), entities.size(), sizeof(entities[0]), [](const void* a, const void* b) {
+                return memcmp(a, b, sizeof(ECS::EntityID));
+            });
+
+            for (I32 i = entities.size() - 2; i >= 0; --i) 
+            {
+                if (entities[i] == entities[i + 1]) 
+                    entities.swapAndPop(i);
+            }
+        }
+
+        void SelectEntities(Span<const ECS::EntityID> entities, bool toggle)override
+        {
+            if (toggle)
+            {
+                for (auto entity : entities)
+                {
+                    const I32 index = selectedEntities.indexOf(entity);
+                    if (index < 0)
+                        selectedEntities.push_back(entity);
+                    else
+                        selectedEntities.swapAndPop(index);
+                }
+            }
+            else
+            {
+                selectedEntities.clear();
+                for (auto entity : entities)
+                    selectedEntities.push_back(entity);
+            }
+
+            FastRemoveDuplicates(selectedEntities);
+        }
+
         EntityFolder& GetEntityFolder()override
         {
             return *entityFolder;

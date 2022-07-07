@@ -18,6 +18,7 @@ files
 files 
 { 
     third_party_location .. "/imgui-docking/**.h",
+    third_party_location .. "/imgui-docking/**.inl",
     third_party_location .. "/imgui-docking/**.cpp",
 
     third_party_location .. "/imnodes/imnodes_internal.h",
@@ -33,6 +34,7 @@ files
 vpaths { 
     ["imgui"] = {
         third_party_location .. "/imgui-docking/**.h",
+        third_party_location .. "/imgui-docking/**.inl",
         third_party_location .. "/imgui-docking/**.cpp",
 
         third_party_location .. "/imnodes/imnodes_internal.h",
