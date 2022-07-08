@@ -138,6 +138,15 @@ namespace VulkanTest
 		return strncmp(lhs.begin(), rhs.begin(), lhs.length()) == 0;
 	}
 
+	bool EqualIStrings(const char* lhs, const char* rhs)
+	{
+#ifdef _WIN32
+		return _stricmp(lhs, rhs) == 0;
+#else
+		return strcasecmp(lhs, rhs) == 0;
+#endif
+	}
+
 	int FindStringChar(const char* str, const char c, int pos)
 	{
 		const char* ret = strchr(str + pos, c);

@@ -146,9 +146,6 @@ namespace Editor
 		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
 		ASSERT(scene);
 		editorRenderer->SetScene(scene);
-
-		// Test
-		scene->CreateMeshInstance("test", Path("models/cornellbox.obj"));
 	}
 
 	void SceneView::Update(F32 dt)
@@ -192,9 +189,9 @@ namespace Editor
 
 			editorRenderer->SetCamera(&worldView->camera);
 
-			const ImVec2 mousePos = ImGui::GetCursorScreenPos();
-			screenPos.x = I32(mousePos.x);
-			screenPos.y = I32(mousePos.y);
+			ImVec2 mouseScreenPos = ImGui::GetCursorScreenPos();
+			screenPos.x = I32(mouseScreenPos.x);
+			screenPos.y = I32(mouseScreenPos.y);
 			screenSize.x = (I32)size.x;
 			screenSize.y = (I32)size.y;
 
@@ -211,6 +208,21 @@ namespace Editor
 			if (backTex)
 				ImGui::Image(graph.GetPhysicalTexture(backRes).GetImage(), size);
 
+			// process drop target
+			if (ImGui::BeginDragDropTarget()) 
+			{
+				if (auto* payload = ImGui::AcceptDragDropPayload("ResPath")) 
+				{
+					const ImVec2 mousePos = ImGui::GetMousePos();
+					const ImVec2 dropPos = ImVec2(
+						(mousePos.x - mouseScreenPos.y) / size.x,
+						(mousePos.x - mouseScreenPos.y) / size.y );
+					HandleDrop((const char*)payload->Data, dropPos.x, dropPos.y);
+				}
+				ImGui::EndDragDropTarget();
+			}
+
+			// Handle input events 
 			HandleEvents();
 
 			// Maybe should call it in SceneView::Update()
@@ -299,6 +311,23 @@ namespace Editor
 	{
 		const auto cp = Platform::GetMouseScreenPos();
 		return I32x2(cp.x - screenPos.x, cp.y - screenPos.y);
+	}
+
+	void SceneView::HandleDrop(const char* path, float x, float y)
+	{
+		RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+		if (scene == nullptr)
+			return;
+
+		char tmp[20];
+		CopyString(Span(tmp), Path::GetExtension(Span(path, StringLength(path))));
+		if (EqualIStrings(tmp, "obj"))
+		{
+			char name[64];
+			CopyString(Span(name), Path::GetBaseName(path));
+			scene->GetWorld().GetValidEntityName(name);
+			scene->LoadModel(name, Path(path));
+		}
 	}
 }
 }

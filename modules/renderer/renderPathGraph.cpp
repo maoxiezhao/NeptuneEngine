@@ -65,7 +65,8 @@ namespace VulkanTest
 		for(const auto& color : outputColors)
 			composePass.ReadTexture(color.c_str());
 
-		composePass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
+		composePass.SetClearColorCallback([](U32 index, VkClearColorValue* value) 
+		{
 			if (value != nullptr)
 			{
 				value->float32[0] = 0.0f;

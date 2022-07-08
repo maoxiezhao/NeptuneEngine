@@ -186,9 +186,6 @@ namespace Renderer
 	{
 		Logger::Info("Render initialized");
 
-		// Reflect render scene
-		RenderScene::Reflect();
-
 		InitStockStates();
 		LoadShaders();
 
@@ -224,12 +221,6 @@ namespace Renderer
 	{
 		ASSERT(rendererPlugin != nullptr);
 		return rendererPlugin->GetDevice();
-	}
-
-	RenderScene* GetScene()
-	{
-		ASSERT(rendererPlugin != nullptr);
-		return rendererPlugin->GetScene();
 	}
 
 	const GPU::BlendState& GetBlendState(BlendStateTypes type)
@@ -272,44 +263,6 @@ namespace Renderer
 		cmd.BindConstant(cb, 0, CBSLOT_RENDERER_CAMERA);
 	}
 
-	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, RENDERPASS renderPass, U32 renderFlags)
-	{
-		if (queue.Empty())
-			return;
-
-		// cmd.BeginEvent("DrawMeshes");
-
-		//RenderScene* scene = Renderer::GetScene();
-		//for (auto& batch : queue.batches)
-		//{
-		//	MeshComponent* mesh = scene->GetComponent<MeshComponent>(batch.mesh);
-		//	if (mesh == nullptr)
-		//		continue;
-
-		//	cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-		//	cmd.BindIndexBuffer(mesh->ibo, 0, VK_INDEX_TYPE_UINT32);
-		//	cmd.BindVertexBuffer(mesh->vboPos, 0, 0, sizeof(F32x3), VK_VERTEX_INPUT_RATE_VERTEX);
-		//	cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0);
-
-		//	for (U32 index = 0; index < mesh->subsets.size(); index++)
-		//	{
-		//		MeshComponent::MeshSubset& subset = mesh->subsets[index];
-		//		if (subset.indexCount == 0)
-		//			continue;
-
-		//		// Set rendering state
-		//		cmd.SetProgram(
-		//			GetShader(SHADERTYPE_VS_OBJECT), 
-		//			GetShader(SHADERTYPE_PS_OBJECT)
-		//		);
-		//		cmd.SetDefaultOpaqueState();
-		//		cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);
-		//	}
-		//}
-
-		cmd.EndEvent();
-	}
-
 	void BindCommonResources(GPU::CommandList& cmd)
 	{
 		auto heap = cmd.GetDevice().GetBindlessDescriptorHeap(GPU::BindlessReosurceType::StorageBuffer);
@@ -319,20 +272,34 @@ namespace Renderer
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
 	}
 
-	void DrawMesh(GPU::CommandList& cmd, MeshComponent& meshComp)
+	static int a = 0;
+	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, const Visibility& vis, RENDERPASS renderPass, U32 renderFlags)
 	{
-		if (meshComp.mesh == nullptr || meshComp.meshCount <= 0)
+		if (queue.Empty())
 			return;
 
-		auto& device = cmd.GetDevice();
+		if (!vis.meshes.empty())
+		{
+			if (a++ < 1)
+				return;
+		}
+
 		cmd.BeginEvent("DrawMeshes");
 
 		BindCommonResources(cmd);
 		cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
-		for (int i = 0; i < meshComp.meshCount; i++)
+		RenderScene* scene = vis.scene;
+		for (auto& batch : queue.batches)
 		{
-			Mesh& mesh = meshComp.mesh[i];
+			MeshComponent* meshCmp = scene->GetComponent<MeshComponent>(batch.mesh);
+			if (meshCmp == nullptr ||
+				meshCmp->model == ECS::INVALID_ENTITY ||
+				meshCmp->meshIndex < 0)
+				continue;
+
+			ModelComponent* modelCmp = scene->GetComponent<ModelComponent>(meshCmp->model);
+			Mesh& mesh = modelCmp->mesh[meshCmp->meshIndex];
 
 			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, VK_INDEX_TYPE_UINT32);
 
@@ -356,7 +323,6 @@ namespace Renderer
 		cmd.EndEvent();
 	}
 
-
 	void DrawScene(GPU::CommandList& cmd, const Visibility& vis)
 	{
 		RenderScene* scene = vis.scene;
@@ -364,18 +330,11 @@ namespace Renderer
 			return;
 
 		cmd.BeginEvent("DrawScene");
-
-		scene->ForEachMeshes([&](ECS::EntityID entity, MeshComponent& mesh) {
-			if (mesh.model)
-				DrawMesh(cmd, mesh);
-		});
-
-	/*	RenderScene* secne = Renderer::GetScene();
 		RenderQueue queue;
-		for (auto meshID : vis.objects)
+		for (auto meshID : vis.meshes)
 		{
-			MeshComponent* mesh = secne->GetComponent<MeshComponent>(meshID);
-			if (mesh == nullptr)
+			MeshComponent* mesh = scene->GetComponent<MeshComponent>(meshID);
+			if (mesh == nullptr || mesh->model == ECS::INVALID_ENTITY)
 				continue;
 
 			RenderBatch batch = {};
@@ -384,7 +343,7 @@ namespace Renderer
 		}
 
 		if (!queue.Empty())
-			DrawMeshes(cmd, queue, RENDERPASS::RENDERPASS_MAIN, 0);*/
+			DrawMeshes(cmd, queue, vis, RENDERPASS::RENDERPASS_MAIN, 0);
 
 		cmd.EndEvent();
 	}

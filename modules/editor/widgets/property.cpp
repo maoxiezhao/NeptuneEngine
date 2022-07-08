@@ -100,6 +100,28 @@ namespace Editor
 			ImGui::Text("%s", tmp);
 		}
 
+		TransformComponent* transformComp = world->GetComponent<TransformComponent>(entity);
+		if (transformComp != nullptr)
+		{
+			auto& transform = transformComp->transform;
+			ImGuiEx::Label("Position");
+			if (ImGui::DragScalarN("##pos", ImGuiDataType_Double, transform.translation.data, 3, 1.f, 0, 0, "%.3f"))
+				transform.isDirty = true;
+
+			ImGuiEx::Label("Rotation");
+			if (ImGui::DragScalarN("##rotation", ImGuiDataType_Double, transform.rotation.data, 4, 1.f, 0, 0, "%.3f"))
+				transform.isDirty = true;
+
+			F32 scale = transform.scale.x;
+			ImGuiEx::Label("Scale");
+			if (ImGui::DragFloat("##scale", &scale, 0.1f, 0, FLT_MAX))
+			{
+				transform.scale.y = transform.scale.x;
+				transform.scale.z = transform.scale.x;
+				transform.isDirty = true;
+			}		
+		}
+
 		ImGui::TreePop();
 	}
 }

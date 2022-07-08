@@ -29,9 +29,9 @@ namespace VulkanTest
 		void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd);
 
 		void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd);
+		void BindCommonResources(GPU::CommandList& cmd);
 
 		GPU::DeviceVulkan* GetDevice();
-		RenderScene* GetScene();
 
 		const GPU::BlendState& GetBlendState(BlendStateTypes type);
 		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);

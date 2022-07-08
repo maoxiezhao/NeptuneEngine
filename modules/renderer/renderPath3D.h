@@ -23,6 +23,10 @@ namespace VulkanTest
 			return camera;
 		}
 
+		const String GetLastRenderPassRT()const {
+			return lastRenderPassRT;
+		}
+
 	protected:
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void UpdateRenderData() override;
@@ -34,5 +38,6 @@ namespace VulkanTest
 		Visibility visibility;
 		CameraComponent* camera = nullptr;
 		FrameCB frameCB = {};
+		String lastRenderPassRT;
 	};
 }

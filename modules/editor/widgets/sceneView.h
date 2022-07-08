@@ -58,6 +58,7 @@ namespace Editor
         void HandleEvents();
         void CaptureMouse(bool capture);
         I32x2 GetLocalMousePoint()const;
+        void HandleDrop(const char* path, float x, float y);
 
     private:
         EditorApp& app;

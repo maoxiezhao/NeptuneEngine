@@ -2,6 +2,7 @@
 #include "renderer.h"
 #include "culling.h"
 #include "gpu\vulkan\wsi.h"
+#include "core\scene\reflection.h"
 
 namespace VulkanTest
 {
@@ -64,12 +65,15 @@ namespace VulkanTest
             engine(engine_),
             world(world_)
         {
+            // Reflect render scene
+            RenderScene::Reflect(&world);
+
             cullingSystem = CullingSystem::Create();
 
             meshQuery = world.CreateQuery<MeshComponent>().Build();
-            world.SetComponenetOnRemoved<MeshComponent>([&](ECS::EntityID entity, MeshComponent& mesh) {
-                if (mesh.model)
-                    modelEntityMap.erase(mesh.model.get());
+            world.SetComponenetOnRemoved<ModelComponent>([&](ECS::EntityID entity, ModelComponent& model) {
+                if (model.model)
+                    modelEntityMap.erase(model.model.get());
             });
         }
 
@@ -153,6 +157,16 @@ namespace VulkanTest
             return rendererPlugin;
         }
 
+        ECS::EntityID CreateEntity(const char* name) override
+        {
+            return world.CreateEntity(name).entity;
+        }
+
+        void DestroyEntity(ECS::EntityID entity)override
+        {
+            world.DeleteEntity(entity);
+        }
+
         CameraComponent* GetMainCamera()override
         {
             return &mainCamera;
@@ -163,15 +177,18 @@ namespace VulkanTest
             cullingSystem->Cull(vis, *this);
         }
 
-        ECS::EntityID CreateMeshInstance(const char* name, const Path& path)override
+        void AddMeshInstance(ECS::EntityID entity)
         {
-            ECS::EntityID entity = world.CreateEntity(name)
+            world.AddComponent<TransformComponent>(entity);
+            world.AddComponent<MeshComponent>(entity);
+        }
+
+        ECS::EntityID CreateMeshInstance(const char* name)override
+        {
+            return world.CreateEntity(name)
                 .With<TransformComponent>()
                 .With<MeshComponent>()
                 .entity;
-            MeshComponent* mesh = world.GetComponent<MeshComponent>(entity);
-            SetMeshInstance(entity, path);
-            return entity;
         }
         
         void ForEachMeshes(std::function<void(ECS::EntityID, MeshComponent&)> func) override
@@ -183,38 +200,25 @@ namespace VulkanTest
                 meshQuery.ForEach(func);
         }
 
-        void SetMeshInstance(ECS::EntityID entity, const Path& path)
+        void SetModelResource(ECS::EntityID entity, ResPtr<Model> model)
         {
-            if (path.IsEmpty())
-            {
-                SetMeshInstance(entity, ResPtr<Model>());
-            }
-            else
-            {
-                ResPtr<Model> model = engine.GetResourceManager().LoadResourcePtr<Model>(path);
-                SetMeshInstance(entity, std::move(model));
-            }
-        }
-
-        void SetMeshInstance(ECS::EntityID entity, ResPtr<Model> model)
-        {
-            MeshComponent* mesh = world.GetComponent<MeshComponent>(entity);
-            if (mesh->model == model)
+            ModelComponent* modelCmp = world.GetComponent<ModelComponent>(entity);
+            if (modelCmp->model == model)
                 return;
 
-            if (mesh->model)
+            if (modelCmp->model)
             {
-                RemoveFromModelEntityMap(mesh->model.get(), entity);
-                mesh->model.reset();
+                RemoveFromModelEntityMap(modelCmp->model.get(), entity);
+                modelCmp->model.reset();
             }
 
-            mesh->model = std::move(model);
+            modelCmp->model = std::move(model);
 
-            if (mesh->model)
+            if (modelCmp->model)
             {
-                AddToModelEntityMap(mesh->model.get(), entity);
-                if (mesh->model->IsReady())
-                    OnModelLoaded(mesh->model.get(), entity);
+                AddToModelEntityMap(modelCmp->model.get(), entity);
+                if (modelCmp->model->IsReady())
+                    OnModelLoaded(modelCmp->model.get(), entity);
             }
         }
 
@@ -246,16 +250,46 @@ namespace VulkanTest
         {
             ASSERT(model->IsReady());
 
-            MeshComponent* mesh = world.GetComponent<MeshComponent>(entity);
-            mesh->mesh = &model->GetMesh(0);
-            mesh->meshCount = model->GetMeshCount();
+            ModelComponent* modelCmp = world.GetComponent<ModelComponent>(entity);
+            modelCmp->mesh = &model->GetMesh(0);
+            modelCmp->meshCount = model->GetMeshCount();
+
+            for (int i = 0; i < modelCmp->meshCount; i++)
+            {
+                Mesh& mesh = modelCmp->mesh[i];
+                auto meshEntity = CreateMeshInstance(mesh.name.c_str());
+                MeshComponent* meshCmp = world.GetComponent<MeshComponent>(meshEntity);
+                meshCmp->meshIndex = i;
+                meshCmp->model = entity;
+            }
         }
 
         void OnModelUnloaded(Model* model, ECS::EntityID entity)
         {
-            MeshComponent* mesh = world.GetComponent<MeshComponent>(entity);
-            mesh->mesh = nullptr;
-            mesh->meshCount = 0;
+            ModelComponent* modelCmp = world.GetComponent<ModelComponent>(entity);
+            modelCmp->mesh = nullptr;
+            modelCmp->meshCount = 0;
+        }
+
+        ECS::EntityID CreateModel(const char* name)
+        {
+            return world.CreateEntity(name)
+                .With<ModelComponent>()
+                .entity;
+        }
+
+        void LoadModel(const char* name, const Path& path) override
+        {
+            ECS::EntityID entity = CreateModel(name);
+            if (path.IsEmpty())
+            {
+                SetModelResource(entity, ResPtr<Model>());
+            }
+            else
+            {
+                ResPtr<Model> model = engine.GetResourceManager().LoadResourcePtr<Model>(path);
+                SetModelResource(entity, std::move(model));
+            }
         }
 
         void OnModelStateChanged(Resource::State oldState, Resource::State newState, Resource& resource)
@@ -408,7 +442,13 @@ namespace VulkanTest
                 auto uploadBuffer = geometryUploadBuffer[device.GetFrameIndex()];
                 if (uploadBuffer)
                 {
-                    cmd.CopyBuffer(*geometryBuffer, *uploadBuffer);
+                    cmd.CopyBuffer(
+                        *geometryBuffer, 
+                        0,
+                        *uploadBuffer,
+                        0,
+                        geometryArraySize * sizeof(ShaderGeometry)
+                    );
                     cmd.BufferBarrier(*geometryBuffer,
                         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                         VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -422,7 +462,13 @@ namespace VulkanTest
                 auto uploadBuffer = materialUploadBuffer[device.GetFrameIndex()];
                 if (uploadBuffer)
                 {
-                    cmd.CopyBuffer(*materialBuffer, *uploadBuffer);
+                    cmd.CopyBuffer(
+                        *materialBuffer, 
+                        0,
+                        *uploadBuffer,
+                        0,
+                        materialArraySize * sizeof(ShaderMaterial)
+                    );
                     cmd.BufferBarrier(*materialBuffer,
                         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                         VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -438,21 +484,21 @@ namespace VulkanTest
         }
     };
 
-    class MeshUpdateSystem : public ISystem
+    class ModelUpdateSystem : public ISystem
     {
     public:
-        MeshUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
+        ModelUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
         {
-            system = scene.GetWorld().CreateSystem<MeshComponent>()
-                .ForEach([&](ECS::EntityID entity, MeshComponent& meshComp) {
+            system = scene.GetWorld().CreateSystem<ModelComponent>()
+                .ForEach([&](ECS::EntityID entity, ModelComponent& modelComp) {
 
                 auto geometryMapped = scene.geometryMapped;
                 if (!geometryMapped)
                     return;
 
-                for (int i = 0; i < meshComp.meshCount; i++)
+                for (int i = 0; i < modelComp.meshCount; i++)
                 {
-                    Mesh& mesh = meshComp.mesh[i];
+                    Mesh& mesh = modelComp.mesh[i];
 
                     ShaderGeometry geometry;
                     geometry.vbPos = mesh.vbPos.srv->GetIndex();
@@ -471,8 +517,37 @@ namespace VulkanTest
         }
     };
 
+    class MeshUpdateSystem : public ISystem
+    {
+    public:
+        MeshUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
+        {
+            system = scene.GetWorld().CreateSystem<MeshComponent>()
+                .ForEach([&](ECS::EntityID entity, MeshComponent& meshComp) {
+
+                auto geometryMapped = scene.geometryMapped;
+                if (!geometryMapped)
+                    return;
+
+                if (meshComp.meshIndex < 0 || meshComp.model == ECS::INVALID_ENTITY)
+                    return;
+
+                AABB& aabb = meshComp.aabb;
+                aabb = AABB();
+
+                auto modelComp = scene.GetWorld().GetComponent<ModelComponent>(meshComp.model);
+                if (modelComp != nullptr && modelComp->meshCount > meshComp.meshIndex)
+                {
+                    Mesh* mesh = &modelComp->mesh[meshComp.meshIndex];
+                    aabb = mesh->aabb;
+                }
+            });
+        }
+    };
+
     void RenderSceneImpl::InitSystems()
     {
+        AddSystem(CJING_NEW(ModelUpdateSystem)(*this));
         AddSystem(CJING_NEW(MeshUpdateSystem)(*this));
     }
 
@@ -481,7 +556,9 @@ namespace VulkanTest
         return CJING_MAKE_UNIQUE<RenderSceneImpl>(rendererPlugin, engine, world);
     }
 
-    void RenderScene::Reflect()
+    void RenderScene::Reflect(World* world)
     {
+        Reflection::Builder builder = Reflection::BuildScene(world, "RenderScene");
+        builder.Component<MeshComponent, &RenderScene::CreateMeshInstance, &RenderScene::DestroyEntity>("MeshInstance");
     }
 }

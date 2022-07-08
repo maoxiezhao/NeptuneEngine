@@ -113,6 +113,13 @@ namespace VulkanTest
 		return ext;
 	}
 
+	bool Path::HasExtension(const char* path, const char* ext)
+	{
+		char tmp[20];
+		CopyString(Span(tmp), GetExtension(Span(path, StringLength(path))));
+		return EqualIStrings(tmp, ext);
+	}
+
 	bool Path::IsAbsolutePath(const char* path)
 	{
 		return false;

@@ -321,7 +321,13 @@ namespace Editor
                 if (ImGui::IsItemHovered()) 
                     ImGui::SetTooltip("%s", tile.filepath.data);
 
-                if (ImGui::IsItemHovered())
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+                {
+                    ImGui::Text("%s", (const char*)tile.filepath);
+                    ImGui::SetDragDropPayload("ResPath", tile.filepath, StringLength(tile.filepath) + 1, ImGuiCond_Once);
+                    ImGui::EndDragDropSource();
+                }
+                else if (ImGui::IsItemHovered())
                 {
                     if (ImGui::IsMouseReleased(0))
                         SelectResource(Path(tile.filepath));

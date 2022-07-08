@@ -40,11 +40,18 @@ namespace VulkanTest
 		void UpdateTransform(const Transform& transform);
 	};
 
-	struct MeshComponent
+	struct ModelComponent
 	{
 		ResPtr<Model> model;
 		Mesh* mesh = nullptr;
 		U32 meshCount = 0;
+	};
+
+	struct MeshComponent
+	{
+		ECS::EntityID model = ECS::INVALID_ENTITY;
+		I32 meshIndex = -1;
+		AABB aabb;
 	};
 
 	class VULKAN_TEST_API RenderPassPlugin
@@ -70,19 +77,26 @@ namespace VulkanTest
 		using EntityMap = std::unordered_map<T, ECS::EntityID>;
 
 		static UniquePtr<RenderScene> CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world);
-		static void Reflect();
+		static void Reflect(World* world);
 
 		virtual void UpdateVisibility(struct Visibility& vis) = 0;
 		virtual void UpdateRenderData(GPU::CommandList& cmd) = 0;
 
 		virtual const ShaderSceneCB& GetShaderScene()const = 0;
 
+		virtual ECS::EntityID CreateEntity(const char* name) = 0;
+		virtual void DestroyEntity(ECS::EntityID entity) = 0;
+
 		// Camera
 		virtual CameraComponent* GetMainCamera() = 0;
 
-		// MeshInstance
-		virtual ECS::EntityID CreateMeshInstance(const char* name, const Path& path) = 0;
+		// Model
+		virtual void LoadModel(const char* name, const Path& path) = 0;
+
+		// Mesh
+		virtual ECS::EntityID CreateMeshInstance(const char* name) = 0;
 		virtual void ForEachMeshes(std::function<void(ECS::EntityID, MeshComponent&)> func) = 0;
+
 
 		template<typename C>
 		C* GetComponent(ECS::EntityID entity)

@@ -21,6 +21,7 @@ namespace VulkanTest
 	int  CompareString(const char* lhs, const char* rhs);
 	bool EqualString(const char* lhs, const char* rhs);
 	bool EqualString(Span<const char> lhs, Span<const char> rhs);
+	bool EqualIStrings(const char* lhs, const char* rhs);
 	int  FindStringChar(const char* str, const char c, int pos);
 	int  ReverseFindChar(const char* str, const char c);
 	int  FindSubstring(const char* str, const char* substr, int pos);

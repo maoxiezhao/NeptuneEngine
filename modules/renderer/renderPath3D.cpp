@@ -5,6 +5,28 @@
 
 namespace VulkanTest
 {
+	static bool DefaultClearColorFunc(U32 index, VkClearColorValue* value) 
+	{
+		if (value != nullptr)
+		{
+			value->float32[0] = 0.0f;
+			value->float32[1] = 0.0f;
+			value->float32[2] = 0.0f;
+			value->float32[3] = 1.0f;
+		}
+		return true;
+	}
+
+	static bool DefaultClearDepthFunc(VkClearDepthStencilValue* value) 
+	{
+		if (value != nullptr)
+		{
+			value->depth = 0.0f;
+			value->stencil = 1.0f;
+		}
+		return true;
+	}
+
 	void RenderPath3D::Update(float dt)
 	{
 		RenderScene* scene = GetScene();
@@ -44,28 +66,17 @@ namespace VulkanTest
 		depth.sizeX = (F32)backbufferDim.width;
 		depth.sizeY = (F32)backbufferDim.height;
 
+		auto WriteRenderPassColor = [&](RenderPass& rp, const char* name, const AttachmentInfo& attachment) {
+			rp.WriteColor(name, attachment);
+			lastRenderPassRT = name;
+		};
+
 		// Main opaque pass
 		auto& opaquePass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
-		opaquePass.WriteColor("rtFinal3D", rtAttachmentInfo);
-		opaquePass.SetClearColorCallback([](U32 index, VkClearColorValue* value) {
-			if (value != nullptr)
-			{
-				value->float32[0] = 0.0f;
-				value->float32[1] = 0.0f;
-				value->float32[2] = 0.0f;
-				value->float32[3] = 1.0f;
-			}
-			return true;
-			});
+		WriteRenderPassColor(opaquePass, "rtFinal3D", rtAttachmentInfo);
+		opaquePass.SetClearColorCallback(DefaultClearColorFunc);
 		opaquePass.WriteDepthStencil("depth", depth);
-		opaquePass.SetClearDepthStencilCallback([](VkClearDepthStencilValue* value) {
-			if (value != nullptr)
-			{
-				value->depth = 0.0f;
-				value->stencil = 1.0f;
-			}
-			return true;
-		});
+		opaquePass.SetClearDepthStencilCallback(DefaultClearDepthFunc);
 		opaquePass.SetBuildCallback([&](GPU::CommandList& cmd) {
 
 			GPU::Viewport viewport;
@@ -77,7 +88,7 @@ namespace VulkanTest
 			Renderer::DrawScene(cmd, visibility);
 		});
 
-		AddOutputColor("rtFinal3D");
+		AddOutputColor(GetLastRenderPassRT());
 		RenderPath2D::SetupPasses(renderGraph);
 	}
 
@@ -85,19 +96,19 @@ namespace VulkanTest
 	{
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		auto cmd = device->RequestCommandList(GPU::QueueType::QUEUE_TYPE_GRAPHICS);
-		Renderer::UpdateRenderData(visibility, frameCB, *cmd);
+		Renderer::UpdateRenderData(visibility, frameCB, *cmd);	
 		device->Submit(cmd);
 	}
 
 	void RenderPath3D::Compose(RenderGraph& renderGraph, GPU::CommandList* cmd)
 	{
-		auto res = renderGraph.GetOrCreateTexture("rtFinal3D");
-		auto& imgFinal3D = renderGraph.GetPhysicalTexture(res);
+		auto res = renderGraph.GetOrCreateTexture(GetLastRenderPassRT().c_str());
+		auto& img = renderGraph.GetPhysicalTexture(res);
 
 		ImageUtil::Params params = {};
 
 		cmd->BeginEvent("Compose3D");
-		ImageUtil::Draw(imgFinal3D.GetImage(), params, *cmd);
+		ImageUtil::Draw(img.GetImage(), params, *cmd);
 		cmd->EndEvent();
 
 		RenderPath2D::Compose(renderGraph, cmd);

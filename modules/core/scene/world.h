@@ -43,6 +43,7 @@ namespace VulkanTest
 
 		const ECS::EntityBuilder& CreateEntity(const char* name);
 		const ECS::EntityBuilder& CreatePrefab(const char* name);
+		void GetValidEntityName(char(&out)[64]);
 		ECS::EntityID CreateEntityID(const char* name);
 		ECS::EntityID FindEntity(const char* name);
 		ECS::EntityID EntityExists(ECS::EntityID entity)const;
@@ -56,6 +57,12 @@ namespace VulkanTest
 		bool HasComponent(ECS::EntityID entity)
 		{
 			return world->HasComponent<C>(entity);
+		}
+
+		template<typename C>
+		ECS::EntityID GetComponentID()
+		{
+			return ECS::ComponentType<C>::ID(*world);
 		}
 
 		template<typename C>
@@ -74,6 +81,12 @@ namespace VulkanTest
 		void EachChildren(ECS::EntityID entity, Func&& func)
 		{
 			world->EachChildren(entity, ECS_MOV(func));
+		}
+
+		template<typename C>
+		void AddComponent(ECS::EntityID entity)
+		{
+			world->AddComponent<C>(entity);
 		}
 
 		template<typename T, typename Func>

@@ -44,6 +44,12 @@ namespace VulkanTest
 		return world->CreatePrefab(name);
 	}
 
+	void World::GetValidEntityName(char(&out)[64])
+	{
+		while (world->FindEntityIDByName(out) != ECS::INVALID_ENTITY)
+			CatString(out, "_");
+	}
+
 	ECS::EntityID World::CreateEntityID(const char* name)
 	{
 		ECS::EntityID id = world->CreateEntityID(name);
