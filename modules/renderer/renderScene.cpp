@@ -43,7 +43,9 @@ namespace VulkanTest
         UniquePtr<CullingSystem> cullingSystem;
 
         EntityMap<Model*> modelEntityMap;
+        ECS::Query<ObjectComponent> objectQuery;
         ECS::Query<MeshComponent> meshQuery;
+        ECS::Query<MaterialComponent> materialQuery;
 
         // Runtime rendering infos
         GPU::BufferPtr geometryBuffer;
@@ -54,6 +56,7 @@ namespace VulkanTest
 
         GPU::BufferPtr materialBuffer;
         U32 materialArraySize = 0;
+        ShaderMaterial* materialMapped = nullptr;
         GPU::BufferPtr materialUploadBuffer[2];
         GPU::BindlessDescriptorPtr bindlessMaterialBuffer;
 
@@ -70,8 +73,11 @@ namespace VulkanTest
 
             cullingSystem = CullingSystem::Create();
 
+            objectQuery = world.CreateQuery<ObjectComponent>().Build();
             meshQuery = world.CreateQuery<MeshComponent>().Build();
-            world.SetComponenetOnRemoved<ModelComponent>([&](ECS::EntityID entity, ModelComponent& model) {
+            materialQuery = world.CreateQuery<MaterialComponent>().Build();
+
+            world.SetComponenetOnRemoved<LoadModelComponent>([&](ECS::EntityID entity, LoadModelComponent& model) {
                 if (model.model)
                     modelEntityMap.erase(model.model.get());
             });
@@ -123,19 +129,21 @@ namespace VulkanTest
 
         void Update(float dt, bool paused)override
         {
+            GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
+
             UpdateSceneBuffers();
 
+            // Update upload material buffer
+            if (materialUploadBuffer[device.GetFrameIndex()])
+                materialMapped = (ShaderMaterial*)materialUploadBuffer[device.GetFrameIndex()]->GetAllcation().hostBase;
+            
             // Update upload geometry buffer
-            GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
             if (geometryUploadBuffer[device.GetFrameIndex()])
-                geometryMapped = (ShaderGeometry*)device.MapBuffer(*geometryUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
+                geometryMapped = (ShaderGeometry*)geometryUploadBuffer[device.GetFrameIndex()]->GetAllcation().hostBase;
 
             // Update systems
             for (auto system : systems)
                 system->UpdateSystem();
-
-            if (geometryMapped)
-                device.UnmapBuffer(*geometryUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
 
             // Update shader scene
             sceneCB.geometrybuffer = bindlessGeometryBuffer ? bindlessGeometryBuffer->GetIndex() : -1;
@@ -177,32 +185,40 @@ namespace VulkanTest
             cullingSystem->Cull(vis, *this);
         }
 
-        void AddMeshInstance(ECS::EntityID entity)
-        {
-            world.AddComponent<TransformComponent>(entity);
-            world.AddComponent<MeshComponent>(entity);
-        }
-
-        ECS::EntityID CreateMeshInstance(const char* name)override
+        ECS::EntityID CreateObject(const char* name)override
         {
             return world.CreateEntity(name)
                 .With<TransformComponent>()
-                .With<MeshComponent>()
+                .With<ObjectComponent>()
                 .entity;
         }
         
-        void ForEachMeshes(std::function<void(ECS::EntityID, MeshComponent&)> func) override
+        void ForEachObjects(std::function<void(ECS::EntityID, ObjectComponent&)> func) override
         {
             if (!geometryBuffer || !materialBuffer)
                 return;
 
-            if (meshQuery.Valid())
-                meshQuery.ForEach(func);
+            if (objectQuery.Valid())
+                objectQuery.ForEach(func);
         }
 
-        void SetModelResource(ECS::EntityID entity, ResPtr<Model> model)
+        ECS::EntityID CreateMesh(const char* name) override
         {
-            ModelComponent* modelCmp = world.GetComponent<ModelComponent>(entity);
+            return world.CreateEntity(name)
+                .With<MeshComponent>()
+                .entity;
+        }
+
+        ECS::EntityID CreateMaterial(const char* name) override
+        {
+            return world.CreateEntity(name)
+                .With<MaterialComponent>()
+                .entity;
+        }
+
+        void LoadModelResource(ECS::EntityID entity, ResPtr<Model> model)
+        {
+            LoadModelComponent* modelCmp = world.GetComponent<LoadModelComponent>(entity);
             if (modelCmp->model == model)
                 return;
 
@@ -250,45 +266,54 @@ namespace VulkanTest
         {
             ASSERT(model->IsReady());
 
-            ModelComponent* modelCmp = world.GetComponent<ModelComponent>(entity);
-            modelCmp->mesh = &model->GetMesh(0);
-            modelCmp->meshCount = model->GetMeshCount();
-
-            for (int i = 0; i < modelCmp->meshCount; i++)
+            LoadModelComponent* modelCmp = world.GetComponent<LoadModelComponent>(entity);
+            for (int i = 0; i < model->GetMeshCount(); i++)
             {
-                Mesh& mesh = modelCmp->mesh[i];
-                auto meshEntity = CreateMeshInstance(mesh.name.c_str());
+                Mesh& mesh = model->GetMesh(i);
+                auto meshEntity = CreateMesh(mesh.name.c_str());
                 MeshComponent* meshCmp = world.GetComponent<MeshComponent>(meshEntity);
-                meshCmp->meshIndex = i;
-                meshCmp->model = entity;
+                meshCmp->model = modelCmp->model;
+                meshCmp->mesh = &mesh;
+
+                for (auto& subset : mesh.subsets)
+                {
+                    if (subset.material)
+                    {
+                        char name[64];
+                        CopyString(Span(name), Path::GetBaseName(subset.material->GetPath().c_str()));
+                        auto materialEntity = CreateMaterial(name);
+                        MaterialComponent* material = world.GetComponent<MaterialComponent>(materialEntity);
+                        material->material = subset.material;
+                        
+                        subset.materialID = materialEntity;
+                    }
+                }
+
+                auto objectEntity = CreateObject(world.GetEntityName(entity));
+                ObjectComponent* obj = world.GetComponent<ObjectComponent>(objectEntity);
+                obj->mesh = meshEntity;
             }
+
+            RemoveFromModelEntityMap(model, entity);
+            world.DeleteEntity(entity);
         }
 
         void OnModelUnloaded(Model* model, ECS::EntityID entity)
         {
-            ModelComponent* modelCmp = world.GetComponent<ModelComponent>(entity);
-            modelCmp->mesh = nullptr;
-            modelCmp->meshCount = 0;
-        }
-
-        ECS::EntityID CreateModel(const char* name)
-        {
-            return world.CreateEntity(name)
-                .With<ModelComponent>()
-                .entity;
+            world.DeleteEntity(entity);
         }
 
         void LoadModel(const char* name, const Path& path) override
         {
-            ECS::EntityID entity = CreateModel(name);
+            ECS::EntityID entity = world.CreateEntity(name).With<LoadModelComponent>().entity;
             if (path.IsEmpty())
             {
-                SetModelResource(entity, ResPtr<Model>());
+                LoadModelResource(entity, ResPtr<Model>());
             }
             else
             {
                 ResPtr<Model> model = engine.GetResourceManager().LoadResourcePtr<Model>(path);
-                SetModelResource(entity, std::move(model));
+                LoadModelResource(entity, std::move(model));
             }
         }
 
@@ -314,22 +339,14 @@ namespace VulkanTest
             GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
 
             // Create material buffer
-            Array<Material*> materials;
-            for (auto kvp : modelEntityMap)
+            materialArraySize = 0;
+            if (materialQuery.Valid())
             {
-                auto model = kvp.first;
-                for (int i = 0; i < model->GetMeshCount(); i++)
-                {
-                    auto& mesh = model->GetMesh(i);
-                    for (auto& subset : mesh.subsets)
-                    {
-                        if (subset.material)
-                            materials.push_back(subset.material.get());
-                    }
-                }
+                materialQuery.ForEach([&](ECS::EntityID entity, MaterialComponent& mat) {
+                    mat.materialIndex = materialArraySize;
+                    materialArraySize++;
+                });
             }
-            materialArraySize = materials.size();
-
             U32 materialBufferSize = materialArraySize * sizeof(ShaderMaterial);
             if (materialArraySize > 0 && (!materialBuffer || materialBuffer->GetCreateInfo().size < materialBufferSize))
             {
@@ -355,35 +372,17 @@ namespace VulkanTest
                 bindlessMaterialBuffer = device.CreateBindlessStroageBuffer(*materialBuffer, 0, materialBuffer->GetCreateInfo().size);
             }
 
-            // Update upload material buffer
-            ShaderMaterial* materialMapped = nullptr;
-            if (materialUploadBuffer[device.GetFrameIndex()])
-                materialMapped = (ShaderMaterial*)device.MapBuffer(*materialUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
-            if (materialMapped == nullptr)
-                return;
-
-            for (int i = 0; i < materials.size(); i++)
-            {
-                auto& material = materials[i];
-
-                ShaderMaterial shaderMaterial;
-                shaderMaterial.baseColor = material->GetColor().ToFloat4();
-
-                memcpy(materialMapped + i, &shaderMaterial, sizeof(ShaderMaterial));
-            }
-            device.UnmapBuffer(*materialUploadBuffer[device.GetFrameIndex()], GPU::MEMORY_ACCESS_WRITE_BIT);
-
             // Create geometry buffer
             geometryArraySize = 0;
-            for (auto kvp : modelEntityMap)
+            if (meshQuery.Valid())
             {
-                auto model = kvp.first;
-                for (int i = 0; i < model->GetMeshCount(); i++)
-                {
-                    Mesh& mesh = model->GetMesh(i);
-                    mesh.geometryOffset = geometryArraySize;
-                    geometryArraySize += mesh.subsets.size();
-                }
+                meshQuery.ForEach([&](ECS::EntityID entity, MeshComponent& meshComp) {
+                    if (meshComp.mesh != nullptr)
+                    {
+                        meshComp.geometryOffset = geometryArraySize;
+                        geometryArraySize += meshComp.mesh->subsets.size();
+                    }
+                });
             }
 
             U32 geometryBufferSize = geometryArraySize * sizeof(ShaderGeometry);
@@ -409,28 +408,6 @@ namespace VulkanTest
                 }
 
                 bindlessGeometryBuffer = device.CreateBindlessStroageBuffer(*geometryBuffer, 0, geometryBuffer->GetCreateInfo().size);
-            }
-
-            // Update material index
-            for (auto kvp : modelEntityMap)
-            {
-                auto model = kvp.first;
-                for (int i = 0; i < model->GetMeshCount(); i++)
-                {
-                    auto& mesh = model->GetMesh(i);
-                    for (auto& subset : mesh.subsets)
-                    {
-                        U32 materialIndex = 0;
-                        for (auto material : materials)
-                        {
-                            if (subset.material.get() == material)
-                                break;
-
-                            materialIndex++;
-                        }
-                        subset.materialIndex = materialIndex;
-                    }
-                }
             }
         }
 
@@ -484,35 +461,22 @@ namespace VulkanTest
         }
     };
 
-    class ModelUpdateSystem : public ISystem
+    class MaterialUpdateSystem : public ISystem
     {
     public:
-        ModelUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
+        MaterialUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
         {
-            system = scene.GetWorld().CreateSystem<ModelComponent>()
-                .ForEach([&](ECS::EntityID entity, ModelComponent& modelComp) {
+            system = scene.GetWorld().CreateSystem<MaterialComponent>()
+                .ForEach([&](ECS::EntityID entity, MaterialComponent& materialComp) {
 
-                auto geometryMapped = scene.geometryMapped;
-                if (!geometryMapped)
+                auto materialMapped = scene.materialMapped;
+                if (!materialMapped || !materialComp.material)
                     return;
 
-                for (int i = 0; i < modelComp.meshCount; i++)
-                {
-                    Mesh& mesh = modelComp.mesh[i];
+                ShaderMaterial shaderMaterial;
+                shaderMaterial.baseColor = materialComp.material->GetColor().ToFloat4();
 
-                    ShaderGeometry geometry;
-                    geometry.vbPos = mesh.vbPos.srv->GetIndex();
-                    geometry.vbNor = mesh.vbNor.srv->GetIndex();
-                    geometry.vbUVs = mesh.vbUVs.srv->GetIndex();
-                    geometry.ib = 0;
-
-                    U32 subsetIndex = 0;
-                    for (auto& subset : mesh.subsets)
-                    {
-                        memcpy(geometryMapped + mesh.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
-                        subsetIndex++;
-                    }
-                }
+                memcpy(materialMapped + materialComp.materialIndex, &shaderMaterial, sizeof(ShaderMaterial));
             });
         }
     };
@@ -526,20 +490,44 @@ namespace VulkanTest
                 .ForEach([&](ECS::EntityID entity, MeshComponent& meshComp) {
 
                 auto geometryMapped = scene.geometryMapped;
-                if (!geometryMapped)
+                if (!geometryMapped || !meshComp.mesh)
                     return;
 
-                if (meshComp.meshIndex < 0 || meshComp.model == ECS::INVALID_ENTITY)
+                Mesh& mesh = *meshComp.mesh;
+                ShaderGeometry geometry;
+                geometry.vbPos = mesh.vbPos.srv->GetIndex();
+                geometry.vbNor = mesh.vbNor.srv->GetIndex();
+                geometry.vbUVs = mesh.vbUVs.srv->GetIndex();
+                geometry.ib = 0;
+
+                U32 subsetIndex = 0;
+                for (auto& subset : mesh.subsets)
+                {
+                    memcpy(geometryMapped + meshComp.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                    subsetIndex++;
+                }
+            });
+        }
+    };
+
+    class ObjectUpdateSystem : public ISystem
+    {
+    public:
+        ObjectUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
+        {
+            system = scene.GetWorld().CreateSystem<ObjectComponent>()
+                .ForEach([&](ECS::EntityID entity, ObjectComponent& objComp) {
+
+                if (objComp.mesh == ECS::INVALID_ENTITY)
                     return;
 
-                AABB& aabb = meshComp.aabb;
+                AABB& aabb = objComp.aabb;
                 aabb = AABB();
 
-                auto modelComp = scene.GetWorld().GetComponent<ModelComponent>(meshComp.model);
-                if (modelComp != nullptr && modelComp->meshCount > meshComp.meshIndex)
+                auto meshComp = scene.GetWorld().GetComponent<MeshComponent>(objComp.mesh);
+                if (meshComp != nullptr && meshComp->mesh != nullptr)
                 {
-                    Mesh* mesh = &modelComp->mesh[meshComp.meshIndex];
-                    aabb = mesh->aabb;
+                    aabb = meshComp->mesh->aabb;
                 }
             });
         }
@@ -547,8 +535,9 @@ namespace VulkanTest
 
     void RenderSceneImpl::InitSystems()
     {
-        AddSystem(CJING_NEW(ModelUpdateSystem)(*this));
+        AddSystem(CJING_NEW(MaterialUpdateSystem)(*this));
         AddSystem(CJING_NEW(MeshUpdateSystem)(*this));
+        AddSystem(CJING_NEW(ObjectUpdateSystem)(*this));
     }
 
     UniquePtr<RenderScene> RenderScene::CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world)
@@ -559,6 +548,6 @@ namespace VulkanTest
     void RenderScene::Reflect(World* world)
     {
         Reflection::Builder builder = Reflection::BuildScene(world, "RenderScene");
-        builder.Component<MeshComponent, &RenderScene::CreateMeshInstance, &RenderScene::DestroyEntity>("MeshInstance");
+        builder.Component<ObjectComponent, &RenderScene::CreateObject, &RenderScene::DestroyEntity>("Object");
     }
 }

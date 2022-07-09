@@ -11,13 +11,14 @@ namespace VulkanTest
         {
             vis.frustum = vis.camera->frustum;
 
-            scene.ForEachMeshes([&](ECS::EntityID entity, MeshComponent& mesh) {
-                if (mesh.model)
+            scene.ForEachObjects([&](ECS::EntityID entity, ObjectComponent& obj) 
+            {
+                if (obj.mesh != ECS::INVALID_ENTITY)
                 {
-                    if (vis.frustum.CheckBoxFast(mesh.aabb))
-                        vis.meshes.push_back(entity);
+                    if (vis.frustum.CheckBoxFast(obj.aabb))
+                        vis.objects.push_back(entity);
                 }
-             });
+            });
         }
     };
 

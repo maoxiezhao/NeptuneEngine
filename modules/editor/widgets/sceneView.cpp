@@ -325,7 +325,6 @@ namespace Editor
 		{
 			char name[64];
 			CopyString(Span(name), Path::GetBaseName(path));
-			scene->GetWorld().GetValidEntityName(name);
 			scene->LoadModel(name, Path(path));
 		}
 	}

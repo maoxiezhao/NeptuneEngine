@@ -272,17 +272,10 @@ namespace Renderer
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
 	}
 
-	static int a = 0;
 	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, const Visibility& vis, RENDERPASS renderPass, U32 renderFlags)
 	{
 		if (queue.Empty())
 			return;
-
-		if (!vis.meshes.empty())
-		{
-			if (a++ < 1)
-				return;
-		}
 
 		cmd.BeginEvent("DrawMeshes");
 
@@ -294,12 +287,10 @@ namespace Renderer
 		{
 			MeshComponent* meshCmp = scene->GetComponent<MeshComponent>(batch.mesh);
 			if (meshCmp == nullptr ||
-				meshCmp->model == ECS::INVALID_ENTITY ||
-				meshCmp->meshIndex < 0)
+				meshCmp->mesh == nullptr)
 				continue;
 
-			ModelComponent* modelCmp = scene->GetComponent<ModelComponent>(meshCmp->model);
-			Mesh& mesh = modelCmp->mesh[meshCmp->meshIndex];
+			Mesh& mesh = *meshCmp->mesh;
 
 			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, VK_INDEX_TYPE_UINT32);
 
@@ -309,9 +300,11 @@ namespace Renderer
 				if (subset.indexCount <= 0)
 					continue;
 
+				MaterialComponent* material = scene->GetComponent<MaterialComponent>(subset.materialID);
+
 				ObjectPushConstants push;
-				push.geometryIndex = mesh.geometryOffset + subsetIndex;
-				push.materialIndex = subset.materialIndex;
+				push.geometryIndex = meshCmp->geometryOffset + subsetIndex;
+				push.materialIndex = material != nullptr ? material->materialIndex : 0;
 
 				cmd.PushConstants(&push, 0, sizeof(push));
 				cmd.SetDefaultOpaqueState();
@@ -331,14 +324,14 @@ namespace Renderer
 
 		cmd.BeginEvent("DrawScene");
 		RenderQueue queue;
-		for (auto meshID : vis.meshes)
+		for (auto objectID : vis.objects)
 		{
-			MeshComponent* mesh = scene->GetComponent<MeshComponent>(meshID);
-			if (mesh == nullptr || mesh->model == ECS::INVALID_ENTITY)
+			ObjectComponent* obj = scene->GetComponent<ObjectComponent>(objectID);
+			if (obj == nullptr || obj->mesh == ECS::INVALID_ENTITY)
 				continue;
 
 			RenderBatch batch = {};
-			batch.mesh = meshID;
+			batch.mesh = obj->mesh;
 			queue.batches.push_back(batch);
 		}
 

@@ -25,11 +25,11 @@ namespace VulkanTest
         struct CameraComponent* camera = nullptr;
         Frustum frustum;
 
-        Array<ECS::EntityID> meshes;
+        Array<ECS::EntityID> objects;
 
         void Clear()
         {
-            meshes.clear();
+            objects.clear();
         }
     };
 

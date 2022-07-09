@@ -34,7 +34,10 @@ namespace VulkanTest
 
 	const ECS::EntityBuilder& World::CreateEntity(const char* name)
 	{
-		const auto& builder = world->CreateEntity(name);
+		char tmp[64];
+		CopyString(Span(tmp), name);
+		GetValidEntityName(tmp);
+		const auto& builder = world->CreateEntity(tmp);
 		entityCreated.Invoke(builder.entity);
 		return builder;
 	}

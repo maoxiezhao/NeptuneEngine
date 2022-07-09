@@ -1684,7 +1684,9 @@ namespace VulkanTest
         physicalEvents[index].invalidatedInStages[TrailingZeroes(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)] = VK_ACCESS_SHADER_READ_BIT;
         cmd->EndEvent();
 
-        device->Submit(cmd);
+        GPU::SemaphorePtr sem;
+        device->Submit(cmd, nullptr, 1, &sem);
+        device->AddWaitSemaphore(GPU::QueueIndices::QUEUE_INDEX_GRAPHICS, sem, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, true);
     }
 
     void RenderGraphImpl::Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle)

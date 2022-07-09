@@ -40,17 +40,27 @@ namespace VulkanTest
 		void UpdateTransform(const Transform& transform);
 	};
 
-	struct ModelComponent
+	struct LoadModelComponent
 	{
 		ResPtr<Model> model;
-		Mesh* mesh = nullptr;
-		U32 meshCount = 0;
+	};
+
+	struct MaterialComponent
+	{
+		ResPtr<Material> material;
+		U32 materialIndex = 0;
 	};
 
 	struct MeshComponent
 	{
-		ECS::EntityID model = ECS::INVALID_ENTITY;
-		I32 meshIndex = -1;
+		ResPtr<Model> model;
+		Mesh* mesh = nullptr;
+		U32 geometryOffset = 0;
+	};
+
+	struct ObjectComponent
+	{
+		ECS::EntityID mesh = ECS::INVALID_ENTITY;
 		AABB aabb;
 	};
 
@@ -94,9 +104,14 @@ namespace VulkanTest
 		virtual void LoadModel(const char* name, const Path& path) = 0;
 
 		// Mesh
-		virtual ECS::EntityID CreateMeshInstance(const char* name) = 0;
-		virtual void ForEachMeshes(std::function<void(ECS::EntityID, MeshComponent&)> func) = 0;
+		virtual ECS::EntityID CreateMesh(const char* name) = 0;
 
+		// Material
+		virtual ECS::EntityID CreateMaterial(const char* name) = 0;
+
+		// Object
+		virtual ECS::EntityID CreateObject(const char* name) = 0;
+		virtual void ForEachObjects(std::function<void(ECS::EntityID, ObjectComponent&)> func) = 0;
 
 		template<typename C>
 		C* GetComponent(ECS::EntityID entity)

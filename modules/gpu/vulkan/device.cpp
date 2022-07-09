@@ -2036,7 +2036,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
 
     QueueData& queueData = queueDatas[queueIndex];
 
-    // Upate timeline value
+    // Update timeline value
     VkSemaphore timelineSemaphore = queueData.timelineSemaphore;
     U64 timeline = ++queueData.timeline;
     CurrentFrameResource().timelineFences[queueIndex] = queueData.timeline;

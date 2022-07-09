@@ -3,6 +3,7 @@
 #include "core\resource\resource.h"
 #include "core\utils\stream.h"
 #include "core\collections\array.h"
+#include "core\scene\world.h"
 #include "renderer\material.h"
 #include "gpu\vulkan\device.h"
 #include "math\geometry.h"
@@ -59,7 +60,8 @@ namespace VulkanTest
 			ResPtr<Material> material;
 			U32 indexOffset = 0;
 			U32 indexCount = 0;
-			U32 materialIndex = 0;
+
+			ECS::EntityID materialID = ECS::INVALID_ENTITY;
 		};
 		Array<MeshSubset> subsets;
 
@@ -79,9 +81,6 @@ namespace VulkanTest
 		BufferView vbPos;
 		BufferView vbNor;
 		BufferView vbUVs;
-
-		// Move to MeshComponent
-		U32 geometryOffset = 0;
 
 		bool CreateRenderData();
 	};
