@@ -139,7 +139,7 @@ namespace GPU
 	{
 		void operator()(BindlessDescriptorHandler* buffer);
 	};
-	class VULKAN_TEST_API BindlessDescriptorHandler : public IntrusivePtrEnabled<BindlessDescriptorHandler, BindlessDescriptorHandlerDeleter>
+	class VULKAN_TEST_API BindlessDescriptorHandler : public IntrusivePtrEnabled<BindlessDescriptorHandler, BindlessDescriptorHandlerDeleter>, public InternalSyncObject
 	{
 	public:
 		~BindlessDescriptorHandler();

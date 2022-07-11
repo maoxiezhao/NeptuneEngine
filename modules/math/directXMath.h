@@ -23,7 +23,7 @@
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
-namespace VulkanTest 
+namespace VulkanTest
 {
 	using VECTOR = XMVECTOR;
 	using MATRIX = XMMATRIX;
@@ -52,7 +52,7 @@ namespace VulkanTest
 	////////////////////////////////////////////////////////////////////////////
 	// Matrix function
 	////////////////////////////////////////////////////////////////////////////
-	
+
 	inline MATRIX XM_CALLCONV MatrixMultiply(MATRIX m1, MATRIX m2)
 	{
 		return XMMatrixMultiply(m1, m2);
@@ -89,10 +89,30 @@ namespace VulkanTest
 		return XMVector3TransformNormal(v, m);
 	}
 
+	inline VECTOR XM_CALLCONV VectorAdd(VECTOR V1, VECTOR V2)
+	{
+		return XMVectorAdd(V1, V2);
+	}
+
+	inline VECTOR XM_CALLCONV VectorSubtract(VECTOR V1, VECTOR V2)
+	{
+		return XMVectorSubtract(V1, V2);
+	}
+
+	inline VECTOR XM_CALLCONV Vector2Length(VECTOR V)
+	{
+		return XMVector2Length(V);
+	}
+
+	inline VECTOR XM_CALLCONV Vector3Length(VECTOR V)
+	{
+		return XMVector3Length(V);
+	}
+
 	inline MATRIX XM_CALLCONV MatrixInverse(MATRIX M)
 	{
 		return XMMatrixInverse(nullptr, M);
-	}	
+	}
 
 	inline MATRIX XM_CALLCONV MatrixTranspose(MATRIX M)
 	{
@@ -113,7 +133,7 @@ namespace VulkanTest
 	{
 		return XMVector3Normalize(v);
 	}
-	
+
 	inline VECTOR XM_CALLCONV Vector4Normalize(VECTOR v)
 	{
 		return XMVector4Normalize(v);
@@ -159,6 +179,16 @@ namespace VulkanTest
 		return XMVectorGetZ(V);
 	}
 
+	inline VECTOR XM_CALLCONV VectorMin(VECTOR V1, VECTOR V2)
+	{
+		return XMVectorMin(V1, V2);
+	}
+
+	inline VECTOR XM_CALLCONV VectorMax(VECTOR V1, VECTOR V2)
+	{
+		return XMVectorMax(V1, V2);
+	}
+
 	inline MATRIX XM_CALLCONV MatrixScalingFromVector(VECTOR scale)
 	{
 		return XMMatrixScalingFromVector(scale);
@@ -174,6 +204,26 @@ namespace VulkanTest
 		return XMMatrixTranslationFromVector(offset);
 	}
 
+	inline MATRIX XM_CALLCONV MatrixScaling
+	(
+		F32 ScaleX,
+		F32 ScaleY,
+		F32 ScaleZ
+	)
+	{
+		return XMMatrixScaling(ScaleX, ScaleY, ScaleZ);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixTranslation
+	(
+		float OffsetX,
+		float OffsetY,
+		float OffsetZ
+	)
+	{
+		return XMMatrixTranslation(OffsetX, OffsetY, OffsetZ);
+	}
+
 	inline VECTOR XM_CALLCONV QuaternionRotationRollPitchYaw(float Pitch, float Yaw, float Roll)
 	{
 		return XMQuaternionRotationRollPitchYaw(Pitch, Yaw, Roll);
@@ -187,6 +237,16 @@ namespace VulkanTest
 	inline VECTOR XM_CALLCONV QuaternionNormalize(VECTOR q)
 	{
 		return XMQuaternionNormalize(q);
+	}
+
+	inline HALF ConvertFloatToHalf(F32 Value)
+	{
+		return XMConvertFloatToHalf(Value);
+	}
+
+	inline F32 ConvertHalfToFloat(HALF Value)
+	{
+		return XMConvertHalfToFloat(Value);
 	}
 
 	////////////////////////////////////////////////////////////////////////////

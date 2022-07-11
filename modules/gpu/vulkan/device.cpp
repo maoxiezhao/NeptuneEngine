@@ -330,6 +330,11 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     uboPool.Init(this, 256 * 1024, std::max<VkDeviceSize>(16u, features.properties2.properties.limits.minUniformBufferOffsetAlignment), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
     uboPool.SetSpillSize(VULKAN_MAX_UBO_SIZE);
     stagingPool.Init(this, 64 * 1024, std::max<VkDeviceSize>(16u, features.properties2.properties.limits.optimalBufferCopyOffsetAlignment), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 32);
+    
+    VkDeviceSize alignment = std::max<VkDeviceSize>(16u, features.properties2.properties.limits.minUniformBufferOffsetAlignment);
+    alignment = std::max(alignment, features.properties2.properties.limits.minTexelBufferOffsetAlignment);
+    storagePool.Init(this, 64 * 1024, alignment, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, 32);
+    storagePool.AllocateBindlessDescriptor(true);
 
     // Init managers
     memory.Initialize(this);
@@ -1022,6 +1027,17 @@ void DeviceVulkan::RequestStagingBufferBlock(BufferBlock& block, VkDeviceSize si
 void DeviceVulkan::RequestStagingBufferBlockNolock(BufferBlock& block, VkDeviceSize size)
 {
     RequestBufferBlock(block, size, stagingPool, CurrentFrameResource().stagingBlocks, nullptr);
+}
+
+void DeviceVulkan::RequestStorageBufferBlock(BufferBlock& block, VkDeviceSize size)
+{
+    LOCK();
+    RequestStorageBufferBlockNolock(block, size);
+}
+
+void DeviceVulkan::RequestStorageBufferBlockNolock(BufferBlock& block, VkDeviceSize size)
+{
+    RequestBufferBlock(block, size, storagePool, CurrentFrameResource().storageBlocks, nullptr);
 }
 
 void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>* pending)
@@ -1904,6 +1920,7 @@ void DeviceVulkan::WaitIdleNolock()
     iboPool.Reset();
     uboPool.Reset();
     stagingPool.Reset();
+    storagePool.Reset();
     for (auto& frame : frameResources)
     {
         frame->vboBlocks.clear();
@@ -2386,10 +2403,13 @@ void DeviceVulkan::FrameResource::Begin()
         device.uboPool.RecycleBlock(block);
     for (auto& block : stagingBlocks)
         device.stagingPool.RecycleBlock(block);
+    for (auto& block : storageBlocks)
+        device.storagePool.RecycleBlock(block);
     vboBlocks.clear();
     iboBlocks.clear();
     uboBlocks.clear();
     stagingBlocks.clear();
+    storageBlocks.clear();
 
     // Clear destroyed resources
     for (auto& buffer : destroyedFrameBuffers)

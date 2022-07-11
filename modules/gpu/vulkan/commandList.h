@@ -128,6 +128,7 @@ private:
     BufferBlock iboBlock;
     BufferBlock uboBlock;
     BufferBlock stagingBlock;
+    BufferBlock storageBlock;
 
     // render pass runtime 
     FrameBuffer* frameBuffer = nullptr;
@@ -154,7 +155,8 @@ public:
     void BindConstantBuffer(const BufferPtr& buffer,U32 set, U32 binding, VkDeviceSize offset, VkDeviceSize range);
     void PushConstants(const void* data, VkDeviceSize offset, VkDeviceSize range);
     void* AllocateConstant(U32 set, U32 binding, VkDeviceSize size);
-    
+    BufferBlockAllocation AllocateStorageBuffer(VkDeviceSize size);
+
     template<typename T>
     T* AllocateConstant(U32 set, U32 binding)
     {

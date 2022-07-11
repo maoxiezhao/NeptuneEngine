@@ -439,7 +439,13 @@ namespace GPU
 	BindlessDescriptorHandler::~BindlessDescriptorHandler()
 	{
 		if (index >= 0)
-			device.ReleaseBindlessResource(index, type);
+		{
+			if (internalSync)
+				device.ReleaseBindlessResourceNoLock(index, type);
+			else
+				device.ReleaseBindlessResource(index, type);
+		}
+			
 	}
 
 	BindlessDescriptorHandler::BindlessDescriptorHandler(DeviceVulkan& device_, BindlessReosurceType type_, I32 index_) :

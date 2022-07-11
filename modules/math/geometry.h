@@ -17,6 +17,10 @@ namespace VulkanTest
 
 		void Merge(const AABB& rhs);
 		void AddPoint(const F32x3& point);
+		AABB Transform(const MATRIX& mat) const;
+		F32x3 GetCenter() const;
+		F32x3 GetHalfWidth() const;
+		MATRIX GetCenterAsMatrix() const;
 	};
 
 	struct Frustum

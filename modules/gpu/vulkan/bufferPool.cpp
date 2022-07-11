@@ -83,6 +83,15 @@ namespace GPU
             block.cpu = block.gpu;
         }
 
+        if (allocateBindlessDescriptor)
+        {
+            if (VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+            {
+                block.bindless = device->CreateBindlessStroageBuffer(*block.gpu, 0, size);
+                block.bindless->SetInternalSyncObject();
+            }
+        }
+
         block.offset = 0;
         block.alignment = alignment;
         block.spillSize = spillSize;

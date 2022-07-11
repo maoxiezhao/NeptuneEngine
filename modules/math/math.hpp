@@ -23,6 +23,27 @@ namespace VulkanTest
 		return a > 0 ? (T)1 : (a < 0 ? (T)-1 : 0);
 	}
 
+	inline F32 Distance(const VECTOR& v1, const VECTOR& v2)
+	{
+		VECTOR vectorSub = XMVectorSubtract(v1, v2);
+		VECTOR length = Vector3Length(vectorSub);
+		return StoreF32(length);
+	}
+
+	inline F32 Distance(const F32x2& v1, const F32x2& v2)
+	{
+		VECTOR vector1 = LoadF32x2(v1);
+		VECTOR vector2 = LoadF32x2(v2);
+		return VectorGetX(Vector2Length(VectorSubtract(vector2, vector1)));
+	}
+
+	inline F32 Distance(const F32x3& v1, const F32x3& v2)
+	{
+		VECTOR vector1 = LoadF32x3(v1);
+		VECTOR vector2 = LoadF32x3(v2);
+		return Distance(vector1, vector2);
+	}
+
 	struct Transform
 	{
 		F32x3 translation = F32x3(0.f, 0.f, 0.f);

@@ -10,7 +10,10 @@ namespace VulkanTest
 #define VMATH_DEFINE_ARITH_OP(op) \
 template <typename T> inline TVec2<T> operator op(const TVec2<T> &a, const TVec2<T> &b) { return TVec2<T>(a.x op b.x, a.y op b.y); }                \
 template <typename T> inline TVec3<T> operator op(const TVec3<T> &a, const TVec3<T> &b) { return TVec3<T>(a.x op b.x, a.y op b.y, a.z op b.z); }    \
-template <typename T> inline TVec4<T> operator op(const TVec4<T> &a, const TVec4<T> &b) { return TVec4<T>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); }
+template <typename T> inline TVec4<T> operator op(const TVec4<T> &a, const TVec4<T> &b) { return TVec4<T>(a.x op b.x, a.y op b.y, a.z op b.z, a.w op b.w); }	\
+template <typename T> inline TVec2<T> operator op(const TVec2<T>& a, T b) { return TVec2<T>(a.x op b, a.y op b); } \
+template <typename T> inline TVec3<T> operator op(const TVec3<T>& a, T b) { return TVec3<T>(a.x op b, a.y op b, a.z op b); } \
+template <typename T> inline TVec4<T> operator op(const TVec4<T>& a, T b) { return TVec4<T>(a.x op b, a.y op b, a.z op b, a.w op b); }
 
 VMATH_DEFINE_ARITH_OP(+)
 VMATH_DEFINE_ARITH_OP(-)

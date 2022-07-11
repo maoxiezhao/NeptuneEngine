@@ -213,6 +213,7 @@ CommandList::~CommandList()
     ASSERT(iboBlock.mapped == nullptr);
     ASSERT(uboBlock.mapped == nullptr);
     ASSERT(stagingBlock.mapped == nullptr);
+    ASSERT(storageBlock.mapped == nullptr);
 }
 
 void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents)
@@ -505,7 +506,9 @@ void CommandList::EndCommandBuffer()
     if (uboBlock.mapped != nullptr)
         device.RequestUniformBufferBlockNoLock(uboBlock, 0);
     if (stagingBlock.mapped != nullptr)
-        device.RequestUniformBufferBlockNoLock(stagingBlock, 0);
+        device.RequestStagingBufferBlockNolock(stagingBlock, 0);
+    if (storageBlock.mapped != nullptr)
+        device.RequestStorageBufferBlockNolock(storageBlock, 0);
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
@@ -628,6 +631,17 @@ void* CommandList::AllocateConstant(U32 set, U32 binding, VkDeviceSize size)
 
     BindConstantBuffer(uboBlock.gpu, set, binding, data.offset, data.paddedSize);
     return data.data;
+}
+
+BufferBlockAllocation CommandList::AllocateStorageBuffer(VkDeviceSize size)
+{
+    auto data = storageBlock.Allocate(size);
+    if (data.data == nullptr)
+    {
+        device.RequestStorageBufferBlock(storageBlock, size);
+        data = storageBlock.Allocate(size);
+    }
+    return data;
 }
 
 void* CommandList::UpdateBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize size)
@@ -791,6 +805,9 @@ void CommandList::DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 st
 void CommandList::BufferBarrier(const Buffer& buffer, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
 {
     ASSERT(!frameBuffer);
+
+    if (buffer.GetBuffer() == VK_NULL_HANDLE)
+        return;
 
     VkBufferMemoryBarrier barrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
     barrier.srcAccessMask = srcAccess;

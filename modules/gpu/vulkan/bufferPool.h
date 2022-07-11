@@ -2,6 +2,7 @@
 
 #include "definition.h"
 #include "buffer.h"
+#include "descriptorSet.h"
 
 namespace VulkanTest
 {
@@ -14,6 +15,7 @@ namespace GPU
 		U8* data;
 		VkDeviceSize offset;
 		VkDeviceSize paddedSize;
+		BindlessDescriptorPtr bindless;
 	};
 
 	struct BufferBlock
@@ -26,6 +28,7 @@ namespace GPU
 		VkDeviceSize spillSize = 0;
 		BufferPtr gpu;
 		BufferPtr cpu;
+		BindlessDescriptorPtr bindless;
 
 	public:
 		BufferBlockAllocation Allocate(VkDeviceSize allocateSize)
@@ -38,10 +41,10 @@ namespace GPU
 
 				VkDeviceSize paddedSize = std::max(allocateSize, spillSize);
 				paddedSize = std::min(paddedSize, capacity - alignedOffset);
-				return { ret, alignedOffset, paddedSize };
+				return { ret, alignedOffset, paddedSize, bindless };
 			}
 
-			return { nullptr, 0, 0 };
+			return { nullptr, 0, 0, bindless };
 		}
 	};
 
@@ -63,6 +66,10 @@ namespace GPU
 		void SetSpillSize(VkDeviceSize spillSize_) {
 			spillSize = spillSize_;
 		}
+		
+		void AllocateBindlessDescriptor(bool allocated){
+			allocateBindlessDescriptor = allocated;
+		}
 
 	private:
 		BufferBlock AllocateBlock(VkDeviceSize size);
@@ -73,6 +80,7 @@ namespace GPU
 		VkDeviceSize spillSize = 0;
 		VkBufferUsageFlags usage = 0;
 		U32 maxRetainedBlocks = 0;
+		bool allocateBindlessDescriptor = false;
 		std::vector<BufferBlock> blocks;
 	};
 }

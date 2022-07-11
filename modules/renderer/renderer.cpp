@@ -58,18 +58,55 @@ namespace Renderer
 {
 	struct RenderBatch
 	{
-		ECS::EntityID mesh;
 		U64 sortingKey;
+
+		RenderBatch(ECS::EntityID mesh, ECS::EntityID obj, F32 distance)
+		{
+			ASSERT(mesh < 0x00FFFFFF);
+			ASSERT(obj < 0x00FFFFFF);
+
+			sortingKey = 0;
+			sortingKey |= U64((U32)mesh & 0x00FFFFFF) << 40ull;
+			sortingKey |= U64(ConvertFloatToHalf(distance) & 0xFFFF) << 24ull;
+			sortingKey |= U64((U32)obj & 0x00FFFFFF) << 0ull;
+		}
+
+		inline float GetDistance() const
+		{
+			return ConvertHalfToFloat(HALF((sortingKey >> 24ull) & 0xFFFF));
+		}
+
+		inline ECS::EntityID GetMeshEntity() const
+		{
+			return ECS::EntityID((sortingKey >> 40ull) & 0x00FFFFFF);
+		}
+
+		inline ECS::EntityID GetInstanceEntity() const
+		{
+			return ECS::EntityID((sortingKey >> 0ull) & 0x00FFFFFF);
+		}
+
+		bool operator<(const RenderBatch& other) const
+		{
+			return sortingKey < other.sortingKey;
+		}
 	};
 
 	struct RenderQueue
 	{
-		void Sort()
+		void SortOpaque()
 		{
+			std::sort(batches.begin(), batches.end(), std::less<RenderBatch>());
 		}
 
 		void Clear()
 		{
+			batches.clear();
+		}
+
+		void Add(ECS::EntityID mesh, ECS::EntityID obj, F32 distance)
+		{
+			batches.emplace(mesh, obj, distance);
 		}
 
 		bool Empty()const
@@ -247,13 +284,19 @@ namespace Renderer
 	void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd)
 	{
 		ASSERT(visible.scene);
-		visible.scene->UpdateRenderData(cmd);
+		cmd.BeginEvent("UpdateRenderData");
+
+		// Update frame constbuffer
 		cmd.UpdateBuffer(frameBuffer.get(), &frameCB, sizeof(frameCB));
 		cmd.BufferBarrier(*frameBuffer,
 			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			VK_ACCESS_UNIFORM_READ_BIT);
+
+		// visible.scene->UpdateRenderData(cmd);
+
+		cmd.EndEvent();
 	}
 
 	void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd)
@@ -272,26 +315,36 @@ namespace Renderer
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
 	}
 
+	static int a = 0;
 	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, const Visibility& vis, RENDERPASS renderPass, U32 renderFlags)
 	{
 		if (queue.Empty())
 			return;
 
-		cmd.BeginEvent("DrawMeshes");
-
-		BindCommonResources(cmd);
-		cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		if (a++ < 30)
+			return;
 
 		RenderScene* scene = vis.scene;
-		for (auto& batch : queue.batches)
+		cmd.BeginEvent("DrawMeshes");
+
+		const size_t allocSize = queue.Size() * sizeof(ShaderMeshInstancePointer);
+		GPU::BufferBlockAllocation allocation = cmd.AllocateStorageBuffer(allocSize);
+
+		struct InstancedBatch
 		{
-			MeshComponent* meshCmp = scene->GetComponent<MeshComponent>(batch.mesh);
+			ECS::EntityID meshID = ECS::INVALID_ENTITY;
+			uint32_t instanceCount = 0;
+			uint32_t dataOffset = 0;
+		} instancedBatch = {};
+
+		auto FlushBatch = [&]()
+		{
+			MeshComponent* meshCmp = scene->GetComponent<MeshComponent>(instancedBatch.meshID);
 			if (meshCmp == nullptr ||
 				meshCmp->mesh == nullptr)
-				continue;
+				return;
 
 			Mesh& mesh = *meshCmp->mesh;
-
 			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, VK_INDEX_TYPE_UINT32);
 
 			for (U32 subsetIndex = 0; subsetIndex < mesh.subsets.size(); subsetIndex++)
@@ -305,14 +358,45 @@ namespace Renderer
 				ObjectPushConstants push;
 				push.geometryIndex = meshCmp->geometryOffset + subsetIndex;
 				push.materialIndex = material != nullptr ? material->materialIndex : 0;
+				push.instance = allocation.bindless ? allocation.bindless->GetIndex() : -1;	// Pointer to ShaderInstancePointers
+				push.instanceOffset = (U32)instancedBatch.dataOffset;
 
+				cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 				cmd.PushConstants(&push, 0, sizeof(push));
 				cmd.SetDefaultOpaqueState();
-				cmd.SetProgram("objectVS.hlsl", "objectPS.hlsl");
-				cmd.DrawIndexed(subset.indexCount, subset.indexOffset, 0);
+				cmd.SetProgram(
+					GetShader(ShaderType::SHADERTYPE_VS_OBJECT), 
+					GetShader(ShaderType::SHADERTYPE_PS_OBJECT)
+				);
+				cmd.DrawIndexedInstanced(subset.indexCount, instancedBatch.instanceCount, subset.indexOffset, 0, 0);
 			}
+		};
+
+		U32 instanceCount = 0;
+		for (auto& batch : queue.batches)
+		{
+			const ECS::EntityID objID = batch.GetInstanceEntity();
+			const ECS::EntityID meshID = batch.GetMeshEntity();
+
+			ObjectComponent* obj = scene->GetComponent<ObjectComponent>(objID);
+			if (meshID != instancedBatch.meshID)
+			{
+				FlushBatch();
+
+				instancedBatch = {};
+				instancedBatch.meshID = meshID;
+				instancedBatch.dataOffset = allocation.offset + instanceCount * sizeof(ShaderMeshInstancePointer);
+			}
+
+			ShaderMeshInstancePointer data;
+			data.instanceIndex = obj->index;
+			memcpy((ShaderMeshInstancePointer*)allocation.data + instanceCount, &data, sizeof(ShaderMeshInstancePointer));
+
+			instancedBatch.instanceCount++;
+			instanceCount++;
 		}
 
+		FlushBatch();
 		cmd.EndEvent();
 	}
 
@@ -323,20 +407,25 @@ namespace Renderer
 			return;
 
 		cmd.BeginEvent("DrawScene");
-		RenderQueue queue;
+
+		BindCommonResources(cmd);
+
+		static thread_local RenderQueue queue;
 		for (auto objectID : vis.objects)
 		{
 			ObjectComponent* obj = scene->GetComponent<ObjectComponent>(objectID);
 			if (obj == nullptr || obj->mesh == ECS::INVALID_ENTITY)
 				continue;
 
-			RenderBatch batch = {};
-			batch.mesh = obj->mesh;
-			queue.batches.push_back(batch);
+			const F32 distance = Distance(vis.camera->eye, obj->center);
+			queue.Add(obj->mesh, objectID, distance);
 		}
 
 		if (!queue.Empty())
+		{
+			queue.SortOpaque();
 			DrawMeshes(cmd, queue, vis, RENDERPASS::RENDERPASS_MAIN, 0);
+		}
 
 		cmd.EndEvent();
 	}

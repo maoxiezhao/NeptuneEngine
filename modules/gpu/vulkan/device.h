@@ -248,6 +248,7 @@ public:
         std::vector<BufferBlock> iboBlocks;
         std::vector<BufferBlock> uboBlocks;
         std::vector<BufferBlock> stagingBlocks;
+        std::vector<BufferBlock> storageBlocks;
 
         FrameResource(DeviceVulkan& device_, U32 frameIndex_);
         ~FrameResource();
@@ -275,6 +276,7 @@ public:
     BufferPool iboPool;
     BufferPool uboPool;
     BufferPool stagingPool;
+    BufferPool storagePool;
 
     // vulkan object cache
     VulkanCache<Shader> shaders;
@@ -334,6 +336,8 @@ public:
     void RequestUniformBufferBlockNoLock(BufferBlock& block, VkDeviceSize size);
     void RequestStagingBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestStagingBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
+    void RequestStorageBufferBlock(BufferBlock& block, VkDeviceSize size);
+    void RequestStorageBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
     InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);

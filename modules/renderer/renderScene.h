@@ -61,7 +61,9 @@ namespace VulkanTest
 	struct ObjectComponent
 	{
 		ECS::EntityID mesh = ECS::INVALID_ENTITY;
+		F32x3 center = F32x3(0, 0, 0);
 		AABB aabb;
+		U32 index = 0;
 	};
 
 	class VULKAN_TEST_API RenderPassPlugin

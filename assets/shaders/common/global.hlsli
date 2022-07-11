@@ -25,6 +25,10 @@ inline ShaderMaterial LoadMaterial(uint materialIndex)
 	return bindless_buffers[GetScene().materialbuffer].Load<ShaderMaterial>(materialIndex * sizeof(ShaderMaterial));
 }
 
+inline ShaderMeshInstance LoadInstance(uint instanceIndex)
+{
+	return bindless_buffers[GetScene().instancebuffer].Load<ShaderMeshInstance>(instanceIndex * sizeof(ShaderMeshInstance));
 
+}
 
 #endif

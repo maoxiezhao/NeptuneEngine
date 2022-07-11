@@ -84,6 +84,8 @@ namespace Reflection
 
 	struct ComponentMeta
 	{
+		~ComponentMeta();
+
 		const char* name;
 		ECS::EntityID compID;
 		CreateComponent creator;
@@ -94,6 +96,8 @@ namespace Reflection
 
 	struct SceneMeta
 	{
+		~SceneMeta();
+
 		const char* name;
 		SceneMeta* next = nullptr;
 		Array<ComponentMeta*> cmps;

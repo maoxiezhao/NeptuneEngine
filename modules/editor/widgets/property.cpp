@@ -105,11 +105,11 @@ namespace Editor
 		{
 			auto& transform = transformComp->transform;
 			ImGuiEx::Label("Position");
-			if (ImGui::DragScalarN("##pos", ImGuiDataType_Double, transform.translation.data, 3, 1.f, 0, 0, "%.3f"))
+			if (ImGui::DragScalarN("##pos", ImGuiDataType_Float, transform.translation.data, 3, 1.f, 0, 0, "%.3f"))
 				transform.isDirty = true;
 
 			ImGuiEx::Label("Rotation");
-			if (ImGui::DragScalarN("##rotation", ImGuiDataType_Double, transform.rotation.data, 4, 1.f, 0, 0, "%.3f"))
+			if (ImGui::DragScalarN("##rotation", ImGuiDataType_Float, transform.rotation.data, 4, 1.f, 0, 0, "%.3f"))
 				transform.isDirty = true;
 
 			F32 scale = transform.scale.x;

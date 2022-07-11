@@ -32,6 +32,106 @@ namespace VulkanTest
         up = StoreF32x3(Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 1, 0, 0), mat)));
     }
 
+    template<typename T>
+    struct RenderSceneBuffer
+    {
+        String name;
+        String uploadName;
+
+        GPU::BufferPtr buffer;
+        U32 arraySize = 0;
+        GPU::BufferPtr uploadBuffers[2];
+        GPU::BindlessDescriptorPtr bindless;
+
+        RenderSceneBuffer(const char* name_) :
+            name(name_),
+            uploadName(name_)
+        {
+            uploadName += "Upload";
+        }
+
+        bool IsValid()const
+        {
+            return buffer && arraySize > 0;
+        }
+
+        void UpdateBuffer(GPU::DeviceVulkan& device, U32 arraySize_)
+        {
+            if (arraySize_ == arraySize)
+                return;
+
+            arraySize = arraySize_;
+            U32 bufferSize = arraySize * sizeof(T);
+            if (arraySize > 0 && (!buffer || buffer->GetCreateInfo().size < bufferSize))
+            {
+                GPU::BufferCreateInfo info = {};
+                info.domain = GPU::BufferDomain::Device;
+                info.size = bufferSize * 2;
+                info.usage = 
+                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                    VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
+                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                    VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                buffer = device.CreateBuffer(info, nullptr);
+                device.SetName(*buffer, name.c_str());
+
+                info.domain = GPU::BufferDomain::LinkedDeviceHost;
+                info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+                for (int i = 0; i < ARRAYSIZE(uploadBuffers); i++)
+                {
+                    uploadBuffers[i] = device.CreateBuffer(info, nullptr);
+                    device.SetName(*uploadBuffers[i], uploadName.c_str());
+                }
+
+                bindless = device.CreateBindlessStroageBuffer(*buffer, 0, buffer->GetCreateInfo().size);
+            }
+        }
+
+        void UploadBuffer(GPU::DeviceVulkan& device, GPU::CommandList& cmd)
+        {
+            if (buffer && arraySize > 0)
+            {
+                auto uploadBuffer = uploadBuffers[device.GetFrameIndex()];
+                if (uploadBuffer)
+                {
+                    cmd.CopyBuffer(
+                        *buffer,
+                        0,
+                        *uploadBuffer,
+                        0,
+                        arraySize * sizeof(T)
+                    );
+                    cmd.BufferBarrier(*buffer,
+                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                        VK_ACCESS_TRANSFER_WRITE_BIT,
+                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                        VK_ACCESS_SHADER_READ_BIT);
+                }
+            }
+        }
+
+        T* Mapping(GPU::DeviceVulkan& device)
+        {
+            if (uploadBuffers[device.GetFrameIndex()])
+                return (T*)uploadBuffers[device.GetFrameIndex()]->GetAllcation().hostBase;
+            return nullptr;
+        }
+
+        I32 GetBindlessIndex()
+        {
+            return bindless ? bindless->GetIndex() : -1;
+        }
+
+        void Reset()
+        {
+            buffer.reset();
+            uploadBuffers[0].reset();
+            uploadBuffers[1].reset();
+            bindless.reset();
+        }
+    };
+
     class RenderSceneImpl : public RenderScene
     {
     public:
@@ -48,17 +148,13 @@ namespace VulkanTest
         ECS::Query<MaterialComponent> materialQuery;
 
         // Runtime rendering infos
-        GPU::BufferPtr geometryBuffer;
-        U32 geometryArraySize = 0;
-        ShaderGeometry* geometryMapped = nullptr;
-        GPU::BufferPtr geometryUploadBuffer[2];
-        GPU::BindlessDescriptorPtr bindlessGeometryBuffer;
+        RenderSceneBuffer<ShaderMeshInstance> instanceBuffer;
+        RenderSceneBuffer<ShaderGeometry> geometryBuffer;
+        RenderSceneBuffer<ShaderMaterial> materialBuffer;
 
-        GPU::BufferPtr materialBuffer;
-        U32 materialArraySize = 0;
+        ShaderMeshInstance* instanceMapped = nullptr;
         ShaderMaterial* materialMapped = nullptr;
-        GPU::BufferPtr materialUploadBuffer[2];
-        GPU::BindlessDescriptorPtr bindlessMaterialBuffer;
+        ShaderGeometry* geometryMapped = nullptr;
 
         ShaderSceneCB sceneCB;
 
@@ -66,7 +162,10 @@ namespace VulkanTest
         RenderSceneImpl(RendererPlugin& rendererPlugin_, Engine& engine_, World& world_) :
             rendererPlugin(rendererPlugin_),
             engine(engine_),
-            world(world_)
+            world(world_),
+            instanceBuffer("InstanceBuffer"),
+            geometryBuffer("GeometryBuffer"),
+            materialBuffer("MaterialBuffer")
         {
             // Reflect render scene
             RenderScene::Reflect(&world);
@@ -87,15 +186,9 @@ namespace VulkanTest
         {
             cullingSystem.Reset();
 
-            geometryBuffer.reset();
-            geometryUploadBuffer[0].reset();
-            geometryUploadBuffer[1].reset();
-            bindlessGeometryBuffer.reset();
-
-            materialBuffer.reset();
-            materialUploadBuffer[0].reset();
-            materialUploadBuffer[1].reset();
-            bindlessMaterialBuffer.reset();
+            instanceBuffer.Reset();
+            geometryBuffer.Reset();
+            materialBuffer.Reset();
         }
 
         void Init()override
@@ -125,29 +218,6 @@ namespace VulkanTest
         void AddSystem(ISystem* system)
         {
             systems.push_back(system);
-        }
-
-        void Update(float dt, bool paused)override
-        {
-            GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
-
-            UpdateSceneBuffers();
-
-            // Update upload material buffer
-            if (materialUploadBuffer[device.GetFrameIndex()])
-                materialMapped = (ShaderMaterial*)materialUploadBuffer[device.GetFrameIndex()]->GetAllcation().hostBase;
-            
-            // Update upload geometry buffer
-            if (geometryUploadBuffer[device.GetFrameIndex()])
-                geometryMapped = (ShaderGeometry*)geometryUploadBuffer[device.GetFrameIndex()]->GetAllcation().hostBase;
-
-            // Update systems
-            for (auto system : systems)
-                system->UpdateSystem();
-
-            // Update shader scene
-            sceneCB.geometrybuffer = bindlessGeometryBuffer ? bindlessGeometryBuffer->GetIndex() : -1;
-            sceneCB.materialbuffer = bindlessMaterialBuffer ? bindlessMaterialBuffer->GetIndex() : -1;
         }
         
         void Clear()override
@@ -192,10 +262,18 @@ namespace VulkanTest
                 .With<ObjectComponent>()
                 .entity;
         }
+
+        bool IsSceneValid()const
+        {
+            return 
+                instanceBuffer.IsValid() &&
+                geometryBuffer.IsValid() &&
+                materialBuffer.IsValid();
+        }
         
         void ForEachObjects(std::function<void(ECS::EntityID, ObjectComponent&)> func) override
         {
-            if (!geometryBuffer || !materialBuffer)
+            if (!IsSceneValid())
                 return;
 
             if (objectQuery.Valid())
@@ -334,12 +412,39 @@ namespace VulkanTest
             }
         }
 
-        void UpdateSceneBuffers()
+        void UpdateRenderData(GPU::CommandList& cmd)
+        {
+            auto& device = cmd.GetDevice();
+            instanceBuffer.UploadBuffer(device, cmd);
+            geometryBuffer.UploadBuffer(device, cmd);
+            materialBuffer.UploadBuffer(device, cmd);
+        }
+
+        const ShaderSceneCB& GetShaderScene()const override
+        {
+            return sceneCB;
+        }
+
+        void Update(float dt, bool paused)override
         {
             GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
 
-            // Create material buffer
-            materialArraySize = 0;
+            // Update scene buffers
+
+            // Update instance buffer
+            U32 instanceArraySize = 0;
+            if (objectQuery.Valid())
+            {
+                objectQuery.ForEach([&](ECS::EntityID entity, ObjectComponent& obj) {
+                    obj.index = instanceArraySize;
+                    instanceArraySize++;
+                });
+            }
+            instanceBuffer.UpdateBuffer(device, instanceArraySize);
+            instanceMapped = instanceBuffer.Mapping(device);
+            
+            // Update material buffer
+            U32 materialArraySize = 0;
             if (materialQuery.Valid())
             {
                 materialQuery.ForEach([&](ECS::EntityID entity, MaterialComponent& mat) {
@@ -347,33 +452,11 @@ namespace VulkanTest
                     materialArraySize++;
                 });
             }
-            U32 materialBufferSize = materialArraySize * sizeof(ShaderMaterial);
-            if (materialArraySize > 0 && (!materialBuffer || materialBuffer->GetCreateInfo().size < materialBufferSize))
-            {
-                GPU::BufferCreateInfo info = {};
-                info.domain = GPU::BufferDomain::Device;
-                info.size = materialBufferSize * 2;
-                info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                    VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
-                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                materialBuffer = device.CreateBuffer(info, nullptr);
-                device.SetName(*materialBuffer, "matiralBuffer");
+            materialBuffer.UpdateBuffer(device, materialArraySize);
+            materialMapped = materialBuffer.Mapping(device);
 
-                info.domain = GPU::BufferDomain::LinkedDeviceHost;
-                info.usage = 0;
-
-                for (int i = 0; i < ARRAYSIZE(materialUploadBuffer); i++)
-                {
-                    materialUploadBuffer[i] = device.CreateBuffer(info, nullptr);
-                    device.SetName(*materialUploadBuffer[i], "materialUploadBuffer");
-                }
-
-                bindlessMaterialBuffer = device.CreateBindlessStroageBuffer(*materialBuffer, 0, materialBuffer->GetCreateInfo().size);
-            }
-
-            // Create geometry buffer
-            geometryArraySize = 0;
+            // Update geometry buffer
+            U32 geometryArraySize = 0;
             if (meshQuery.Valid())
             {
                 meshQuery.ForEach([&](ECS::EntityID entity, MeshComponent& meshComp) {
@@ -384,80 +467,29 @@ namespace VulkanTest
                     }
                 });
             }
+            geometryBuffer.UpdateBuffer(device, geometryArraySize);
+            geometryMapped = geometryBuffer.Mapping(device);
 
-            U32 geometryBufferSize = geometryArraySize * sizeof(ShaderGeometry);
-            if (geometryArraySize > 0 && (!geometryBuffer || geometryBuffer->GetCreateInfo().size < geometryBufferSize))
-            {
-                GPU::BufferCreateInfo info = {};
-                info.domain = GPU::BufferDomain::Device;
-                info.size = geometryBufferSize * 2;
-                info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                    VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
-                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                geometryBuffer = device.CreateBuffer(info, nullptr);
-                device.SetName(*geometryBuffer, "geometryBuffer");
+            // Update systems
+            for (auto system : systems)
+                system->UpdateSystem();
 
-                info.domain = GPU::BufferDomain::LinkedDeviceHost;
-                info.usage = 0;
-
-                for (int i = 0; i < ARRAYSIZE(geometryUploadBuffer); i++)
-                {
-                    geometryUploadBuffer[i] = device.CreateBuffer(info, nullptr);
-                    device.SetName(*geometryUploadBuffer[i], "geometryUploadBuffer");
-                }
-
-                bindlessGeometryBuffer = device.CreateBindlessStroageBuffer(*geometryBuffer, 0, geometryBuffer->GetCreateInfo().size);
-            }
+            // Update shader scene
+            sceneCB.instancebuffer = instanceBuffer.GetBindlessIndex();
+            sceneCB.geometrybuffer = geometryBuffer.GetBindlessIndex();
+            sceneCB.materialbuffer = materialBuffer.GetBindlessIndex();
         }
+    };
 
-        void UpdateRenderData(GPU::CommandList& cmd)
+    class TransformUpdateSystem : public ISystem
+    {
+    public:
+        TransformUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
         {
-            auto& device = cmd.GetDevice();
-            if (geometryBuffer && geometryArraySize > 0)
-            {
-                auto uploadBuffer = geometryUploadBuffer[device.GetFrameIndex()];
-                if (uploadBuffer)
-                {
-                    cmd.CopyBuffer(
-                        *geometryBuffer, 
-                        0,
-                        *uploadBuffer,
-                        0,
-                        geometryArraySize * sizeof(ShaderGeometry)
-                    );
-                    cmd.BufferBarrier(*geometryBuffer,
-                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                        VK_ACCESS_TRANSFER_WRITE_BIT,
-                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                        VK_ACCESS_SHADER_READ_BIT);
-                }
-            }
-
-            if (materialBuffer && materialArraySize > 0)
-            {
-                auto uploadBuffer = materialUploadBuffer[device.GetFrameIndex()];
-                if (uploadBuffer)
-                {
-                    cmd.CopyBuffer(
-                        *materialBuffer, 
-                        0,
-                        *uploadBuffer,
-                        0,
-                        materialArraySize * sizeof(ShaderMaterial)
-                    );
-                    cmd.BufferBarrier(*materialBuffer,
-                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                        VK_ACCESS_TRANSFER_WRITE_BIT,
-                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                        VK_ACCESS_SHADER_READ_BIT);
-                }
-            }
-        }
-
-        const ShaderSceneCB& GetShaderScene()const override
-        {
-            return sceneCB;
+            system = scene.GetWorld().CreateSystem<TransformComponent>()
+                .ForEach([&](ECS::EntityID entity, TransformComponent& transComp) {
+                transComp.transform.UpdateTransform();
+            });
         }
     };
 
@@ -518,16 +550,28 @@ namespace VulkanTest
             system = scene.GetWorld().CreateSystem<ObjectComponent>()
                 .ForEach([&](ECS::EntityID entity, ObjectComponent& objComp) {
 
-                if (objComp.mesh == ECS::INVALID_ENTITY)
+                auto instanceMapped = scene.instanceMapped;
+                if (!instanceMapped)
                     return;
 
                 AABB& aabb = objComp.aabb;
                 aabb = AABB();
 
-                auto meshComp = scene.GetWorld().GetComponent<MeshComponent>(objComp.mesh);
-                if (meshComp != nullptr && meshComp->mesh != nullptr)
+                if (objComp.mesh != ECS::INVALID_ENTITY)
                 {
-                    aabb = meshComp->mesh->aabb;
+                    auto transform = scene.GetComponent<TransformComponent>(entity);
+                    auto meshComp = scene.GetComponent<MeshComponent>(objComp.mesh);
+                    ASSERT(meshComp->mesh != nullptr);
+                 
+                    MATRIX mat = LoadFMat4x4(transform->transform.world);
+                    aabb = meshComp->mesh->aabb.Transform(mat);
+                    objComp.center = StoreFMat4x4(meshComp->mesh->aabb.GetCenterAsMatrix() * mat).vec[3].xyz();
+                    
+                    ShaderMeshInstance inst;
+                    inst.init();
+                    inst.transform.Create(transform->transform.world);
+
+                    memcpy(instanceMapped + objComp.index, &inst, sizeof(ShaderMeshInstance));
                 }
             });
         }
@@ -535,6 +579,7 @@ namespace VulkanTest
 
     void RenderSceneImpl::InitSystems()
     {
+        AddSystem(CJING_NEW(TransformUpdateSystem)(*this));
         AddSystem(CJING_NEW(MaterialUpdateSystem)(*this));
         AddSystem(CJING_NEW(MeshUpdateSystem)(*this));
         AddSystem(CJING_NEW(ObjectUpdateSystem)(*this));

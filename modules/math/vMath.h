@@ -170,6 +170,8 @@ namespace VulkanTest
 		{
 			return data[index];
 		}
+
+		inline TVec3<T> xyz() const;
 	};
 
 
@@ -249,6 +251,15 @@ namespace VulkanTest
 	{
 		TMat4() = default;
 
+		TMat4(T m00, T m01, T m02, T m03,
+			T m10, T m11, T m12, T m13,
+			T m20, T m21, T m22, T m23,
+			T m30, T m31, T m32, T m33)
+			: _11(m00), _12(m01), _13(m02), _14(m03),
+			_21(m10), _22(m11), _23(m12), _24(m13),
+			_31(m20), _32(m21), _33(m22), _34(m23),
+			_41(m30), _42(m31), _43(m32), _44(m33) {}
+
 		explicit inline TMat4(T v) noexcept
 		{
 			vec[0] = TVec4<T>(v, T(0), T(0), T(0));
@@ -283,8 +294,17 @@ namespace VulkanTest
 			return vec[index];
 		}
 
-	private:
-		TVec4<T> vec[4];
+		union
+		{
+			struct
+			{
+				T _11, _12, _13, _14;
+				T _21, _22, _23, _24;
+				T _31, _32, _33, _34;
+				T _41, _42, _43, _44;
+			};
+			TVec4<T> vec[4];
+		};
 	};
 
 	using F32x2 = TVec2<F32>;
@@ -314,4 +334,9 @@ namespace VulkanTest
 	using UMat2x2 = TMat2<U32>;
 	using UMat3x3 = TMat3<U32>;
 	using UMat4x4 = TMat4<U32>;
+
+#define VMATH_IMPL_SWIZZLE(ret_type, self_type, swiz, ...) template <typename T> T##ret_type<T> T##self_type<T>::swiz() const { return T##ret_type<T>(__VA_ARGS__); }
+
+VMATH_IMPL_SWIZZLE(Vec3, Vec4, xyz, x, y, z)
+
 }
