@@ -22,7 +22,8 @@ namespace VulkanTest
 		GPU::DeviceVulkan* device = Renderer::GetDevice();
 		GPU::BufferCreateInfo bufferInfo = {};
 		bufferInfo.domain = GPU::BufferDomain::Device;
-		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+		bufferInfo.usage = 
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 			VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;

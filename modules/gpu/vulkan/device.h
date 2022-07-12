@@ -207,13 +207,22 @@ public:
     // per frame resource
     struct FrameResource
     {
+        FrameResource(DeviceVulkan& device_, U32 frameIndex_);
+        ~FrameResource();
+
+        void operator=(const FrameResource&) = delete;
+        FrameResource(const FrameResource&) = delete;
+
+        void Begin();
+        void TrimCommandPools();
+
         DeviceVulkan& device;
         U32 frameIndex;
         std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
 
         // timeline
         VkSemaphore timelineSemaphores[QUEUE_INDEX_COUNT] = {};
-        uint64_t timelineFences[QUEUE_INDEX_COUNT] = {};
+        uint64_t timelineValues[QUEUE_INDEX_COUNT] = {};
 
         // destroyed resoruces
         std::vector<VkImageView> destroyedImageViews;
@@ -249,11 +258,6 @@ public:
         std::vector<BufferBlock> uboBlocks;
         std::vector<BufferBlock> stagingBlocks;
         std::vector<BufferBlock> storageBlocks;
-
-        FrameResource(DeviceVulkan& device_, U32 frameIndex_);
-        ~FrameResource();
-
-        void Begin();
     };
     std::vector<std::unique_ptr<FrameResource>> frameResources;
     uint32_t frameIndex = 0;

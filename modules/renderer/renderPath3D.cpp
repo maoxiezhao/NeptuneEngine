@@ -96,8 +96,8 @@ namespace VulkanTest
 	{
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		auto cmd = device->RequestCommandList(GPU::QueueType::QUEUE_TYPE_GRAPHICS);
-		Renderer::UpdateRenderData(visibility, frameCB, *cmd);	
-		device->Submit(cmd);
+		Renderer::UpdateRenderData(visibility, frameCB, *cmd);
+		device->Submit(cmd,  nullptr);
 	}
 
 	void RenderPath3D::Compose(RenderGraph& renderGraph, GPU::CommandList* cmd)

@@ -31,6 +31,7 @@ public:
 
     uint64_t GetTimeLine()const
     {
+        ASSERT(semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE_KHR);
         return timeline;
     }
 
@@ -67,9 +68,13 @@ public:
         return isPendingWait;
     }
 
-    bool CanRecycle()const
+    VkSemaphoreTypeKHR GetSemaphoreType() const
     {
-        return !shouldDestroyOnConsume;
+        return semaphoreType;
+    }
+
+    bool CanRecycle()const {
+        return true;
     }
 
     void Recycle();
@@ -90,11 +95,11 @@ private:
     }
 
     DeviceVulkan& device;
-    VkSemaphore semaphore;
-    bool signalled = true;
+    VkSemaphore semaphore = VK_NULL_HANDLE;
     uint64_t timeline = 0;
+    bool signalled = false;
     bool isPendingWait = false;
-    bool shouldDestroyOnConsume = false;
+    VkSemaphoreTypeKHR semaphoreType = VK_SEMAPHORE_TYPE_BINARY_KHR;
 };
 using SemaphorePtr = IntrusivePtr<Semaphore>;
 
@@ -106,7 +111,6 @@ public:
     void Initialize(DeviceVulkan& device_);
     VkSemaphore Requset();
     void Recyle(VkSemaphore semaphore);
-    void ClearAll();
 
 private:
     DeviceVulkan* device = nullptr;

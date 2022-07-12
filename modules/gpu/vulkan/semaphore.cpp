@@ -14,14 +14,16 @@ void SemaphoreDeleter::operator()(Semaphore* semaphore)
 Semaphore::Semaphore(DeviceVulkan& device_, VkSemaphore semaphore_, bool isSignalled) :
 	device(device_),
 	semaphore(semaphore_),
-	signalled(isSignalled)
+	signalled(isSignalled),
+	semaphoreType(VK_SEMAPHORE_TYPE_BINARY_KHR)
 {
 }
 
 Semaphore::Semaphore(DeviceVulkan& device_, U64 timeline_, VkSemaphore semaphore_) :
 	device(device_),
 	timeline(timeline_),
-	semaphore(semaphore_)
+	semaphore(semaphore_),
+	semaphoreType(VK_SEMAPHORE_TYPE_TIMELINE_KHR)
 {
 	ASSERT(timeline > 0);
 }
@@ -94,7 +96,11 @@ VkSemaphore SemaphoreManager::Requset()
 
 	VkSemaphore ret;
 	VkSemaphoreCreateInfo info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-	vkCreateSemaphore(device->device, &info, nullptr, &ret);
+	if (vkCreateSemaphore(device->device, &info, nullptr, &ret) != VK_SUCCESS)
+	{
+		Logger::Error("Failed to create semaphore");
+		ret = VK_NULL_HANDLE;
+	}
 	return ret;
 }
 

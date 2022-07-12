@@ -294,7 +294,7 @@ namespace Renderer
 			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			VK_ACCESS_UNIFORM_READ_BIT);
 
-		// visible.scene->UpdateRenderData(cmd);
+		visible.scene->UpdateRenderData(cmd);
 
 		cmd.EndEvent();
 	}
@@ -315,13 +315,9 @@ namespace Renderer
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
 	}
 
-	static int a = 0;
 	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, const Visibility& vis, RENDERPASS renderPass, U32 renderFlags)
 	{
 		if (queue.Empty())
-			return;
-
-		if (a++ < 30)
 			return;
 
 		RenderScene* scene = vis.scene;
@@ -410,7 +406,12 @@ namespace Renderer
 
 		BindCommonResources(cmd);
 
+#if 0
 		static thread_local RenderQueue queue;
+#else
+		RenderQueue queue;
+#endif
+		queue.Clear();
 		for (auto objectID : vis.objects)
 		{
 			ObjectComponent* obj = scene->GetComponent<ObjectComponent>(objectID);

@@ -20,6 +20,8 @@ namespace VulkanTest
 
 	void RenderPathGraph::Render()
 	{
+		UpdateRenderData();
+
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		renderGraph.SetupAttachments(*device, &wsi->GetImageView());
 		Jobsystem::JobHandle handle;

@@ -342,13 +342,10 @@ namespace Editor
 
         void Render() override
         {
-            wsi.BeginFrame();
-
             for (auto widget : widgets)
                 widget->Render();
 
             ImGuiRenderer::Render();
-            wsi.EndFrame();
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
         }
 

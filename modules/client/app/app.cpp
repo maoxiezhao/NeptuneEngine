@@ -195,6 +195,7 @@ void App::OnEvent(const Platform::WindowEvent& ent)
 void App::OnIdle()
 {
     Profiler::BeginFrame();
+    wsi.BeginFrame();
 
     // Calculate delta time
     deltaTime = timer.Tick();
@@ -232,6 +233,7 @@ void App::OnIdle()
     // Render frame
     Render();
 
+    wsi.EndFrame();
     Profiler::EndFrame();
 }
 }

@@ -379,7 +379,7 @@ SwapchainError DeviceVulkan::CreateSwapchain(const SwapChainDesc& desc, VkSurfac
 
     // clamp the target width, height to boundaries.
     VkExtent2D swapchainSize;
-    if (surfaceProperties.currentExtent.width != 0xFFFFFFFF && surfaceProperties.currentExtent.width != 0xFFFFFFFF)
+    if (surfaceProperties.currentExtent.width != 0xFFFFFFFF && surfaceProperties.currentExtent.height != 0xFFFFFFFF)
     {
         swapchainSize = surfaceProperties.currentExtent;
     }
@@ -765,14 +765,12 @@ PipelineLayout* DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout
 
 SemaphorePtr DeviceVulkan::RequestSemaphore()
 {
-    LOCK();
     VkSemaphore semaphore = semaphoreManager.Requset();
     return SemaphorePtr(semaphorePool.allocate(*this, semaphore, false));
 }
 
 SemaphorePtr DeviceVulkan::RequestEmptySemaphore()
 {
-    LOCK();
     return SemaphorePtr(semaphorePool.allocate(*this));
 }
 
@@ -1449,11 +1447,6 @@ BufferPtr DeviceVulkan::CreateBuffer(const BufferCreateInfo& createInfo, const v
             BufferCreateInfo stagingCreateInfo = createInfo;
             stagingCreateInfo.domain = BufferDomain::Host;
             BufferPtr stagingBuffer = CreateBuffer(stagingCreateInfo, initialData);
-            if (!stagingBuffer)
-            {
-                Logger::Warning("Failed to create buffer");
-                return BufferPtr(nullptr);
-            }
             SetName(*stagingBuffer, "Buffer_upload_staging_buffer");
 
             // Request async transfer cmd to copy staging buffer
@@ -1972,21 +1965,17 @@ void DeviceVulkan::MoveReadWriteCachesToReadOnly()
 
 void DeviceVulkan::InitTimelineSemaphores()
 {
-    VkSemaphoreTypeCreateInfo timelineCreateInfo = {};
-    timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
-    timelineCreateInfo.pNext = nullptr;
+    VkSemaphoreTypeCreateInfo timelineCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO };
     timelineCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
     timelineCreateInfo.initialValue = 0;
 
-    VkSemaphoreCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
     createInfo.pNext = &timelineCreateInfo;
     createInfo.flags = 0;
 
     for (int i = 0; i < QUEUE_INDEX_COUNT; i++)
     {
-        VkResult ret = vkCreateSemaphore(device, &createInfo, nullptr, &queueDatas[i].timelineSemaphore);
-        if (ret != VK_SUCCESS)
+        if (vkCreateSemaphore(device, &createInfo, nullptr, &queueDatas[i].timelineSemaphore ) != VK_SUCCESS)
             Logger::Error("Failed to create timeline semaphore");
     }
 }
@@ -2003,7 +1992,7 @@ void DeviceVulkan::DeinitTimelineSemaphores()
 
     for (auto& frame : frameResources)
     {
-        for (auto& value : frame->timelineFences)
+        for (auto& value : frame->timelineValues)
             value = 0;
         for (auto& timeline : frame->timelineSemaphores)
             timeline = VK_NULL_HANDLE;
@@ -2056,7 +2045,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
     // Update timeline value
     VkSemaphore timelineSemaphore = queueData.timelineSemaphore;
     U64 timeline = ++queueData.timeline;
-    CurrentFrameResource().timelineFences[queueIndex] = queueData.timeline;
+    CurrentFrameResource().timelineValues[queueIndex] = queueData.timeline;
 
     BatchComposer batchComposer;
 
@@ -2080,7 +2069,7 @@ void DeviceVulkan::SubmitQueue(QueueIndices queueIndex, InternalFence* fence, U3
             {
                 ASSERT(wsi.acquire->IsSignalled());
                 batchComposer.AddWaitSemaphore(wsi.acquire, wsiStages);
-                if (wsi.acquire->GetTimeLine() == 0)
+                if (wsi.acquire->GetSemaphoreType() == VK_SEMAPHORE_TYPE_BINARY_KHR)
                 {
                     if (wsi.acquire->CanRecycle())
                         CurrentFrameResource().recycledSemaphroes.push_back(wsi.acquire->GetSemaphore());
@@ -2127,12 +2116,11 @@ void DeviceVulkan::SubmitEmpty(QueueIndices queueIndex, InternalFence* fence, U3
     // Upate timeline value
     VkSemaphore timelineSemaphore = queueData.timelineSemaphore;
     U64 timeline = ++queueData.timeline;
-    CurrentFrameResource().timelineFences[queueIndex] = queueData.timeline;
+    CurrentFrameResource().timelineValues[queueIndex] = queueData.timeline;
 
     // Colloect wait semaphores
     WaitSemaphores waitSemaphores = {};
     CollectWaitSemaphores(queueData, waitSemaphores);
-
     BatchComposer batchComposer;
     batchComposer.AddWaitSemaphores(waitSemaphores);
 
@@ -2161,7 +2149,15 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
     // Check source buffer's usage to decide which queues (Graphics/Compute) need to wait
     VkAccessFlags access = Buffer::BufferUsageToPossibleAccess(usage);
     VkPipelineStageFlags stages = Buffer::BufferUsageToPossibleStages(usage);
-    QueueIndices srcQueueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
+    VkQueue srcQueue = queueInfo.queues[ConvertQueueTypeToIndices(cmd->GetQueueType())];
+
+    if (srcQueue == queueInfo.queues[QueueIndices::QUEUE_INDEX_GRAPHICS] &&
+        srcQueue == queueInfo.queues[QueueIndices::QUEUE_INDEX_COMPUTE])
+    {
+        cmd->Barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, stages, access);
+        SubmitNolock(cmd, nullptr, 0, nullptr);
+        return;
+    }
 
     auto computeStages = stages &
             (VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
@@ -2176,7 +2172,9 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
              VK_ACCESS_TRANSFER_WRITE_BIT |
              VK_ACCESS_INDIRECT_COMMAND_READ_BIT);
 
-    if (srcQueueIndex == QUEUE_INDEX_GRAPHICS)
+    auto graphicsStages = stages;
+
+    if (srcQueue == queueInfo.queues[QueueIndices::QUEUE_INDEX_GRAPHICS])
     {
         // While SyncBuffer in graphics queue 
         cmd->Barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, stages, access);
@@ -2191,7 +2189,7 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
             SubmitNolock(cmd, nullptr, 0, nullptr);
         }
     }
-    else if (srcQueueIndex == QUEUE_INDEX_COMPUTE)
+    else if (srcQueue == queueInfo.queues[QueueIndices::QUEUE_INDEX_COMPUTE])
     {
         // While SyncBuffer in Compute queue 
         cmd->Barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, computeStages, computeAccess);
@@ -2208,26 +2206,24 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
     }
     else
     {
-        // While create staging buffer
-
-        if (stages != 0 && computeStages != 0)
+        if (graphicsStages != 0 && computeStages != 0)
         {
             SemaphorePtr semaphores[2];
             SubmitNolock(cmd, nullptr, 2, semaphores);
-            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphores[0], stages, flush);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphores[0], graphicsStages, flush);
             AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_COMPUTE, semaphores[1], computeStages, flush);
         }
-        else if (stages != 0)
+        else if (graphicsStages != 0)
         {
-            SemaphorePtr semaphores;
-            SubmitNolock(cmd, nullptr, 1, &semaphores);
-            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphores, stages, flush);
+            SemaphorePtr semaphore;
+            SubmitNolock(cmd, nullptr, 1, &semaphore);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_GRAPHICS, semaphore, graphicsStages, flush);
         }
         else if (computeStages != 0)
         {
-            SemaphorePtr semaphores;
-            SubmitNolock(cmd, nullptr, 1, &semaphores);
-            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_COMPUTE, semaphores, stages, flush);
+            SemaphorePtr semaphore;
+            SubmitNolock(cmd, nullptr, 1, &semaphore);
+            AddWaitSemaphoreNolock(QueueIndices::QUEUE_INDEX_COMPUTE, semaphore, computeStages, flush);
         }
         else
         {
@@ -2274,7 +2270,7 @@ void DeviceVulkan::CollectWaitSemaphores(QueueData& data, WaitSemaphores& waitSe
     {
         SemaphorePtr& semaphore = data.waitSemaphores[i];
         VkSemaphore vkSemaphore = semaphore->Consume(); // Semaphore is signalled
-        if (semaphore->GetTimeLine() <= 0)
+        if (semaphore->GetSemaphoreType() == VK_SEMAPHORE_TYPE_BINARY_KHR)
         {
             if (semaphore->CanRecycle())
                 RecycleSemaphoreNolock(vkSemaphore);
@@ -2310,6 +2306,7 @@ void DeviceVulkan::EmitQueueSignals(BatchComposer& composer, VkSemaphore sem, U6
     {
         ASSERT(!semaphores[i]);
         semaphores[i] = SemaphorePtr(semaphorePool.allocate(*this, timeline, sem));
+        semaphores[i]->Signal();
     }
 }
 
@@ -2355,10 +2352,10 @@ void DeviceVulkan::FrameResource::Begin()
         U64 values[QUEUE_INDEX_COUNT];
         for (int i = 0; i < QUEUE_INDEX_COUNT; i++)
         {
-            if (timelineFences[i])
+            if (timelineValues[i])
             {
                 sems[info.semaphoreCount] = timelineSemaphores[i];
-                values[info.semaphoreCount] = timelineFences[i];
+                values[info.semaphoreCount] = timelineValues[i];
                 info.semaphoreCount++;
             }
         }
@@ -2405,6 +2402,7 @@ void DeviceVulkan::FrameResource::Begin()
         device.stagingPool.RecycleBlock(block);
     for (auto& block : storageBlocks)
         device.storagePool.RecycleBlock(block);
+
     vboBlocks.clear();
     iboBlocks.clear();
     uboBlocks.clear();
@@ -2493,16 +2491,14 @@ bool BatchComposer::hasTimelineSemaphoreInBatch(U32 index) const
 
 void BatchComposer::AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags stages)
 {
-    if (!sem)
-        return;
-
-    // 添加wait semaphores时先将之前的cmds batch
-    if (!submitInfos[submitIndex].commandLists.empty() || !submitInfos[submitIndex].signalSemaphores.empty())
+    if (!submitInfos[submitIndex].commandLists.empty() || 
+        !submitInfos[submitIndex].signalSemaphores.empty())
         BeginBatch();
 
+    bool isTimeline = sem->GetSemaphoreType() == VK_SEMAPHORE_TYPE_TIMELINE_KHR;
     submitInfos[submitIndex].waitSemaphores.push_back(sem->GetSemaphore());
     submitInfos[submitIndex].waitStages.push_back(stages);
-    submitInfos[submitIndex].waitCounts.push_back(sem->GetTimeLine());
+    submitInfos[submitIndex].waitCounts.push_back(isTimeline ? sem->GetTimeLine() : 0);
 }
 
 void BatchComposer::AddWaitSemaphores(WaitSemaphores& semaphores)

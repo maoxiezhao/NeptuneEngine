@@ -251,10 +251,10 @@ namespace GPU
         U32 misc = 0;
         VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
         VkComponentMapping swizzle = {
-            VK_COMPONENT_SWIZZLE_R, 
-            VK_COMPONENT_SWIZZLE_G, 
-            VK_COMPONENT_SWIZZLE_B, 
-            VK_COMPONENT_SWIZZLE_A,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
+            VK_COMPONENT_SWIZZLE_IDENTITY,
         };
     };
 
