@@ -323,8 +323,11 @@ namespace ImGuiRenderer
 		// Setup vertex buffer and index buffer
 		const U64 vbSize = sizeof(ImDrawVert) * drawData->TotalVtxCount;
 		const U64 ibSize = sizeof(ImDrawIdx) * drawData->TotalIdxCount;
-		ImDrawVert* vertMem = static_cast<ImDrawVert*>(cmd->AllocateVertexBuffer(0, vbSize, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX));
-		ImDrawIdx* indexMem = static_cast<ImDrawIdx*>(cmd->AllocateIndexBuffer(ibSize, VK_INDEX_TYPE_UINT16));
+		auto vertAllocation = cmd->AllocateStorageBuffer(vbSize);
+		auto indexAllocation = cmd->AllocateStorageBuffer(ibSize);
+
+		ImDrawVert* vertMem = reinterpret_cast<ImDrawVert*>(vertAllocation.data); 
+		ImDrawIdx* indexMem = reinterpret_cast<ImDrawIdx*>(indexAllocation.data); 
 
 		for (int cmdListIdx = 0; cmdListIdx < drawData->CmdListsCount; cmdListIdx++)
 		{
@@ -334,6 +337,9 @@ namespace ImGuiRenderer
 			vertMem += drawList->VtxBuffer.Size;
 			indexMem += drawList->IdxBuffer.Size;
 		}
+
+		cmd->BindVertexBuffer(vertAllocation.buffer, 0, vertAllocation.offset, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX);
+		cmd->BindIndexBuffer(indexAllocation.buffer, indexAllocation.offset, VK_INDEX_TYPE_UINT16);
 
 		// Setup mvp matrix
 		F32 posX = drawData->DisplayPos.x;

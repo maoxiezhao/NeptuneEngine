@@ -10,6 +10,8 @@ namespace VulkanTest
 {
 namespace Editor
 {
+    namespace Gizmo { struct Config; }
+
     class VULKAN_EDITOR_API EditorApp : public App
     {
     public:
@@ -35,6 +37,7 @@ namespace Editor
         virtual class AssetCompiler& GetAssetCompiler() = 0;
         virtual class EntityListWidget& GetEntityList() = 0;
         virtual class WorldEditor& GetWorldEditor() = 0;
+        virtual Gizmo::Config& GetGizmoConfig() = 0;
     };
 }   
 } 

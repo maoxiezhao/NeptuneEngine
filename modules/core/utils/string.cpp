@@ -208,7 +208,7 @@ namespace VulkanTest
 	bool ToCString(I32 value, Span<char> output)
 	{
 		char* c = output.begin();
-		U32 length = output.length();
+		U32 length = (U32)output.length();
 		if (length > 0)
 		{
 			if (value < 0)
@@ -226,7 +226,7 @@ namespace VulkanTest
 	bool ToCString(I64 value, Span<char> output)
 	{
 		char* c = output.begin();
-		U32 length = output.length();
+		U32 length = (U32)output.length();
 		if (length > 0)
 		{
 			if (value < 0)
@@ -349,7 +349,7 @@ namespace VulkanTest
 	bool ToCString(F32 value, Span<char> out, int afterPoint)
 	{
 		char* output = out.begin();
-		U32 length = out.length();
+		U32 length = (U32)out.length();
 		if (length < 2)
 		{
 			return false;
@@ -421,7 +421,7 @@ namespace VulkanTest
 	bool ToCString(F64 value, Span<char> out, int afterPoint)
 	{
 		char* output = out.begin();
-		U32 length = out.length();
+		U32 length = (U32)out.length();
 		if (length < 2)
 		{
 			return false;

@@ -4,6 +4,9 @@
 #include "TextureFormatLayout.h"
 #include "core\platform\platform.h"
 #include "core\platform\atomic.h"
+#include "core\filesystem\filesystem.h"
+#include "core\utils\helper.h"
+#include "core\utils\stream.h"
 
 namespace VulkanTest
 {
@@ -274,6 +277,12 @@ DeviceVulkan::~DeviceVulkan()
 
     wsi.Clear();
 
+    if (pipelineCache!= VK_NULL_HANDLE)
+    {
+        FlushPipelineCache();
+        vkDestroyPipelineCache(device, pipelineCache, nullptr);
+    }
+
     transientAllocator.Clear();
     frameBufferAllocator.Clear();
 
@@ -320,6 +329,9 @@ void DeviceVulkan::SetContext(VulkanContext& context)
 
     // Init stock buffers
     InitStockSamplers();
+    
+    // Init pipelineCache
+    InitPipelineCache();
 
     // Create frame resources
     InitFrameContext(GetBufferCount());
@@ -333,7 +345,16 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     
     VkDeviceSize alignment = std::max<VkDeviceSize>(16u, features.properties2.properties.limits.minUniformBufferOffsetAlignment);
     alignment = std::max(alignment, features.properties2.properties.limits.minTexelBufferOffsetAlignment);
-    storagePool.Init(this, 64 * 1024, alignment, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, 32);
+    storagePool.Init(
+        this, 
+        64 * 1024, 
+        alignment, 
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | 
+        VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, 
+        32
+    );
     storagePool.AllocateBindlessDescriptor(true);
 
     // Init managers
@@ -594,7 +615,6 @@ IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListForThread(int threadIn
 
 IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex, QueueType queueType)
 {
-    // Only support main thread now
     QueueIndices queueIndex = GetQueueIndexFromQueueType(queueType);
     auto& pools = CurrentFrameResource().cmdPools[(int)queueIndex];
 
@@ -610,8 +630,14 @@ IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex
     assert(res == VK_SUCCESS);
     AddFrameCounter();
 
-    IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, cmd, queueType));
+    IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, cmd, queueType, pipelineCache));
     cmdPtr->SetThreadIndex(threadIndex);
+
+    // Set persistent storage block
+    auto it = CurrentFrameResource().storageBlockMap.find(cmd);
+    if (it != CurrentFrameResource().storageBlockMap.end())
+        cmdPtr->SetStorageBlock(it->second);
+
     return cmdPtr;
 }
 
@@ -1036,6 +1062,11 @@ void DeviceVulkan::RequestStorageBufferBlock(BufferBlock& block, VkDeviceSize si
 void DeviceVulkan::RequestStorageBufferBlockNolock(BufferBlock& block, VkDeviceSize size)
 {
     RequestBufferBlock(block, size, storagePool, CurrentFrameResource().storageBlocks, nullptr);
+}
+
+void DeviceVulkan::RecordStorageBufferBlock(BufferBlock& block, CommandList& cmd)
+{
+    CurrentFrameResource().storageBlockMap[cmd.GetCommandBuffer()] = block;
 }
 
 void DeviceVulkan::RequestBufferBlock(BufferBlock& block, VkDeviceSize size, BufferPool& pool, std::vector<BufferBlock>& recycle, std::vector<BufferBlock>* pending)
@@ -1919,6 +1950,9 @@ void DeviceVulkan::WaitIdleNolock()
         frame->vboBlocks.clear();
         frame->iboBlocks.clear();
         frame->uboBlocks.clear();
+    
+        frame->storageBlocks.clear();
+        frame->storageBlockMap.clear();
     }
 
     frameBufferAllocator.Clear();
@@ -2452,6 +2486,10 @@ void DeviceVulkan::FrameResource::Begin()
     destroyedAllocations.clear();
     destroyedBindlessResources.clear();
 
+    // reset persistent storage blocks
+    for (auto& kvp : storageBlockMap)
+        kvp.second.offset = 0;
+
     // reset recyle semaphores
     auto& recyleSemaphores = recycledSemaphroes;
     for (auto& semaphore : recyleSemaphores)
@@ -2689,6 +2727,108 @@ BindlessDescriptorHeap* DeviceVulkan::GetBindlessDescriptorHeap(BindlessReosurce
         break;
     }
     return nullptr;
+}
+
+std::string GetPipelineCachePath()
+{
+    static const std::string PIPELINE_CACHE_PATH = ".export/pipeline_cache.bin";
+    return PIPELINE_CACHE_PATH;
+}
+
+void DeviceVulkan::InitPipelineCache()
+{
+    // TODO: use filesystem to replace Helper::ReadFile
+    std::vector<uint8_t> pipelineData;
+    if (Helper::FileRead(GetPipelineCachePath(), pipelineData))
+    {
+        if (!pipelineData.empty())
+        {
+            if (!InitPipelineCache(pipelineData.data(), pipelineData.size()))
+                Logger::Warning("Failed to init pipeline cache.");
+            return;
+        }
+    }
+
+    if (!InitPipelineCache(nullptr, 0))
+        Logger::Warning("Failed to init pipeline cache.");
+  
+}
+
+bool DeviceVulkan::InitPipelineCache(const U8* data, size_t size)
+{
+    if (data != nullptr && size > 0)
+    {
+        uint32_t headerLength = 0;
+        uint32_t cacheHeaderVersion = 0;
+        uint32_t vendorID = 0;
+        uint32_t deviceID = 0;
+        uint8_t pipelineCacheUUID[VK_UUID_SIZE] = {};
+
+        std::memcpy(&headerLength, (uint8_t*)data + 0, 4);
+        std::memcpy(&cacheHeaderVersion, (uint8_t*)data + 4, 4);
+        std::memcpy(&vendorID, (uint8_t*)data + 8, 4);
+        std::memcpy(&deviceID, (uint8_t*)data + 12, 4);
+        std::memcpy(pipelineCacheUUID, (uint8_t*)data + 16, VK_UUID_SIZE);
+
+        bool badCache = false;
+        if (headerLength <= 0)
+        {
+            badCache = true;
+        }
+
+        if (cacheHeaderVersion != VK_PIPELINE_CACHE_HEADER_VERSION_ONE)
+        {
+            badCache = true;
+        }
+
+        if (vendorID != features.properties2.properties.vendorID)
+        {
+            badCache = true;
+        }
+
+        if (deviceID != features.properties2.properties.deviceID)
+        {
+            badCache = true;
+        }
+
+        if (memcmp(pipelineCacheUUID, features.properties2.properties.pipelineCacheUUID, sizeof(pipelineCacheUUID)) != 0)
+        {
+            badCache = true;
+        }
+
+        if (badCache)
+        {
+            size = 0;
+            data = nullptr;
+        }
+    }
+
+    VkPipelineCacheCreateInfo createInfo{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+    createInfo.initialDataSize = size;
+    createInfo.pInitialData = data;
+
+    if (pipelineCache != VK_NULL_HANDLE)
+        vkDestroyPipelineCache(device, pipelineCache, nullptr);
+    pipelineCache = VK_NULL_HANDLE;
+    return vkCreatePipelineCache(device, &createInfo, nullptr, &pipelineCache) == VK_SUCCESS;
+}
+
+void DeviceVulkan::FlushPipelineCache()
+{
+    // TODO: use filesystem to replace Helper::FileWrite
+    // Get size of pipeline cache
+    size_t size{};
+    VkResult res = vkGetPipelineCacheData(device, pipelineCache, &size, nullptr);
+    assert(res == VK_SUCCESS);
+
+    // Get data of pipeline cache 
+    std::vector<uint8_t> data(size);
+    res = vkGetPipelineCacheData(device, pipelineCache, &size, data.data());
+    assert(res == VK_SUCCESS);
+
+    // Write pipeline cache data to a file in binary format
+    std::string cachePath = GetPipelineCachePath();
+    Helper::FileWrite(cachePath, data.data(), size);
 }
 
 void DeviceVulkan::SyncPendingBufferBlocks()

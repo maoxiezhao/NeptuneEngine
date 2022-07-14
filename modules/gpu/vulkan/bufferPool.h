@@ -15,6 +15,7 @@ namespace GPU
 		U8* data;
 		VkDeviceSize offset;
 		VkDeviceSize paddedSize;
+		BufferPtr buffer;
 		BindlessDescriptorPtr bindless;
 	};
 
@@ -41,10 +42,10 @@ namespace GPU
 
 				VkDeviceSize paddedSize = std::max(allocateSize, spillSize);
 				paddedSize = std::min(paddedSize, capacity - alignedOffset);
-				return { ret, alignedOffset, paddedSize, bindless };
+				return { ret, alignedOffset, paddedSize, cpu, bindless };
 			}
 
-			return { nullptr, 0, 0, bindless };
+			return { nullptr, 0, 0, cpu, bindless };
 		}
 	};
 

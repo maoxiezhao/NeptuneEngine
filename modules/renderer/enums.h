@@ -17,6 +17,12 @@ namespace VulkanTest
 		BSTYPE_COUNT
 	};
 
+	enum DepthStencilStateType
+	{
+		DSTYPE_DEFAULT,
+		DSTYPE_COUNT
+	};
+
 	enum RENDERPASS
 	{
 		RENDERPASS_MAIN,
@@ -28,8 +34,10 @@ namespace VulkanTest
 	enum ShaderType
 	{
 		SHADERTYPE_VS_OBJECT,
+		SHADERTYPE_VS_VERTEXCOLOR,
 
 		SHADERTYPE_PS_OBJECT,
+		SHADERTYPE_PS_VERTEXCOLOR,
 
 		SHADERTYPE_COUNT
 	};

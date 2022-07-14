@@ -194,180 +194,6 @@ namespace Util
 		HashValue hashValue = 0;
 	};
 
-	template <typename T>
-	class IntrusiveHashMap
-	{
-	public:
-		~IntrusiveHashMap()
-		{
-			clear();
-		}
-
-		IntrusiveHashMap() = default;
-		IntrusiveHashMap(const IntrusiveHashMap&) = delete;
-		void operator=(const IntrusiveHashMap&) = delete;
-
-		void clear()
-		{
-			for (auto& kvp : hashmap)
-				pool.free(kvp.second);
-
-			hashmap.clear();
-		}
-
-		T* find(HashValue hash) const
-		{
-			auto it = hashmap.find(hash);
-			if (it == hashmap.end())
-				return nullptr;
-
-			return it->second;
-		}
-
-		T& operator[](HashValue hash)
-		{
-			auto* t = find(hash);
-			if (!t)
-				t = emplace(hash);
-			return *t;
-		}
-
-		void erase(T* value)
-		{
-			for (auto& kvp : hashmap)
-			{
-				if (kvp.second == value)
-				{
-					hashmap.erase(kvp.first);
-					pool.free(value);
-					break;
-				}
-			}
-		}
-
-		void erase(HashValue hash)
-		{
-			auto it = hashmap.find(hash);
-			if (it != hashmap.end())
-			{
-				pool.free(it->second);
-				hashmap.erase(it);
-			}
-		}
-
-		template <typename... Args>
-		T* emplace(HashValue hash, Args&&... args)
-		{
-			T* t = allocate(std::forward<Args>(args)...);
-			return insert(hash, t);
-		}
-
-		template <typename... Args>
-		T* allocate(Args&&... args)
-		{
-			return pool.allocate(std::forward<Args>(args)...);
-		}
-
-		void free(T* value)
-		{
-			pool.free(value);
-		}
-
-		T* insert(HashValue hash, T* value)
-		{
-			auto it = hashmap.find(hash);
-			if (it != hashmap.end())
-				pool.free(it->second);
-
-			hashmap[hash] = value;
-			return value;
-		}
-
-		typename std::unordered_map<HashValue, T*>::const_iterator begin() const
-		{
-			return hashmap.begin();
-		}
-
-		typename std::unordered_map<HashValue, T*>::const_iterator end() const
-		{
-			return hashmap.end();
-		}
-
-	private:
-		std::unordered_map<HashValue, T*> hashmap;
-		ObjectPool<T> pool;
-	};
-
-	template <typename T>
-	class ThreadSafeIntrusiveHashMap
-	{
-	public:
-		~ThreadSafeIntrusiveHashMap()
-		{
-			clear();
-		}
-
-		ThreadSafeIntrusiveHashMap() = default;
-		ThreadSafeIntrusiveHashMap(const ThreadSafeIntrusiveHashMap&) = delete;
-		void operator=(const ThreadSafeIntrusiveHashMap&) = delete;
-
-		void clear()
-		{
-			ScopedWriteLock holder(lock);
-			hashmap.clear();
-		}
-
-		T* find(HashValue hash) const
-		{
-			ScopedReadLock holder(lock);
-			T* ret = hashmap.find(hash);
-			return ret;
-		}
-
-		void erase(T* value)
-		{
-			ScopedWriteLock holder(lock);
-			hashmap.erase(value);
-		}
-
-		void erase(HashValue hash)
-		{
-			ScopedWriteLock holder(lock);
-			hashmap.erase(hash);
-		}
-
-		template <typename... Args>
-		T* allocate(Args&&... args)
-		{
-			ScopedWriteLock holder(lock);
-			return hashmap.allocate(std::forward<Args>(args)...);
-		}
-
-		void free(T* value)
-		{
-			ScopedWriteLock holder(lock);
-			hashmap.free(value);
-		}
-
-		T* insert(HashValue hash, T* value)
-		{
-			ScopedWriteLock holder(lock);
-			value = hashmap.insert(hash, value);
-			return value;
-		}
-
-		template <typename... Args>
-		T* emplace(HashValue hash, Args&&... args)
-		{
-			ScopedWriteLock holder(lock);
-			return hashmap.emplace(hash, std::forward<Args>(args)...);
-		}
-
-	private:
-		IntrusiveHashMap<T> hashmap;
-		mutable RWLock lock;
-	};
-
 	template<typename T>
 	class IntrusivePODWrapper : public IntrusiveHashMapEnabled<IntrusivePODWrapper<T>>
 	{
@@ -403,88 +229,85 @@ namespace Util
 			depth = 0;
 		}
 
-		void clearAndKeepCapacity()
-		{
-			for (int i = 0; i < hashTable.size(); i++)
-				hashTable[i] = nullptr;
-			list.clear();
-		}
-
 		T* find(HashValue hash)const
 		{
 			if (hashTable.empty())
 				return nullptr;
 
-			HashValue marked = hash & hashMask;
+			HashValue hashMask = GetHashMask();
+			HashValue masked = hash & hashMask;
 			for (U32 i = 0; i < depth; i++)
 			{
-				if (hashTable[marked] != nullptr && GetItemHash(hashTable[marked]) == hash)
-					return hashTable[marked];
-				marked = (hash + 1) & hashMask;
+				if (hashTable[masked] != nullptr && GetItemHash(hashTable[masked]) == hash)
+					return hashTable[masked];
+				masked = (hash + 1) & hashMask;
 			}
 			return nullptr;
 		}
 
-		T* insertYield(T* value)
+		T* insert_yield(T* value)
 		{
 			if (hashTable.empty())
 				Grow();
 
+			HashValue hashMask = GetHashMask();
 			HashValue hash = GetItemHash(value);
-			HashValue marked = hash & hashMask;
+			HashValue masked = hash & hashMask;
 			for (U32 i = 0; i < depth; i++)
 			{
-				if (hashTable[marked] != nullptr && GetItemHash(hashTable[marked]) == hash)
+				if (hashTable[masked] != nullptr && GetItemHash(hashTable[masked]) == hash)
 				{
 					// Insert stop while value already exsist
-					return hashTable[marked];
+					return hashTable[masked];
 				}
-				else if (hashTable[marked] == nullptr)
+				else if (hashTable[masked] == nullptr)
 				{
-					hashTable[marked] = value;
+					hashTable[masked] = value;
 					list.insert_front(value);
 					return nullptr;
 				}
-				marked = (marked + 1) & hashMask;
+				masked = (masked + 1) & hashMask;
 			}
 
 			Grow();
-			return insertYield(value);
+			return insert_yield(value);
 		}
 
-		T* insertReplace(T* value)
+		T* insert_replace(T* value)
 		{
 			if (hashTable.empty())
 				Grow();
 
+			HashValue hashMask = GetHashMask();
 			HashValue hash = GetItemHash(value);
-			HashValue marked = hash & hashMask;
+			HashValue masked = hash & hashMask;
 			for (U32 i = 0; i < depth; i++)
 			{
-				if (hashTable[marked] != nullptr && GetItemHash(hashTable[marked]) == hash)
+				if (hashTable[masked] != nullptr && GetItemHash(hashTable[masked]) == hash)
 				{
 					// New value will replace old value, then return old value
-					T* ret = hashTable[marked];
-					hashTable[marked] = value;
+					T* ret = hashTable[masked];
+					hashTable[masked] = value;
 					list.erase(ret);
 					list.insert_front(value);
 					return ret;
 				}
 
-				if (hashTable[marked] == nullptr)
+				if (hashTable[masked] == nullptr)
 				{
-					hashTable[marked] = value;
+					assert(!hashTable[masked]);
+					hashTable[masked] = value;
 					list.insert_front(value);
 					return nullptr;
 				}
-
+#if 0
 				if (i > 1)
 				{
-					U32 probeDist = ProbeDistanceHash(GetItemHash(hashTable[marked]), marked);
+					U32 probeDist = ProbeDistanceHash(GetItemHash(hashTable[masked]), masked);
 					if (probeDist < (i - 1))
 					{
-						T* ret = hashTable[marked];
-						hashTable[marked] = value;
+						T* ret = hashTable[masked];
+						hashTable[masked] = value;
 						list.erase(ret);
 
 						i = probeDist;
@@ -492,11 +315,12 @@ namespace Util
 						hash = GetItemHash(value);
 					}
 				}
-				marked = (marked + 1) & hashMask;
+#endif
+				masked = (masked + 1) & hashMask;
 			}
 
 			Grow();
-			return insertYield(value);
+			return insert_replace(value);
 		}
 
 		T* erase(HashValue hash)
@@ -504,18 +328,19 @@ namespace Util
 			if (hashTable.empty())
 				return nullptr;
 
-			HashValue marked = hash & hashMask;
+			HashValue hashMask = GetHashMask();
+			HashValue masked = hash & hashMask;
 			for (U32 i = 0; i < depth; i++)
 			{
-				if (hashTable[marked] != nullptr && GetItemHash(hashTable[marked]) == hash)
+				if (hashTable[masked] != nullptr && GetItemHash(hashTable[masked]) == hash)
 				{
-					T* ret = hashTable[marked];
-					hashTable[marked] = nullptr;
+					T* ret = hashTable[masked];
+					hashTable[masked] = nullptr;
 					list.erase(ret);
 					return ret;
 				}
-				
-				marked = (marked + 1) & hashMask;
+
+				masked = (masked + 1) & hashMask;
 			}
 			return nullptr;
 		}
@@ -545,8 +370,14 @@ namespace Util
 		}
 
 	private:
+		HashValue GetHashMask()const
+		{
+			return hashTable.size() - 1;
+		}
+
 		U32 ProbeDistanceHash(HashValue hash, HashValue curPos)
 		{
+			HashValue hashMask = GetHashMask();
 			return (curPos - (hash & hashMask) + hashTable.size()) & hashMask;
 		}
 
@@ -557,17 +388,17 @@ namespace Util
 
 		bool InsertInner(T* value)
 		{
+			HashValue hashMask = GetHashMask();
 			HashValue hash = GetItemHash(value);
-			HashValue hashMask = hashTable.size() - 1;
-			HashValue marked = hash & hashMask;
+			HashValue masked = hash & hashMask;
 			for (U32 i = 0; i < depth; i++)
 			{
-				if (hashTable[marked] == nullptr)
+				if (hashTable[masked] == nullptr)
 				{
-					hashTable[marked] = value;
+					hashTable[masked] = value;
 					return true;
 				}
-				marked = (hash + 1) & hashMask;
+				masked = (hash + 1) & hashMask;
 			}
 			return false;
 		}
@@ -591,9 +422,7 @@ namespace Util
 					depth++;
 				}
 
-				hashMask = (U32)hashTable.size() - 1;
 				success = true;
-
 				if (!list.empty())
 				{
 					for (auto& item : list)
@@ -611,7 +440,6 @@ namespace Util
 		std::vector<T*> hashTable;
 		IntrusiveList<T> list;
 		U32 depth = 0;
-		U32 hashMask = 0;
 	};
 
 	template <typename T>
@@ -636,13 +464,12 @@ namespace Util
 				auto* toMove = itr.get();
 				readWrite.erase(toMove);
 
-				T* old = readOnly.insertYield(toMove);
-				if (old != nullptr)
-					pool.free(old);
+				T* toDelete = readOnly.insert_yield(toMove);
+				if (toDelete != nullptr)
+					pool.free(toDelete);
 
 				itr = list.begin();
 			}
-			readWrite.clearAndKeepCapacity();
 		}
 
 		void clear()
@@ -711,13 +538,13 @@ namespace Util
 		{
 			SetItemHash(value, hash);
 			lock.BeginWrite();
-			T* old = readWrite.insertYield(value);
+			T* old = readWrite.insert_yield(value);
 			if (old != nullptr)
 				pool.free(old);
 			lock.EndWrite();
 			return value;
 		}
-		
+
 		IntrusiveHashMapHolder<T>& GetReadOnly()
 		{
 			return readOnly;
@@ -736,8 +563,199 @@ namespace Util
 
 		IntrusiveHashMapHolder<T> readOnly;
 		IntrusiveHashMapHolder<T> readWrite;
-		
+
 		ObjectPool<T> pool;
+		mutable RWLock lock;
+	};
+
+	template <typename T>
+	class IntrusiveHashMap
+	{
+	public:
+		~IntrusiveHashMap()
+		{
+			clear();
+		}
+
+		IntrusiveHashMap() = default;
+		IntrusiveHashMap(const IntrusiveHashMap&) = delete;
+		void operator=(const IntrusiveHashMap&) = delete;
+
+		void clear()
+		{
+			auto& list = hashmap.GetList();
+			auto itr = list.begin();
+			while (itr != list.end())
+			{
+				auto* to_free = itr.get();
+				itr = list.erase(itr);
+				pool.free(to_free);
+			}
+
+			hashmap.clear();
+		}
+
+		T* find(HashValue hash) const
+		{
+			return hashmap.find(hash);
+		}
+
+		T& operator[](HashValue hash)
+		{
+			auto* t = find(hash);
+			if (!t)
+				t = emplace_yield(hash);
+			return *t;
+		}
+
+		void erase(T* value)
+		{
+			hashmap.erase(value);
+			pool.free(value);
+		}
+
+		void erase(HashValue hash)
+		{
+			auto* value = hashmap.erase(hash);
+			if (value)
+				pool.free(value);
+		}
+
+		template <typename... P>
+		T* emplace_replace(HashValue hash, P&&... p)
+		{
+			T* t = allocate(std::forward<P>(p)...);
+			return insert_replace(hash, t);
+		}
+
+		template <typename... P>
+		T* emplace_yield(HashValue hash, P&&... p)
+		{
+			T* t = allocate(std::forward<P>(p)...);
+			return insert_yield(hash, t);
+		}
+
+		template <typename... P>
+		T* allocate(P&&... p)
+		{
+			return pool.allocate(std::forward<P>(p)...);
+		}
+
+		void free(T* value)
+		{
+			pool.free(value);
+		}
+
+		T* insert_replace(HashValue hash, T* value)
+		{
+			static_cast<IntrusiveHashMapEnabled<T>*>(value)->SetHash(hash);
+			T* to_delete = hashmap.insert_replace(value);
+			if (to_delete)
+				pool.free(to_delete);
+			return value;
+		}
+
+		T* insert_yield(HashValue hash, T* value)
+		{
+			static_cast<IntrusiveHashMapEnabled<T>*>(value)->SetHash(hash);
+			T* to_delete = hashmap.insert_yield(value);
+			if (to_delete)
+				pool.free(to_delete);
+			return value;
+		}
+
+		typename IntrusiveList<T>::Iterator begin() const
+		{
+			return hashmap.begin();
+		}
+
+		typename IntrusiveList<T>::Iterator end() const
+		{
+			return hashmap.end();
+		}
+
+		IntrusiveHashMap& get_thread_unsafe()
+		{
+			return *this;
+		}
+
+		const IntrusiveHashMap& get_thread_unsafe() const
+		{
+			return *this;
+		}
+
+	private:
+		IntrusiveHashMapHolder<T> hashmap;
+		ObjectPool<T> pool;
+	};
+
+	template <typename T>
+	class ThreadSafeIntrusiveHashMap
+	{
+	public:
+		~ThreadSafeIntrusiveHashMap()
+		{
+			clear();
+		}
+
+		ThreadSafeIntrusiveHashMap() = default;
+		ThreadSafeIntrusiveHashMap(const ThreadSafeIntrusiveHashMap&) = delete;
+		void operator=(const ThreadSafeIntrusiveHashMap&) = delete;
+
+		void clear()
+		{
+			ScopedWriteLock holder(lock);
+			hashmap.clear();
+		}
+
+		T* find(HashValue hash) const
+		{
+			ScopedReadLock holder(lock);
+			T* ret = hashmap.find(hash);
+			return ret;
+		}
+
+		void erase(T* value)
+		{
+			ScopedWriteLock holder(lock);
+			hashmap.erase(value);
+		}
+
+		void erase(HashValue hash)
+		{
+			ScopedWriteLock holder(lock);
+			hashmap.erase(hash);
+		}
+
+		template <typename... Args>
+		T* allocate(Args&&... args)
+		{
+			ScopedWriteLock holder(lock);
+			return hashmap.allocate(std::forward<Args>(args)...);
+		}
+
+		void free(T* value)
+		{
+			ScopedWriteLock holder(lock);
+			hashmap.free(value);
+		}
+
+		T* insert(HashValue hash, T* value)
+		{
+			ScopedWriteLock holder(lock);
+			value = hashmap.insert_replace(hash, value);
+			return value;
+		}
+
+		template <typename... Args>
+		T* emplace(HashValue hash, Args&&... args)
+		{
+			ScopedWriteLock holder(lock);
+			return hashmap.emplace(hash, std::forward<Args>(args)...);
+		}
+
+	private:
+		IntrusiveHashMap<T> hashmap;
 		mutable RWLock lock;
 	};
 }

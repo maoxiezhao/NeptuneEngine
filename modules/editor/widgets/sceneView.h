@@ -17,6 +17,8 @@ namespace Editor
     class VULKAN_EDITOR_API EditorRenderer : public RenderPath3D
     {
     public:
+        EditorRenderer(EditorApp& editor_);
+
         void SetViewportSize(U32 w, U32 h) {
             viewportSize = U32x2(w, h);
         }
@@ -29,12 +31,17 @@ namespace Editor
         void Render() override;
 
     protected:
+        void SetupPasses(RenderGraph& renderGraph) override;
+
         virtual U32x2 GetInternalResolution()const {
             return viewportSize;
         }
 
     private:
+        void DrawEditor(GPU::CommandList& cmd);
+
         U32x2 viewportSize = U32x2(0);
+        EditorApp& editor;
     };
 
     class VULKAN_EDITOR_API SceneView : public EditorWidget

@@ -24,13 +24,10 @@ namespace VulkanTest
 	protected:
 		virtual void SetupPasses(RenderGraph& renderGraph) = 0;
 		virtual void UpdateRenderData();
+		virtual void SetupComposeDependency(RenderPass& composePass) = 0;
 		virtual void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) = 0;
 
 		virtual U32x2 GetInternalResolution()const;
-
-		void AddOutputColor(const char* name) {
-			outputColors.push_back(String(name));
-		}
 
 		U32x2 currentBufferSize {};
 		ResourceDimensions backbufferDim;
@@ -38,7 +35,6 @@ namespace VulkanTest
 	private:
 		RenderGraph renderGraph;
 		AttachmentInfo backInfo;
-		std::vector<String> outputColors;
 		bool swapchainDisable = false;
 	};
 }

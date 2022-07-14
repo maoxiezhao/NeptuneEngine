@@ -98,7 +98,7 @@ static inline constexpr ::VulkanTest::EventType GetTypeID() { \
 			void* handler;
 		};
 
-		struct EventTypeData
+		struct EventTypeData : Util::IntrusiveHashMapEnabled<EventTypeData>
 		{
 			std::vector<EventHandler> handlers;
 			std::vector<EventHandler> recursiveHandlers;

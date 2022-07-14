@@ -72,6 +72,9 @@ namespace GPU
     using IntrusivePtrEnabled = Util::IntrusivePtrEnabled<T, Deleter, Util::SingleThreadCounter>;
 #endif
 
+    static const U32 BUFFERCOUNT = 2;
+    static constexpr U32 GetBufferCount() { return BUFFERCOUNT; }
+
     template<typename T>
     using IntrusivePtr = Util::IntrusivePtr<T>;
 

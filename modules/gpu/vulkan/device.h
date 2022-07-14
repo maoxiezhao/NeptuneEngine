@@ -258,6 +258,9 @@ public:
         std::vector<BufferBlock> uboBlocks;
         std::vector<BufferBlock> stagingBlocks;
         std::vector<BufferBlock> storageBlocks;
+
+        // persistent buffer blocks
+        std::unordered_map<VkCommandBuffer, BufferBlock> storageBlockMap;
     };
     std::vector<std::unique_ptr<FrameResource>> frameResources;
     uint32_t frameIndex = 0;
@@ -342,6 +345,7 @@ public:
     void RequestStagingBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
     void RequestStorageBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestStorageBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
+    void RecordStorageBufferBlock(BufferBlock& block, CommandList& cmd);
 
     ImagePtr CreateImage(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
     InitialImageBuffer CreateImageStagingBuffer(const ImageCreateInfo& createInfo, const SubresourceData* pInitialData);
@@ -418,10 +422,14 @@ public:
     VkFormat GetDefaultDepthStencilFormat() const;
     VkFormat GetDefaultDepthFormat() const;
     constexpr U64 GetFrameCount() const { return FRAMECOUNT; }
-    static constexpr U32 GetBufferCount() { return BUFFERCOUNT; }
     VkInstance GetInstance() { return instance; }
 
     BindlessDescriptorHeap* GetBindlessDescriptorHeap(BindlessReosurceType type);
+
+    void InitPipelineCache();
+    bool InitPipelineCache(const U8* data, size_t size);
+    void FlushPipelineCache();
+    VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 
     static bool InitRenderdocCapture();
 
@@ -434,7 +442,6 @@ private:
     friend class CommandList;
 
     U64 FRAMECOUNT = 0;
-    static const U32 BUFFERCOUNT = 2;
 
     void AddFrameCounter();
     void DecrementFrameCounter();

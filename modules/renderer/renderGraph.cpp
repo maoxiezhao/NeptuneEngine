@@ -146,7 +146,7 @@ namespace VulkanTest
         void DoGraphicsCommands(GPU::CommandList& cmd, const PhysicalPass& physicalPass, GPUPassSubmissionState* state);
         void DoComputeCommands(GPU::CommandList& cmd, const PhysicalPass& physicalPass, GPUPassSubmissionState* state);
         void TransferOwnership(const PhysicalPass& physicalPass);
-        void HandleTimelineGPU(GPU::DeviceVulkan& device, const PhysicalPass& physicalPass, GPUPassSubmissionState* state);
+        void HandleTimelineGPU(GPU::DeviceVulkan& device, const PhysicalPass& physicalPass, GPUPassSubmissionState* state, U8 index);
         void EnqueueRenderPass(PhysicalPass& physicalPass, GPUPassSubmissionState& state);
         void SwapchainLayoutTransitionPass();
         void Render(GPU::DeviceVulkan& device, Jobsystem::JobHandle& jobHandle);
@@ -1525,7 +1525,7 @@ namespace VulkanTest
         }
     }
 
-    void RenderGraphImpl::HandleTimelineGPU(GPU::DeviceVulkan& device, const PhysicalPass& physicalPass, GPUPassSubmissionState* state)
+    void RenderGraphImpl::HandleTimelineGPU(GPU::DeviceVulkan& device, const PhysicalPass& physicalPass, GPUPassSubmissionState* state, U8 index)
     {
         ASSERT(state->renderingDependency.counter == 0);
         Jobsystem::Run(state, [this, &device, &physicalPass](void* data)->void {
@@ -1550,7 +1550,8 @@ namespace VulkanTest
             Logger::Print("Pass %s execute", state->name);
 #endif
 
-        }, & state->renderingDependency);
+        // TODO: need to limit worker index?
+        }, & state->renderingDependency, index);
     }
 
     void RenderGraphImpl::EnqueueRenderPass(PhysicalPass& physicalPass, GPUPassSubmissionState& state)
@@ -1716,7 +1717,7 @@ namespace VulkanTest
         {
             auto& state = submissionStates[i];
             if (state.active)
-                HandleTimelineGPU(device, physicalPasses[i], &state);
+                HandleTimelineGPU(device, physicalPasses[i], &state, (U8)i);
         }
 
         // Sequential submit all states

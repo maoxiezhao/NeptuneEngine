@@ -66,14 +66,9 @@ namespace VulkanTest
 		depth.sizeX = (F32)backbufferDim.width;
 		depth.sizeY = (F32)backbufferDim.height;
 
-		auto WriteRenderPassColor = [&](RenderPass& rp, const char* name, const AttachmentInfo& attachment) {
-			rp.WriteColor(name, attachment);
-			lastRenderPassRT = name;
-		};
-
 		// Main opaque pass
 		auto& opaquePass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
-		WriteRenderPassColor(opaquePass, "rtFinal3D", rtAttachmentInfo);
+		opaquePass.WriteColor(SetRenderResult3D("rtFinal3D"), rtAttachmentInfo);
 		opaquePass.SetClearColorCallback(DefaultClearColorFunc);
 		opaquePass.WriteDepthStencil("depth", depth);
 		opaquePass.SetClearDepthStencilCallback(DefaultClearDepthFunc);
@@ -88,7 +83,6 @@ namespace VulkanTest
 			Renderer::DrawScene(cmd, visibility);
 		});
 
-		AddOutputColor(GetLastRenderPassRT());
 		RenderPath2D::SetupPasses(renderGraph);
 	}
 
@@ -100,9 +94,15 @@ namespace VulkanTest
 		device->Submit(cmd,  nullptr);
 	}
 
+	void RenderPath3D::SetupComposeDependency(RenderPass& composePass)
+	{
+		composePass.ReadTexture(GetRenderResult3D());
+		RenderPath2D::SetupComposeDependency(composePass);
+	}
+
 	void RenderPath3D::Compose(RenderGraph& renderGraph, GPU::CommandList* cmd)
 	{
-		auto res = renderGraph.GetOrCreateTexture(GetLastRenderPassRT().c_str());
+		auto res = renderGraph.GetOrCreateTexture(GetRenderResult3D());
 		auto& img = renderGraph.GetPhysicalTexture(res);
 
 		ImageUtil::Params params = {};

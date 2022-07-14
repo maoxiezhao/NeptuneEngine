@@ -18,7 +18,7 @@ static std::mutex mutex;
     static void* renderdocModule;
 #endif
 
-bool DeviceVulkan::InitRenderdocCapture()
+    bool DeviceVulkan::InitRenderdocCapture()
 {
 #ifdef _WIN32
     renderdocModule = CiLoadLibrary("renderdoc.dll");

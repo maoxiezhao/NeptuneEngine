@@ -53,6 +53,14 @@ struct IndexBindingState
 	VkIndexType indexType;
 };
 
+struct PipelineStateDesc
+{
+    BlendState blendState = {};
+    RasterizerState rasterizerState = {};
+    DepthStencilState depthStencilState = {};
+    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+};
+
 struct CompiledPipelineState
 {
 	ShaderProgram* shaderProgram = nullptr;
@@ -64,7 +72,7 @@ struct CompiledPipelineState
 
     U32 subpassIndex = 0;
     uint64_t hash = 0;
-    VkPipelineCache cache;
+    VkPipelineCache cache = VK_NULL_HANDLE;
     bool isOwnedByCommandList = true;
 };
 
@@ -141,7 +149,7 @@ private:
     bool isEnded = false;
 
 public:
-    CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_);
+    CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_, VkPipelineCache cache_);
     ~CommandList();
 
     void BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE);
@@ -188,6 +196,8 @@ public:
     void SetTexture(U32 set, U32 binding, const ImageView& imageView);
     void SetRasterizerState(const RasterizerState& state);
     void SetBlendState(const BlendState& state);
+    void SetDepthStencilState(const DepthStencilState& state);
+    void SetPipelineState(const PipelineStateDesc& desc);
     void SetScissor(const VkRect2D& rect);
     void SetViewport(const VkViewport& viewport_);
     void SetViewport(const Viewport& viewport_);
@@ -241,6 +251,16 @@ public:
     void SetSwapchainStages(VkPipelineStageFlags stages)
     {
         swapchainStages |= stages;
+    }
+
+    void SetStorageBlock(BufferBlock block)
+    {
+        storageBlock = block;
+    }
+
+    BufferBlock GetStorageBlock()const
+    {
+        return storageBlock;
     }
 
     DeviceVulkan& GetDevice()

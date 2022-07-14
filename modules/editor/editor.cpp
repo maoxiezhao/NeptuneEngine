@@ -11,6 +11,7 @@
 #include "widgets\property.h"
 #include "widgets\entityList.h"
 #include "widgets\renderGraph.h"
+#include "widgets\gizmo.h"
 
 #include "plugins\renderer.h"
 
@@ -297,6 +298,11 @@ namespace Editor
         WorldEditor& GetWorldEditor() override
         {
             return *worldEditor;
+        }
+
+        Gizmo::Config& GetGizmoConfig() override
+        {
+            return gizmoConfig;
         }
 
     protected:
@@ -594,6 +600,7 @@ namespace Editor
         Timer fpsTimer;
         Array<Utils::Action*> actions;
         Settings settings;
+        Gizmo::Config gizmoConfig;
 
         // Windows
         Platform::WindowType mainWindow;

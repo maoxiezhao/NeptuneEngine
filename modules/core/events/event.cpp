@@ -9,9 +9,8 @@ namespace VulkanTest
 
 	void EventManager::Dispatch()
 	{
-		for (auto& kvp : eventDatas)
+		for (auto& eventData : eventDatas)
 		{
-			auto& eventData =* kvp.second;
 			auto& handlers = eventData.handlers;
 			auto& queuedEvents = eventData.queuedEvents;
 			auto itr = std::remove_if(handlers.begin(), handlers.end(), [&](const EventHandler& handler) 

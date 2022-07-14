@@ -23,13 +23,20 @@ namespace VulkanTest
 			return camera;
 		}
 
-		const String GetLastRenderPassRT()const {
-			return lastRenderPassRT;
+		const char* GetRenderResult3D()const {
+			return lastRenderPassRT.c_str();
+		}
+
+		const char* SetRenderResult3D(const char* name)
+		{
+			lastRenderPassRT = name;
+			return name;
 		}
 
 	protected:
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void UpdateRenderData() override;
+		void SetupComposeDependency(RenderPass& composePass) override;
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
 	
 	protected:

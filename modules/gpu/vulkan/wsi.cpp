@@ -1,4 +1,5 @@
 ﻿#include "wsi.h"
+#include "core\filesystem\filesystem.h"
 
 namespace VulkanTest
 {

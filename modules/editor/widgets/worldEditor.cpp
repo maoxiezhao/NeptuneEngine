@@ -25,18 +25,18 @@ namespace Editor
         while (entities.size() <= entity)
             entities.resize(entity * 2.0f);
 
-        FolderEntity& folderEntity = entities[entity];
+        FolderEntity& folderEntity = entities[(U32)entity];
         folderEntity.next = rootFolder.firstEntity;
         folderEntity.prev = ECS::INVALID_ENTITY;
         rootFolder.firstEntity = entity;
 
         if (folderEntity.next != ECS::INVALID_ENTITY)
-            entities[folderEntity.next].prev = entity;
+            entities[(U32)folderEntity.next].prev = entity;
     }
 
     ECS::EntityID EntityFolder::GetNextEntity(ECS::EntityID e) const
     {
-        return entities[e].next;
+        return entities[(U32)e].next;
     }
 
     void EntityFolder::OnEntityCreated(ECS::EntityID e)
@@ -46,15 +46,15 @@ namespace Editor
 
     void EntityFolder::OnEntityDestroyed(ECS::EntityID e)
     {
-        FolderEntity& folderEntity = entities[e];
+        FolderEntity& folderEntity = entities[(U32)e];
         if (rootFolder.firstEntity == e)
             rootFolder.firstEntity = folderEntity.next;
 
         if (folderEntity.prev != ECS::INVALID_ENTITY)
-            entities[folderEntity.prev].next = folderEntity.next;
+            entities[(U32)folderEntity.prev].next = folderEntity.next;
 
         if (folderEntity.next != ECS::INVALID_ENTITY)
-            entities[folderEntity.next].prev = folderEntity.prev;
+            entities[(U32)folderEntity.next].prev = folderEntity.prev;
 
         folderEntity.prev = ECS::INVALID_ENTITY;
         folderEntity.next = ECS::INVALID_ENTITY;

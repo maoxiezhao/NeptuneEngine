@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\engine.h"
 #include "core\platform\platform.h"
 #include "gpu\vulkan\device.h"
 #include "gpu\vulkan\context.h"

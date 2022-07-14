@@ -1,12 +1,10 @@
 #pragma once
 
 #include "definition.h"
+#include "core\filesystem\filesystem.h"
 
 namespace VulkanTest
 {
-
-class FileSystem;
-
 namespace GPU
 {
 
@@ -33,6 +31,11 @@ struct QueueInfo
 {
     int familyIndices[QUEUE_INDEX_COUNT] = {};
     VkQueue queues[QUEUE_INDEX_COUNT] = {};
+};
+
+struct SystemHandles
+{
+    FileSystem* fileSystem;
 };
 
 class VulkanContext
@@ -67,11 +70,6 @@ public:
     {
         return queueInfo;
     }
-
-    struct SystemHandles
-    {
-        FileSystem* fileSystem;
-    };
 
     void SetSystemHandles(const SystemHandles& handles_)
     {

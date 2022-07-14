@@ -142,6 +142,7 @@ namespace Renderer
 
 	GPU::BlendState stockBlendStates[BSTYPE_COUNT] = {};
 	GPU::RasterizerState stockRasterizerState[RSTYPE_COUNT] = {};
+	GPU::DepthStencilState depthStencilStates[DSTYPE_COUNT] = {};
 	GPU::Shader* shaders[SHADERTYPE_COUNT] = {};
 	GPU::BufferPtr frameBuffer;
 
@@ -203,6 +204,25 @@ namespace Renderer
 		rs.antialiasedLineEnable = false;
 		rs.conservativeRasterizationEnable = false;
 		stockRasterizerState[RSTYPE_DOUBLE_SIDED] = rs;
+
+		// DepthStencilStates
+		GPU::DepthStencilState dsd;
+		dsd.depthEnable = true;
+		dsd.depthWriteMask = GPU::DEPTH_WRITE_MASK_ALL;
+		dsd.depthFunc = VK_COMPARE_OP_GREATER;
+
+		dsd.stencilEnable = true;
+		dsd.stencilReadMask = 0;
+		dsd.stencilWriteMask = 0xFF;
+		dsd.frontFace.stencilFunc = VK_COMPARE_OP_ALWAYS;
+		dsd.frontFace.stencilPassOp = VK_STENCIL_OP_REPLACE;
+		dsd.frontFace.stencilFailOp = VK_STENCIL_OP_KEEP;
+		dsd.frontFace.stencilDepthFailOp = VK_STENCIL_OP_KEEP;
+		dsd.backFace.stencilFunc = VK_COMPARE_OP_ALWAYS;
+		dsd.backFace.stencilPassOp = VK_STENCIL_OP_REPLACE;
+		dsd.backFace.stencilFailOp = VK_STENCIL_OP_KEEP;
+		dsd.backFace.stencilDepthFailOp = VK_STENCIL_OP_KEEP;
+		depthStencilStates[DSTYPE_DEFAULT] = dsd;
 	}
 
 	GPU::Shader* PreloadShader(GPU::ShaderStage stage, const char* path, const GPU::ShaderVariantMap& defines = {})
@@ -214,9 +234,10 @@ namespace Renderer
 	void LoadShaders()
 	{
 		shaders[SHADERTYPE_VS_OBJECT] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl");
-
+		shaders[SHADERTYPE_VS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::VS, "vertexColorVS.hlsl");
 
 		shaders[SHADERTYPE_PS_OBJECT] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl");
+		shaders[SHADERTYPE_PS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::PS, "vertexColorPS.hlsl");
 	}
 
 	void Renderer::Initialize(Engine& engine)
@@ -268,6 +289,11 @@ namespace Renderer
 	const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type)
 	{
 		return stockRasterizerState[type];
+	}
+
+	const GPU::DepthStencilState& GetDepthStencilState(DepthStencilStateType type)
+	{
+		return depthStencilStates[type];
 	}
 
 	const GPU::Shader* GetShader(ShaderType type)

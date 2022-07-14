@@ -58,15 +58,12 @@ namespace VulkanTest
 		backInfo.sizeY = (F32)backbufferDim.height;
 
 		// Setup render graph
-		outputColors.clear();
 		SetupPasses(renderGraph);
 		
 		// Compose
 		auto& composePass = renderGraph.AddRenderPass("Compose", RenderGraphQueueFlag::Graphics);
+		SetupComposeDependency(composePass);
 		composePass.WriteColor("back", backInfo, "back");
-		for(const auto& color : outputColors)
-			composePass.ReadTexture(color.c_str());
-
 		composePass.SetClearColorCallback([](U32 index, VkClearColorValue* value) 
 		{
 			if (value != nullptr)

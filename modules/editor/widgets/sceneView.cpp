@@ -1,14 +1,42 @@
 #include "sceneView.h"
 #include "editor\editor.h"
+#include "editor\widgets\gizmo.h"
 #include "math\vMath_impl.hpp"
 #include "renderer\renderScene.h"
-
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
+	static bool DefaultClearColorFunc(U32 index, VkClearColorValue* value)
+	{
+		if (value != nullptr)
+		{
+			value->float32[0] = 0.0f;
+			value->float32[1] = 0.0f;
+			value->float32[2] = 0.0f;
+			value->float32[3] = 0.0f;
+		}
+		return true;
+	}
+
+	static bool DefaultClearDepthFunc(VkClearDepthStencilValue* value)
+	{
+		if (value != nullptr)
+		{
+			value->depth = 0.0f;
+			value->stencil = 0.0f;
+		}
+		return true;
+	}
+
+	EditorRenderer::EditorRenderer(EditorApp& editor_) :
+		RenderPath3D(),
+		editor(editor_)
+	{
+	}
+
 	void EditorRenderer::Update(F32 dt)
 	{
 		RenderScene* scene = GetScene();
@@ -43,6 +71,39 @@ namespace Editor
 		Jobsystem::JobHandle handle;
 		graph.Render(*device, handle);
 		Jobsystem::Wait(&handle);
+	}
+
+	void EditorRenderer::SetupPasses(RenderGraph& renderGraph)
+	{
+		RenderPath3D::SetupPasses(renderGraph);
+
+		GPU::DeviceVulkan* device = wsi->GetDevice();
+
+		AttachmentInfo rtAttachmentInfo;
+		rtAttachmentInfo.format = backbufferDim.format;
+		rtAttachmentInfo.sizeX = (F32)backbufferDim.width;
+		rtAttachmentInfo.sizeY = (F32)backbufferDim.height;
+
+		// Main opaque pass
+		auto& renderPass2D = renderGraph.AddRenderPass("RenderPassEditor", RenderGraphQueueFlag::Graphics);
+		renderPass2D.ReadTexture(GetRenderResult2D());
+		renderPass2D.WriteColor(SetRenderResult2D("rtEditor"), rtAttachmentInfo);
+		renderPass2D.SetClearColorCallback(DefaultClearColorFunc);
+		renderPass2D.SetBuildCallback([&](GPU::CommandList& cmd) {
+
+			GPU::Viewport viewport;
+			viewport.width = (F32)backbufferDim.width;
+			viewport.height = (F32)backbufferDim.height;
+			cmd.SetViewport(viewport);
+
+			DrawEditor(cmd);
+		});
+	}
+
+	void EditorRenderer::DrawEditor(GPU::CommandList& cmd)
+	{
+		Gizmo::Config& config = editor.GetGizmoConfig();
+		Gizmo::Draw(cmd, *GetCamera(), config);
 	}
 
 	struct WorldViewImpl final : WorldView
@@ -136,7 +197,7 @@ namespace Editor
 	{
 		worldView = CJING_NEW(WorldViewImpl)(*this, app);
 
-		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>();
+		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>(app);
 		editorRenderer->SetWSI(&app.GetEngine().GetWSI());
 		editorRenderer->DisableSwapchain();
 
@@ -158,7 +219,6 @@ namespace Editor
 		if (ImGui::GetIO().KeyCtrl) return;
 
 		float speed = cameraSpeed * dt * 60.f;
-		// Move camera
 		if (moveForwardAction.IsActive()) worldView->OnCameraMove(1.0f, 0, 0, speed);
 		if (moveBackAction.IsActive()) worldView->OnCameraMove(-1.0f, 0, 0, speed);
 		if (moveLeftAction.IsActive()) worldView->OnCameraMove(0.0f, -1.0f, 0, speed);

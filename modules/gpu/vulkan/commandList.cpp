@@ -6,7 +6,6 @@ namespace VulkanTest
 {
 namespace GPU
 {
-
 namespace 
 {
     static void UpdateDescriptorSet(DeviceVulkan &device, 
@@ -199,11 +198,12 @@ void CommandListDeleter::operator()(CommandList* cmd)
         cmd->device.commandListPool.free(cmd);
 }
 
-CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_) :
+CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueType type_, VkPipelineCache cache_) :
     device(device_),
     cmd(buffer_),
     type(type_)
 {
+    pipelineState.cache = cache_;
     memset(&bindings, 0, sizeof(bindings));
 }
 
@@ -507,8 +507,13 @@ void CommandList::EndCommandBuffer()
         device.RequestUniformBufferBlockNoLock(uboBlock, 0);
     if (stagingBlock.mapped != nullptr)
         device.RequestStagingBufferBlockNolock(stagingBlock, 0);
+
+    // Strorage block needs to be persisted
     if (storageBlock.mapped != nullptr)
-        device.RequestStorageBufferBlockNolock(storageBlock, 0);
+    {
+        device.RecordStorageBufferBlock(storageBlock, *this);
+        storageBlock = {};
+    }
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
@@ -638,7 +643,8 @@ BufferBlockAllocation CommandList::AllocateStorageBuffer(VkDeviceSize size)
     auto data = storageBlock.Allocate(size);
     if (data.data == nullptr)
     {
-        device.RequestStorageBufferBlock(storageBlock, size);
+        VkDeviceSize newSize = (size + storageBlock.capacity) * 2.0f;
+        device.RequestStorageBufferBlock(storageBlock, newSize);
         data = storageBlock.Allocate(size);
     }
     return data;
@@ -740,6 +746,21 @@ void CommandList::SetRasterizerState(const RasterizerState& state)
 void CommandList::SetBlendState(const BlendState& state)
 {
     pipelineState.blendState = state;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
+void CommandList::SetDepthStencilState(const DepthStencilState& state)
+{
+    pipelineState.depthStencilState = state;
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+}
+
+void CommandList::SetPipelineState(const PipelineStateDesc& desc)
+{
+    pipelineState.rasterizerState = desc.rasterizerState;
+    pipelineState.blendState = desc.blendState;
+    pipelineState.depthStencilState = desc.depthStencilState;
+    pipelineState.topology = desc.topology;
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
 
