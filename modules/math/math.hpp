@@ -56,8 +56,6 @@ namespace VulkanTest
 		}
 
 		void UpdateTransform();
-		MATRIX GetMatrix()const;
-
 		void Translate(const F32x3& value);
 		void RotateRollPitchYaw(const F32x3& value);
 		void Rotate(const F32x4& quaternion);
@@ -65,5 +63,8 @@ namespace VulkanTest
 
 		F32x3 DoTransform(const F32x3& value) const;
 		F32x4 DoTransform(const F32x4& value) const;
+
+		F32x3 GetPosition()const;
+		MATRIX GetMatrix()const;
 	};
 }

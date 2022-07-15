@@ -245,7 +245,7 @@ namespace Util
 			return nullptr;
 		}
 
-		T* insert_yield(T* value)
+		T* insert_yield(T*& value)
 		{
 			if (hashTable.empty())
 				Grow();
@@ -257,8 +257,9 @@ namespace Util
 			{
 				if (hashTable[masked] != nullptr && GetItemHash(hashTable[masked]) == hash)
 				{
-					// Insert stop while value already exsist
-					return hashTable[masked];
+					T* ret = value;
+					value = hashTable[masked];
+					return ret;
 				}
 				else if (hashTable[masked] == nullptr)
 				{
@@ -398,7 +399,7 @@ namespace Util
 					hashTable[masked] = value;
 					return true;
 				}
-				masked = (hash + 1) & hashMask;
+				masked = (masked + 1) & hashMask;
 			}
 			return false;
 		}
@@ -406,7 +407,7 @@ namespace Util
 		void Grow()
 		{
 			bool success = false;
-			while (success == false)
+			do
 			{
 				for (auto& v : hashTable)
 					v = nullptr;
@@ -434,7 +435,7 @@ namespace Util
 						}
 					}
 				}
-			}
+			} while (success == false);
 		}
 
 		std::vector<T*> hashTable;

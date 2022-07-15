@@ -1,4 +1,5 @@
 #include "gizmo.h"
+#include "math\math.hpp"
 
 namespace VulkanTest
 {
@@ -17,7 +18,7 @@ namespace Editor::Gizmo
 	};
 
 	const F32 origin_size = 0.2f;
-	const U32 segmentCount = 8;
+	const U32 segmentCount = 18;
 	const U32 cylinder_triangleCount = segmentCount * 2;
 	const U32 cone_triangleCount = cylinder_triangleCount;
 
@@ -75,13 +76,6 @@ namespace Editor::Gizmo
 		SetupTranslatorVertexData((U8*)vertMem, sizeof(Vertex) * vertexCount);
 		cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
 		cmd.SetVertexAttribute(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(F32x4));
-
-		GizmoConstant constant = {};
-		constant.pos = IDENTITY_MATRIX;
-		constant.col = F32x4(1.0f, 0.25f, 0.25f, 1.0f);
-		GizmoConstant* mem = cmd.AllocateConstant<GizmoConstant>(0, 0);
-		memcpy(mem, &constant, sizeof(GizmoConstant));
-
 		cmd.SetDefaultTransparentState();
 		cmd.SetBlendState(Renderer::GetBlendState(BSTYPE_TRANSPARENT));
 		cmd.SetRasterizerState(Renderer::GetRasterizerState(RSTYPE_DOUBLE_SIDED));
@@ -90,6 +84,29 @@ namespace Editor::Gizmo
 			Renderer::GetShader(ShaderType::SHADERTYPE_VS_VERTEXCOLOR),
 			Renderer::GetShader(ShaderType::SHADERTYPE_PS_VERTEXCOLOR)
 		);
+
+		Transform transform;
+
+		F32 dist = std::max(Distance(transform.GetPosition(), camera.eye) * 0.05f, 0.0001f);
+		MATRIX mat = MatrixScaling(dist, dist, dist) * MatrixTranslationFromVector(LoadF32x3(transform.GetPosition())) * camera.GetViewProjection();
+
+		// X
+		GizmoConstant constant = {};
+		constant.pos = StoreFMat4x4(MatrixIdentity() * mat);
+		constant.col = F32x4(1.0f, 0.25f, 0.25f, 1.0f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(vertexCount);
+
+		// Y
+		constant.pos = StoreFMat4x4(MatrixRotationZ(MATH_PIDIV2) * MatrixRotationY(MATH_PIDIV2) * mat);
+		constant.col = F32x4(0.25f, 1.0f, 0.25f, 1.0f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(vertexCount);
+	
+		// Z
+		constant.pos = StoreFMat4x4(MatrixRotationY(-MATH_PIDIV2) * MatrixRotationZ(-MATH_PIDIV2) * mat);
+		constant.col = F32x4(0.25f, 0.25f, 1.0f, 1.0f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(vertexCount);
 	}
 }

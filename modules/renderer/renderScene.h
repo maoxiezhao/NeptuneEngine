@@ -38,6 +38,10 @@ namespace VulkanTest
 
 		void UpdateCamera();
 		void UpdateTransform(const Transform& transform);
+
+		MATRIX GetViewProjection() const {
+			return LoadFMat4x4(viewProjection);
+		}
 	};
 
 	struct LoadModelComponent

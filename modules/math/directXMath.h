@@ -30,6 +30,8 @@ namespace VulkanTest
 
 	const F32 MATH_PI = XM_PI;
 	const F32 MATH_2PI = XM_2PI;
+	const F32 MATH_PIDIV2 = XM_PIDIV2;
+	const F32 MATH_PIDIV4 = XM_PIDIV4;
 
 	using F16x2 = PackedVector::XMHALF2;
 
@@ -189,6 +191,11 @@ namespace VulkanTest
 		return XMVectorMax(V1, V2);
 	}
 
+	inline MATRIX XM_CALLCONV MatrixIdentity()
+	{
+		return XMMatrixIdentity();
+	}
+
 	inline MATRIX XM_CALLCONV MatrixScalingFromVector(VECTOR scale)
 	{
 		return XMMatrixScalingFromVector(scale);
@@ -202,6 +209,21 @@ namespace VulkanTest
 	inline MATRIX XM_CALLCONV MatrixTranslationFromVector(VECTOR offset)
 	{
 		return XMMatrixTranslationFromVector(offset);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixRotationX(F32 angle)
+	{
+		return XMMatrixRotationX(angle);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixRotationY(F32 angle)
+	{
+		return XMMatrixRotationY(angle);
+	}
+
+	inline MATRIX XM_CALLCONV MatrixRotationZ(F32 angle)
+	{
+		return XMMatrixRotationZ(angle);
 	}
 
 	inline MATRIX XM_CALLCONV MatrixScaling

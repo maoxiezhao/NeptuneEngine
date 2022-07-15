@@ -1038,7 +1038,7 @@ void CommandList::FlushDescriptorSets()
 
     // Update for the dynamic offset of constant buffer
     dirtySetsDynamic &= ~setUpdate;
-    U32 dynamicSetUpdate = resLayout.descriptorSetMask & dirtySets;
+    U32 dynamicSetUpdate = resLayout.descriptorSetMask & dirtySetsDynamic;
     ForEachBit(dynamicSetUpdate, [&](U32 set) {
         FlushDescriptorDynamicSet(set);
     });
@@ -1061,6 +1061,8 @@ void CommandList::FlushDescriptorSet(U32 set)
     if (allocator == nullptr)
         return;
     
+    const DescriptorSetLayout& setLayout = resLayout.sets[set];
+
     uint32_t numDynamicOffsets = 0;
     uint32_t dynamicOffsets[VULKAN_NUM_BINDINGS];
 
@@ -1071,22 +1073,76 @@ void CommandList::FlushDescriptorSet(U32 set)
 
     // Calculate descriptor set layout hash
     HashCombiner hasher;
-    const DescriptorSetLayout& setLayout = resLayout.sets[set];
+    // Sampled images
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE], [&](U32 binding)
+    {
+        for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding].arraySize; i++)
+        {
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding + i]);
+            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding + i].image.imageLayout);
+        }
+    });
+    // Sampled images
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE], [&](U32 binding)
+    {
+        for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][binding].arraySize; i++)
+        {
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][binding + i]);
+            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][binding + i].image.imageLayout);
+        }
+    });
+    // UBOs
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER], [&](U32 binding) 
+    {
+        for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding].arraySize; i++)
+        {
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding + i]);
+            auto& b = bindings.bindings[set][DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][binding + i];
+            hasher.HashCombine(b.buffer.range);
+            ASSERT(b.buffer.buffer != VK_NULL_HANDLE);
+            dynamicOffsets[numDynamicOffsets++] = b.dynamicOffset;
+        }
+    });
+    // Storage buffers
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_BUFFER], [&](U32 binding)
+    {
+        for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_STORAGE_BUFFER][binding].arraySize; i++)
+        {
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_STORAGE_BUFFER][binding + i]);
+            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_STORAGE_BUFFER][binding + i].buffer.offset);
+            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_STORAGE_BUFFER][binding + i].buffer.range);
+        }
+    });
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER], [&](U32 binding)
+    {
+        for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding].arraySize; i++)
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding + i]);
+    });
+    // Input attachments
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT], [&](U32 binding)
+    {
+        for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][binding].arraySize; i++)
+        {
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][binding + i]);
+            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][binding + i].image.imageLayout);
+        }
+    });
+    // Samplers
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER], [&](U32 binding)
+    {
+        for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding].arraySize; i++)
+        {
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding + i]);
+            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding + i].image.imageLayout);
+        }
+    });
+
+    // Get all resource bindings
     for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
     {
         ForEachBit(setLayout.masks[maskbit], [&](U32 binding) {
             for (U8 i = 0; i < setLayout.bindings[maskbit][binding].arraySize; i++) 
-            {
-                hasher.HashCombine(bindings.cookies[set][maskbit][binding + i]);
-
-                if (maskbit == DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER)
-                {
-                    ASSERT(numDynamicOffsets < VULKAN_NUM_BINDINGS);
-                    dynamicOffsets[numDynamicOffsets++] = bindings.bindings[set][maskbit][binding + i].dynamicOffset;
-                }
-
                 resourceBindings.push_back(bindings.bindings[set][maskbit][binding + i]);
-            }
         });
     }
 

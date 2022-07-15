@@ -66,6 +66,11 @@ namespace VulkanTest
 		return StoreF32x3(Vector4Transform(LoadF32x3(value), LoadFMat4x4(world)));
 	}
 
+	F32x3 Transform::GetPosition()const
+	{
+		return F32x3(world._41, world._42, world._43);
+	}
+
 	F32x4 Transform::DoTransform(const F32x4& value) const
 	{
 		return StoreF32x4(Vector3Transform(LoadF32x4(value), LoadFMat4x4(world)));

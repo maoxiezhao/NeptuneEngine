@@ -337,7 +337,7 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     InitFrameContext(GetBufferCount());
 
     // Init buffer pools
-    vboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
+    vboPool.Init(this, 8 * 1024, 16, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 256);
     iboPool.Init(this, 4 * 1024, 16, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 256);
     uboPool.Init(this, 256 * 1024, std::max<VkDeviceSize>(16u, features.properties2.properties.limits.minUniformBufferOffsetAlignment), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 64);
     uboPool.SetSpillSize(VULKAN_MAX_UBO_SIZE);
