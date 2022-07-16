@@ -4,51 +4,6 @@
 
 namespace VulkanTest::LuaUtils
 {
-	class LuaRef
-	{
-	public:
-		LuaRef();
-		LuaRef(lua_State* l, int ref_);
-		LuaRef(const LuaRef& other);
-		LuaRef(LuaRef&& other);
-		~LuaRef();
-
-		LuaRef& operator=(const LuaRef& other);
-		LuaRef& operator=(LuaRef&& other);
-
-		bool operator ==(const LuaRef& ref_)const;
-		bool operator !=(const LuaRef& ref_)const;
-
-		static LuaRef CreateRef(lua_State* l);
-		static LuaRef CreateRef(lua_State* l, int index);
-		static LuaRef CreateGlobalRef(lua_State* l);
-
-		template<typename T>
-		static std::enable_if_t<std::is_function<T>::value, LuaRef>
-			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
-		{
-			lua_pushcclosure(l, func, 1);
-			return CreateRef(l);
-		}
-
-		template<typename T>
-		static std::enable_if_t<!std::is_function<T>::value, LuaRef>
-			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
-		{
-			lua_pushcclosure(l, func, 1);
-			return CreateRef(l);
-		}
-
-		void Clear();
-		void Push()const;
-		bool IsEmpty()const;
-
-		static LuaRef NULL_REF;
-	private:
-		lua_State* l;
-		int ref;
-	};
-
 	bool LoadBuffer(lua_State* l, const char* data, size_t size, const char* name);
 	void AddFunction(lua_State* l, const char* name, lua_CFunction function);
 
@@ -83,9 +38,18 @@ namespace VulkanTest::LuaUtils
 	}
 
 	template<typename T>
-	inline T Opt(lua_State* l, int index)
+	inline T Opt(lua_State* l, int index, T defaultValue)
 	{
-		return LuaType<T>::Opt(l, index);
+		return LuaType<T>::Opt(l, index, defaultValue);
+	}
+
+	template<typename T>
+	inline T OptField(lua_State* l, const char* name, T defaultValue, int index = -1)
+	{
+		lua_getfield(l, index, name);
+		T v = LuaType<T>::Opt(l, -1, defaultValue);
+		lua_pop(l, 1);
+		return v;
 	}
 
 	bool Execute(lua_State* l, Span<const char> content, const char* name, int nresults);
@@ -145,4 +109,89 @@ namespace VulkanTest::LuaUtils
 			return true;
 		});
 	}
+
+	class LuaRef
+	{
+	public:
+		LuaRef();
+		LuaRef(lua_State* l, int ref_);
+		LuaRef(const LuaRef& other);
+		LuaRef(LuaRef&& other);
+		~LuaRef();
+
+		LuaRef& operator=(const LuaRef& other);
+		LuaRef& operator=(LuaRef&& other);
+
+		bool operator ==(const LuaRef& ref_)const;
+		bool operator !=(const LuaRef& ref_)const;
+
+		static LuaRef CreateRef(lua_State* l);
+		static LuaRef CreateRef(lua_State* l, int index);
+		static LuaRef CreateGlobalRef(lua_State* l);
+
+		template<typename T>
+		static std::enable_if_t<std::is_function<T>::value, LuaRef>
+			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
+		{
+			lua_pushcclosure(l, func, 1);
+			return CreateRef(l);
+		}
+
+		template<typename T>
+		static std::enable_if_t<!std::is_function<T>::value, LuaRef>
+			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
+		{
+			lua_pushcclosure(l, func, 1);
+			return CreateRef(l);
+		}
+
+		template<typename V, typename K>
+		void RawSet(const K& key, const V& value)
+		{
+			Push();
+			LuaUtils::Push(l, key);
+			LuaUtils::Push(l, value);
+			lua_rawset(l, -3);
+			lua_pop(l, 1);
+		}
+
+		template<typename V>
+		void RawSetp(void* key, const V& value)
+		{
+			Push();
+			LuaUtils::Push(l, value);
+			lua_rawsetp(l, -2, key);
+			lua_pop(l, 1);
+		}
+
+		template<typename V = LuaRef>
+		V RawGetp(void* key)
+		{
+			Push();
+			lua_rawgetp(l, -1, key);
+			V v = LuaUtils::Get<V>(l, -1);
+			lua_pop(l, 2);
+			return v;
+		}
+
+		template<typename V = LuaRef, typename K>
+		V RawGet(const K& key)
+		{
+			Push();
+			LuaUtils::Push(l, key);
+			lua_rawget(l, -2);
+			V v = LuaUtils::Get<V>(l, -1);
+			lua_pop(l, 2);
+			return v;
+		}
+
+		void Clear();
+		void Push()const;
+		bool IsEmpty()const;
+
+		static LuaRef NULL_REF;
+	private:
+		lua_State* l;
+		int ref;
+	};
 }

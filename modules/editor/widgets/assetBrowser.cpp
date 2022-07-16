@@ -21,7 +21,7 @@ namespace Editor
 
         Array<ResPtr<Resource>> selectedResources;
         I32 contextResource = -1;
-
+        char filter[128];
         MaxPathString curDir;
         Array<MaxPathString> subdirs;
 
@@ -40,6 +40,7 @@ namespace Editor
         AssetBrowserImpl(EditorApp& editor_) :
             editor(editor_)
         {
+            filter[0] = '\0';
         }
 
         ~AssetBrowserImpl()
@@ -73,12 +74,26 @@ namespace Editor
                 return;
             }
             
-            if (!ImGui::Begin("Assets", &isOpen)) {
+            if (!ImGui::Begin(ICON_FA_IMAGES "Assets##assets", &isOpen)) {
                 ImGui::End();
                 OnDetailsGUI();
                 return;
             }
 
+            // Show serach field
+            ImGui::PushItemWidth(150);
+            if (ImGui::InputTextWithHint("##search", ICON_FA_SEARCH " Search", filter, sizeof(filter), ImGuiInputTextFlags_EnterReturnsTrue))
+                SetCurrentDir(curDir);
+            ImGui::PopItemWidth();
+            ImGui::SameLine();
+            if (ImGuiEx::IconButton(ICON_FA_TIMES, "Clear search")) 
+            {
+                filter[0] = '\0';
+                SetCurrentDir(curDir);
+            }
+            ImGui::SameLine();
+
+            // Show bread crumbs
             BreadCrumbs();
             ImGui::Separator();
 
@@ -193,7 +208,7 @@ namespace Editor
             if (!isOpen)
                 return;
 
-            if (ImGui::Begin("Asset inspector##asset_inspector", &isOpen, ImGuiWindowFlags_AlwaysVerticalScrollbar))
+            if (ImGui::Begin(ICON_FA_IMAGE "Asset inspector##asset_inspector", &isOpen, ImGuiWindowFlags_AlwaysVerticalScrollbar))
             {
                 if (selectedResources.empty())
                 {

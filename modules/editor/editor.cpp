@@ -100,6 +100,9 @@ namespace Editor
             entityListWidget = CJING_MAKE_UNIQUE<EntityListWidget>(*this);
             logWidget = CJING_MAKE_UNIQUE<LogWidget>();
 
+            // Create imgui context
+            ImGuiRenderer::CreateContext();
+
             // Load editor settings
             LoadSettings();
 
@@ -109,6 +112,9 @@ namespace Editor
 
             // Init imgui renderer
             ImGuiRenderer::Initialize(*this, settings);
+
+            // Load fonts
+            LoadFonts();
 
             // Init actions
             InitActions();
@@ -305,6 +311,16 @@ namespace Editor
             return gizmoConfig;
         }
 
+        ImFont* GetBigIconFont() override 
+        { 
+            return bigIconFont;
+        }
+
+        ImFont* GetBoldFont() override 
+        { 
+            return boldFont;
+        }
+
     protected:
         void Update(F32 deltaTime) override
         {
@@ -313,6 +329,7 @@ namespace Editor
            
             // Begin imgui frame
             ImGuiRenderer::BeginFrame();
+            ImGui::PushFont(font);
 
             assetCompiler->Update(deltaTime);
 
@@ -333,6 +350,7 @@ namespace Editor
             OnGUI();
 
             // End imgui frame
+            ImGui::PopFont();
             ImGuiRenderer::EndFrame();
 
             windowEvents.clear();
@@ -405,9 +423,44 @@ namespace Editor
                 Platform::WindowRect rect = Platform::GetWindowScreenRect(mainWindow);
                 rect.left = settings.window.x;
                 rect.top = settings.window.y;
-                //rect.width = settings.window.w;
-                //rect.height = settings.window.h;
                 Platform::SetWindowScreenRect(mainWindow, rect);
+            }
+        }
+
+        void LoadFonts()
+        {
+            ImGuiIO& io = ImGui::GetIO();
+
+            // Add fonts
+            const I32 dpi = Platform::GetDPI();
+            F32 fontScale = dpi / 96.0f;
+            F32 fontSize = settings.fontSize * fontScale;
+
+            font = AddFontFromFile("editor/fonts/notosans-regular.ttf", fontSize, true);
+            boldFont = AddFontFromFile("editor/fonts/notosans-bold.ttf", fontSize, true);
+
+            // Load big icon font
+            OutputMemoryStream iconsData;
+            if (GetEngine().GetFileSystem().LoadContext("editor/fonts/fa-solid-900.ttf", iconsData))
+            {
+                F32 iconSize = fontSize * 1.25f;
+
+                ImFontConfig cfg;
+                CopyString(cfg.Name, "editor/fonts/fa-solid-900.ttf");
+                cfg.FontDataOwnedByAtlas = false;
+                cfg.GlyphMinAdvanceX = iconSize;
+                static const ImWchar iconRanges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+                bigIconFont = io.Fonts->AddFontFromMemoryTTF((void*)iconsData.Data(), (I32)iconsData.Size(), iconSize, &cfg, iconRanges);
+#if 0
+                cfg.MergeMode = true;
+                CopyString(cfg.Name, "editor/fonts/fa-regular-400.ttf");
+                iconsData.Clear();
+                if (engine.GetFileSystem().LoadContext(cfg.Name, iconsData))
+                {
+                    ImFont* iconsFont = io.Fonts->AddFontFromMemoryTTF((void*)iconsData.Data(), (I32)iconsData.Size(), iconSize, &cfg, iconRanges);
+                    ASSERT(iconsFont);
+                }
+#endif
             }
         }
 
@@ -439,7 +492,6 @@ namespace Editor
                 const char* data = ImGui::SaveIniSettingsToMemory();
                 settings.imguiState = data;
             }
-
             settings.Save();
         }
 
@@ -491,11 +543,19 @@ namespace Editor
             if (ImGui::BeginMainMenuBar())
             {
                 OnFileMenu();
+                OnEntityMenu();
+                OnHelpMenu();
                 ImGui::PopStyleVar(2);
 
-                auto rect = Platform::GetClientBounds(mainWindow);
+                float w = (ImGui::GetWindowContentRegionMax().x - ImGui::GetWindowContentRegionMin().x) * 0.5f - 30 - ImGui::GetCursorPosX();
+                ImGui::Dummy(ImVec2(w, ImGui::GetTextLineHeightWithSpacing()));
+                GetAction("ToggleGameMode")->ToolbarButton(bigIconFont);
 
+                auto rect = Platform::GetClientBounds(mainWindow);
                 StaticString<128> fpsTxt("");
+                if (engine->GetFileSystem().HasWork())
+                    fpsTxt << ICON_FA_HOURGLASS "Loading... | ";
+
                 fpsTxt << (U32)rect.width << "x" << (U32)rect.height;
                 fpsTxt << " FPS: ";
                 fpsTxt << (U32)(fps + 0.5f);
@@ -513,6 +573,27 @@ namespace Editor
             if (!ImGui::BeginMenu("File")) return;
 
             OnActionMenuItem("Exit");
+            ImGui::EndMenu();
+        }
+
+        void OnEntityMenu()
+        {
+            if (!ImGui::BeginMenu("Entity")) return;
+            ImGui::EndMenu();
+        }
+
+        bool showAbout = false;
+        void OnHelpMenu()
+        {
+            if (!ImGui::BeginMenu("Help")) return;
+            if (ImGui::MenuItem("About", nullptr, showAbout))
+                showAbout = true;
+
+            if (showAbout)
+            {
+                // TODO: show window of about
+            }
+
             ImGui::EndMenu();
         }
 
@@ -552,6 +633,11 @@ namespace Editor
         {
             // File menu item actions
             AddAction<&EditorAppImpl::Exit>("Exit");
+
+            AddAction<&EditorAppImpl::ToggleGameMode>("ToggleGameMode", ICON_FA_PLAY, "Toggle game mode");
+            AddAction<&EditorAppImpl::SetTranslateGizmoMode>("SetTranslateGizmoMode", ICON_FA_ARROWS_ALT, "Set translate mode");
+            AddAction<&EditorAppImpl::SetRotateGizmoMode>("SetRotateGizmoMode", ICON_FA_UNDO, "Set rotate mode");
+            AddAction<&EditorAppImpl::SetScaleGizmoMode>("SetScaleGizmoMode", ICON_FA_EXPAND_ALT, "Set scale mode");
         }
 
         void LoadPlugins()
@@ -568,16 +654,75 @@ namespace Editor
                 plugin->Initialize();
         }
 
+        ImFont* AddFontFromFile(const char* path, F32 fontSize, bool mergeIcons = false)
+        {
+            Engine& engine = GetEngine();
+            OutputMemoryStream mem;
+            if (!engine.GetFileSystem().LoadContext(path, mem))
+            {
+                Logger::Error("Failed to load font %s", path);
+                return nullptr;
+            }
+
+            ImGuiIO& io = ImGui::GetIO();
+            ImFontConfig cfg;
+            CopyString(cfg.Name, path);
+            cfg.FontDataOwnedByAtlas = false;
+            ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)mem.Data(), (I32)mem.Size(), fontSize, &cfg);
+            if (font == nullptr)
+            {
+                Logger::Error("Failed to load font %s", path);
+                return nullptr;
+            }
+
+            if (mergeIcons)
+            {
+                ImFontConfig config;
+                CopyString(config.Name, "editor/fonts/fa-regular-400.ttf");
+                config.MergeMode = true;
+                config.FontDataOwnedByAtlas = false;
+                config.GlyphMinAdvanceX = fontSize;
+
+                static const ImWchar iconRanges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+                OutputMemoryStream iconsData;
+                if (engine.GetFileSystem().LoadContext(config.Name, iconsData))
+                {
+                    ImFont* iconsFont = io.Fonts->AddFontFromMemoryTTF((void*)iconsData.Data(), (I32)iconsData.Size(), fontSize * 0.75f, &config, iconRanges);
+                    ASSERT(iconsFont);
+                }
+
+                CopyString(config.Name, "editor/fonts/fa-solid-900.ttf");
+                iconsData.Clear();
+                if (engine.GetFileSystem().LoadContext(config.Name, iconsData))
+                {
+                    ImFont* iconsFont = io.Fonts->AddFontFromMemoryTTF((void*)iconsData.Data(), (I32)iconsData.Size(), fontSize * 0.75f, &config, iconRanges);
+                    ASSERT(iconsFont);
+                }
+            }
+            return font;
+        }
+
         template<void (EditorAppImpl::*Func)()>
         Utils::Action& AddAction(const char* label)
         {
-            Utils::Action* action = CJING_NEW(Utils::Action)(label, label);
+            Utils::Action* action = CJING_NEW(Utils::Action)();
+            action->Init(label, label);
             action->func.Bind<Func>(this);
             actions.push_back(action);
             return *action;
         }
 
-        Utils::Action* GetAction(const char* name)
+        template<void (EditorAppImpl::* Func)()>
+        Utils::Action& AddAction(const char* label, const char* icon, const char* tooltip)
+        {
+            Utils::Action* action = CJING_NEW(Utils::Action)();
+            action->Init(label, label, tooltip, icon);
+            action->func.Bind<Func>(this);
+            actions.push_back(action);
+            return *action;
+        }
+
+        Utils::Action* GetAction(const char* name)override
         {
             for (Utils::Action* action : actions)
             {
@@ -590,6 +735,23 @@ namespace Editor
         void Exit()
         {
             RequestShutdown();
+        }
+
+        void ToggleGameMode()
+        {
+            Logger::Info("Toggle game mode");
+        }
+
+        void SetTranslateGizmoMode()
+        {
+        }
+
+        void SetRotateGizmoMode()
+        {
+        }
+
+        void SetScaleGizmoMode()
+        {
         }
 
     private:
@@ -622,6 +784,11 @@ namespace Editor
         UniquePtr<PropertyWidget> propertyWidget;
         UniquePtr<EntityListWidget> entityListWidget;
         UniquePtr<RenderGraphWidget> renderGraphWidget;
+
+        // Fonts
+        ImFont* font;
+        ImFont* boldFont;
+        ImFont* bigIconFont;
 
         // Imgui
         ImGuiKey imguiKeyMap[255];

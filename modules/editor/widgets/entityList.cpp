@@ -22,7 +22,7 @@ namespace Editor
 		if (!isOpen) return;
 
 		static char filter[64] = "";
-		if (ImGui::Begin("Hierarchy##hierarchy", &isOpen))
+		if (ImGui::Begin(ICON_FA_STREAM "Hierarchy##hierarchy", &isOpen))
 		{
 			World* world = worldEditor.GetWorld();
 			if (world == nullptr)
@@ -32,9 +32,11 @@ namespace Editor
 			}
 
 			// Show filter
+			const float w = ImGui::CalcTextSize(ICON_FA_TIMES).x + ImGui::GetStyle().ItemSpacing.x * 2;
+			ImGui::SetNextItemWidth(-w);
 			ImGui::InputTextWithHint("##filter", "Filter", filter, sizeof(filter));
 			ImGui::SameLine();
-			if (ImGui::Button("Clear filter"))
+			if (ImGuiEx::IconButton(ICON_FA_TIMES, "Clear filter"))
 				filter[0] = '\0';
 
 			// Show entities

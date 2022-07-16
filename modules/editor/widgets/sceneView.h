@@ -62,6 +62,7 @@ namespace Editor
         }
 
     private:
+        void OnToolbarGUI();
         void HandleEvents();
         void CaptureMouse(bool capture);
         I32x2 GetLocalMousePoint()const;
@@ -78,6 +79,8 @@ namespace Editor
         UniquePtr<EditorRenderer> editorRenderer;
         WorldEditor& worldEditor;
         bool shouldRender = false;
+
+        bool transformEnable = false;
 
         Utils::Action moveForwardAction;
         Utils::Action moveBackAction;

@@ -26,7 +26,7 @@ namespace Editor
 		if (value != nullptr)
 		{
 			value->depth = 0.0f;
-			value->stencil = 0.0f;
+			value->stencil = 0;
 		}
 		return true;
 	}
@@ -170,16 +170,19 @@ namespace Editor
 
 	SceneView::SceneView(EditorApp& app_) :
 		app(app_),
-		worldEditor(app_.GetWorldEditor()),
-		moveForwardAction("Move forward", "moveForward"),
-		moveBackAction("Move back", "moveBack"),
-		moveLeftAction("Move left", "moveLeft"),
-		moveRightAction("Move right", "moveRight")
+		worldEditor(app_.GetWorldEditor())
 	{
+		moveForwardAction.Init("Move forward", "moveForward");
+		moveBackAction.Init("Move back", "moveBack");
+		moveLeftAction.Init("Move left", "moveLeft");
+		moveRightAction.Init("Move right", "moveRight");
+
 		app.AddAction(&moveForwardAction);
 		app.AddAction(&moveBackAction);
 		app.AddAction(&moveLeftAction);
 		app.AddAction(&moveRightAction);
+
+		
 	}
 
 	SceneView::~SceneView()
@@ -239,6 +242,9 @@ namespace Editor
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		if (ImGui::Begin("Scene View", nullptr, ImGuiWindowFlags_NoScrollWithMouse))
 		{
+			ImGui::Dummy(ImVec2(2, 2));
+			OnToolbarGUI();
+
 			const ImVec2 size = ImGui::GetContentRegionAvail();
 			if (size.x <= 0 || size.y <= 0)
 			{
@@ -309,10 +315,33 @@ namespace Editor
 		return "SceneView";
 	}
 
+	void SceneView::OnToolbarGUI()
+	{
+		static const char* actions_names[] = { 
+			"SetTranslateGizmoMode",
+			"SetRotateGizmoMode",
+			"SetScaleGizmoMode",
+		};
+
+		auto pos = ImGui::GetCursorScreenPos();
+		const float toolbarHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
+		if (ImGuiEx::BeginToolbar("screenViewToolbar", pos, ImVec2(0, toolbarHeight)))
+		{
+			ImGui::Checkbox("Transform", &transformEnable);
+			ImGui::SameLine();
+
+			for (auto* action_name : actions_names)
+			{
+				auto* action = app.GetAction(action_name);
+				action->ToolbarButton(app.GetBigIconFont());
+			}
+		}
+		ImGuiEx::EndToolbar();
+	}
+
 	void SceneView::HandleEvents()
 	{
-		const bool handleInput = isMouseCaptured || 
-			(ImGui::IsItemHovered() && Platform::GetFocusedWindow() == ImGui::GetWindowViewport()->PlatformHandle);
+		const bool handleInput = isMouseCaptured || (ImGui::IsItemHovered() && Platform::GetFocusedWindow() == ImGui::GetWindowViewport()->PlatformHandle);
 		const auto& windowEvents = app.GetWindowEvents();
 		for (auto& ent : windowEvents)
 		{

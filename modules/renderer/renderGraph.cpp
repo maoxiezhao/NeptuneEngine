@@ -1473,6 +1473,8 @@ namespace VulkanTest
 
     void RenderGraphImpl::DoGraphicsCommands(GPU::CommandList& cmd, const PhysicalPass& physicalPass, GPUPassSubmissionState* state)
     {
+        cmd.BeginEvent(state->name);
+
         // Clear colors
         for (auto& colorClear : physicalPass.colorClearRequests)
             colorClear.pass->GetClearColor(colorClear.index, colorClear.target);
@@ -1482,9 +1484,7 @@ namespace VulkanTest
             physicalPass.depthClearRequest.pass->GetClearDepthStencil(physicalPass.depthClearRequest.target);
 
         // Begin render pass
-        cmd.BeginEvent("BeginRenderPass");
         cmd.BeginRenderPass(physicalPass.renderPassInfo);
-        cmd.EndEvent();
 
         // Handle subpasses
         for (U32 i = 0; i < physicalPass.passes.size(); i++)
@@ -1500,8 +1500,8 @@ namespace VulkanTest
         }
 
         // End render pass
-        cmd.BeginEvent("EndRenderPass");
         cmd.EndRenderPass();
+
         cmd.EndEvent();
     }
 

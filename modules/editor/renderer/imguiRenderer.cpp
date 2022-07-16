@@ -14,7 +14,6 @@ namespace VulkanTest
 namespace ImGuiRenderer
 {
 	App* app;
-	ImFont* font;
 	GPU::ImagePtr fontTexture;
 	GPU::SamplerPtr sampler;
 
@@ -62,29 +61,6 @@ namespace ImGuiRenderer
 		// Store our font texture
 		ImGuiIO& io = ImGui::GetIO();
 		io.Fonts->SetTexID((ImTextureID)&(*fontTexture));
-	}
-
-	ImFont* AddFontFromFile(App& app, const char* path)
-	{
-		Engine& engine = app.GetEngine();
-		OutputMemoryStream mem;
-		if (!engine.GetFileSystem().LoadContext(path, mem))
-		{
-			Logger::Error("Failed to load font %s", path);
-			return nullptr;
-		}
-
-		const I32 dpi = Platform::GetDPI();
-		F32 fontScale = dpi / 96.0f;
-		F32 fontSize = 14.0f * fontScale * 1.25f;
-
-		ImGuiIO& io = ImGui::GetIO();
-		ImFontConfig cfg;
-		CopyString(cfg.Name, path);
-		cfg.FontDataOwnedByAtlas = false;
-		ImFont* font = io.Fonts->AddFontFromMemoryTTF((void*)mem.Data(), (I32)mem.Size(), fontSize, &cfg);
-		ASSERT(font != NULL);
-		return nullptr;
 	}
 
 	static void UpdateImGuiMonitors() 
@@ -213,13 +189,17 @@ namespace ImGuiRenderer
 		};
 	}
 
+	void CreateContext()
+	{
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+	}
+
 	void Initialize(App& app_, Editor::Settings& settings)
 	{
 		Logger::Info("Initializing imgui...");
 		app = &app_;
-
-		IMGUI_CHECKVERSION();
-		ImGui::CreateContext();
+		Engine& engine = app->GetEngine();
 
 		// Setup context
 		ImGuiIO& io = ImGui::GetIO();
@@ -243,9 +223,6 @@ namespace ImGuiRenderer
 
 		if (!settings.imguiState.empty())
 			ImGui::LoadIniSettingsFromMemory(settings.imguiState.c_str());
-
-		// Add fonts
-		font = AddFontFromFile(*app, "editor/fonts/notosans-regular.ttf");
 
 		// Setup style
 		ImGui::StyleColorsDark();
@@ -285,7 +262,6 @@ namespace ImGuiRenderer
 		io.DeltaTime = app->GetLastDeltaTime();
 
 		ImGui::NewFrame();
-		ImGui::PushFont(font);
 	
 		const ImGuiMouseCursor imguiCursor = ImGui::GetMouseCursor();
 		switch (imguiCursor) {
@@ -302,7 +278,6 @@ namespace ImGuiRenderer
 	bool p_open = true;
 	void EndFrame()
 	{
-		ImGui::PopFont();
 		ImGui::Render();
 		ImGui::UpdatePlatformWindows();
 	}

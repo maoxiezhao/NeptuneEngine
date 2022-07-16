@@ -63,4 +63,86 @@ namespace ImGuiEx
 			return;
 		win->DrawList->AddRectFilled(screen_pos, end_pos, color);
 	}
+
+	bool ToolbarButton(ImFont* font, const char* font_icon, const ImVec4& bg_color, const char* tooltip)
+	{
+		auto framePadding = GetStyle().FramePadding;
+		PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+		PushStyleColor(ImGuiCol_Text, bg_color);
+		PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+		PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+		PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, GetStyle().FramePadding.y));
+		PushStyleVar(ImGuiStyleVar_WindowPadding, framePadding);
+		PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+
+		bool ret = false;
+		PushFont(font);
+		if (Button(font_icon)) {
+			ret = true;
+		}
+		PopFont();
+		PopStyleColor(4);
+		PopStyleVar(3);
+		if (IsItemHovered()) {
+			BeginTooltip();
+			TextUnformatted(tooltip);
+			EndTooltip();
+		}
+		return ret;
+	}
+
+	bool BeginToolbar(const char* str_id, ImVec2 screen_pos, ImVec2 size)
+	{
+		bool is_global = GImGui->CurrentWindowStack.Size == 1;
+		SetNextWindowPos(screen_pos);
+
+		ImVec2 frame_padding = GetStyle().FramePadding;
+		PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+		PushStyleVar(ImGuiStyleVar_WindowPadding, frame_padding);
+		PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+
+		ImGuiWindowFlags flags = 
+			ImGuiWindowFlags_NoTitleBar | 
+			ImGuiWindowFlags_NoMove | 
+			ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoScrollbar | 
+			ImGuiWindowFlags_NoSavedSettings;
+		if (size.x == 0) 
+			size.x = GetContentRegionAvail().x;
+
+		SetNextWindowSize(size);
+		bool ret = is_global ?  Begin(str_id, nullptr, flags) : BeginChild(str_id, size, false, flags);
+		PopStyleVar(3);
+		return ret;
+	}
+
+	void EndToolbar()
+	{
+		auto frame_padding = GetStyle().FramePadding;
+		PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+		PushStyleVar(ImGuiStyleVar_WindowPadding, frame_padding);
+		PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+		ImVec2 pos = GetWindowPos();
+		ImVec2 size = GetWindowSize();
+		if (GImGui->CurrentWindowStack.Size == 2) 
+			End(); 
+		else 
+			EndChild();
+		PopStyleVar(3);
+		if (GImGui->CurrentWindowStack.Size > 1) 
+			SetCursorScreenPos(pos + ImVec2(0, size.y + GetStyle().FramePadding.y * 2));
+	}
+
+	bool IconButton(const char* icon, const char* tooltip) 
+	{
+		PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+		PushStyleColor(ImGuiCol_Button, GetStyle().Colors[ImGuiCol_WindowBg]);
+		bool res = SmallButton(icon);
+		if (IsItemHovered()) {
+			SetTooltip("%s", tooltip);
+		}
+		PopStyleColor();
+		PopStyleVar();
+		return res;
+	}
 }

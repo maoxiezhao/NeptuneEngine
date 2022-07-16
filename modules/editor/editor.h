@@ -6,6 +6,8 @@
 #include "client\app\app.h"
 #include "renderer\renderer.h"
 
+struct ImFont;
+
 namespace VulkanTest
 {
 namespace Editor
@@ -33,11 +35,14 @@ namespace Editor
         virtual void SetCursorCaptured(bool capture) = 0;
         virtual void SaveSettings() = 0;
 
+        virtual Utils::Action* GetAction(const char* name) = 0;
         virtual const Array<Platform::WindowEvent>& GetWindowEvents()const = 0;
         virtual class AssetCompiler& GetAssetCompiler() = 0;
         virtual class EntityListWidget& GetEntityList() = 0;
         virtual class WorldEditor& GetWorldEditor() = 0;
         virtual Gizmo::Config& GetGizmoConfig() = 0;
+        virtual ImFont* GetBigIconFont() = 0;
+        virtual ImFont* GetBoldFont() = 0;
     };
 }   
 } 

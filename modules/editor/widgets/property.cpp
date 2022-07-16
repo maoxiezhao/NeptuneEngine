@@ -32,7 +32,7 @@ namespace Editor
 
 		if (entities.size() > 1)
 		{
-			if (ImGui::Begin("Inspector##inspector", &isOpen))
+			if (ImGui::Begin(ICON_FA_INFO_CIRCLE "Inspector##inspector", &isOpen))
 			{
 				ImGuiEx::Label("ID");
 				ImGui::Text("%s", "Multiple objects");
@@ -51,7 +51,7 @@ namespace Editor
 			ImGui::Separator();
 			const float x = (ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Add component").x - ImGui::GetStyle().FramePadding.x * 2) * 0.5f;
 			ImGui::SetCursorPosX(x);
-			if (ImGui::Button("Add component"))
+			if (ImGui::Button(ICON_FA_PLUS "Add component"))
 				ImGui::OpenPopup("AddComponentPopup");
 
 			if (ImGui::BeginPopup("AddComponentPopup", ImGuiWindowFlags_AlwaysAutoResize)) 

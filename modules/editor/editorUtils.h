@@ -2,13 +2,18 @@
 
 #include "editor\common.h"
 
+struct ImFont;
+
 namespace VulkanTest
 {
 namespace Editor::Utils
 {
 	struct VULKAN_EDITOR_API Action
 	{
-		Action(const char* label_, const char* name_);
+		Action();
+
+		void Init(const char* label_, const char* name_);
+		void Init(const char* label_, const char* name_, const char* tooltip_, const char* icon_);
 
 		static bool FalseConst() { return false; }
 
@@ -17,8 +22,11 @@ namespace Editor::Utils
 		Platform::Keycode shortcut;
 		Delegate<void()> func;
 		Delegate<bool()> isSelected;
+		StaticString<8> icon;
+		StaticString<32> tooltip;
 
 		bool IsActive();
+		bool ToolbarButton(ImFont* font);
 	};
 }
 }

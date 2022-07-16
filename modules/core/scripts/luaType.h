@@ -254,7 +254,7 @@ namespace VulkanTest::LuaUtils
 			if (lua_istable(l, index) == 0)
 				return false;
 			lua_len(l, index);
-			int dim = lua_tointeger(l, -1);
+			auto dim = lua_tointeger(l, -1);
 			lua_pop(l, 1);
 			return dim == N;
 		}

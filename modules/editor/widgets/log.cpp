@@ -59,7 +59,7 @@ namespace Editor
 		if (!isOpen)
 			return;
 
-		if (ImGui::Begin("Log", &isOpen))
+		if (ImGui::Begin(ICON_FA_COMMENT_ALT "Log##log", &isOpen))
 		{
 			ScopedMutex lock(mutex);
 			const char* labels[] = { "Dev", "Info", "Warning", "Error" };

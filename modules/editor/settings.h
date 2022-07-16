@@ -23,8 +23,9 @@ namespace Editor
 			int x, y;
 			int w, h;
 		};
-
 		Rect window;
+
+		I32 fontSize = 14;
 
 		String imguiState;
 

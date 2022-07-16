@@ -108,6 +108,41 @@ namespace Editor::Gizmo
 		constant.col = F32x4(0.25f, 0.25f, 1.0f, 1.0f);
 		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(vertexCount);
+	
+
+		const F32 planeMin = 0.25f;
+		const F32 planeMax = 1.25f;
+		const F32x4 color = F32x4(1.0f);
+		const Vertex verts[] = {
+			{F32x4(planeMin, planeMin, 0.0f, 1.0f), color},
+			{F32x4(planeMax, planeMin, 0.0f, 1.0f), color},
+			{F32x4(planeMax, planeMax, 0.0f, 1.0f), color},
+
+			{F32x4(planeMin, planeMin, 0.0f, 1.0f), color},
+			{F32x4(planeMax, planeMax, 0.0f, 1.0f), color},
+			{F32x4(planeMin, planeMax, 0.0f, 1.0f), color},
+		};
+		vertMem = static_cast<Vertex*>(cmd.AllocateVertexBuffer(0, sizeof(Vertex) * ARRAYSIZE(verts), sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX));
+		std::memcpy(vertMem, verts, sizeof(verts));
+
+		// XY
+		constant.pos = StoreFMat4x4(MatrixIdentity() * mat);
+		constant.col = F32x4(0.25f, 0.25f, 1.0f, 0.4f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(ARRAYSIZE(verts));
+
+		// XZ
+		constant.pos = StoreFMat4x4(MatrixRotationY(-MATH_PIDIV2) * MatrixRotationZ(-MATH_PIDIV2) * mat);
+		constant.col = F32x4(0.25f, 1.0f, 0.25f, 0.4f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(ARRAYSIZE(verts));
+
+		// YZ
+		constant.pos = StoreFMat4x4(MatrixRotationZ(MATH_PIDIV2) * MatrixRotationY(MATH_PIDIV2) * mat);
+		constant.col = F32x4(1.0f, 0.25f, 0.25f, 0.4f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(ARRAYSIZE(verts));
+
 	}
 }
 }
