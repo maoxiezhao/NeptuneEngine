@@ -31,12 +31,17 @@ namespace VulkanTest
 		void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd);
 		void BindCommonResources(GPU::CommandList& cmd);
 
+		Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera);
+
 		GPU::DeviceVulkan* GetDevice();
 
 		const GPU::BlendState& GetBlendState(BlendStateTypes type);
 		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);
 		const GPU::DepthStencilState& GetDepthStencilState(DepthStencilStateType type);
 		const GPU::Shader* GetShader(ShaderType type);
+
+		void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd);
+		void DebugDrawBox(const FMat4x4& boxMatrix, const F32x4& color = F32x4(1.0f));
 
 		enum class RenderQueueType
 		{

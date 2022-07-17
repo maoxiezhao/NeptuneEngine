@@ -34,7 +34,6 @@ namespace Editor
         const char* GetName();
 
     private:
-        bool isOpen = true;
         LogWidgetSink logSink;
         Mutex mutex;
         U8 levelFilter = 0xff;

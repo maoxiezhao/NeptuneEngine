@@ -8,12 +8,14 @@ namespace VulkanTest
 {
 namespace Editor
 {
+	struct WorldView;
+
 	namespace Gizmo
 	{
-
-		struct Config 
+		struct Config
 		{
-			enum Mode 
+			bool enable = true;
+			enum Mode
 			{
 				TRANSLATE,
 				ROTATE,
@@ -24,8 +26,10 @@ namespace Editor
 			bool IsRotateMode() const { return mode == ROTATE; }
 			bool IsScaleMode() const { return mode == SCALE; }
 		};
-
+		
+		void Update();
+		bool Manipulate(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config);
 		void Draw(GPU::CommandList& cmd, CameraComponent& camera, const Config& config);
-	}
+	};
 }
 }

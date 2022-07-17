@@ -108,6 +108,15 @@ namespace Editor
 
 	struct WorldViewImpl final : WorldView
 	{
+		enum class MouseMode
+		{
+			NONE,
+			SELECT,
+			NAVIGATE,
+			COUNT
+		};
+		MouseMode mouseMode = MouseMode::NONE;
+
 		SceneView& sceneView;
 		EditorApp& editor;
 		WorldEditor& worldEditor;
@@ -115,6 +124,8 @@ namespace Editor
 		Transform transform;
 
 		F32 deltaTime = 0.0f;
+		bool isMouseDown[(int)Platform::MouseButton::COUNT] = {};
+		bool isMouseClick[(int)Platform::MouseButton::COUNT] = {};
 		F32x2 mousePos{0.f, 0.f};
 		F32x2 mouseSensitivity{ 200.f, 200.f };
 
@@ -135,15 +146,47 @@ namespace Editor
 		{
 		}
 
+		void InputFrame() 
+		{
+			for (auto& i : isMouseClick) 
+				i = false;
+		}
+
 		void OnMouseMove(int x, int y, int relx, int rely)
 		{
 			PROFILE_FUNCTION();
 			mousePos = F32x2((F32)x, (F32)y);
 
-			const float yaw = Signum(relx) * (powf(fabsf((float)relx / mouseSensitivity.x), 1.2f));
-			const float pitch = Signum(rely) * (powf(fabsf((float)rely / mouseSensitivity.y), 1.2f));
-			transform.RotateRollPitchYaw(F32x3(pitch, yaw, 0.0f));
-			transform.UpdateTransform();
+			switch (mouseMode)
+			{
+			case WorldViewImpl::MouseMode::NAVIGATE:
+			{
+				const float yaw = Signum(relx) * (powf(fabsf((float)relx / mouseSensitivity.x), 1.2f));
+				const float pitch = Signum(rely) * (powf(fabsf((float)rely / mouseSensitivity.y), 1.2f));
+				transform.RotateRollPitchYaw(F32x3(pitch, yaw, 0.0f));
+				transform.UpdateTransform();
+				break;
+			}
+			default:
+				break;
+			}
+		}
+
+		void OnMouseDown(int x, int y, Platform::MouseButton button)
+		{
+			mousePos = F32x2((F32)x, (F32)y);
+			isMouseClick[(int)button] = true;
+			isMouseDown[(int)button] = true;
+
+			if (button == Platform::MouseButton::RIGHT)
+				mouseMode = MouseMode::NAVIGATE;
+
+		}
+
+		void OnMouseUp(int x, int y, Platform::MouseButton button)
+		{
+			isMouseDown[(int)button] = false;
+			mouseMode = MouseMode::NONE;
 		}
 
 		void OnCameraMove(float forward, float right, float up, float speed)
@@ -166,6 +209,26 @@ namespace Editor
 			transform.UpdateTransform();
 			camera.UpdateTransform(transform);
 		}
+
+		bool IsMouseDown(Platform::MouseButton button) const override
+		{
+			return isMouseDown[(I32)button];
+		}
+
+		bool IsMouseClick(Platform::MouseButton button) const override
+		{
+			return isMouseClick[(I32)button];
+		}
+
+		F32x2 GetMousePos() const override
+		{
+			return mousePos;
+		}
+
+		const CameraComponent& GetCamera()const override
+		{
+			return camera;
+		}
 	};
 
 	SceneView::SceneView(EditorApp& app_) :
@@ -181,8 +244,6 @@ namespace Editor
 		app.AddAction(&moveBackAction);
 		app.AddAction(&moveLeftAction);
 		app.AddAction(&moveRightAction);
-
-		
 	}
 
 	SceneView::~SceneView()
@@ -217,6 +278,8 @@ namespace Editor
 		PROFILE_FUNCTION();
 		worldView->Update(dt);
 
+		Manipulate();
+
 		if (ImGui::IsAnyItemActive()) return;
 		if (!isMouseCaptured) return;
 		if (ImGui::GetIO().KeyCtrl) return;
@@ -244,6 +307,7 @@ namespace Editor
 		{
 			ImGui::Dummy(ImVec2(2, 2));
 			OnToolbarGUI();
+			worldView->InputFrame();
 
 			const ImVec2 size = ImGui::GetContentRegionAvail();
 			if (size.x <= 0 || size.y <= 0)
@@ -296,6 +360,10 @@ namespace Editor
 
 			shouldRender = true;
 		}
+		else
+		{
+			worldView->InputFrame();
+		}
 
 		if (isMouseCaptured && (Platform::GetFocusedWindow() != ImGui::GetWindowViewport()->PlatformHandle))
 			CaptureMouse(false);
@@ -327,7 +395,8 @@ namespace Editor
 		const float toolbarHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
 		if (ImGuiEx::BeginToolbar("screenViewToolbar", pos, ImVec2(0, toolbarHeight)))
 		{
-			ImGui::Checkbox("Transform", &transformEnable);
+			auto& cfg = app.GetGizmoConfig();
+			ImGui::Checkbox("Transform", &cfg.enable);
 			ImGui::SameLine();
 
 			for (auto* action_name : actions_names)
@@ -336,6 +405,8 @@ namespace Editor
 				action->ToolbarButton(app.GetBigIconFont());
 			}
 		}
+		ImGui::SameLine();
+		ImGui::Text("%.2fx%.2f", worldView->mousePos.x, worldView->mousePos.y);
 		ImGuiEx::EndToolbar();
 	}
 
@@ -349,7 +420,7 @@ namespace Editor
 			{
 				case Platform::WindowEvent::Type::MOUSE_BUTTON:
 				{
-					I32x2 relMP = GetLocalMousePoint();
+					I32x2 localMousePoint = GetLocalMousePoint();
 					if (handleInput)
 					{
 						if (ent.mouseButton.button == Platform::MouseButton::RIGHT) 
@@ -357,15 +428,25 @@ namespace Editor
 							ImGui::SetWindowFocus();
 							CaptureMouse(ent.mouseButton.down);
 						}
+
+						if (ent.mouseButton.down) {
+							worldView->OnMouseDown((int)localMousePoint.x, (int)localMousePoint.y, ent.mouseButton.button);
+						}
+						else {
+							worldView->OnMouseUp((int)localMousePoint.x, (int)localMousePoint.y, ent.mouseButton.button);
+						}
+					}
+					else if (!ent.mouseButton.down)
+					{
 					}
 					break;
 				}
 				case Platform::WindowEvent::Type::MOUSE_MOVE:
 				{
-					if (handleInput && isMouseCaptured)
+					if (handleInput)
 					{
-						I32x2 relMP = GetLocalMousePoint();
-						worldView->OnMouseMove((I32)relMP.x, (I32)relMP.y, (I32)ent.mouseMove.xrel, (I32)ent.mouseMove.yrel);
+						I32x2 localMousePoint = GetLocalMousePoint();
+						worldView->OnMouseMove((I32)localMousePoint.x, (I32)localMousePoint.y, (I32)ent.mouseMove.xrel, (I32)ent.mouseMove.yrel);
 					}
 					break;
 				}
@@ -415,6 +496,50 @@ namespace Editor
 			char name[64];
 			CopyString(Span(name), Path::GetBaseName(path));
 			scene->LoadModel(name, Path(path));
+		}
+	}
+
+	void SceneView::Manipulate()
+	{
+		PROFILE_FUNCTION();
+		Gizmo::Config& cfg = app.GetGizmoConfig();
+		if (!cfg.enable) return;
+
+		const auto& selected = worldEditor.GetSelectedEntities();
+		if (selected.empty()) return;
+		TransformComponent* comp = worldEditor.GetWorld()->GetComponent<TransformComponent>(selected[0]);
+		if (comp == nullptr) return;
+	
+		Transform transform = comp->transform;
+		const Transform oldPivot = transform;
+		if (!Gizmo::Manipulate(selected[0], comp->transform, *worldView, cfg))
+			return;
+
+		const Transform newPivot = transform;
+		switch (cfg.mode)
+		{
+		case Gizmo::Config::Mode::TRANSLATE:
+		{
+			F32x3 diff = newPivot.translation - oldPivot.translation;
+			for (auto entity : selected)
+			{
+				TransformComponent* comp = worldEditor.GetWorld()->GetComponent<TransformComponent>(entity);
+				if (comp != nullptr)
+					comp->transform.Translate(diff);
+			}
+			break;
+		}
+		case Gizmo::Config::Mode::ROTATE:
+		{
+			break;
+		}
+		case Gizmo::Config::Mode::SCALE:
+		{
+			break;
+		}
+		default:
+			ASSERT(false);
+			break;
 		}
 	}
 }

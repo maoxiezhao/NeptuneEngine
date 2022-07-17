@@ -332,6 +332,7 @@ namespace Editor
             ImGui::PushFont(font);
 
             assetCompiler->Update(deltaTime);
+            worldEditor->Update(deltaTime);
 
             engine->Update(*worldEditor->GetWorld(), deltaTime);
 
@@ -544,12 +545,13 @@ namespace Editor
             {
                 OnFileMenu();
                 OnEntityMenu();
+                OnViewMenu();
                 OnHelpMenu();
                 ImGui::PopStyleVar(2);
 
-                float w = (ImGui::GetWindowContentRegionMax().x - ImGui::GetWindowContentRegionMin().x) * 0.5f - 30 - ImGui::GetCursorPosX();
-                ImGui::Dummy(ImVec2(w, ImGui::GetTextLineHeightWithSpacing()));
-                GetAction("ToggleGameMode")->ToolbarButton(bigIconFont);
+                //float w = (ImGui::GetWindowContentRegionMax().x - ImGui::GetWindowContentRegionMin().x) * 0.5f - 30 - ImGui::GetCursorPosX();
+                //ImGui::Dummy(ImVec2(w, ImGui::GetTextLineHeightWithSpacing()));
+                //GetAction("ToggleGameMode")->ToolbarButton(bigIconFont);
 
                 auto rect = Platform::GetClientBounds(mainWindow);
                 StaticString<128> fpsTxt("");
@@ -582,17 +584,20 @@ namespace Editor
             ImGui::EndMenu();
         }
 
+        void OnViewMenu()
+        {
+            if (!ImGui::BeginMenu("View")) return;
+            ImGui::MenuItem(ICON_FA_IMAGES "Asset browser", nullptr, &assetBrowser->isOpen);
+            ImGui::MenuItem(ICON_FA_COMMENT_ALT "Log", nullptr, &logWidget->isOpen);
+            ImGui::MenuItem(ICON_FA_STREAM "EntityList", nullptr, &entityListWidget->isOpen);
+            ImGui::EndMenu();
+        }
+
         bool showAbout = false;
         void OnHelpMenu()
         {
             if (!ImGui::BeginMenu("Help")) return;
-            if (ImGui::MenuItem("About", nullptr, showAbout))
-                showAbout = true;
-
-            if (showAbout)
-            {
-                // TODO: show window of about
-            }
+            ImGui::MenuItem("About", nullptr, &showAbout);
 
             ImGui::EndMenu();
         }
@@ -635,9 +640,12 @@ namespace Editor
             AddAction<&EditorAppImpl::Exit>("Exit");
 
             AddAction<&EditorAppImpl::ToggleGameMode>("ToggleGameMode", ICON_FA_PLAY, "Toggle game mode");
-            AddAction<&EditorAppImpl::SetTranslateGizmoMode>("SetTranslateGizmoMode", ICON_FA_ARROWS_ALT, "Set translate mode");
-            AddAction<&EditorAppImpl::SetRotateGizmoMode>("SetRotateGizmoMode", ICON_FA_UNDO, "Set rotate mode");
-            AddAction<&EditorAppImpl::SetScaleGizmoMode>("SetScaleGizmoMode", ICON_FA_EXPAND_ALT, "Set scale mode");
+            AddAction<&EditorAppImpl::SetTranslateGizmoMode>("SetTranslateGizmoMode", ICON_FA_ARROWS_ALT, "Set translate mode").
+                isSelected.Bind<&Gizmo::Config::IsTranslateMode>(&gizmoConfig);
+            AddAction<&EditorAppImpl::SetRotateGizmoMode>("SetRotateGizmoMode", ICON_FA_UNDO, "Set rotate mode").
+                isSelected.Bind<&Gizmo::Config::IsRotateMode>(&gizmoConfig);
+            AddAction<&EditorAppImpl::SetScaleGizmoMode>("SetScaleGizmoMode", ICON_FA_EXPAND_ALT, "Set scale mode").
+                isSelected.Bind<&Gizmo::Config::IsScaleMode>(&gizmoConfig);
         }
 
         void LoadPlugins()
@@ -744,14 +752,17 @@ namespace Editor
 
         void SetTranslateGizmoMode()
         {
+            gizmoConfig.mode = Gizmo::Config::Mode::TRANSLATE;
         }
 
         void SetRotateGizmoMode()
         {
+            gizmoConfig.mode = Gizmo::Config::Mode::ROTATE;
         }
 
         void SetScaleGizmoMode()
         {
+            gizmoConfig.mode = Gizmo::Config::Mode::SCALE;
         }
 
     private:

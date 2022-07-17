@@ -292,6 +292,7 @@ namespace Platform {
 		LEFT = 0,
 		RIGHT = 1,
 		MIDDLE = 2,
+		COUNT = 3,
 		MAX = 16
 	};
 

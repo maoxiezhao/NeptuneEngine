@@ -37,8 +37,6 @@ namespace Editor
         bool IsOpen()const {
             return isOpen;
         }
-
-    protected:
         bool isOpen = true;
     };
 } 

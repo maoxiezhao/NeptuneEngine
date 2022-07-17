@@ -3,10 +3,28 @@
 
 namespace VulkanTest
 {
+	bool Ray::Intersects(const AABB& b) const
+	{
+		return b.Intersects(*this);
+	}
+
+	AABB AABB::CreateFromHalfWidth(const F32x3& center, const F32x3& halfwidth)
+	{
+		return AABB(
+			F32x3(center.x - halfwidth.x, center.y - halfwidth.y, center.z - halfwidth.z),
+			F32x3(center.x + halfwidth.x, center.y + halfwidth.y, center.z + halfwidth.z)
+		);
+	}
+
 	void AABB::Merge(const AABB& rhs)
 	{
 		AddPoint(rhs.min);
 		AddPoint(rhs.max);
+	}
+
+	AABB AABB::Merge(const AABB& a, const AABB& b)
+	{
+		return AABB(Min(a.min, b.min), Max(a.max, b.max));
 	}
 
 	void AABB::AddPoint(const F32x3& point)
@@ -65,6 +83,50 @@ namespace VulkanTest
 		F32x3 pos = GetCenter();
 		XMMATRIX tra = MatrixTranslation(pos.x, pos.y, pos.z);
 		return sca * tra;
+	}
+
+	bool AABB::Intersects(const F32x3& p) const
+	{
+		if (!IsValid())
+			return false;
+		return !(p.x > max.x || 
+			     p.x < min.x ||
+				 p.y > max.y ||
+				 p.y < min.y ||
+				 p.z > max.z ||
+				 p.z < min.z);
+	}
+
+	bool AABB::Intersects(const Ray& ray) const
+	{
+		if (!IsValid())
+			return false;
+
+		if (Intersects(ray.origin))
+			return true;
+
+		F32 tx1 = (min.x - ray.origin.x) * ray.directionInv.x;
+		F32 tx2 = (max.x - ray.origin.x) * ray.directionInv.x;
+		F32 tmin = std::min(tx1, tx2);
+		F32 tmax = std::max(tx1, tx2);
+		if (ray.tMax < tmin || ray.tMin > tmax)
+			return false;
+
+		F32 ty1 = (min.y - ray.origin.y) * ray.directionInv.y;
+		F32 ty2 = (max.y - ray.origin.y) * ray.directionInv.y;
+		tmin = std::max(tmin, std::min(ty1, ty2));
+		tmax = std::min(tmax, std::max(ty1, ty2));
+		if (ray.tMax < tmin || ray.tMin > tmax)
+			return false;
+
+		F32 tz1 = (min.z - ray.origin.z) * ray.directionInv.z;
+		F32 tz2 = (max.z - ray.origin.z) * ray.directionInv.z;
+		tmin = std::max(tmin, std::min(tz1, tz2));
+		tmax = std::min(tmax, std::max(tz1, tz2));
+		if (ray.tMax < tmin || ray.tMin > tmax)
+			return false;
+
+		return tmax >= tmin;
 	}
 
 	void Frustum::Compute(const MATRIX& viewProjection)

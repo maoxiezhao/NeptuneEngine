@@ -49,6 +49,9 @@ template <typename T> inline T dot(const TVec4<T> &a, const TVec4<T> &b) { retur
 template <typename T> 
 inline float length(const T &v) { return sqrt(dot(v, v)); }
 
+template <typename T>
+inline float SquaredLength(const T& v) { return dot(v, v); }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define VMATH_DEFINE_MATRIX_SCALAR_OP(op) \

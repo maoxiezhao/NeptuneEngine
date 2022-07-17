@@ -101,6 +101,24 @@ namespace VulkanTest
 		return XMVectorSubtract(V1, V2);
 	}
 
+	inline XMVECTOR XM_CALLCONV Vector3Dot
+	(
+		FXMVECTOR V1,
+		FXMVECTOR V2
+	)
+	{
+		return XMVector3Dot(V1, V2);
+	}
+
+	inline XMVECTOR XM_CALLCONV Vector3Cross
+	(
+		FXMVECTOR V1,
+		FXMVECTOR V2
+	)
+	{
+		return XMVector3Cross(V1, V2);
+	}
+
 	inline VECTOR XM_CALLCONV Vector2Length(VECTOR V)
 	{
 		return XMVector2Length(V);
@@ -161,6 +179,20 @@ namespace VulkanTest
 		return XMVectorSelect(V1, V2, Control);
 	}
 
+	inline VECTOR XM_CALLCONV VectorReplicate(float Value)
+	{
+		return XMVectorReplicate(Value);
+	}
+
+	inline VECTOR XM_CALLCONV VectorDivide
+	(
+		VECTOR V1,
+		VECTOR V2
+	)
+	{
+		return XMVectorDivide(V1, V2);
+	}
+
 	inline VECTOR XM_CALLCONV PlaneDotCoord(VECTOR V1, VECTOR V2)
 	{
 		return XMPlaneDotCoord(V1, V2);
@@ -189,6 +221,11 @@ namespace VulkanTest
 	inline VECTOR XM_CALLCONV VectorMax(VECTOR V1, VECTOR V2)
 	{
 		return XMVectorMax(V1, V2);
+	}
+
+	inline VECTOR XM_CALLCONV VectorAbs(FXMVECTOR V)
+	{
+		return XMVectorAbs(V);
 	}
 
 	inline MATRIX XM_CALLCONV MatrixIdentity()
@@ -269,6 +306,23 @@ namespace VulkanTest
 	inline F32 ConvertHalfToFloat(HALF Value)
 	{
 		return XMConvertHalfToFloat(Value);
+	}
+
+	inline VECTOR XM_CALLCONV Vector3Unproject
+	(
+		FXMVECTOR V,
+		float     ViewportX,
+		float     ViewportY,
+		float     ViewportWidth,
+		float     ViewportHeight,
+		float     ViewportMinZ,
+		float     ViewportMaxZ,
+		FXMMATRIX Projection,
+		CXMMATRIX View,
+		CXMMATRIX World
+	)
+	{
+		return XMVector3Unproject(V, ViewportX, ViewportY, ViewportWidth, ViewportHeight, ViewportMinZ, ViewportMaxZ, Projection, View, World);
 	}
 
 	////////////////////////////////////////////////////////////////////////////

@@ -68,7 +68,7 @@ namespace VulkanTest
 
 		// Main opaque pass
 		auto& opaquePass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
-		opaquePass.WriteColor(SetRenderResult3D("rtFinal3D"), rtAttachmentInfo);
+		opaquePass.WriteColor(SetRenderResult3D("rtOpaque"), rtAttachmentInfo);
 		opaquePass.SetClearColorCallback(DefaultClearColorFunc);
 		opaquePass.WriteDepthStencil("depth", depth);
 		opaquePass.SetClearDepthStencilCallback(DefaultClearDepthFunc);
@@ -81,6 +81,27 @@ namespace VulkanTest
 
 			Renderer::BindCameraCB(*camera, cmd);
 			Renderer::DrawScene(cmd, visibility);
+		});
+
+		// Transparents
+		auto& transparentPass = renderGraph.AddRenderPass("Transparent", RenderGraphQueueFlag::Graphics);
+		transparentPass.ReadTexture(GetRenderResult3D());
+		transparentPass.WriteColor(SetRenderResult3D("rtTransparent"), rtAttachmentInfo);
+		transparentPass.ReadDepthStencil("depth");
+		transparentPass.WriteDepthStencil("depth", depth);
+		transparentPass.SetBuildCallback([&](GPU::CommandList& cmd) {
+
+			GPU::Viewport viewport;
+			viewport.width = (F32)backbufferDim.width;
+			viewport.height = (F32)backbufferDim.height;
+			cmd.SetViewport(viewport);
+
+			Renderer::BindCameraCB(*camera, cmd);
+			Renderer::BindCommonResources(cmd);
+
+			cmd.SetDefaultTransparentState();
+			cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
+			cmd.Draw(3);
 		});
 
 		RenderPath2D::SetupPasses(renderGraph);

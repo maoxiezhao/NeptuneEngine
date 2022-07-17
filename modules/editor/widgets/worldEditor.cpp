@@ -1,5 +1,6 @@
 #include "worldEditor.h"
 #include "editor\editor.h"
+#include "editor\widgets\gizmo.h"
 
 namespace VulkanTest
 {
@@ -85,6 +86,8 @@ namespace Editor
 
         void Update(F32 dt)override
         {
+            PROFILE_FUNCTION();
+            Gizmo::Update();
         }
 
         void EndFrame()override

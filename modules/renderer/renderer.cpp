@@ -301,6 +301,14 @@ namespace Renderer
 		return shaders[type];
 	}
 
+	void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd)
+	{
+	}
+
+	void DrawBox(const FMat4x4& boxMatrix, const F32x4& color)
+	{
+	}
+
 	void UpdateFrameData(const Visibility& visible, RenderScene& scene, F32 delta, FrameCB& frameCB)
 	{
 		ASSERT(visible.scene);
@@ -339,6 +347,20 @@ namespace Renderer
 			cmd.SetBindless(1, heap->GetDescriptorSet());
 
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
+	}
+
+	Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera)
+	{
+		F32 w = camera.width;
+		F32 h = camera.height;
+
+		MATRIX V = LoadFMat4x4(camera.view);
+		MATRIX P = LoadFMat4x4(camera.projection);
+		MATRIX W = MatrixIdentity();
+		VECTOR lineStart = Vector3Unproject(XMVectorSet(screenPos.x, screenPos.y, 1, 1), 0.0f, 0.0f, w, h, 0.0f, 1.0f, P, V, W);
+		VECTOR lineEnd = Vector3Unproject(XMVectorSet(screenPos.x, screenPos.y, 0, 1), 0.0f, 0.0f, w, h, 0.0f, 1.0f, P, V, W);
+		VECTOR rayDirection = Vector3Normalize(VectorSubtract(lineEnd, lineStart));
+		return Ray(StoreF32x3(lineStart), StoreF32x3(rayDirection));
 	}
 
 	void DrawMeshes(GPU::CommandList& cmd, const RenderQueue& queue, const Visibility& vis, RENDERPASS renderPass, U32 renderFlags)

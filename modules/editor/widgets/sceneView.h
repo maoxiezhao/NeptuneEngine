@@ -67,6 +67,7 @@ namespace Editor
         void CaptureMouse(bool capture);
         I32x2 GetLocalMousePoint()const;
         void HandleDrop(const char* path, float x, float y);
+        void Manipulate();
 
     private:
         EditorApp& app;
@@ -79,8 +80,6 @@ namespace Editor
         UniquePtr<EditorRenderer> editorRenderer;
         WorldEditor& worldEditor;
         bool shouldRender = false;
-
-        bool transformEnable = false;
 
         Utils::Action moveForwardAction;
         Utils::Action moveBackAction;
