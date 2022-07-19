@@ -145,6 +145,10 @@ namespace Renderer
 	GPU::DepthStencilState depthStencilStates[DSTYPE_COUNT] = {};
 	GPU::Shader* shaders[SHADERTYPE_COUNT] = {};
 	GPU::BufferPtr frameBuffer;
+	GPU::PipelineStateDesc objectPipelineStates
+		[RENDERPASS_COUNT]
+		[BLENDMODE_COUNT]
+		[OBJECT_DOUBLESIDED_COUNT];
 
 	RendererPlugin* rendererPlugin = nullptr;
 
@@ -223,6 +227,11 @@ namespace Renderer
 		dsd.backFace.stencilFailOp = VK_STENCIL_OP_KEEP;
 		dsd.backFace.stencilDepthFailOp = VK_STENCIL_OP_KEEP;
 		depthStencilStates[DSTYPE_DEFAULT] = dsd;
+
+		dsd.depthEnable = true;
+		dsd.depthWriteMask = GPU::DEPTH_WRITE_MASK_ZERO;
+		dsd.depthFunc = VK_COMPARE_OP_EQUAL;
+		depthStencilStates[DSTYPE_READEQUAL] = dsd;
 	}
 
 	GPU::Shader* PreloadShader(GPU::ShaderStage stage, const char* path, const GPU::ShaderVariantMap& defines = {})
@@ -233,11 +242,112 @@ namespace Renderer
 
 	void LoadShaders()
 	{
-		shaders[SHADERTYPE_VS_OBJECT] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl");
+		// TODO: Replace Shaders with ShaderSuites
+
+		shaders[SHADERTYPE_VS_OBJECT] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", {"OBJECTSHADER_LAYOUT_COMMON"});
+		shaders[SHADERTYPE_VS_PREPASS] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", {"OBJECTSHADER_LAYOUT_PREPASS"});
 		shaders[SHADERTYPE_VS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::VS, "vertexColorVS.hlsl");
 
-		shaders[SHADERTYPE_PS_OBJECT] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl");
+		shaders[SHADERTYPE_PS_OBJECT] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { "OBJECTSHADER_LAYOUT_COMMON" });
+		shaders[SHADERTYPE_PS_PREPASS] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { "OBJECTSHADER_LAYOUT_PREPASS" });
 		shaders[SHADERTYPE_PS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::PS, "vertexColorPS.hlsl");
+	}
+
+	ShaderType GetVSType(RENDERPASS renderPass)
+	{
+		switch (renderPass)
+		{
+		case RENDERPASS_MAIN:
+			return SHADERTYPE_VS_OBJECT;
+			break;
+		case RENDERPASS_PREPASS:
+			return SHADERTYPE_VS_PREPASS;
+			break;
+		default:
+			return SHADERTYPE_COUNT;
+		}
+	}
+
+	ShaderType GetPSType(RENDERPASS renderPass)
+	{
+		switch (renderPass)
+		{
+		case RENDERPASS_MAIN:
+			return SHADERTYPE_PS_OBJECT;
+			break;
+		case RENDERPASS_PREPASS:
+			return SHADERTYPE_PS_PREPASS;
+			break;
+		default:
+			return SHADERTYPE_COUNT;
+		}
+	}
+
+	void LoadPipelineStates()
+	{
+		for (I32 renderPass = 0; renderPass < RENDERPASS_COUNT; ++renderPass)
+		{
+			for (I32 blendMode = 0; blendMode < BLENDMODE_COUNT; ++blendMode)
+			{
+				for (I32 doublesided = 0; doublesided < OBJECT_DOUBLESIDED_COUNT; ++doublesided)
+				{
+					GPU::PipelineStateDesc pipeline = {};
+					memset(&pipeline, 0, sizeof(pipeline));
+
+					// Shaders
+					const bool transparency = blendMode != BLENDMODE_OPAQUE;
+					ShaderType vsType = GetVSType((RENDERPASS)renderPass);
+					ShaderType psType = GetPSType((RENDERPASS)renderPass);
+
+					pipeline.shaders[(I32)GPU::ShaderStage::VS] = vsType < SHADERTYPE_COUNT ? GetShader(vsType) : nullptr;
+					pipeline.shaders[(I32)GPU::ShaderStage::PS] = psType < SHADERTYPE_COUNT ? GetShader(psType) : nullptr;
+					
+					// Blend states
+					switch (blendMode)
+					{
+					case BLENDMODE_OPAQUE:
+						pipeline.blendState = GetBlendState(BlendStateTypes::BSTYPE_OPAQUE);
+						break;
+					case BLENDMODE_ALPHA:
+						pipeline.blendState = GetBlendState(BlendStateTypes::BSTYPE_TRANSPARENT);
+						break;
+					default:
+						ASSERT(false);
+						break;
+					}
+
+					// DepthStencilStates
+					switch (renderPass)
+					{
+					case RENDERPASS_MAIN:
+						pipeline.depthStencilState = GetDepthStencilState(DepthStencilStateType::DSTYPE_READEQUAL);
+						break;
+					default:
+						pipeline.depthStencilState = GetDepthStencilState(DepthStencilStateType::DSTYPE_DEFAULT);
+						break;
+					}
+
+					// RasterizerStates
+					switch (doublesided)
+					{
+					case OBJECT_DOUBLESIDED_FRONTSIDE:
+						pipeline.rasterizerState = GetRasterizerState(RasterizerStateTypes::RSTYPE_FRONT);
+						break;
+					case OBJECT_DOUBLESIDED_ENABLED:
+						pipeline.rasterizerState = GetRasterizerState(RasterizerStateTypes::RSTYPE_DOUBLE_SIDED);
+						break;
+					case OBJECT_DOUBLESIDED_BACKSIDE:
+						pipeline.rasterizerState = GetRasterizerState(RasterizerStateTypes::RSTYPE_BACK);
+						break;
+					default:
+						ASSERT(false);
+						break;
+					}
+	
+					objectPipelineStates[renderPass][blendMode][doublesided] = pipeline;
+				}
+			}
+		}
 	}
 
 	void Renderer::Initialize(Engine& engine)
@@ -246,6 +356,7 @@ namespace Renderer
 
 		InitStockStates();
 		LoadShaders();
+		LoadPipelineStates();
 
 		auto device = GetDevice();
 		GPU::BufferCreateInfo info = {};
@@ -299,6 +410,11 @@ namespace Renderer
 	const GPU::Shader* GetShader(ShaderType type)
 	{
 		return shaders[type];
+	}
+
+	const GPU::PipelineStateDesc& GetObjectPipelineState(RENDERPASS renderPass, BlendMode blendMode, ObjectDoubleSided doublesided)
+	{
+		return objectPipelineStates[renderPass][blendMode][doublesided];
 	}
 
 	void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd)
@@ -398,6 +514,16 @@ namespace Renderer
 					continue;
 
 				MaterialComponent* material = scene->GetComponent<MaterialComponent>(subset.materialID);
+				if (!material || !material->material)
+					continue;
+
+				BlendMode blendMode = material->material->GetBlendMode();
+				ObjectDoubleSided doubleSided = material->material->IsDoubleSided() ? OBJECT_DOUBLESIDED_ENABLED : OBJECT_DOUBLESIDED_FRONTSIDE;
+
+				// TEST
+				doubleSided = OBJECT_DOUBLESIDED_ENABLED;
+
+				cmd.SetPipelineState(GetObjectPipelineState(renderPass, blendMode, doubleSided));
 
 				ObjectPushConstants push;
 				push.geometryIndex = meshCmp->geometryOffset + subsetIndex;
@@ -407,11 +533,6 @@ namespace Renderer
 
 				cmd.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 				cmd.PushConstants(&push, 0, sizeof(push));
-				cmd.SetDefaultOpaqueState();
-				cmd.SetProgram(
-					GetShader(ShaderType::SHADERTYPE_VS_OBJECT), 
-					GetShader(ShaderType::SHADERTYPE_PS_OBJECT)
-				);
 				cmd.DrawIndexedInstanced(subset.indexCount, instancedBatch.instanceCount, subset.indexOffset, 0, 0);
 			}
 		};
@@ -444,7 +565,7 @@ namespace Renderer
 		cmd.EndEvent();
 	}
 
-	void DrawScene(GPU::CommandList& cmd, const Visibility& vis)
+	void DrawScene(GPU::CommandList& cmd, const Visibility& vis, RENDERPASS pass)
 	{
 		RenderScene* scene = vis.scene;
 		if (!scene)
@@ -473,7 +594,7 @@ namespace Renderer
 		if (!queue.Empty())
 		{
 			queue.SortOpaque();
-			DrawMeshes(cmd, queue, vis, RENDERPASS::RENDERPASS_MAIN, 0);
+			DrawMeshes(cmd, queue, vis, pass, 0);
 		}
 
 		cmd.EndEvent();

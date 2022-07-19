@@ -10,13 +10,13 @@ namespace VulkanTest
 		void Update(float dt) override;
 		void FixedUpdate() override;
 
-		const char* GetRenderResult2D()const {
-			return lastRenderPassRT.c_str();
+		const String& GetRenderResult2D()const {
+			return lastRenderPassRT2D;
 		}
 
-		const char* SetRenderResult2D(const char* name)
+		String SetRenderResult2D(const char* name)
 		{
-			lastRenderPassRT = name;
+			lastRenderPassRT2D = name;
 			return name;
 		}
 
@@ -26,6 +26,6 @@ namespace VulkanTest
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
 	
 	private:
-		String lastRenderPassRT;
+		String lastRenderPassRT2D;
 	};
 }

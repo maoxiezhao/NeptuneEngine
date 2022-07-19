@@ -39,6 +39,10 @@ namespace VulkanTest
 		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);
 		const GPU::DepthStencilState& GetDepthStencilState(DepthStencilStateType type);
 		const GPU::Shader* GetShader(ShaderType type);
+		const GPU::PipelineStateDesc& GetObjectPipelineState(
+			RENDERPASS renderPass,
+			BlendMode blendMode,
+			ObjectDoubleSided doublesided);
 
 		void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd);
 		void DebugDrawBox(const FMat4x4& boxMatrix, const F32x4& color = F32x4(1.0f));
@@ -50,7 +54,7 @@ namespace VulkanTest
 			All = Opaque | Transparent
 		};
 
-		void DrawScene(GPU::CommandList& cmd, const Visibility& vis);
+		void DrawScene(GPU::CommandList& cmd, const Visibility& vis, RENDERPASS pass);
 
 		// Plugin interface
 		RendererPlugin* CreatePlugin(Engine& engine);

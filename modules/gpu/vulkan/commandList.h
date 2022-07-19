@@ -55,6 +55,7 @@ struct IndexBindingState
 
 struct PipelineStateDesc
 {
+    const Shader* shaders[static_cast<U32>(ShaderStage::Count)];
     BlendState blendState = {};
     RasterizerState rasterizerState = {};
     DepthStencilState depthStencilState = {};

@@ -1,5 +1,5 @@
-#ifndef SHADER_GLOBAL
-#define SHADER_GLOBAL
+#ifndef SHADER_GLOBAL_HF
+#define SHADER_GLOBAL_HF
 
 #include "shaderInterop.h"
 

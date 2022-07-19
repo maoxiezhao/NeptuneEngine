@@ -42,6 +42,7 @@ enum class RenderGraphResourceType
 {
     Texture,
     Buffer,
+    Proxy
 };
 
 struct AttachmentInfo
@@ -129,6 +130,16 @@ public:
     }
 
     const std::unordered_set<U32>& GetReadPasses()const
+    {
+        return readPasses;
+    }
+
+    std::unordered_set<U32>& GetWrittenPasses()
+    {
+        return writtenPasses;
+    }
+
+    std::unordered_set<U32>& GetReadPasses()
     {
         return readPasses;
     }
@@ -247,9 +258,14 @@ public:
         VkAccessFlags access = 0;
         VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     };
-    struct AccessedTextureResource : public AccessedResource
+    struct AccessedTextureResource : AccessedResource
     {
         RenderTextureResource* texture = nullptr;
+    };
+
+    struct AccessedProxyResource : AccessedResource
+    {
+        RenderResource* proxy = nullptr;
     };
 
     RenderPass(RenderGraph& graph_, U32 index_, U32 queue_);
@@ -314,6 +330,11 @@ public:
     RenderBufferResource& ReadStorageBuffer(const char* name);
     RenderBufferResource& WriteStorageBuffer(const char* name, const BufferInfo& info, const char* input);
 
+    void AddProxyOutput(const char* name, VkPipelineStageFlags stages);
+    void AddProxyInput(const char* name, VkPipelineStageFlags stages);
+
+    void AddFakeResourceWriteAlias(const char* from, const char* to);
+
     const RenderGraph& GetGraph()const { return graph; }
     const String& GetName()const { return name; }
     U32 GetIndex()const { return index; }
@@ -338,7 +359,7 @@ public:
         return inputBuffers;
     }
 
-    const std::vector<RenderBufferResource*> GetOutputBuffers()const
+    const std::vector<RenderBufferResource*>& GetOutputBuffers()const
     {
         return outputBuffers;
     }
@@ -358,6 +379,16 @@ public:
         return inputDepthStencil;
     }
 
+    const std::vector<AccessedProxyResource>& GetProxyInputs() const
+    {
+        return proxyInputs;
+    }
+
+    const std::vector<AccessedProxyResource>& GetProxyOutputs() const
+    {
+        return proxyOutputs;
+    }
+
     RenderTextureResource* GetInputDepthStencil()
     {
         return inputDepthStencil;
@@ -371,6 +402,11 @@ public:
     const RenderTextureResource* GetOutputDepthStencil()const
     {
         return outputDepthStencil;
+    }
+
+    const std::vector<std::pair<RenderTextureResource*, RenderTextureResource*>>& GetFakeResourceAliases() const
+    {
+        return fakeResourceAlias;
     }
 
     void SetPhysicalIndex(U32 index)
@@ -410,6 +446,10 @@ private:
     std::vector<RenderBufferResource*> inputBuffers;
     std::vector<RenderBufferResource*> outputBuffers;
     std::vector<RenderTextureResource*> inputAttachments;
+    std::vector<AccessedProxyResource> proxyInputs;
+    std::vector<AccessedProxyResource> proxyOutputs;
+
+    std::vector<std::pair<RenderTextureResource*, RenderTextureResource*>> fakeResourceAlias;
 };
 
 struct DebugRenderPassInfo
@@ -445,6 +485,7 @@ public:
 
     RenderTextureResource& GetOrCreateTexture(const char* name);
     RenderBufferResource& GetOrCreateBuffer(const char* name);
+    RenderResource& GetOrCreateProxy(const char* name);
 
     GPU::ImageView& GetPhysicalTexture(const RenderTextureResource& res);
     GPU::ImageView* TryGetPhysicalTexture(RenderTextureResource* res);

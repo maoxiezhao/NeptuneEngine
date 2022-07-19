@@ -4,6 +4,7 @@
 #include "core\platform\atomic.h"
 #include "core\utils\archive.h"
 #include "core\utils\helper.h"
+#include "core\utils\path.h"
 
 #include <unordered_set>
 #include <filesystem>
@@ -26,6 +27,7 @@ namespace {
 	const std::string EXPORT_SHADER_PATH = ".export/shaders/";
 	const std::string SOURCE_SHADER_PATH = "shaders/";
 
+	std::mutex locker;
 	std::unordered_set<std::string> registeredShaders;
 	std::unordered_map<HashValue, HashValue> shaderCache;
 
@@ -40,6 +42,7 @@ namespace {
 	void RegisterShader(const std::string& shaderfilename)
 	{
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
+		std::scoped_lock lock(locker);
 		registeredShaders.insert(shaderfilename);
 #endif
 	}
@@ -189,12 +192,22 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	{
 		ScopedMutex holder(lock);
-		Logger::Info("Load shader template: %s", path.c_str());
-		std::string exportShaderPath = EXPORT_SHADER_PATH + path;
+		std::string exportShaderPath = EXPORT_SHADER_PATH + path + "." + std::to_string(variant->hash);
 		RegisterShader(exportShaderPath);
 
 		if (IsShaderOutdated(exportShaderPath))
 		{
+			String msg = String("Compiling shader:") + path.c_str();
+			if (!defines.empty())
+				msg += "\n\tDefines:\n";
+			for (const auto& define : defines)
+			{
+				msg += "\t\t";
+				msg += define.c_str();
+				msg += "\n";
+			}
+			Logger::Info(msg.c_str());
+
 			std::string sourcedir = SOURCE_SHADER_PATH;
 			Helper::MakePathAbsolute(sourcedir);
 
@@ -207,7 +220,7 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 			CompilerOutput output;
 			if (Compile(input, output))
 			{
-				Logger::Info("Compile shader successfully:%d", path.c_str());
+				Logger::Info("Compile shader successfully:%s", path.c_str());
 				SaveShaderAndMetadata(exportShaderPath, output);
 				if (!output.errorMessage.empty())
 					Logger::Error(output.errorMessage.c_str());

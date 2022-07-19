@@ -757,6 +757,10 @@ void CommandList::SetDepthStencilState(const DepthStencilState& state)
 
 void CommandList::SetPipelineState(const PipelineStateDesc& desc)
 {
+    const Shader* shaders[static_cast<U32>(ShaderStage::Count)];
+    memcpy(shaders, desc.shaders, sizeof(shaders));
+    SetProgram(shaders);
+
     pipelineState.rasterizerState = desc.rasterizerState;
     pipelineState.blendState = desc.blendState;
     pipelineState.depthStencilState = desc.depthStencilState;

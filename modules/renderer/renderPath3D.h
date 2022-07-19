@@ -23,11 +23,11 @@ namespace VulkanTest
 			return camera;
 		}
 
-		const char* GetRenderResult3D()const {
+		String GetRenderResult3D()const {
 			return lastRenderPassRT.c_str();
 		}
 
-		const char* SetRenderResult3D(const char* name)
+		String SetRenderResult3D(const char* name)
 		{
 			lastRenderPassRT = name;
 			return name;

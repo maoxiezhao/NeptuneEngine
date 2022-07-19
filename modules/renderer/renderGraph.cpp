@@ -235,17 +235,22 @@ namespace VulkanTest
             HandlePassRecursive(pass, pass.GetInputDepthStencil()->GetWrittenPasses(), stackCount);
         }
 
+#if 0
         for (auto* input : pass.GetInputColors())
         {
             if (input != nullptr)
                 HandlePassRecursive(pass, input->GetWrittenPasses(), stackCount);
         }
+#endif
 
         for (auto& res : pass.GetInputTextures())
         {
             if (res.texture != nullptr)
                 HandlePassRecursive(pass, res.texture->GetWrittenPasses(), stackCount);
         }
+
+        for (auto& input : pass.GetProxyInputs())
+            HandlePassRecursive(pass, input.proxy->GetWrittenPasses(), stackCount);
     }
 
     void RenderGraphImpl::ReorderRenderPasses(std::vector<U32>& passes)
@@ -400,6 +405,9 @@ namespace VulkanTest
             {
                 AddImagePhysicalDimension(dsOutput);
             }
+
+            for (auto& pair : pass->GetFakeResourceAliases())
+                pair.second->SetPhysicalIndex(pair.first->GetPhysicalIndex());
         }
     }
 
@@ -610,19 +618,15 @@ namespace VulkanTest
                         // This is the first time to use color attachment
                         bool hasColorInput = !pass.GetInputColors().empty() && pass.GetInputColors()[i] != nullptr;
                         if (hasColorInput)
-                        {
                             renderPassInfo.loadAttachments |= 1u << ret.first;
-                        }
-                        else
+           
+                        if (pass.GetClearColor(i))
                         {
-                            if (pass.GetClearColor(i))
-                            {
-                                renderPassInfo.clearAttachments |= 1u << ret.first;
-                                physicalPass.colorClearRequests.push_back({
-                                    &pass,
-                                    &renderPassInfo.clearColor[ret.first],
-                                    (U32)i});
-                            }
+                            renderPassInfo.clearAttachments |= 1u << ret.first;
+                            physicalPass.colorClearRequests.push_back({
+                                &pass,
+                                &renderPassInfo.clearColor[ret.first],
+                                (U32)i });
                         }
 
                     }  
@@ -675,7 +679,24 @@ namespace VulkanTest
                                     return true;
                             return false;
                         };
-                        if (CheckPreserve(*dsInput))
+
+                        bool preserveDepth = CheckPreserve(*dsInput);
+                        if (!preserveDepth)
+                        {
+                            for (auto& logicalPass : renderPasses)
+                            {
+                                for (auto& alias : logicalPass->GetFakeResourceAliases())
+                                {
+                                    if (alias.first == dsInput && CheckPreserve(*alias.second))
+                                    {
+                                        preserveDepth = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (preserveDepth)
                             renderPassInfo.opFlags |= GPU::RENDER_PASS_OP_STORE_DEPTH_STENCIL_BIT;
                     }
 
@@ -779,7 +800,8 @@ namespace VulkanTest
                 barrier.stages |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
                 // Set VK_IMAGE_LAYOUT_GENERAL if the attachment is also bound as an input attachment(ReadTexture)
-                if (barrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL || barrier.layout == VK_IMAGE_LAYOUT_GENERAL)
+                if (barrier.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
+                    barrier.layout == VK_IMAGE_LAYOUT_GENERAL)
                 {
                     barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
                 }
@@ -908,17 +930,26 @@ namespace VulkanTest
                     // No invalidation before first flush, invalidate first.
                     if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
                     {
-                        resState.initialLayout = flush.layout;
-                        resState.invalidatedStages = flush.stages;
+                        if (flush.layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+                        {
+                            resState.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                            resState.invalidatedStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                            resState.invalidatedTypes = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+                        }
+                        else
+                        {
+                            resState.initialLayout = flush.layout;
+                            resState.invalidatedStages = flush.stages;
 
-                        VkAccessFlags flags = flush.access;
-                        if (flags & VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-                            flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-                        if (flags & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
-                            flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-                        if (flags & VK_ACCESS_SHADER_WRITE_BIT)
-                            flags |= VK_ACCESS_SHADER_READ_BIT;
-                        resState.invalidatedTypes = flags;
+                            VkAccessFlags flags = flush.access;
+                            if (flags & VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                                flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+                            if (flags & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+                                flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+                            if (flags & VK_ACCESS_SHADER_WRITE_BIT)
+                                flags |= VK_ACCESS_SHADER_READ_BIT;
+                            resState.invalidatedTypes = flags;
+                        }
 
                         // Resource is not used in current pass, so we discard the resource
                         physicalPass.discards.push_back(flush.resIndex);
@@ -1983,8 +2014,6 @@ namespace VulkanTest
 
     void GPUPassSubmissionState::EmitPrePassBarriers()
     {
-        cmd->BeginEvent("RenderGraphSyncPre");
-
         // Barriers
         if (!immediateImageBarriers.empty() || 
             !handoverBarriers.empty() ||
@@ -2011,8 +2040,6 @@ namespace VulkanTest
                 bufferBarriers.size(), bufferBarriers.empty() ? nullptr : bufferBarriers.data(),
                 combinedBarriers.size(), combinedBarriers.empty() ? nullptr : combinedBarriers.data());
         }
-
-        cmd->EndEvent();
     }
 
     void GPUPassSubmissionState::Submit()
@@ -2184,6 +2211,43 @@ namespace VulkanTest
         return res;
     }
 
+    void RenderPass::AddProxyOutput(const char* name, VkPipelineStageFlags stages)
+    {
+        auto& res = graph.GetOrCreateProxy(name);
+        res.AddUsedQueue(queue);
+        res.PassWrite(index);
+
+        AccessedProxyResource proxy;
+        proxy.proxy = &res;
+        proxy.layout = VK_IMAGE_LAYOUT_GENERAL;
+        proxy.stages = stages;
+        proxyOutputs.push_back(proxy);
+    }
+
+    void RenderPass::AddProxyInput(const char* name, VkPipelineStageFlags stages)
+    {
+        auto& res = graph.GetOrCreateProxy(name);
+        res.AddUsedQueue(queue);
+        res.PassRead(index);
+
+        AccessedProxyResource proxy;
+        proxy.proxy = &res;
+        proxy.layout = VK_IMAGE_LAYOUT_GENERAL;
+        proxy.stages = stages;
+        proxyInputs.push_back(proxy);
+    }
+
+    void RenderPass::AddFakeResourceWriteAlias(const char* from, const char* to)
+    {
+        auto& fromRes = graph.GetOrCreateTexture(from);
+        auto& toRes = graph.GetOrCreateTexture(to);
+        toRes = fromRes;
+        toRes.GetReadPasses().clear();
+        toRes.GetWrittenPasses().clear();
+        toRes.PassWrite(index);
+        fakeResourceAlias.emplace_back(&fromRes, &toRes);
+    }
+
     RenderGraph::RenderGraph()
     {
         impl = CJING_NEW(RenderGraphImpl);
@@ -2352,6 +2416,12 @@ namespace VulkanTest
                 info.name = pass.name;
 
                 // Input
+                //for (auto& tex : pass.GetInputColors())
+                //{
+                //    if (tex != nullptr)
+                //        info.reads.push_back(tex->GetName());
+                //}     
+
                 for (auto& tex : pass.GetInputTextures())
                     info.reads.push_back(tex.texture->GetName());
 
@@ -2402,6 +2472,20 @@ namespace VulkanTest
         res.name = name;
         impl->nameToResourceIndex[name] = index;
         return *static_cast<RenderBufferResource*>(&res);
+    }
+
+    RenderResource& RenderGraph::GetOrCreateProxy(const char* name)
+    {
+        auto it = impl->nameToResourceIndex.find(name);
+        if (it != impl->nameToResourceIndex.end())
+            return *static_cast<RenderResource*>(impl->resources[it->second].Get());
+
+        U32 index = (U32)impl->resources.size();
+        impl->resources.emplace_back(CJING_NEW(RenderResource)(index, RenderGraphResourceType::Proxy));
+        auto& res = *impl->resources.back();
+        res.name = name;
+        impl->nameToResourceIndex[name] = index;
+        return *static_cast<RenderResource*>(&res);
     }
 
     GPU::ImageView& RenderGraph::GetPhysicalTexture(const RenderTextureResource& res)

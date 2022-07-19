@@ -42,8 +42,8 @@ namespace Editor
 		U64 hash;
 	};
 
-	const ImVec2 NODE_BASE_POS = ImVec2(100, 100);
-	const ImVec2 NODE_MARIGIN = ImVec2(300, 200);
+	const ImVec2 NODE_BASE_POS = ImVec2(100, 50);
+	const ImVec2 NODE_MARIGIN = ImVec2(200, 150);
 
 	struct RenderPassNode : UINode
 	{

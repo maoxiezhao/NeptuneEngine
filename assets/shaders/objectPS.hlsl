@@ -1,14 +1,15 @@
-#include "common/global.hlsli"
+#include "common/objectHF.hlsli"
 
-PUSHCONSTANT(push, ObjectPushConstants)
-
-inline ShaderMaterial GetMaterial()
+#ifdef OBJECTSHADER_LAYOUT_PREPASS
+[earlydepthstencil]
+uint main(PixelInput input, in uint primitiveID : SV_PrimitiveID) : SV_Target
 {
-    return LoadMaterial(push.materialIndex);
+    return 0;
 }
+#else
 
-float4 main(float4 pos : SV_POSITION) : SV_TARGET
+float4 main(PixelInput input) : SV_Target
 {
     return GetMaterial().baseColor;
-    // return float4(1.0f, 1.0f, 1.0f, 1.0f);
 }
+#endif
