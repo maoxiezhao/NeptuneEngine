@@ -2,7 +2,7 @@
 
 #ifdef OBJECTSHADER_LAYOUT_PREPASS
 [earlydepthstencil]
-uint main(PixelInput input, in uint primitiveID : SV_PrimitiveID) : SV_Target
+uint main(PixelInput input) : SV_Target
 {
     return 0;
 }

@@ -300,6 +300,29 @@ namespace GPU
 				}
 				ASSERT(types <= 1);
 			}	
+
+			// Immutable samplers
+			if (layout.immutableSamplerMask & (1u << i))
+			{
+				auto& binding = layout.immutableSamplerBindings[i];
+
+				// Calculate array size and pool size
+				U32 arraySize = binding.arraySize;
+				ASSERT(arraySize != DescriptorSetLayout::UNSIZED_ARRAY);
+				ASSERT(!isBindless);
+				U32 poolArraySize = arraySize * VULKAN_NUM_SETS_PER_POOL;
+
+				ASSERT(i < (U32)StockSampler::Count);
+				auto immutableSampler = device.GetStockSampler((StockSampler)i)->GetSampler().GetSampler();
+				ASSERT(immutableSampler != VK_NULL_HANDLE);
+				bindings.push_back({
+					binding.unrolledBinding,				// binding
+					VK_DESCRIPTOR_TYPE_SAMPLER, 			// descriptorType
+					arraySize, 								// descriptorCount
+					stages, 								// stageFlags
+					&immutableSampler 						// pImmutableSamplers
+				});
+			}	
 		}
 
 		if (!bindings.empty())

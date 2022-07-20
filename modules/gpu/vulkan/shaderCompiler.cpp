@@ -22,7 +22,6 @@ namespace VulkanTest
 {
 namespace GPU
 {
-
 namespace ShaderCompiler
 {
 	struct CompilerImpl

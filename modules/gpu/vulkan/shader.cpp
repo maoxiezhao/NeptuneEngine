@@ -18,6 +18,9 @@ static U32 GetStageMaskFromShaderStage(ShaderStage stage)
 	case ShaderStage::PS:
 		mask = (U32)VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT;
 		break;
+	case ShaderStage::CS:
+		mask = VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT;
+		break;
 	default:
 		break;
 	}
@@ -77,7 +80,7 @@ namespace
 			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER);
+			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
 			break;
 		case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER);
@@ -175,6 +178,22 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 		if (mask >= 0)
 		{
 			U32 rolledBinding = GetRolledBinding(x->binding);
+			
+			// Check is immutable sampler
+			if (mask == DESCRIPTOR_SET_TYPE_SAMPLER)
+			{
+				if (rolledBinding >= DeviceVulkan::IMMUTABLE_SAMPLER_SLOT_BEGIN)
+				{
+					rolledBinding -= DeviceVulkan::IMMUTABLE_SAMPLER_SLOT_BEGIN;
+					layout.sets[x->set].immutableSamplerMask |= 1u << rolledBinding;
+
+					auto& binding = layout.sets[x->set].immutableSamplerBindings[rolledBinding];
+					binding.unrolledBinding = x->binding;
+					binding.arraySize = x->count;
+					continue;
+				}
+			}
+	
 			layout.sets[x->set].masks[mask] |= 1u << rolledBinding;
 		
 			auto& binding = layout.sets[x->set].bindings[mask][rolledBinding];
@@ -292,7 +311,7 @@ void ShaderProgram::Bake()
 			// descriptor type masks
 			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
 			{
-				auto& bindingMask = shaderResLayout.sets[set].masks[maskbit];
+				const auto& bindingMask = shaderResLayout.sets[set].masks[maskbit];
 				resLayout.sets[set].masks[maskbit] |= bindingMask;
 
 				stageForSet |= bindingMask != 0;
@@ -308,6 +327,19 @@ void ShaderProgram::Bake()
 					//	Logger::Error("Mismatch between array sizes in different shaders.\n");
 					//else
 					//	combinedSize = shaderSize;
+				});
+			}
+
+			// Immutable samplers
+			{
+				const auto& bindingMask = shaderResLayout.sets[set].immutableSamplerMask;
+				resLayout.sets[set].immutableSamplerMask = bindingMask;
+			
+				stageForSet |= bindingMask != 0;
+
+				ForEachBit(bindingMask, [&](U32 bit) {
+					resLayout.stagesForBindings[set][bit] |= stageMask;
+					resLayout.sets[set].immutableSamplerBindings[bit] = shaderResLayout.sets[set].immutableSamplerBindings[bit];
 				});
 			}
 

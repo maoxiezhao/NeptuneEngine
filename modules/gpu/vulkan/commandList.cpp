@@ -204,6 +204,7 @@ CommandList::CommandList(DeviceVulkan& device_, VkCommandBuffer buffer_, QueueTy
     type(type_)
 {
     pipelineState.cache = cache_;
+    BeginCompute();
     memset(&bindings, 0, sizeof(bindings));
 }
 
@@ -286,9 +287,7 @@ void CommandList::BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpas
     vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     subpassContents = contents;
-
-    // begin graphics contexxt
-    ResetCommandContext();
+    BeginGraphics();
 }
 
 void CommandList::EndRenderPass()
@@ -301,7 +300,7 @@ void CommandList::EndRenderPass()
     compatibleRenderPass = nullptr;
 
     // begin graphics contexxt
-    ResetCommandContext();
+    BeginCompute();
 }
 
 void CommandList::ClearPipelineState()
@@ -459,7 +458,7 @@ void CommandList::SetProgram(const std::string& vertex, const std::string& fragm
    auto* tempProgram = device.GetShaderManager().RegisterGraphics(vertex, fragment, defines);
    if (tempProgram == nullptr)
    {
-       SetProgram(nullptr);
+       SetProgramShaders(nullptr);
        return;
    }
 
@@ -476,8 +475,16 @@ void CommandList::SetProgram(const Shader* vertex, const Shader* fragment)
     SetShaderProgram(device.RequestProgram(shaders));
 }
 
-void CommandList::SetProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)])
+void CommandList::SetProgramShaders(const Shader* shaders[static_cast<U32>(ShaderStage::Count)])
 {
+    SetShaderProgram(device.RequestProgram(shaders));
+}
+
+void CommandList::SetProgram(const Shader* compute)
+{
+    const Shader* shaders[static_cast<U32>(ShaderStage::Count)];
+    memset(shaders, 0, sizeof(shaders));
+    shaders[(U32)ShaderStage::CS] = compute;
     SetShaderProgram(device.RequestProgram(shaders));
 }
 
@@ -514,6 +521,22 @@ void CommandList::EndCommandBuffer()
         device.RecordStorageBufferBlock(storageBlock, *this);
         storageBlock = {};
     }
+}
+
+void CommandList::SetTextureImpl(U32 set, U32 binding, VkImageView imageView, VkImageLayout layout, U64 cookie, DescriptorSetType setType)
+{
+    ASSERT(set < VULKAN_NUM_DESCRIPTOR_SETS);
+    ASSERT(binding < VULKAN_NUM_BINDINGS);
+
+    if (cookie == bindings.cookies[set][setType][binding] &&
+        layout == bindings.bindings[set][setType][binding].image.imageLayout)
+        return;
+
+    ResourceBinding& resBinding = bindings.bindings[set][setType][binding];
+    resBinding.image.imageView = imageView;
+    resBinding.image.imageLayout = layout;
+    bindings.cookies[set][setType][binding] = cookie;
+    dirtySets |= 1u << set;
 }
 
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
@@ -725,16 +748,21 @@ void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
     ASSERT(binding < VULKAN_NUM_BINDINGS);
     ASSERT(imageView.GetImage()->GetCreateInfo().usage & VK_IMAGE_USAGE_SAMPLED_BIT);
 
-    if (imageView.GetCookie() == bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding] &&
-        imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) ==
-            bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding].image.imageLayout)
-        return;
+    SetTextureImpl(set, binding,
+        imageView.GetImageView(), 
+        imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL), 
+        imageView.GetCookie(),
+        DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
+}
 
-    ResourceBinding& resBinding = bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding];
-    resBinding.image.imageView = imageView.GetImageView();
-    resBinding.image.imageLayout = imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding] = imageView.GetCookie();
-    dirtySets |= 1u << set;
+void CommandList::SetStorageTexture(U32 set, U32 binding, const ImageView& view)
+{
+    ASSERT(view.GetImage()->GetCreateInfo().usage & VK_IMAGE_USAGE_STORAGE_BIT);
+    SetTextureImpl(set, binding,
+        view.GetImageView(),
+        view.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_GENERAL),
+        view.GetCookie(),
+        DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
 }
 
 void CommandList::SetRasterizerState(const RasterizerState& state)
@@ -759,7 +787,7 @@ void CommandList::SetPipelineState(const PipelineStateDesc& desc)
 {
     const Shader* shaders[static_cast<U32>(ShaderStage::Count)];
     memcpy(shaders, desc.shaders, sizeof(shaders));
-    SetProgram(shaders);
+    SetProgramShaders(shaders);
 
     pipelineState.rasterizerState = desc.rasterizerState;
     pipelineState.blendState = desc.blendState;
@@ -795,14 +823,16 @@ void CommandList::SetViewport(const Viewport& viewport_)
 
 void CommandList::NextSubpass(VkSubpassContents contents)
 {
+    ASSERT(frameBuffer);
     pipelineState.subpassIndex++;
     vkCmdNextSubpass(cmd, contents);
     subpassContents = contents;
-    ResetCommandContext();
+    BeginGraphics();
 }
 
 void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
 {
+    ASSERT(!isCompute);
     if (FlushRenderState())
     {
         vkCmdDraw(cmd, vertexCount, 1, vertexOffset, 0);
@@ -811,6 +841,7 @@ void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
 
 void CommandList::DrawIndexed(U32 indexCount, U32 firstIndex, U32 vertexOffset)
 {
+    ASSERT(!isCompute);
     ASSERT(indexState.buffer != VK_NULL_HANDLE);
     if (FlushRenderState())
     {
@@ -820,10 +851,29 @@ void CommandList::DrawIndexed(U32 indexCount, U32 firstIndex, U32 vertexOffset)
 
 void CommandList::DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 startIndexLocation, U32 baseVertexLocation, U32 startInstanceLocation)
 {
+    ASSERT(!isCompute);
     ASSERT(indexState.buffer != VK_NULL_HANDLE);
     if (FlushRenderState())
     {
         vkCmdDrawIndexed(cmd, indexCount, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
+    }
+}
+
+void CommandList::Dispatch(U32 groupsX, U32 groupsY, U32 groupsZ)
+{
+    ASSERT(isCompute);
+    if (FlushComputeState())
+    {
+        vkCmdDispatch(cmd, groupsX, groupsY, groupsZ);
+    }
+}
+
+void CommandList::DispatchIndirect(const Buffer& buffer, U32 offset)
+{
+    ASSERT(isCompute);
+    if (FlushComputeState())
+    {
+        vkCmdDispatchIndirect(cmd, buffer.GetBuffer(), offset);
     }
 }
 
@@ -1012,6 +1062,50 @@ bool CommandList::FlushRenderState()
     return true;
 }
 
+bool CommandList::FlushComputeState()
+{
+    if (pipelineState.shaderProgram == nullptr ||
+        pipelineState.shaderProgram->IsEmpty())
+        return false;
+
+    if (currentPipeline == VK_NULL_HANDLE)
+        SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
+
+    // flush pipeline
+    if (IsDirtyAndClear(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT))
+    {
+        VkPipeline oldPipeline = currentPipeline;
+        if (!FlushComputePipeline())
+            return false;
+
+        if (oldPipeline != currentPipeline)
+        {
+            // bind pipeline
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, currentPipeline);
+            SetDirty(COMMAND_LIST_DIRTY_DYNAMIC_BITS);
+        }
+    }
+
+    if (currentPipeline == VK_NULL_HANDLE)
+        return false;
+
+    // descriptor sets
+    FlushDescriptorSets();
+
+    // push constants
+    if (IsDirtyAndClear(COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT))
+    {
+        auto& range = currentLayout->GetResLayout().pushConstantRange;
+        if (range.stageFlags != 0)
+        {
+            vkCmdPushConstants(cmd, currentPipelineLayout,
+                range.stageFlags, 0, range.size, bindings.pushConstantData);
+        }
+    }
+
+    return true;
+}
+
 bool CommandList::FlushGraphicsPipeline()
 {
     if (pipelineState.shaderProgram == nullptr)
@@ -1025,6 +1119,23 @@ bool CommandList::FlushGraphicsPipeline()
 
     if (currentPipeline == VK_NULL_HANDLE)
         currentPipeline = BuildGraphicsPipeline(pipelineState);
+
+    return currentPipeline != VK_NULL_HANDLE;
+}
+
+bool CommandList::FlushComputePipeline()
+{
+    if (pipelineState.shaderProgram == nullptr)
+        return false;
+
+    if (pipelineState.isOwnedByCommandList)
+    {
+        UpdateComputePipelineHash(pipelineState);
+        currentPipeline = pipelineState.shaderProgram->GetPipeline(pipelineState.hash);
+    }
+    
+    if (currentPipeline == VK_NULL_HANDLE)
+        currentPipeline = BuildComputePipeline(pipelineState);
 
     return currentPipeline != VK_NULL_HANDLE;
 }
@@ -1055,8 +1166,14 @@ void CommandList::FlushDescriptorSet(U32 set)
     // check is bindless descriptor set
     if (resLayout.bindlessSetMask & (1u << set))
     {
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-            currentPipelineLayout, set, 1, &bindlessSets[set], 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, 
+            renderPass ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE,
+            currentPipelineLayout, 
+            set, 
+            1, 
+            &bindlessSets[set], 
+            0,
+            nullptr);
         return;
     }
 
@@ -1086,7 +1203,7 @@ void CommandList::FlushDescriptorSet(U32 set)
             hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][binding + i].image.imageLayout);
         }
     });
-    // Sampled images
+    // Storage images
     ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE], [&](U32 binding)
     {
         for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][binding].arraySize; i++)
@@ -1117,6 +1234,7 @@ void CommandList::FlushDescriptorSet(U32 set)
             hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_STORAGE_BUFFER][binding + i].buffer.range);
         }
     });
+    // Sampled buffers
     ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER], [&](U32 binding)
     {
         for (U8 i = 0; i < setLayout.bindings[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding].arraySize; i++)
@@ -1165,7 +1283,7 @@ void CommandList::FlushDescriptorSet(U32 set)
 
     vkCmdBindDescriptorSets(
         cmd, 
-        VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        renderPass ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE,
         currentPipelineLayout,
         set, 
         1, 
@@ -1427,7 +1545,48 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
 
 VkPipeline CommandList::BuildComputePipeline(const CompiledPipelineState& pipelineState)
 {
-    return VkPipeline();
+    const Shader* shader = pipelineState.shaderProgram->GetShader(ShaderStage::CS);
+    ASSERT(shader != nullptr);
+
+    VkComputePipelineCreateInfo info = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+    info.layout = pipelineState.shaderProgram->GetPipelineLayout()->GetLayout();
+    info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    info.stage.module = shader->GetModule();
+    info.stage.pName = "main";
+    info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkPipeline computePipeline = VK_NULL_HANDLE;
+    VkResult ret = vkCreateComputePipelines(
+        device.device,
+        pipelineState.cache, 
+        1, 
+        &info, 
+        nullptr, 
+        &computePipeline
+    );
+    if (ret != VK_SUCCESS || computePipeline == VK_NULL_HANDLE)
+    {
+        if (ret < 0)
+            Logger::Error("Failed to create compute pipeline!");
+        return {};
+    }
+
+    // Handle pipeline by shader program
+    pipelineState.shaderProgram->AddPipeline(pipelineState.hash, computePipeline);
+
+    return computePipeline;
+}
+
+void CommandList::BeginCompute()
+{
+    isCompute = true;
+    ResetCommandContext();
+}
+
+void CommandList::BeginGraphics()
+{
+    isCompute = false;
+    ResetCommandContext();
 }
 
 void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U32& activeVbos)
@@ -1455,6 +1614,13 @@ void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U3
     hash.HashCombine(pipeline.subpassIndex);
     hash.HashCombine(pipeline.shaderProgram->GetHash());
 
+    pipeline.hash = hash.Get();
+}
+
+void CommandList::UpdateComputePipelineHash(CompiledPipelineState& pipeline)
+{
+    HashCombiner hash;
+    hash.HashCombine(pipeline.shaderProgram->GetHash());
     pipeline.hash = hash.Get();
 }
 

@@ -36,11 +36,6 @@ namespace
 		QUEUE_INDEX_COMPUTE
 	};
 
-    QueueIndices ConvertQueueTypeToIndices(QueueType type)
-    {
-        return static_cast<QueueIndices>(type);
-    }
-
 #ifdef VULKAN_MT
     static std::atomic<U64> STATIC_COOKIE = 0;
 #else
@@ -641,6 +636,11 @@ IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex
     return cmdPtr;
 }
 
+QueueIndices DeviceVulkan::GetPhysicalQueueType(QueueType type) const
+{
+    return static_cast<QueueIndices>(type);
+}
+
 VkFormat DeviceVulkan::GetDefaultDepthStencilFormat() const
 {
     return VK_FORMAT_D32_SFLOAT_S8_UINT;
@@ -781,6 +781,15 @@ PipelineLayout* DeviceVulkan::RequestPipelineLayout(const CombinedResourceLayout
     hash.HashCombine(resLayout.pushConstantHash);
     hash.HashCombine(resLayout.attributeInputMask);
     hash.HashCombine(resLayout.renderTargetMask);
+    
+    // Immutable samplers
+    for (unsigned set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
+    {
+        ForEachBit(resLayout.sets[set].immutableSamplerMask, [&](U32 bit) {
+            ASSERT(bit < (U32)StockSampler::Count);
+            hash.HashCombine(stockSamplers[bit]->GetHash());
+        });
+    }
 
     auto findIt = pipelineLayouts.find(hash.Get());
     if (findIt != nullptr)
@@ -1662,7 +1671,7 @@ void DeviceVulkan::SetAcquireSemaphore(U32 index, SemaphorePtr acquire)
 void DeviceVulkan::AddWaitSemaphore(QueueType queueType, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
 {
     LOCK();
-    AddWaitSemaphoreNolock(ConvertQueueTypeToIndices(queueType), semaphore, stages, flush);
+    AddWaitSemaphoreNolock(GetPhysicalQueueType(queueType), semaphore, stages, flush);
 }
 
 void DeviceVulkan::AddWaitSemaphore(QueueIndices queueIndex, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
@@ -2035,7 +2044,7 @@ void DeviceVulkan::DeinitTimelineSemaphores()
 
 void DeviceVulkan::SubmitNolock(CommandListPtr cmd, FencePtr* fence, U32 semaphoreCount, SemaphorePtr* semaphore)
 {
-    QueueIndices queueIndex = ConvertQueueTypeToIndices(cmd->GetQueueType());
+    QueueIndices queueIndex = GetPhysicalQueueType(cmd->GetQueueType());
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
 
     cmd->EndCommandBuffer();
@@ -2183,7 +2192,7 @@ void DeviceVulkan::SubmitStaging(CommandListPtr& cmd, VkBufferUsageFlags usage, 
     // Check source buffer's usage to decide which queues (Graphics/Compute) need to wait
     VkAccessFlags access = Buffer::BufferUsageToPossibleAccess(usage);
     VkPipelineStageFlags stages = Buffer::BufferUsageToPossibleStages(usage);
-    VkQueue srcQueue = queueInfo.queues[ConvertQueueTypeToIndices(cmd->GetQueueType())];
+    VkQueue srcQueue = queueInfo.queues[GetPhysicalQueueType(cmd->GetQueueType())];
 
     if (srcQueue == queueInfo.queues[QueueIndices::QUEUE_INDEX_GRAPHICS] &&
         srcQueue == queueInfo.queues[QueueIndices::QUEUE_INDEX_COMPUTE])
@@ -2659,10 +2668,12 @@ void DeviceVulkan::InitStockSampler(StockSampler type)
     switch (type)
     {
     case GPU::StockSampler::NearestClamp:
+    case GPU::StockSampler::NearestWrap:
         info.magFilter = VK_FILTER_LINEAR;
         info.minFilter = VK_FILTER_LINEAR;
         break;
     case GPU::StockSampler::PointClamp:
+    case GPU::StockSampler::PointWrap:
         info.magFilter = VK_FILTER_NEAREST;
         info.minFilter = VK_FILTER_NEAREST;
         break;
@@ -2675,6 +2686,12 @@ void DeviceVulkan::InitStockSampler(StockSampler type)
         info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        break;
+    case GPU::StockSampler::NearestWrap:
+    case GPU::StockSampler::PointWrap:
+        info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         break;
     }
 

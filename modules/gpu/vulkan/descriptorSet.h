@@ -39,6 +39,8 @@ namespace GPU
 		U32 masks[DESCRIPTOR_SET_TYPE_COUNT] = {};
 		DescriptorSetLayoutBinding bindings[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
 		bool isBindless = false;
+		U32 immutableSamplerMask = 0;
+		DescriptorSetLayoutBinding immutableSamplerBindings[VULKAN_NUM_BINDINGS];
 		enum { UNSIZED_ARRAY = 0xff };
 	};
 

@@ -2,6 +2,7 @@
 
 #include "definition.h"
 #include "descriptorSet.h"
+#include "sampler.h"
 
 namespace VulkanTest
 {

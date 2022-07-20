@@ -5,6 +5,11 @@
 
 ByteAddressBuffer bindless_buffers[] : register(space1);
 
+SamplerState samLinearClamp : register(s100);
+SamplerState samLinearWrap  : register(s101);
+SamplerState samPointClamp  : register(s102);
+SamplerState samPointWrap   : register(s103);
+
 inline ShaderSceneCB GetScene()
 {
 	return g_xFrame.scene;

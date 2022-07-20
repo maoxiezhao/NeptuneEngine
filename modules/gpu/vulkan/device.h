@@ -419,6 +419,7 @@ public:
     RenderPassInfo GetSwapchianRenderPassInfo(const SwapChain* swapchain, SwapchainRenderPassType swapchainRenderPassType = SwapchainRenderPassType::DepthStencil);  
     CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
 
+    QueueIndices GetPhysicalQueueType(QueueType type)const;
     VkFormat GetDefaultDepthStencilFormat() const;
     VkFormat GetDefaultDepthFormat() const;
     constexpr U64 GetFrameCount() const { return FRAMECOUNT; }
@@ -432,6 +433,8 @@ public:
     VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 
     static bool InitRenderdocCapture();
+
+    static constexpr U32 IMMUTABLE_SAMPLER_SLOT_BEGIN = 100;
 
 private:
 #ifdef VULKAN_TEST_FILESYSTEM

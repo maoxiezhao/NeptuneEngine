@@ -4,11 +4,16 @@
 #include "core\memory\memory.h"
 #include "core\jobsystem\jobsystem.h"
 
+#include <stdexcept>
 #include <stack>
 
 namespace VulkanTest
 {
 #define RENDER_GRAPH_LOGGING_LEVEL (0)
+
+    static const U32 COMPUTE_QUEUES =
+        (U32)RenderGraphQueueFlag::AsyncCompute |
+        (U32)RenderGraphQueueFlag::Compute;
 
     struct Barrier
     {
@@ -177,7 +182,7 @@ namespace VulkanTest
             newDim.queues = res.GetUsedQueues();
             newDim.imageUsage = res.GetImageUsage();
             newDim.name = res.GetName();
-
+            
             switch (info.sizeType)
             {
             case AttachmentSizeType::Absolute:
@@ -230,11 +235,6 @@ namespace VulkanTest
 
     void RenderGraphImpl::TraverseDependencies(RenderPass& pass, U32 stackCount)
     {
-        if (pass.GetInputDepthStencil())
-        {
-            HandlePassRecursive(pass, pass.GetInputDepthStencil()->GetWrittenPasses(), stackCount);
-        }
-
 #if 0
         for (auto* input : pass.GetInputColors())
         {
@@ -242,6 +242,11 @@ namespace VulkanTest
                 HandlePassRecursive(pass, input->GetWrittenPasses(), stackCount);
         }
 #endif
+
+        if (pass.GetInputDepthStencil())
+        {
+            HandlePassRecursive(pass, pass.GetInputDepthStencil()->GetWrittenPasses(), stackCount);
+        }
 
         for (auto& res : pass.GetInputTextures())
         {
@@ -251,6 +256,12 @@ namespace VulkanTest
 
         for (auto& input : pass.GetProxyInputs())
             HandlePassRecursive(pass, input.proxy->GetWrittenPasses(), stackCount);
+
+        for (auto& input : pass.GetInputStorageTextures())
+        {
+            if (input != nullptr)
+                HandlePassRecursive(pass, input->GetWrittenPasses(), stackCount);
+        }
     }
 
     void RenderGraphImpl::ReorderRenderPasses(std::vector<U32>& passes)
@@ -381,10 +392,29 @@ namespace VulkanTest
                 }
             }
 
-            for (auto& output : pass->GetOutputColors())
+            if (!pass->GetInputStorageTextures().empty())
             {
-                AddImagePhysicalDimension(output);
+                auto& textures = pass->GetInputStorageTextures();
+                for (int i = 0; i < textures.size(); i++)
+                {
+                    auto* input = textures[i];
+                    if (input != nullptr)
+                    {
+                        AddImagePhysicalDimension(input);
+
+                        if (pass->GetOutputStorageTextures()[i]->GetPhysicalIndex() == RenderResource::Unused)
+                            pass->GetOutputStorageTextures()[i]->SetPhysicalIndex(input->GetPhysicalIndex());
+                        else if (pass->GetOutputStorageTextures()[i]->GetPhysicalIndex() != input->GetPhysicalIndex())
+                            Logger::Error("Cannot alias resources. Index already claimed.");
+                    }
+                }
             }
+
+            for (auto& output : pass->GetOutputColors())
+                AddImagePhysicalDimension(output);
+
+            for (auto& output : pass->GetOutputStorageTextures())
+                AddImagePhysicalDimension(output);
 
             auto* dsInput = pass->GetInputDepthStencil();
             auto* dsOutput = pass->GetOutputDepthStencil();
@@ -442,12 +472,20 @@ namespace VulkanTest
             {
                 if (FindTexture(prevPass.GetOutputColors(), input.texture))
                     return false;
+                if (FindTexture(prevPass.GetOutputStorageTextures(), input.texture))
+                    return false;
                 if (prevPass.GetOutputDepthStencil() == input.texture)
                     return false;
             }
-            for (auto& input : nextPass.GetInputBuffers())
+            for (auto& input : nextPass.GetInputStorageBuffers())
             {
-                if (FindBuffer(prevPass.GetOutputBuffers(), input))
+                if (FindBuffer(prevPass.GetOutputStorageBuffers(), input))
+                    return false;
+            }
+
+            for (auto& input : nextPass.GetInputStorageTextures())
+            {
+                if (FindTexture(prevPass.GetOutputStorageTextures(), input))
                     return false;
             }
 
@@ -468,6 +506,9 @@ namespace VulkanTest
             {
                 if (input == nullptr)
                     continue;
+
+                if (FindTexture(prevPass.GetOutputStorageTextures(), input))
+                    return false;
 
                 if (FindTexture(prevPass.GetOutputColors(), input))
                     return true;
@@ -775,6 +816,9 @@ namespace VulkanTest
                 if (input == nullptr)
                     continue;
 
+                if (pass.GetQueue() & COMPUTE_QUEUES)
+                    throw std::logic_error("Only graphics passes can have color inputs.");
+
                 Barrier& barrier = GetInvalidateAccess(input->GetPhysicalIndex());
                 barrier.access |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
                 barrier.stages |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -787,6 +831,23 @@ namespace VulkanTest
                     barrier.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             }
 
+            for (auto* input : pass.GetInputStorageTextures())
+            {
+                if (input == nullptr)
+                    continue;
+
+                Barrier& barrier = GetInvalidateAccess(input->GetPhysicalIndex());
+                barrier.access |= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+                if (pass.GetQueue() & COMPUTE_QUEUES)
+                    barrier.stages |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+                else
+                    barrier.stages |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+                if (barrier.layout != VK_IMAGE_LAYOUT_UNDEFINED)
+                    ASSERT_MSG(false, "Layout mismatch.");
+                barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
+            }
+
             /////////////////////////////////////////////////////////////////////
             // Output
             // Push into flush list
@@ -795,6 +856,9 @@ namespace VulkanTest
             };
             for (auto& color : pass.GetOutputColors())
             {
+                if (pass.GetQueue() & COMPUTE_QUEUES)
+                    throw std::logic_error("Only graphics passes can have color outputs.");
+
                 Barrier& barrier = GetFlushAccess(color->GetPhysicalIndex());
                 barrier.access |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
                 barrier.stages |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -812,10 +876,28 @@ namespace VulkanTest
                 }
             }
 
+            for (auto& output : pass.GetOutputStorageTextures())
+            {
+                Barrier& barrier = GetFlushAccess(output->GetPhysicalIndex());
+                barrier.access |= VK_ACCESS_SHADER_WRITE_BIT;
+                if (pass.GetQueue() & COMPUTE_QUEUES)
+                    barrier.stages |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+                else
+                    barrier.stages |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+                if (barrier.layout != VK_IMAGE_LAYOUT_UNDEFINED)
+                    ASSERT_MSG(false, "Layout mismatch.");
+                barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
+            }
+
             /////////////////////////////////////////////////////////////////////
             // Depth stencil
             auto* dsInput = pass.GetInputDepthStencil();
             auto* dsOutput = pass.GetOutputDepthStencil();
+
+            if ((dsInput || dsOutput) && (pass.GetQueue() & COMPUTE_QUEUES))
+                throw std::logic_error("Only graphics passes can have dsInput or dsOutput.");
+
             if (dsInput && dsOutput)
             {
                 Barrier& inputBarrier = GetInvalidateAccess(dsInput->GetPhysicalIndex());
@@ -1080,10 +1162,14 @@ namespace VulkanTest
                 AddReaderPass(tex.texture, pass->GetPhysicalIndex());
             for (auto& input : pass->GetInputColors())
                 AddReaderPass(input, pass->GetPhysicalIndex());
+            for (auto& input : pass->GetInputStorageTextures())
+                AddReaderPass(input, pass->GetPhysicalIndex());
             if (pass->GetInputDepthStencil())
                 AddReaderPass(pass->GetInputDepthStencil(), pass->GetPhysicalIndex());
 
             for (auto& output : pass->GetOutputColors())
+                AddWriterPass(output, pass->GetPhysicalIndex());
+            for (auto& output : pass->GetOutputStorageTextures())
                 AddWriterPass(output, pass->GetPhysicalIndex());
             if (pass->GetOutputDepthStencil())
                 AddWriterPass(pass->GetOutputDepthStencil(), pass->GetPhysicalIndex());
@@ -1168,11 +1254,13 @@ namespace VulkanTest
             {
                 physicalImages[attachment] = physicalImages[physicalAliases[attachment]];
                 physicalAttachments[attachment] = &physicalImages[attachment]->GetImageView();
+                physicalEvents[attachment] = {};
                 return;
             }
 
-            auto& physicalDim = physicalDimensions[attachment];
             bool needToCreate = true;
+
+            auto& physicalDim = physicalDimensions[attachment];
             VkImageUsageFlags usage = physicalDim.imageUsage;
             VkImageCreateFlags flags = 0;
 
@@ -1224,6 +1312,7 @@ namespace VulkanTest
                     physicalImages[attachment]->SetLayoutType(GPU::ImageLayoutType::General);
 
                 device.SetName(*physicalImages[attachment], physicalDim.name);
+                physicalEvents[attachment] = {};
             }
 
             physicalAttachments[attachment] = &physicalImages[attachment]->GetImageView();
@@ -1438,9 +1527,7 @@ namespace VulkanTest
         }
         else if (needSempahore)
         {
-            GPU::SemaphorePtr waitSemaphore = isGraphicsQueue ? ent.waitGraphicsSemaphore : ent.waitComputeSemaphore;
             ASSERT(waitSemaphore);
-            ASSERT(waitSemaphore->IsSignalled());
 
             state.waitSemaphores.push_back(waitSemaphore);
             state.waitSemaphoreStages.push_back(barrier.stages);
@@ -1538,6 +1625,11 @@ namespace VulkanTest
 
     void RenderGraphImpl::DoComputeCommands(GPU::CommandList& cmd, const PhysicalPass& physicalPass, GPUPassSubmissionState* state)
     {
+        ASSERT(physicalPass.passes.size() == 1);
+        auto& pass = *renderPasses[physicalPass.passes[0]];
+        cmd.BeginEvent(pass.GetName().c_str());
+        pass.BuildRenderPass(cmd);
+        cmd.EndEvent();
     }
 
     void RenderGraphImpl::TransferOwnership(const PhysicalPass& physicalPass)
@@ -1636,7 +1728,10 @@ namespace VulkanTest
 
         // Handle invalidate barriers
         for (auto& barrier : physicalPass.invalidate)
-            HandleInvalidateBarrier(barrier, state, state.isGraphics);
+        {
+            bool physicalGraphics = device->GetPhysicalQueueType(state.queueType) == GPU::QUEUE_INDEX_GRAPHICS;
+            HandleInvalidateBarrier(barrier, state, physicalGraphics);
+        }
 
         // Handle flush barriers
         HandleSignal(physicalPass, state);
@@ -2193,12 +2288,36 @@ namespace VulkanTest
         return res;
     }
 
+    RenderTextureResource& RenderPass::WriteStorageTexture(const char* name, const AttachmentInfo& info, const char* input)
+    {
+        auto& res = graph.GetOrCreateTexture(name);
+        res.AddUsedQueue(queue);
+        res.PassWrite(index);
+        res.SetAttachmentInfo(info);
+        res.SetImageUsage(VK_IMAGE_USAGE_STORAGE_BIT);
+        outputStorageTextures.push_back(&res);
+        
+        if (input != nullptr && input[0] != '\0')
+        {
+            auto& inputRes = graph.GetOrCreateTexture(input);
+            inputRes.PassRead(index);
+            inputRes.SetImageUsage(VK_IMAGE_USAGE_STORAGE_BIT);
+            inputStorageTextures.push_back(&res);
+        }
+        else
+        {
+            inputStorageTextures.push_back(nullptr);
+        }
+
+        return res;
+    }
+
     RenderBufferResource& RenderPass::ReadStorageBuffer(const char* name)
     {
         auto& res = graph.GetOrCreateBuffer(name);
         res.AddUsedQueue(queue);
         res.PassRead(index);
-        inputBuffers.push_back(&res);
+        inputStorageBuffers.push_back(&res);
         return res;
     }
 
@@ -2207,7 +2326,7 @@ namespace VulkanTest
         auto& res = graph.GetOrCreateBuffer(name);
         res.AddUsedQueue(queue);
         res.PassWrite(index);
-        outputBuffers.push_back(&res);
+        outputStorageBuffers.push_back(&res);
         return res;
     }
 
@@ -2425,7 +2544,13 @@ namespace VulkanTest
                 for (auto& tex : pass.GetInputTextures())
                     info.reads.push_back(tex.texture->GetName());
 
-                for (auto& buffer : pass.GetInputBuffers())
+                for (auto& tex : pass.GetInputStorageTextures())
+                {
+                    if (tex != nullptr)
+                        info.reads.push_back(tex->GetName());
+                }
+
+                for (auto& buffer : pass.GetInputStorageBuffers())
                     info.reads.push_back(buffer->GetName());
 
                 if (pass.GetInputDepthStencil())
@@ -2435,8 +2560,11 @@ namespace VulkanTest
                 for (auto& tex :pass.GetOutputColors())
                     info.writes.push_back(tex->GetName());
 
-                for (auto& buffer : pass.GetOutputBuffers())
+                for (auto& buffer : pass.GetOutputStorageBuffers())
                     info.writes.push_back(buffer->GetName());
+
+                for (auto& tex : pass.GetOutputStorageTextures())
+                    info.writes.push_back(tex->GetName());
 
                 if (pass.GetOutputDepthStencil())
                     info.writes.push_back(pass.GetOutputDepthStencil()->GetName());

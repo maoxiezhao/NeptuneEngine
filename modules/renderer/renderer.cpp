@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "shaderInterop.h"
+#include "shaderInterop_postprocess.h"
 #include "renderer\renderScene.h"
 #include "renderer\renderPath3D.h"
 #include "gpu\vulkan\wsi.h"
@@ -247,6 +248,8 @@ namespace Renderer
 		shaders[SHADERTYPE_VS_OBJECT] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", {"OBJECTSHADER_LAYOUT_COMMON"});
 		shaders[SHADERTYPE_VS_PREPASS] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", {"OBJECTSHADER_LAYOUT_PREPASS"});
 		shaders[SHADERTYPE_VS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::VS, "vertexColorVS.hlsl");
+
+		shaders[SHADERTYPE_CS_POSTPROCESS_BLUR_GAUSSIAN] = PreloadShader(GPU::ShaderStage::CS, "blurGaussianCS.hlsl");
 
 		shaders[SHADERTYPE_PS_OBJECT] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { "OBJECTSHADER_LAYOUT_COMMON" });
 		shaders[SHADERTYPE_PS_PREPASS] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { "OBJECTSHADER_LAYOUT_PREPASS" });

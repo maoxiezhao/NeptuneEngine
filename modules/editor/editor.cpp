@@ -532,6 +532,8 @@ namespace Editor
                 for (auto widget : widgets)
                     widget->OnGUI();
 
+                settings.OnGUI();
+
                 if (showDemoWindow)
                     ImGui::ShowDemoWindow(&showDemoWindow);
             }
@@ -590,6 +592,7 @@ namespace Editor
             ImGui::MenuItem(ICON_FA_IMAGES "Asset browser", nullptr, &assetBrowser->isOpen);
             ImGui::MenuItem(ICON_FA_COMMENT_ALT "Log", nullptr, &logWidget->isOpen);
             ImGui::MenuItem(ICON_FA_STREAM "EntityList", nullptr, &entityListWidget->isOpen);
+            ImGui::MenuItem(ICON_FA_STREAM "EditorSetting", nullptr, &settings.isOpen);
             ImGui::EndMenu();
         }
 

@@ -2,6 +2,7 @@
 #include "renderScene.h"
 #include "renderer.h"
 #include "imageUtil.h"
+#include "shaderInterop_postprocess.h"
 
 namespace VulkanTest
 {
@@ -22,7 +23,7 @@ namespace VulkanTest
 		if (value != nullptr)
 		{
 			value->depth = 0.0f;
-			value->stencil = 1.0f;
+			value->stencil = 1;
 		}
 		return true;
 	}
@@ -105,6 +106,7 @@ namespace VulkanTest
 		transparentPass.WriteColor(SetRenderResult3D("rtOpaque"), rtAttachmentInfo, "rtOpaque");
 		transparentPass.ReadDepthStencil("depth");
 		transparentPass.AddFakeResourceWriteAlias("depth", "mainDepth");
+		transparentPass.WriteDepthStencil("mainDepth", depth);
 		transparentPass.AddProxyInput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
 		transparentPass.SetBuildCallback([&](GPU::CommandList& cmd) {
 
@@ -122,6 +124,44 @@ namespace VulkanTest
 			cmd.SetRasterizerState(Renderer::GetRasterizerState(RSTYPE_DOUBLE_SIDED));
 			cmd.SetDepthStencilState(Renderer::GetDepthStencilState(DSTYPE_DEFAULT));
 			cmd.Draw(3);
+		});
+
+		///////////////////////////////////////////////////////////////////////////////////////////////
+		// Postprocess
+		auto& blurPass = renderGraph.AddRenderPass("BlurPass", RenderGraphQueueFlag::Compute);
+		auto& read = blurPass.ReadTexture(GetRenderResult3D());
+		auto& out = blurPass.WriteStorageTexture(SetRenderResult3D("rtBlur"), rtAttachmentInfo);
+		blurPass.SetBuildCallback([&](GPU::CommandList& cmd) {
+			auto& readTexture = renderGraph.GetPhysicalTexture(read);
+			auto& outStorage = renderGraph.GetPhysicalTexture(out);
+
+			cmd.SetStorageTexture(0, 0, outStorage);
+			cmd.SetTexture(0, 0, readTexture);
+			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_CS_POSTPROCESS_BLUR_GAUSSIAN));
+			
+			// Replace 2D Gaussian blur with 1D Gaussian blur twice
+			// Horizontal:
+			PostprocessPushConstants push;
+			push.resolution = {
+				outStorage.GetImage()->GetCreateInfo().width,
+				outStorage.GetImage()->GetCreateInfo().height
+			};
+			push.resolution_rcp = {
+				1.0f / push.resolution.x,
+				1.0f / push.resolution.y,
+			};
+			push.params0.x = 1.0f;
+			push.params0.y = 0.0f;
+
+			cmd.PushConstants(&push, 0, sizeof(push));
+			cmd.Dispatch(
+				(push.resolution.x + POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT - 1) / POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT,
+				push.resolution.y,
+				1
+			);
+
+			// Vertical
+
 		});
 
 		RenderPath2D::SetupPasses(renderGraph);

@@ -36,15 +36,15 @@ namespace Editor
 		window.x = window.y = 0;
 		window.w = window.h = -1;
 
-		globalState = luaL_newstate();
-		luaL_openlibs(globalState);
-		lua_newtable(globalState);
-		lua_setglobal(globalState, "custom");
+		luaState = luaL_newstate();
+		luaL_openlibs(luaState);
+		lua_newtable(luaState);
+		lua_setglobal(luaState, "custom");
 	}
 
 	Settings::~Settings()
 	{
-		lua_close(globalState);
+		lua_close(luaState);
 	}
 
 	template<typename T>
@@ -109,7 +109,7 @@ namespace Editor
 
 	bool Settings::Load()
 	{
-		lua_State* l = globalState;
+		lua_State* l = luaState;
 		FileSystem& fs = app.GetEngine().GetFileSystem();
 		if (!fs.FileExists(SETTINGS_PATH))
 		{
@@ -188,6 +188,35 @@ namespace Editor
 		return true;
 	}
 
+	static void WriteCustom(lua_State* L, struct IOutputStream& file)
+	{
+		file << "custom = {\n";
+		lua_getglobal(L, "custom");
+		lua_pushnil(L);
+		bool first = true;
+		while (lua_next(L, -2))
+		{
+			if (!first) file << ",\n";
+			const char* name = lua_tostring(L, -2);
+			switch (lua_type(L, -1))
+			{
+			case LUA_TBOOLEAN:
+				file << name << " = " << (lua_toboolean(L, -1) != 0 ? "true" : "false");
+				break;
+			case LUA_TNUMBER:
+				file << name << " = " << lua_tonumber(L, -1);
+				break;
+			default:
+				ASSERT(false);
+				break;
+			}
+			lua_pop(L, 1);
+			first = false;
+		}
+		lua_pop(L, 1);
+		file << "}\n";
+	}
+
 	bool Settings::Save()
 	{
 		FileSystem& fs = app.GetEngine().GetFileSystem();
@@ -209,6 +238,9 @@ namespace Editor
 
 		*file << "font_size = " << fontSize << "\n";
 
+		// Write custom values
+		WriteCustom(luaState, *file);
+
 		// Editor styles
 		SaveEditorStyle(*file);
 
@@ -229,6 +261,97 @@ namespace Editor
 
 		file->Close();
 		return true;
+	}
+
+	void Settings::OnGUI()
+	{
+		if (!isOpen) return;
+
+		if (ImGui::Begin(ICON_FA_COG "Settings##settings", &isOpen))
+		{
+			if (ImGui::BeginTabBar("tabs"))
+			{
+				for (auto plugin : plugins)
+				{
+					if (ImGui::BeginTabItem(plugin->GetName()))
+					{
+						plugin->OnGui(*this);
+						ImGui::EndTabItem();
+					}
+				}
+
+				if (ImGui::BeginTabItem("Style"))
+				{
+					ImGui::InputInt("Font size (needs restart)", &fontSize);
+					ImGui::EndTabItem();
+				}
+				ImGui::EndTabBar();
+			}
+		}
+		ImGui::End();
+	}
+
+	void Settings::AddPlugin(IPlugin* plugin)
+	{
+		for (auto& p : plugins)
+		{
+			if (p == plugin)
+				return;
+		}
+		plugins.push_back(plugin);
+	}
+
+	void Settings::RemovePlugin(IPlugin* plugin)
+	{
+		plugins.erase(plugin);
+	}
+
+	void Settings::SetValue(const char* name, bool value) const
+	{
+		lua_getglobal(luaState, "custom");
+		lua_pushboolean(luaState, value);
+		lua_setfield(luaState, -2, name);
+		lua_pop(luaState, 1);
+	}
+
+	void Settings::SetValue(const char* name, float value) const
+	{
+		lua_getglobal(luaState, "custom");
+		lua_pushnumber(luaState, value);
+		lua_setfield(luaState, -2, name);
+		lua_pop(luaState, 1);
+	}
+
+	void Settings::SetValue(const char* name, int value) const
+	{
+		lua_getglobal(luaState, "custom");
+		lua_pushinteger(luaState, value);
+		lua_setfield(luaState, -2, name);
+		lua_pop(luaState, 1);
+	}
+
+	float Settings::GetValue(const char* name, float default_value) const
+	{
+		lua_getglobal(luaState, "custom");
+		F32 ret = LuaUtils::OptField(luaState, name, default_value);
+		lua_pop(luaState, 1);
+		return ret;
+	}
+
+	int Settings::GetValue(const char* name, int default_value) const
+	{
+		lua_getglobal(luaState, "custom");
+		int ret = LuaUtils::OptField(luaState, name, default_value);
+		lua_pop(luaState, 1);
+		return ret;
+	}
+
+	bool Settings::GetValue(const char* name, bool default_value) const
+	{
+		lua_getglobal(luaState, "custom");
+		bool ret = LuaUtils::OptField(luaState, name, default_value);
+		lua_pop(luaState, 1);
+		return ret;
 	}
 }
 }

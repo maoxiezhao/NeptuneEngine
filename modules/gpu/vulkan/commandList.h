@@ -195,6 +195,7 @@ public:
     void SetSampler(U32 set, U32 binding, const Sampler& sampler);
     void SetSampler(U32 set, U32 binding, StockSampler type);
     void SetTexture(U32 set, U32 binding, const ImageView& imageView);
+    void SetStorageTexture(U32 set, U32 binding, const ImageView& view);
     void SetRasterizerState(const RasterizerState& state);
     void SetBlendState(const BlendState& state);
     void SetDepthStencilState(const DepthStencilState& state);
@@ -207,6 +208,9 @@ public:
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
     void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);
     void DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 startIndexLocation, U32 baseVertexLocation, U32 startInstanceLocation);
+
+    void Dispatch(U32 groupsX, U32 groupsY, U32 groupsZ);
+    void DispatchIndirect(const Buffer& buffer, U32 offset);
 
     void BufferBarrier(const Buffer& buffer, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
     void ImageBarrier(const Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
@@ -275,9 +279,10 @@ public:
     void SetDefaultTransparentState();
     void SetPrimitiveTopology(VkPrimitiveTopology topology);
     void SetShaderProgram(ShaderProgram* program);
+    void SetProgramShaders(const Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     void SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines = {});
     void SetProgram(const Shader* vertex, const Shader* fragment);
-    void SetProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
+    void SetProgram(const Shader* compute);
 
 private:
     friend class DeviceVulkan;
@@ -285,16 +290,25 @@ private:
     void ResetCommandContext();
     void EndCommandBuffer();
 
+    void SetTextureImpl(U32 set, U32 binding, VkImageView imageView, VkImageLayout layout, U64 cookie, DescriptorSetType setType);
+
     bool FlushRenderState();
+    bool FlushComputeState();
     bool FlushGraphicsPipeline();
+    bool FlushComputePipeline();
     void FlushDescriptorSets();
     void FlushDescriptorSet(U32 set);
     void FlushDescriptorDynamicSet(U32 set);
     void UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U32& activeVbos);
+    void UpdateComputePipelineHash(CompiledPipelineState& pipeline);
 
     VkPipeline BuildGraphicsPipeline(const CompiledPipelineState& pipelineState);
     VkPipeline BuildComputePipeline(const CompiledPipelineState& pipelineState);
 
+    void BeginCompute();
+    void BeginGraphics();
+
+    bool isCompute = true;
     CommandListDirtyFlags dirty = 0;
     void SetDirty(CommandListDirtyFlags flags)
     {

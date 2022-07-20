@@ -39,6 +39,8 @@ namespace VulkanTest
 		void SetupComposeDependency(RenderPass& composePass) override;
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
 	
+		void PostprocessChain(RenderGraph& renderGraph);
+
 	protected:
 		bool sceneUpdateEnable = true;
 

@@ -28,8 +28,8 @@ enum class RenderGraphQueueFlag
 {
     Graphics = 1 << 0,
     Compute = 1 << 1,
-    AsyncGraphcs = 1 << 2,
-    AsyncCompute = 1 << 3,
+    AsyncCompute = 1 << 2,
+    AsyncGraphcs = 1 << 3,
 };
 
 enum class AttachmentSizeType
@@ -61,6 +61,17 @@ struct BufferInfo
 {
     VkDeviceSize size = 0;
     VkBufferUsageFlags usage = 0;
+
+    bool operator==(const BufferInfo& other) const
+    {
+        return size == other.size &&
+            usage == other.usage;
+    }
+
+    bool operator!=(const BufferInfo& other) const
+    {
+        return !(*this == other);
+    }
 };
 
 struct ResourceDimensions
@@ -85,7 +96,8 @@ struct ResourceDimensions
             height == other.height &&
             depth == other.depth &&
             layers == other.layers &&
-            levels == other.levels;
+            levels == other.levels &&
+            bufferInfo == other.bufferInfo;
     }
 
     bool operator!=(const ResourceDimensions& other) const
@@ -111,10 +123,14 @@ struct ResourceDimensions
     bool UseSemaphore()const
     {
         // Need to use emaphore when using muti queues
-        U32 tempQueues = queues;
-        if (tempQueues & (U32)RenderGraphQueueFlag::Compute)
-            tempQueues |= (U32)RenderGraphQueueFlag::Graphics;
-        return (tempQueues & (tempQueues - 1)) != 0;
+        U32 physicalQueue = queues;
+
+        // Regular compute uses regular graphics queue.
+        if (physicalQueue & (U32)RenderGraphQueueFlag::Compute)
+            physicalQueue |= (U32)RenderGraphQueueFlag::Graphics;
+
+        physicalQueue &= ~(U32)RenderGraphQueueFlag::Compute;
+        return (physicalQueue & (physicalQueue - 1)) != 0;
     }
 };
 
@@ -326,7 +342,7 @@ public:
     RenderTextureResource& ReadDepthStencil(const char* name);
     RenderTextureResource& WriteColor(const char* name, const AttachmentInfo& info, const char* input = nullptr);
     RenderTextureResource& WriteDepthStencil(const char* name, const AttachmentInfo& info);
-
+    RenderTextureResource& WriteStorageTexture(const char* name, const AttachmentInfo& info, const char* input = "");
     RenderBufferResource& ReadStorageBuffer(const char* name);
     RenderBufferResource& WriteStorageBuffer(const char* name, const BufferInfo& info, const char* input);
 
@@ -354,19 +370,29 @@ public:
         return outputColors;
     }
 
-    const std::vector<RenderBufferResource*>& GetInputBuffers()const
+    const std::vector<RenderBufferResource*>& GetInputStorageBuffers()const
     {
-        return inputBuffers;
+        return inputStorageBuffers;
     }
 
-    const std::vector<RenderBufferResource*>& GetOutputBuffers()const
+    const std::vector<RenderBufferResource*>& GetOutputStorageBuffers()const
     {
-        return outputBuffers;
+        return outputStorageBuffers;
     }
 
     const std::vector<RenderTextureResource*>& GetInputAttachments()const
     {
         return inputAttachments;
+    }
+
+    const std::vector<RenderTextureResource*>& GetInputStorageTextures()const
+    {
+        return inputStorageTextures;
+    }
+
+    const std::vector<RenderTextureResource*>& GetOutputStorageTextures()const
+    {
+        return outputStorageTextures;
     }
 
     std::vector<RenderTextureResource*>& GetInputAttachments()
@@ -443,8 +469,10 @@ private:
     std::vector<AccessedTextureResource> inputTextures;
     std::vector<RenderTextureResource*> inputColors;
     std::vector<RenderTextureResource*> outputColors;
-    std::vector<RenderBufferResource*> inputBuffers;
-    std::vector<RenderBufferResource*> outputBuffers;
+    std::vector<RenderTextureResource*> inputStorageTextures;
+    std::vector<RenderTextureResource*> outputStorageTextures;
+    std::vector<RenderBufferResource*> inputStorageBuffers;
+    std::vector<RenderBufferResource*> outputStorageBuffers;
     std::vector<RenderTextureResource*> inputAttachments;
     std::vector<AccessedProxyResource> proxyInputs;
     std::vector<AccessedProxyResource> proxyOutputs;

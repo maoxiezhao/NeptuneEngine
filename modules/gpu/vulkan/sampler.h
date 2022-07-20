@@ -12,7 +12,9 @@ namespace GPU
     enum class StockSampler
     {
         NearestClamp,
+        NearestWrap,
         PointClamp,
+        PointWrap,
         Count
     };
 
