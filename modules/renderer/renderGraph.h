@@ -160,6 +160,11 @@ public:
         return readPasses;
     }
 
+    void SetName(const char* name_)
+    {
+        name = name_;
+    }
+
     const String& GetName()const
     {
         return name;

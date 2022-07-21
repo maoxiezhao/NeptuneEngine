@@ -1733,8 +1733,9 @@ namespace VulkanTest
             HandleInvalidateBarrier(barrier, state, physicalGraphics);
         }
 
-        // Handle flush barriers
         HandleSignal(physicalPass, state);
+
+        // Handle flush barriers
         for (auto& barrier : physicalPass.flush)
             HandleFlushBarrier(barrier, state);
 
@@ -2361,6 +2362,7 @@ namespace VulkanTest
         auto& fromRes = graph.GetOrCreateTexture(from);
         auto& toRes = graph.GetOrCreateTexture(to);
         toRes = fromRes;
+        toRes.SetName(to);
         toRes.GetReadPasses().clear();
         toRes.GetWrittenPasses().clear();
         toRes.PassWrite(index);

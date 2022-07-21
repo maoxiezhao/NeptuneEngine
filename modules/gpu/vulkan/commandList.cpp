@@ -750,7 +750,7 @@ void CommandList::SetTexture(U32 set, U32 binding, const ImageView& imageView)
 
     SetTextureImpl(set, binding,
         imageView.GetImageView(), 
-        imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL), 
+        imageView.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
         imageView.GetCookie(),
         DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
 }
@@ -760,7 +760,7 @@ void CommandList::SetStorageTexture(U32 set, U32 binding, const ImageView& view)
     ASSERT(view.GetImage()->GetCreateInfo().usage & VK_IMAGE_USAGE_STORAGE_BIT);
     SetTextureImpl(set, binding,
         view.GetImageView(),
-        view.GetImage()->GetImageLayout(VK_IMAGE_LAYOUT_GENERAL),
+        VK_IMAGE_LAYOUT_GENERAL,
         view.GetCookie(),
         DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
 }

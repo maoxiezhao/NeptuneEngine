@@ -1,6 +1,7 @@
 #pragma once
 
 #include "enums.h"
+#include "renderGraph.h"
 #include "gpu\vulkan\device.h"
 #include "core\plugin\plugin.h"
 #include "core\utils\profiler.h"
@@ -55,6 +56,9 @@ namespace VulkanTest
 		};
 
 		void DrawScene(GPU::CommandList& cmd, const Visibility& vis, RENDERPASS pass);
+
+		// RenderGraph setup
+		void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment);
 
 		// Plugin interface
 		RendererPlugin* CreatePlugin(Engine& engine);

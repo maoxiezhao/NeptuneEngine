@@ -128,41 +128,7 @@ namespace VulkanTest
 
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Postprocess
-		auto& blurPass = renderGraph.AddRenderPass("BlurPass", RenderGraphQueueFlag::Compute);
-		auto& read = blurPass.ReadTexture(GetRenderResult3D());
-		auto& out = blurPass.WriteStorageTexture(SetRenderResult3D("rtBlur"), rtAttachmentInfo);
-		blurPass.SetBuildCallback([&](GPU::CommandList& cmd) {
-			auto& readTexture = renderGraph.GetPhysicalTexture(read);
-			auto& outStorage = renderGraph.GetPhysicalTexture(out);
-
-			cmd.SetStorageTexture(0, 0, outStorage);
-			cmd.SetTexture(0, 0, readTexture);
-			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_CS_POSTPROCESS_BLUR_GAUSSIAN));
-			
-			// Replace 2D Gaussian blur with 1D Gaussian blur twice
-			// Horizontal:
-			PostprocessPushConstants push;
-			push.resolution = {
-				outStorage.GetImage()->GetCreateInfo().width,
-				outStorage.GetImage()->GetCreateInfo().height
-			};
-			push.resolution_rcp = {
-				1.0f / push.resolution.x,
-				1.0f / push.resolution.y,
-			};
-			push.params0.x = 1.0f;
-			push.params0.y = 0.0f;
-
-			cmd.PushConstants(&push, 0, sizeof(push));
-			cmd.Dispatch(
-				(push.resolution.x + POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT - 1) / POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT,
-				push.resolution.y,
-				1
-			);
-
-			// Vertical
-
-		});
+		Renderer::SetupPostprocessBlurGaussian(renderGraph, GetRenderResult3D(), lastRenderPassRT, rtAttachmentInfo);
 
 		RenderPath2D::SetupPasses(renderGraph);
 	}

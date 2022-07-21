@@ -603,6 +603,74 @@ namespace Renderer
 		cmd.EndEvent();
 	}
 
+	void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment)
+	{
+		// Replace 2D Gaussian blur with 1D Gaussian blur twice
+		auto& blurPass = graph.AddRenderPass("BlurPass", RenderGraphQueueFlag::Compute);
+		auto& readRes = blurPass.ReadTexture(input.c_str());
+		auto& tempRes = blurPass.WriteStorageTexture("rtBlurTemp", attchment, "rtBlurTemp");
+		tempRes.SetImageUsage(VK_IMAGE_USAGE_SAMPLED_BIT);
+
+		auto& output = blurPass.WriteStorageTexture("rtBlur", attchment);
+		blurPass.SetBuildCallback([&](GPU::CommandList& cmd) {
+			auto& read = graph.GetPhysicalTexture(readRes);
+			auto& temp = graph.GetPhysicalTexture(tempRes);
+			auto& out = graph.GetPhysicalTexture(output);
+
+			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_CS_POSTPROCESS_BLUR_GAUSSIAN));
+
+			PostprocessPushConstants push;
+			push.resolution = {
+				out.GetImage()->GetCreateInfo().width,
+				out.GetImage()->GetCreateInfo().height
+			};
+			push.resolution_rcp = {
+				1.0f / push.resolution.x,
+				1.0f / push.resolution.y,
+			};
+
+			// Horizontal:
+			push.params0.x = 1.0f;
+			push.params0.y = 0.0f;
+
+			cmd.PushConstants(&push, 0, sizeof(push));
+			cmd.SetTexture(0, 0, read);
+			cmd.SetStorageTexture(0, 0, temp);
+
+			cmd.Dispatch(
+				(push.resolution.x + POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT - 1) / POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT,
+				push.resolution.y,
+				1
+			);
+
+			cmd.ImageBarrier(*temp.GetImage(),
+				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_SHADER_READ_BIT);
+			temp.GetImage()->SetLayoutType(GPU::ImageLayoutType::Optimal);
+
+			// Vertical:
+			push.params0.x = 0.0f;
+			push.params0.y = 1.0f;
+
+			cmd.PushConstants(&push, 0, sizeof(push));
+			cmd.SetTexture(0, 0, temp);
+			cmd.SetStorageTexture(0, 0, out);
+			cmd.Dispatch(
+				push.resolution.x,
+				(push.resolution.y + POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT - 1) / POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT,
+				1
+			);
+
+			cmd.ImageBarrier(*temp.GetImage(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_SHADER_READ_BIT,
+				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
+			temp.GetImage()->SetLayoutType(GPU::ImageLayoutType::General);
+		});
+		out = "rtBlur";
+	}
+
 	RendererPlugin* CreatePlugin(Engine& engine)
 	{
 		rendererPlugin = CJING_NEW(RendererPluginImpl)(engine);

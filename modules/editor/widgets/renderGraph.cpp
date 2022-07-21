@@ -124,7 +124,7 @@ namespace Editor
 		NodeIDGrenerator edgeIDGenerator;
 		Array<RenderPassNode> renderPassNodes;
 		HashMap<U64, I32> renderPassOutputIDs;
-		HashMap<U64, I32> renderPassInputIDs;
+		HashMap<U64, Array<I32>> renderPassInputIDs;
 		HashMap<U64, U32> renderPassDepth;
 
 	public:
@@ -179,7 +179,11 @@ namespace Editor
 						I32 from = attr.id;
 						auto it = renderPassInputIDs.find(attr.hash);
 						if (it.isValid())
-							ImNodes::Link(edgeIDGenerator.Generate(), from, it.value());
+						{
+							for (auto& to : it.value())
+								ImNodes::Link(edgeIDGenerator.Generate(), from, to);
+						}
+							
 					}
 				}
 
@@ -231,7 +235,12 @@ namespace Editor
 				I32 id = idGenerator.Generate();
 				U64 hash = StringID(name.c_str()).GetHashValue();
 				newNode.reads.push_back({ name.c_str(), id, hash });
-				renderPassInputIDs.insert(hash, id);
+
+				auto it = renderPassInputIDs.find(hash);
+				if (!it.isValid())
+					it = renderPassInputIDs.insert(hash, {});
+
+				it.value().push_back(id);
 			}
 
 			for (auto& name : info.writes)
