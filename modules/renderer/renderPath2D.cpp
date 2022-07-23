@@ -35,11 +35,6 @@ namespace VulkanTest
 		rtAttachmentInfo.sizeX = (F32)backbufferDim.width;
 		rtAttachmentInfo.sizeY = (F32)backbufferDim.height;
 
-		AttachmentInfo depth;
-		depth.format = device->GetDefaultDepthFormat();
-		depth.sizeX = (F32)backbufferDim.width;
-		depth.sizeY = (F32)backbufferDim.height;
-
 		// Main opaque pass
 		auto& renderPass2D = renderGraph.AddRenderPass("RenderPass2D", RenderGraphQueueFlag::Graphics);
 		renderPass2D.WriteColor(SetRenderResult2D("rtFinal2D"), rtAttachmentInfo);
@@ -65,6 +60,8 @@ namespace VulkanTest
 		auto& img = renderGraph.GetPhysicalTexture(res);
 
 		ImageUtil::Params params = {};
+		params.EnableFullScreen();
+		params.blendFlag = BLENDMODE_PREMULTIPLIED;
 
 		cmd->BeginEvent("Compose2D");
 		ImageUtil::Draw(img.GetImage(), params, *cmd);

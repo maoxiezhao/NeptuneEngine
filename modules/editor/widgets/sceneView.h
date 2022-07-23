@@ -38,10 +38,9 @@ namespace Editor
         }
 
     private:
-        void DrawEditor(GPU::CommandList& cmd);
-
         U32x2 viewportSize = U32x2(0);
         EditorApp& editor;
+        F32 outlineTimer = 0.0f;
     };
 
     class VULKAN_EDITOR_API SceneView : public EditorWidget

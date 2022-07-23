@@ -34,7 +34,12 @@ namespace GPU
 		U32 eBits = 0;
 		/// Number of channels.
 		U32 channels = 0;
+
+		U32 GetFormatStride()const { return blockBits >> 3; }
+		U32 GetFormatBlockSize()const { return blockW; }
 	};
+
+	inline FormatInfo GetFormatInfo(VkFormat format);
 
 	class TextureFormatLayout
 	{
@@ -46,7 +51,6 @@ namespace GPU
 
 		U32 GetRequiredSize()const { return requiredSize; }
 		U32 GetBlockStride()const { return blockStride; }
-		const FormatInfo& GetFormatInfo()const { return formatInfo; }
 
 		struct MipInfo
 		{
@@ -88,7 +92,6 @@ namespace GPU
 
 	private:
 		void FillMipinfo(U32 width, U32 height, U32 depth);
-		FormatInfo GetFormatInfo(VkFormat format, VkImageAspectFlags aspect)const;
 
 	private:
 		VkFormat format = VK_FORMAT_UNDEFINED;

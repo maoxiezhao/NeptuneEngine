@@ -1,0 +1,50 @@
+#include "common/global.hlsli"
+#include "common/shaderInterop_postprocess.h"
+
+PUSHCONSTANT(push, PostprocessPushConstants)
+
+Texture2D<float> tex : register(t0);
+
+float4 main(float4 pos : SV_POSITION, float2 uv  : TEXCOORD0) : SV_TARGET
+{
+    const float middle = tex.SampleLevel(samLinearClamp, uv, 0);
+
+    const float threshold = push.params0.x * middle;
+    const float thickness = push.params0.y;
+    const float4 color = push.params1;
+
+    // Sobel algorithm
+	float K00 = -1;
+	float K01 = -2;
+	float K02 = -1;
+	float K10 = 0;
+	float K11 = 0;
+	float K12 = 0;
+	float K20 = 1;
+	float K21 = 2;
+	float K22 = 1;
+
+	float2 dim;
+	tex.GetDimensions(dim.x, dim.y);
+    float2 dx = float2(thickness / dim.x, 0.0f);
+    float2 dy = float2(0.0f, thickness / dim.y);
+    
+    float2 curUV = uv - dy;
+    float G00 = tex.SampleLevel(samLinearClamp, curUV - dx, 0);
+	float G01 = tex.SampleLevel(samLinearClamp, curUV, 0);
+	float G02 = tex.SampleLevel(samLinearClamp, curUV + dx, 0);
+    curUV = uv;
+	float G10 = tex.SampleLevel(samLinearClamp, curUV - dx, 0);
+	float G11 = middle;
+	float G12 = tex.SampleLevel(samLinearClamp, curUV + dx, 0);
+    curUV = uv + dy;
+	float G20 = tex.SampleLevel(samLinearClamp, curUV - dx, 0);
+	float G21 = tex.SampleLevel(samLinearClamp, curUV, 0);
+	float G22 = tex.SampleLevel(samLinearClamp, curUV + dx, 0);
+
+    float sx = (G00 * K00 + G01 * K01 + G02 * K02) + (G10 * K10 + G11 * K11 + G12 * K12) + (G20 * K20 + G21 * K21 + G22 * K22);
+    float sy = (G00 * K00 + G01 * K10 + G02 * K20) + (G10 * K01 + G11 * K11 + G12 * K21) + (G20 * K02 + G21 * K12 + G22 * K22);
+    float dist = sqrt(sx * sx + sy * sy);
+    float visible = dist > threshold ? 1.0f : 0.0f;
+    return float4(color.rgb, color.a * visible);
+}

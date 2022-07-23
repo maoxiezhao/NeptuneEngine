@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\platform\sync.h"
-#include "objectPool.h"
+#include "core\utils\objectPool.h"
 #include "math\hash.h"
 
 #include <unordered_map>
@@ -240,7 +240,7 @@ namespace Util
 			{
 				if (hashTable[masked] != nullptr && GetItemHash(hashTable[masked]) == hash)
 					return hashTable[masked];
-				masked = (hash + 1) & hashMask;
+				masked = (masked + 1) & hashMask;
 			}
 			return nullptr;
 		}

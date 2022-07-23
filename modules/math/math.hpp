@@ -44,6 +44,11 @@ namespace VulkanTest
 		return Distance(vector1, vector2);
 	}
 
+	constexpr F32 Lerp(F32 value1, F32 value2, F32 amount)
+	{
+		return value1 + (value2 - value1) * amount;
+	}
+
 	struct Transform
 	{
 		F32x3 translation = F32x3(0.f, 0.f, 0.f);

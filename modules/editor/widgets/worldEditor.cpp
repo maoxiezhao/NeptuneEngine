@@ -24,7 +24,7 @@ namespace Editor
     void EntityFolder::MoveToRootFolder(ECS::EntityID entity)
     {
         while (entities.size() <= entity)
-            entities.resize(entity * 2.0f);
+            entities.resize(entity * 2);
 
         FolderEntity& folderEntity = entities[(U32)entity];
         folderEntity.next = rootFolder.firstEntity;

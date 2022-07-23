@@ -5,7 +5,7 @@ namespace VulkanTest
 {
 namespace GPU
 {
-	FormatInfo TextureFormatLayout::GetFormatInfo(VkFormat format, VkImageAspectFlags aspect) const
+	FormatInfo GetFormatInfo(VkFormat format)
 	{
 		FormatInfo info = {};
 #define fmt(x)						\
@@ -358,7 +358,7 @@ namespace GPU
 
 	void TextureFormatLayout::FillMipinfo(U32 width, U32 height, U32 depth)
 	{
-		formatInfo = GetFormatInfo(format, 0);
+		formatInfo = GetFormatInfo(format);
 		blockStride = formatInfo.blockBits >> 3;
 
 		U32 offset = 0;

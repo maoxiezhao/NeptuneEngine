@@ -2,6 +2,7 @@
 #define SHADER_GLOBAL_HF
 
 #include "shaderInterop.h"
+#include "shaderInterop_renderer.h"
 
 ByteAddressBuffer bindless_buffers[] : register(space1);
 

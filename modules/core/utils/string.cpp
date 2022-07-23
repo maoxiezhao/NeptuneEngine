@@ -550,6 +550,8 @@ namespace VulkanTest
 	DefaultAllocator gStringAllocator;
 #endif
 
+	const String String::EMPTY;
+
 	String::String()
 	{
 		stringSize = 0;

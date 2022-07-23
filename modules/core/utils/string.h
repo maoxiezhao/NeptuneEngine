@@ -318,6 +318,7 @@ namespace VulkanTest
 		}
 
 		static const int npos = -1;
+		static const String EMPTY;
 
 	private:
 		bool isSmall()const;

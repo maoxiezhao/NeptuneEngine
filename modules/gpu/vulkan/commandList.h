@@ -33,8 +33,11 @@ enum CommandListDirtyBits
     COMMAND_LIST_DIRTY_PUSH_CONSTANTS_BIT = 1 << 3,
 
     COMMAND_LIST_DIRTY_STATIC_VERTEX_BIT = 1 << 4,
+    COMMAND_LIST_DIRTY_STENCIL_REFERENCE_BIT =  1 << 5,
 
-    COMMAND_LIST_DIRTY_DYNAMIC_BITS = COMMAND_LIST_DIRTY_VIEWPORT_BIT | COMMAND_LIST_DIRTY_SCISSOR_BIT
+    COMMAND_LIST_DIRTY_DYNAMIC_BITS = COMMAND_LIST_DIRTY_VIEWPORT_BIT | 
+                                      COMMAND_LIST_DIRTY_SCISSOR_BIT |
+                                      COMMAND_LIST_DIRTY_STENCIL_REFERENCE_BIT
 };
 using CommandListDirtyFlags = U32;
 
@@ -75,6 +78,12 @@ struct CompiledPipelineState
     uint64_t hash = 0;
     VkPipelineCache cache = VK_NULL_HANDLE;
     bool isOwnedByCommandList = true;
+};
+
+struct DynamicState
+{
+    U8 frontReference = 0;
+    U8 backReference = 0;
 };
 
 struct CommandPool
@@ -145,6 +154,7 @@ private:
     RenderPass* renderPass = nullptr;
     const RenderPass* compatibleRenderPass = nullptr;
     VkSubpassContents subpassContents;
+    DynamicState dynamicState = {};
 
     U32 threadIndex = 0;
     bool isEnded = false;
@@ -155,7 +165,9 @@ public:
 
     void BeginRenderPass(const RenderPassInfo& renderPassInfo, VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE);
     void EndRenderPass();
+#if 0
     void BindPipelineState(const CompiledPipelineState& pipelineState_);
+#endif
     void* AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate);
     void* AllocateIndexBuffer(VkDeviceSize size, VkIndexType indexType);
     void SetVertexAttribute(U32 attribute, U32 binding, VkFormat format, VkDeviceSize offset);
@@ -203,6 +215,7 @@ public:
     void SetScissor(const VkRect2D& rect);
     void SetViewport(const VkViewport& viewport_);
     void SetViewport(const Viewport& viewport_);
+    void SetStencilRef(U8 ref, StencilFace face);
     void NextSubpass(VkSubpassContents contents);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);

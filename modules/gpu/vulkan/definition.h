@@ -6,7 +6,7 @@
 #include "core\utils\log.h"
 #include "core\utils\stackAllocator.h"
 #include "core\utils\tempHashMap.h"
-#include "core\utils\intrusiveHashMap.hpp"
+#include "core\collections\intrusiveHashMap.hpp"
 #include "core\collections\Array.h"
 #include "math\hash.h"
 
@@ -375,6 +375,13 @@ namespace GPU
         bool antialiasedLineEnable = false;
         bool conservativeRasterizationEnable = false;
         uint32_t forcedSampleCount = 0;
+    };
+
+    enum StencilFace
+    {
+        STENCIL_FACE_FRONT,
+        STENCIL_FACE_BACK,
+        STENCIL_FACE_FRONT_AND_BACK
     };
 
     struct DepthStencilState

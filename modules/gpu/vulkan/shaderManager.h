@@ -77,6 +77,7 @@ private:
 	std::atomic<ShaderProgram*> program = nullptr;
 	std::atomic<U32> shaderInstances[static_cast<U32>(ShaderStage::Count)] = {};
 	Shader* shaders[static_cast<U32>(ShaderStage::Count)] = {};
+
 #ifdef VULKAN_MT
 	Tools::RWSpinLock lock;
 #endif
@@ -96,6 +97,10 @@ private:
 	DeviceVulkan& device;
 	ShaderTemplate* shaderTemplates[static_cast<U32>(ShaderStage::Count)] = {};
 	VulkanCacheReadWrite<ShaderTemplateProgramVariant> variantCache;
+
+#ifdef VULKAN_MT
+	Tools::RWSpinLock lock;
+#endif
 };
 
 class ShaderManager

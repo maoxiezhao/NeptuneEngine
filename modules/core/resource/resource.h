@@ -118,6 +118,7 @@ namespace VulkanTest
 		void DoUnload();
 		void CheckState();
 
+		virtual void OnCreated(State state);
 		virtual bool OnLoaded(U64 size, const U8* mem) = 0;
 		virtual void OnUnLoaded() = 0;
 

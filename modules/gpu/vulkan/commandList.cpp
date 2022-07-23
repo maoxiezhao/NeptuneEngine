@@ -539,12 +539,14 @@ void CommandList::SetTextureImpl(U32 set, U32 binding, VkImageView imageView, Vk
     dirtySets |= 1u << set;
 }
 
+#if 0
 void CommandList::BindPipelineState(const CompiledPipelineState& pipelineState_)
 {
     SetShaderProgram(pipelineState_.shaderProgram);
     pipelineState = pipelineState_;
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_PIPELINE_BIT);
 }
+#endif
 
 void* CommandList::AllocateVertexBuffer(U32 binding, VkDeviceSize size, VkDeviceSize stride, VkVertexInputRate inputRate)
 {
@@ -821,6 +823,27 @@ void CommandList::SetViewport(const Viewport& viewport_)
     SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_VIEWPORT_BIT);
 }
 
+void CommandList::SetStencilRef(U8 ref, StencilFace face)
+{
+    switch (face)
+    {
+    case STENCIL_FACE_FRONT:
+        dynamicState.frontReference = ref;
+        break;
+    case STENCIL_FACE_BACK:
+        dynamicState.backReference = ref;
+        break;
+    case STENCIL_FACE_FRONT_AND_BACK:
+        dynamicState.frontReference = ref;
+        dynamicState.backReference = ref;
+        break;
+    default:
+        break;
+    }
+
+    SetDirty(CommandListDirtyBits::COMMAND_LIST_DIRTY_STENCIL_REFERENCE_BIT);
+}
+
 void CommandList::NextSubpass(VkSubpassContents contents)
 {
     ASSERT(frameBuffer);
@@ -1050,6 +1073,15 @@ bool CommandList::FlushRenderState()
     if (IsDirtyAndClear(COMMAND_LIST_DIRTY_SCISSOR_BIT))
     {
         vkCmdSetScissor(cmd, 0, 1, &scissor);
+    }
+
+    // stencil reference
+    U32 subpassIndex = pipelineState.subpassIndex;
+    bool stencilTestEnable = compatibleRenderPass->HasStencil(subpassIndex) && pipelineState.depthStencilState.stencilEnable;
+    if (stencilTestEnable && IsDirtyAndClear(COMMAND_LIST_DIRTY_STENCIL_REFERENCE_BIT))
+    {
+        vkCmdSetStencilReference(cmd, VK_STENCIL_FACE_FRONT_BIT, dynamicState.frontReference);
+        vkCmdSetStencilReference(cmd, VK_STENCIL_FACE_BACK_BIT, dynamicState.backReference);
     }
 
     // update vbos
@@ -1337,6 +1369,13 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
         VK_DYNAMIC_STATE_SCISSOR,
         VK_DYNAMIC_STATE_VIEWPORT,
     };
+
+    bool stencilTestEnable = compatibleRenderPass->HasStencil(subpassIndex) && pipelineState.depthStencilState.stencilEnable;
+    if (stencilTestEnable)
+    {
+        states[dynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_STENCIL_REFERENCE;
+    }
+
     dynamicState.pDynamicStates = states;
 
     // blend state
@@ -1394,15 +1433,21 @@ VkPipeline CommandList::BuildGraphicsPipeline(const CompiledPipelineState& pipel
 
     if (depthstencil.stencilTestEnable)
     {
-        depthstencil.front.compareOp = VK_COMPARE_OP_ALWAYS;
-        depthstencil.front.passOp = VK_STENCIL_OP_REPLACE;
-        depthstencil.front.failOp = VK_STENCIL_OP_KEEP;
-        depthstencil.front.depthFailOp = VK_STENCIL_OP_KEEP;
+        depthstencil.front.compareMask = pipelineState.depthStencilState.stencilReadMask;
+        depthstencil.front.writeMask = pipelineState.depthStencilState.stencilWriteMask;
+        depthstencil.front.reference = 0; // runtime supplied
+        depthstencil.front.compareOp = pipelineState.depthStencilState.frontFace.stencilFunc;
+        depthstencil.front.passOp = pipelineState.depthStencilState.frontFace.stencilPassOp;
+        depthstencil.front.failOp = pipelineState.depthStencilState.frontFace.stencilFailOp;
+        depthstencil.front.depthFailOp = pipelineState.depthStencilState.frontFace.stencilDepthFailOp;
 
-        depthstencil.back.compareOp = VK_COMPARE_OP_ALWAYS;
-        depthstencil.back.passOp = VK_STENCIL_OP_REPLACE;
-        depthstencil.back.failOp = VK_STENCIL_OP_KEEP;
-        depthstencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
+        depthstencil.back.compareMask = pipelineState.depthStencilState.stencilReadMask;
+        depthstencil.back.writeMask = pipelineState.depthStencilState.stencilWriteMask;
+        depthstencil.back.reference = 0; // runtime supplied
+        depthstencil.back.compareOp = pipelineState.depthStencilState.backFace.stencilFunc;
+        depthstencil.back.passOp = pipelineState.depthStencilState.backFace.stencilPassOp;
+        depthstencil.back.failOp = pipelineState.depthStencilState.backFace.stencilFailOp;
+        depthstencil.back.depthFailOp = pipelineState.depthStencilState.backFace.stencilDepthFailOp;
     }
     depthstencil.depthBoundsTestEnable = VK_FALSE;
 
@@ -1613,6 +1658,12 @@ void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U3
     hash.HashCombine(compatibleRenderPass->GetHash());
     hash.HashCombine(pipeline.subpassIndex);
     hash.HashCombine(pipeline.shaderProgram->GetHash());
+
+    // Calculate pipelinestate hash
+    hash.HashCombine(RuntimeHash(&pipeline.blendState, sizeof(BlendState)).GetHashValue());
+    hash.HashCombine(RuntimeHash(&pipeline.rasterizerState, sizeof(RasterizerState)).GetHashValue());
+    hash.HashCombine(RuntimeHash(&pipeline.depthStencilState, sizeof(DepthStencilState)).GetHashValue());
+    hash.HashCombine(pipeline.topology);
 
     pipeline.hash = hash.Get();
 }

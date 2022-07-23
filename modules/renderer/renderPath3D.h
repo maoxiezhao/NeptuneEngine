@@ -33,13 +33,21 @@ namespace VulkanTest
 			return name;
 		}
 
+		virtual const String& GetDepthStencil()const {
+			return lastDepthStencil;
+		}
+
+		String SetDepthStencil(const char* name) 
+		{
+			lastDepthStencil = name;
+			return name;
+		}
+
 	protected:
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void UpdateRenderData() override;
 		void SetupComposeDependency(RenderPass& composePass) override;
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
-	
-		void PostprocessChain(RenderGraph& renderGraph);
 
 	protected:
 		bool sceneUpdateEnable = true;
@@ -48,5 +56,6 @@ namespace VulkanTest
 		CameraComponent* camera = nullptr;
 		FrameCB frameCB = {};
 		String lastRenderPassRT;
+		String lastDepthStencil;
 	};
 }

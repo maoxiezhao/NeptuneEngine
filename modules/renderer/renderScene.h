@@ -6,7 +6,7 @@
 #include "math\geometry.h"
 #include "math\math.hpp"
 #include "renderGraph.h"
-#include "shaderInterop.h"
+#include "shaderInterop_renderer.h"
 #include "enums.h"
 #include "model.h"
 
@@ -68,6 +68,7 @@ namespace VulkanTest
 		F32x3 center = F32x3(0, 0, 0);
 		AABB aabb;
 		U32 index = 0;
+		U8 stencilRef = 1;
 	};
 
 	class VULKAN_TEST_API RenderPassPlugin

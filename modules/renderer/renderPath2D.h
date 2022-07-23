@@ -20,6 +20,10 @@ namespace VulkanTest
 			return name;
 		}
 
+		virtual const String& GetDepthStencil()const {
+			return String::EMPTY;
+		}
+
 	protected:
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void SetupComposeDependency(RenderPass& composePass) override;

@@ -190,7 +190,7 @@ void ShaderTemplate::RecompileVariant(ShaderTemplateVariant& variant)
 bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderVariantMap& defines)
 {
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
-	{
+	{		
 		ScopedMutex holder(lock);
 		std::string exportShaderPath = EXPORT_SHADER_PATH + path + "." + std::to_string(variant->hash);
 		RegisterShader(exportShaderPath);
@@ -274,10 +274,14 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 		hasher.HashCombine(define.c_str());
 
 	HashValue hash = hasher.Get();
+	
+	lock.BeginRead();
 	auto it = variantCache.find(hash);
 	if (it != nullptr)
 		return it;
+	lock.EndRead();
 
+	lock.BeginWrite();
 	ShaderTemplateProgramVariant* newVariant = variantCache.allocate(device);
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 	{
@@ -287,6 +291,7 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 	// newVariant->GetProgram();
 	newVariant->SetHash(hash);
 	variantCache.insert(hash, newVariant);
+	lock.EndWrite();
 
 	return newVariant;
 }
@@ -330,21 +335,21 @@ Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
 				variant->spirv.size(),
 				nullptr);
 
+#if 0
 			// TODO: TEMP
 			if (newShader && newShader->GetHash() != 0)
 			{
 				variant->spirvHash = newShader->GetHash();
 				variant->spirv.clear();
+				ASSERT(variant->spirvHash);
 			}
+#endif
 		}
 		else
 		{
 			ASSERT(variant->spirvHash);
 			newShader = device.RequestShaderByHash(variant->spirvHash);
 		}
-
-		if (newShader == nullptr)
-			return nullptr;
 
 		shaders[stageIndex] = newShader;
 		ret = newShader;
@@ -354,6 +359,11 @@ Shader* ShaderTemplateProgramVariant::GetShader(ShaderStage stage)
 	{
 		ret = shaders[stageIndex];
 	}	
+
+#ifdef VULKAN_MT
+	lock.EndWrite();
+#endif
+
 	return ret;
 }
 
@@ -402,9 +412,6 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 	if (isProgramDirty == false)
 		return program.load(std::memory_order_relaxed);
 
-#ifdef VULKAN_MT
-	lock.BeginWrite();
-#endif
 	isProgramDirty = false;
 	for (int i = 0; i < static_cast<int>(ShaderStage::Count); i++)
 	{
@@ -419,6 +426,10 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 	}
 	if (isProgramDirty == false)
 		return program.load(std::memory_order_relaxed);
+
+#ifdef VULKAN_MT
+	lock.BeginWrite();
+#endif
 
 	// Request shaders
 	const Shader* shaders[static_cast<int>(ShaderStage::Count)] = {};
@@ -435,14 +446,16 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 					static_cast<ShaderStage>(i),
 					shaderVariants[i]->spirv.data(),
 					shaderVariants[i]->spirv.size(),
-					nullptr);
-				
+					nullptr);			
+#if 0
 				// TODO: TEMP
 				if (newShader && newShader->GetHash() != 0)
 				{
 					shaderVariants[i]->spirvHash = newShader->GetHash();
 					shaderVariants[i]->spirv.clear();
+					ASSERT(shaderVariants[i]->spirvHash);
 				}
+#endif
 			}
 			else
 			{
@@ -450,12 +463,12 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 				newShader = device.RequestShaderByHash(shaderVariants[i]->spirvHash);
 			}
 
-			if (newShader == nullptr)
-				return nullptr;
-
 			shaders[i] = newShader;
 		}
 	}
+#ifdef VULKAN_MT
+	lock.EndWrite();
+#endif
 
 	// Request program
 	ShaderProgram* newProgram = device.RequestProgram(shaders);
@@ -471,9 +484,6 @@ ShaderProgram* ShaderTemplateProgramVariant::GetProgramGraphics()
 		}
 	}
 
-#ifdef VULKAN_MT
-	lock.EndWrite();
-#endif
 	return newProgram;
 }
 

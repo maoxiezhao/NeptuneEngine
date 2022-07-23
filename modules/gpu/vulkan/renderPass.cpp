@@ -598,7 +598,8 @@ RenderPass::RenderPass(DeviceVulkan& device_, const RenderPassInfo& info) :
 
 RenderPass::~RenderPass()
 {
-	vkDestroyRenderPass(device.device, renderPass, nullptr);
+	if (renderPass != VK_NULL_HANDLE)
+		vkDestroyRenderPass(device.device, renderPass, nullptr);
 }
 
 }

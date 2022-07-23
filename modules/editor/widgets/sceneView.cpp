@@ -3,6 +3,8 @@
 #include "editor\widgets\gizmo.h"
 #include "math\vMath_impl.hpp"
 #include "renderer\renderScene.h"
+#include "renderer\imageUtil.h"
+#include "renderer\textureHelper.h"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -31,6 +33,8 @@ namespace Editor
 		return true;
 	}
 
+	static const Color4 selectionOutlineColor = Color4(F32x4(1.0f, 0.6f, 0.0f, 1.0f));
+
 	EditorRenderer::EditorRenderer(EditorApp& editor_) :
 		RenderPath3D(),
 		editor(editor_)
@@ -43,6 +47,8 @@ namespace Editor
 		ASSERT(scene != nullptr);
 
 		RenderPath2D::Update(dt);
+
+		outlineTimer += dt;
 
 		// Update main camera
 		ASSERT(camera);
@@ -84,26 +90,55 @@ namespace Editor
 		rtAttachmentInfo.sizeX = (F32)backbufferDim.width;
 		rtAttachmentInfo.sizeY = (F32)backbufferDim.height;
 
-		// Main opaque pass
-		auto& renderPass2D = renderGraph.AddRenderPass("RenderPassEditor", RenderGraphQueueFlag::Graphics);
-		renderPass2D.ReadTexture(GetRenderResult2D());
-		renderPass2D.WriteColor(SetRenderResult2D("rtEditor"), rtAttachmentInfo);
-		renderPass2D.SetClearColorCallback(DefaultClearColorFunc);
-		renderPass2D.SetBuildCallback([&](GPU::CommandList& cmd) {
+		AttachmentInfo outlineAttachmentInfo = rtAttachmentInfo;
+		outlineAttachmentInfo.format = VK_FORMAT_R8_UNORM;
+
+		// Outline
+		auto& outline = renderGraph.AddRenderPass("EditorOutline", RenderGraphQueueFlag::Graphics);
+		outline.WriteColor("rtOutline", outlineAttachmentInfo);
+		outline.SetClearColorCallback(DefaultClearColorFunc);
+		outline.ReadDepthStencil(GetDepthStencil());
+		outline.SetBuildCallback([&](GPU::CommandList& cmd) {
+	
+			ImageUtil::Params params = {};
+			params.EnableFullScreen();
+			params.stencilMode = ImageUtil::STENCILMODE_EQUAL;
+			params.stencilRef = 0x01;
+			ImageUtil::Draw(TextureHelper::GetColor(Color4::White())->GetImage(), params, cmd);
+		});
+
+		// Main Editor
+		auto& editorMain = renderGraph.AddRenderPass("EditorMain", RenderGraphQueueFlag::Graphics);
+		editorMain.ReadTexture(GetRenderResult2D());
+		editorMain.ReadTexture("rtOutline");
+		editorMain.WriteColor(SetRenderResult2D("rtEditor"), rtAttachmentInfo);
+		editorMain.SetClearColorCallback(DefaultClearColorFunc);
+		editorMain.SetBuildCallback([&](GPU::CommandList& cmd) {
 
 			GPU::Viewport viewport;
 			viewport.width = (F32)backbufferDim.width;
 			viewport.height = (F32)backbufferDim.height;
 			cmd.SetViewport(viewport);
 
-			DrawEditor(cmd);
-		});
-	}
+			// Show selection outline
+			const auto& selected = editor.GetWorldEditor().GetSelectedEntities();
+			if (!selected.empty())
+			{
+				auto& texOutline = renderGraph.GetPhysicalTexture(renderGraph.GetOrCreateTexture("rtOutline"));
+				cmd.BeginEvent("Selection outline");
+				float opacity = Lerp(0.4f, 1.0f, std::sin(outlineTimer * MATH_2PI * 0.6f) * 0.5f + 0.5f);
+				Color4 color = selectionOutlineColor;
+				color.SetA(color.GetA() * opacity);
+				Renderer::PostprocessOutline(cmd, texOutline, 0.1f, 1.0f, color);
+				cmd.EndEvent();
+			}
 
-	void EditorRenderer::DrawEditor(GPU::CommandList& cmd)
-	{
-		Gizmo::Config& config = editor.GetGizmoConfig();
-		Gizmo::Draw(cmd, *GetCamera(), config);
+			// Show gizmo
+			cmd.BeginEvent("Gizmo");
+			Gizmo::Config& config = editor.GetGizmoConfig();
+			Gizmo::Draw(cmd, *GetCamera(), config);
+			cmd.EndEvent();
+		});
 	}
 
 	struct WorldViewImpl final : WorldView

@@ -155,7 +155,7 @@ namespace
             return vkCreateImageView(device.device, &viewInfo, nullptr, &imageView) == VK_SUCCESS;
         }
 
-        bool CreatDepthAndStencilView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
+        bool CreateDepthAndStencilView(const ImageCreateInfo& createInfo, const VkImageViewCreateInfo& viewInfo)
         {
             if (viewInfo.subresourceRange.aspectMask == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT))
             {
@@ -237,7 +237,7 @@ namespace
             else
                 CreateDefaultViewCreateInfo(createInfo);
             
-            if (!CreatDepthAndStencilView(createInfo, defaultViewCreateInfo))
+            if (!CreateDepthAndStencilView(createInfo, defaultViewCreateInfo))
                 return false;
 
             if (!CreateRenderTargetView(createInfo, defaultViewCreateInfo))
@@ -694,10 +694,10 @@ RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo
 {
     HashCombiner hash;
     VkFormat colorFormats[VULKAN_NUM_ATTACHMENTS];
-    VkFormat depthStencilFormat = VkFormat::VK_FORMAT_UNDEFINED;
-    
+    VkFormat depthStencilFormat = VkFormat::VK_FORMAT_UNDEFINED;  
     U32 lazy = 0;
     U32 optimal = 0;
+
     // Color attachments
     for (U32 i = 0; i < renderPassInfo.numColorAttachments; i++)
     {

@@ -1,4 +1,6 @@
-Texture2D image : register(t0);
+#include "common/shaderInterop_image.h"
+
+Texture2D tex : register(t0);
 SamplerState sam : register(s0);
 
 struct VertexOutput
@@ -9,5 +11,5 @@ struct VertexOutput
 
 float4 main(VertexOutput input) : SV_TARGET
 {
-	return image.Sample(sam, input.uv);
+	return tex.Sample(sam, input.uv);
 }

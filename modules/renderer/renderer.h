@@ -9,6 +9,7 @@
 #include "renderScene.h"
 #include "culling.h"
 #include "math\math.hpp"
+#include "math\color.h"
 
 namespace VulkanTest
 {
@@ -33,9 +34,8 @@ namespace VulkanTest
 		void BindCommonResources(GPU::CommandList& cmd);
 
 		Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera);
-
 		GPU::DeviceVulkan* GetDevice();
-
+		GPU::Shader* PreloadShader(GPU::ShaderStage stage, const char* path, const GPU::ShaderVariantMap& defines = {});
 		const GPU::BlendState& GetBlendState(BlendStateTypes type);
 		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);
 		const GPU::DepthStencilState& GetDepthStencilState(DepthStencilStateType type);
@@ -57,8 +57,9 @@ namespace VulkanTest
 
 		void DrawScene(GPU::CommandList& cmd, const Visibility& vis, RENDERPASS pass);
 
-		// RenderGraph setup
+		// TODO
 		void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment);
+		void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const Color4& color);
 
 		// Plugin interface
 		RendererPlugin* CreatePlugin(Engine& engine);

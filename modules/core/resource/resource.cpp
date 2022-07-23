@@ -166,6 +166,17 @@ namespace VulkanTest
 		}
 	}
 
+	void Resource::OnCreated(State state)
+	{
+		ASSERT(emptyDepCount == 1);
+		ASSERT(failedDepCount == 0);
+
+		currentState = state;
+		desiredState = State::READY;
+		failedDepCount = state == State::FAILURE ? 1 : 0;
+		emptyDepCount = 0;
+	}
+
 #if DEBUG
 	bool Resource::NeedExport()const
 	{

@@ -1,14 +1,17 @@
 #include "renderer.h"
 #include "shaderInterop.h"
+#include "shaderInterop_renderer.h"
 #include "shaderInterop_postprocess.h"
-#include "renderer\renderScene.h"
-#include "renderer\renderPath3D.h"
 #include "gpu\vulkan\wsi.h"
 #include "core\utils\profiler.h"
 #include "core\resource\resourceManager.h"
+#include "renderScene.h"
+#include "renderPath3D.h"
 #include "model.h"
 #include "material.h"
 #include "texture.h"
+#include "textureHelper.h"
+#include "imageUtil.h"
 
 namespace VulkanTest
 {
@@ -177,9 +180,17 @@ namespace Renderer
 		bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
 		bd.renderTarget[0].renderTargetWriteMask = GPU::COLOR_WRITE_ENABLE_ALL;
-		bd.alphaToCoverageEnable = false;
-		bd.independentBlendEnable = false;
 		stockBlendStates[BSTYPE_TRANSPARENT] = bd;
+
+		bd.renderTarget[0].blendEnable = true;
+		bd.renderTarget[0].srcBlend = VK_BLEND_FACTOR_ONE;
+		bd.renderTarget[0].destBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+		bd.renderTarget[0].blendOp = VK_BLEND_OP_ADD;
+		bd.renderTarget[0].srcBlendAlpha = VK_BLEND_FACTOR_ONE;
+		bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_SRC_ALPHA;
+		bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
+		bd.renderTarget[0].renderTargetWriteMask = GPU::COLOR_WRITE_ENABLE_ALL;
+		stockBlendStates[BSTYPE_PREMULTIPLIED] = bd;
 
 		// Rasterizer states
 		GPU::RasterizerState rs;
@@ -233,9 +244,13 @@ namespace Renderer
 		dsd.depthWriteMask = GPU::DEPTH_WRITE_MASK_ZERO;
 		dsd.depthFunc = VK_COMPARE_OP_EQUAL;
 		depthStencilStates[DSTYPE_READEQUAL] = dsd;
+
+		dsd.depthEnable = false;
+		dsd.stencilEnable = false;
+		depthStencilStates[DSTYPE_DISABLED] = dsd;
 	}
 
-	GPU::Shader* PreloadShader(GPU::ShaderStage stage, const char* path, const GPU::ShaderVariantMap& defines = {})
+	GPU::Shader* PreloadShader(GPU::ShaderStage stage, const char* path, const GPU::ShaderVariantMap& defines)
 	{
 		GPU::DeviceVulkan& device = *GetDevice();
 		return device.GetShaderManager().LoadShader(stage, path, defines);
@@ -243,17 +258,19 @@ namespace Renderer
 
 	void LoadShaders()
 	{
-		// TODO: Replace Shaders with ShaderSuites
+		// TODO: Replace Shaders with Shader resource
 
 		shaders[SHADERTYPE_VS_OBJECT] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", {"OBJECTSHADER_LAYOUT_COMMON"});
 		shaders[SHADERTYPE_VS_PREPASS] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", {"OBJECTSHADER_LAYOUT_PREPASS"});
 		shaders[SHADERTYPE_VS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::VS, "vertexColorVS.hlsl");
+		shaders[SHADERTYPE_VS_POSTPROCESS] = PreloadShader(GPU::ShaderStage::VS, "postprocessVS.hlsl");
 
 		shaders[SHADERTYPE_CS_POSTPROCESS_BLUR_GAUSSIAN] = PreloadShader(GPU::ShaderStage::CS, "blurGaussianCS.hlsl");
 
 		shaders[SHADERTYPE_PS_OBJECT] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { "OBJECTSHADER_LAYOUT_COMMON" });
 		shaders[SHADERTYPE_PS_PREPASS] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { "OBJECTSHADER_LAYOUT_PREPASS" });
 		shaders[SHADERTYPE_PS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::PS, "vertexColorPS.hlsl");
+		shaders[SHADERTYPE_PS_POSTPROCESS_OUTLINE] = PreloadShader(GPU::ShaderStage::PS, "outlinePS.hlsl");
 	}
 
 	ShaderType GetVSType(RENDERPASS renderPass)
@@ -314,6 +331,9 @@ namespace Renderer
 					case BLENDMODE_ALPHA:
 						pipeline.blendState = GetBlendState(BlendStateTypes::BSTYPE_TRANSPARENT);
 						break;
+					case BLENDMODE_PREMULTIPLIED:
+						pipeline.blendState = GetBlendState(BlendStateTypes::BSTYPE_PREMULTIPLIED);
+						break;
 					default:
 						ASSERT(false);
 						break;
@@ -357,10 +377,12 @@ namespace Renderer
 	{
 		Logger::Info("Render initialized");
 
+		// Load built-in states
 		InitStockStates();
 		LoadShaders();
 		LoadPipelineStates();
 
+		// Create built-in constant buffers
 		auto device = GetDevice();
 		GPU::BufferCreateInfo info = {};
 		info.domain = GPU::BufferDomain::Device;
@@ -374,10 +396,18 @@ namespace Renderer
 		textureFactory.Initialize(Texture::ResType, resManager);
 		modelFactory.Initialize(Model::ResType, resManager);
 		materialFactory.Initialize(Material::ResType, resManager);
+
+		// Initialize image util
+		ImageUtil::Initialize();
+
+		// Initialize texture helper
+		TextureHelper::Initialize(&resManager);
 	}
 
 	void Renderer::Uninitialize()
 	{
+		TextureHelper::Uninitialize();
+
 		frameBuffer.reset();
 
 		// Uninitialize resource factories
@@ -498,10 +528,14 @@ namespace Renderer
 			ECS::EntityID meshID = ECS::INVALID_ENTITY;
 			uint32_t instanceCount = 0;
 			uint32_t dataOffset = 0;
+			U8 stencilRef = 0;
 		} instancedBatch = {};
 
 		auto FlushBatch = [&]()
 		{
+			if (instancedBatch.instanceCount <= 0)
+				return;
+
 			MeshComponent* meshCmp = scene->GetComponent<MeshComponent>(instancedBatch.meshID);
 			if (meshCmp == nullptr ||
 				meshCmp->mesh == nullptr)
@@ -522,12 +556,13 @@ namespace Renderer
 
 				BlendMode blendMode = material->material->GetBlendMode();
 				ObjectDoubleSided doubleSided = material->material->IsDoubleSided() ? OBJECT_DOUBLESIDED_ENABLED : OBJECT_DOUBLESIDED_FRONTSIDE;
-
-				// TEST
-				doubleSided = OBJECT_DOUBLESIDED_ENABLED;
-
 				cmd.SetPipelineState(GetObjectPipelineState(renderPass, blendMode, doubleSided));
 
+				// StencilRef
+				U8 stencilRef = instancedBatch.stencilRef;
+				cmd.SetStencilRef(stencilRef, GPU::STENCIL_FACE_FRONT_AND_BACK);
+
+				// PushConstants
 				ObjectPushConstants push;
 				push.geometryIndex = meshCmp->geometryOffset + subsetIndex;
 				push.materialIndex = material != nullptr ? material->materialIndex : 0;
@@ -547,13 +582,15 @@ namespace Renderer
 			const ECS::EntityID meshID = batch.GetMeshEntity();
 
 			ObjectComponent* obj = scene->GetComponent<ObjectComponent>(objID);
-			if (meshID != instancedBatch.meshID)
+			if (meshID != instancedBatch.meshID ||
+				obj->stencilRef != instancedBatch.stencilRef)
 			{
 				FlushBatch();
 
 				instancedBatch = {};
 				instancedBatch.meshID = meshID;
 				instancedBatch.dataOffset = allocation.offset + instanceCount * sizeof(ShaderMeshInstancePointer);
+				instancedBatch.stencilRef = obj->stencilRef;
 			}
 
 			ShaderMeshInstancePointer data;
@@ -669,6 +706,34 @@ namespace Renderer
 			temp.GetImage()->SetLayoutType(GPU::ImageLayoutType::General);
 		});
 		out = "rtBlur";
+	}
+
+	void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const Color4& color)
+	{
+		cmd.SetRasterizerState(GetRasterizerState(RSTYPE_DOUBLE_SIDED));
+		cmd.SetBlendState(GetBlendState(BSTYPE_TRANSPARENT));
+		cmd.SetDepthStencilState(GetDepthStencilState(DSTYPE_DISABLED));
+		cmd.SetTexture(0, 0, texture);
+		cmd.SetProgram(
+			GetShader(SHADERTYPE_VS_POSTPROCESS),
+			GetShader(SHADERTYPE_PS_POSTPROCESS_OUTLINE)
+		);
+
+		PostprocessPushConstants push;
+		push.resolution = {
+			texture.GetImage()->GetCreateInfo().width,
+			texture.GetImage()->GetCreateInfo().height
+		};
+		push.resolution_rcp = {
+			1.0f / push.resolution.x,
+			1.0f / push.resolution.y,
+		};
+		push.params0.x = threshold;
+		push.params0.y = thickness;
+		push.params1 = color.ToFloat4();
+		cmd.PushConstants(&push, 0, sizeof(push));
+
+		cmd.Draw(3);
 	}
 
 	RendererPlugin* CreatePlugin(Engine& engine)

@@ -2,7 +2,7 @@
 
 #include "core\common.h"
 #include "core\memory\memory.h"
-#include "core\utils\intrusiveHashMap.hpp"
+#include "core\collections\intrusiveHashMap.hpp"
 #include "math\compileTimeHash.h"
 
 namespace VulkanTest
