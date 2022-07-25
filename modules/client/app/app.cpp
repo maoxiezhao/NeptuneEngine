@@ -41,7 +41,6 @@ App::~App()
 void App::Run(std::unique_ptr<WSIPlatform> platform_)
 {
     platform = std::move(platform_);
-    wsi.SetPlatform(platform.get());
 
     Profiler::SetThreadName("MainThread");
     Semaphore semaphore(0, 1);
@@ -78,11 +77,7 @@ void App::Initialize()
     bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
     ASSERT(ret);
 
-    // Init wsi
-    ret = wsi.Initialize(Platform::GetCPUsCount() + 1);
-    ASSERT(ret);
-
-    //// Create game engine
+    // Create game engine
     Engine::InitConfig config = {};
     config.windowTitle = GetWindowTitle();
     engine = CreateEngine(config, *this);
@@ -104,19 +99,17 @@ void App::Uninitialize()
     engine->DestroyWorld(*world);
     engine.Reset();
     world = nullptr;
-
-    wsi.Uninitialize();
     platform.reset();
 }
 
 void App::Render()
 {
     PROFILE_BLOCK("Renderer");
-    wsi.BeginFrame();
+    GetWSI().BeginFrame();
     if (GetActivePath()) {
         GetActivePath()->Render();
     }
-    wsi.EndFrame();
+    GetWSI().EndFrame();
 }
 
 void App::ComputeSmoothTimeDelta()
@@ -137,7 +130,7 @@ void App::ComputeSmoothTimeDelta()
 void App::ActivePath(RenderPath* renderPath_)
 {
     renderPath = renderPath_;
-    renderPath->SetWSI(&wsi);
+    renderPath->SetWSI(&GetWSI());
 }
 
 void App::Update(F32 deltaTime)
@@ -195,7 +188,7 @@ void App::OnEvent(const Platform::WindowEvent& ent)
 void App::OnIdle()
 {
     Profiler::BeginFrame();
-    wsi.BeginFrame();
+    GetWSI().BeginFrame();
 
     // Calculate delta time
     deltaTime = timer.Tick();
@@ -233,7 +226,7 @@ void App::OnIdle()
     // Render frame
     Render();
 
-    wsi.EndFrame();
+    GetWSI().EndFrame();
     Profiler::EndFrame();
 }
 }

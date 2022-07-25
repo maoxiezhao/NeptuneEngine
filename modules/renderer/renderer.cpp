@@ -16,6 +16,14 @@
 namespace VulkanTest
 {
 
+struct ShaderToCompile 
+{
+	Shader* shader;
+	GPU::ShaderVariantMap defines;
+	GPU::ShaderTemplateProgram* shaderTemplate;
+	U64 hash = 0;
+};
+
 struct RendererPluginImpl : public RendererPlugin
 {
 public:
@@ -41,6 +49,11 @@ public:
 		return scene;
 	}
 
+	Engine& GetEngine() override
+	{
+		return engine;
+	}
+
 	const char* GetName() const override
 	{
 		return "Renderer";
@@ -52,10 +65,50 @@ public:
 		world.AddScene(newScene.Move());
 	}
 
+	GPU::ShaderProgram* QueueShaderCompile(Shader* shader, const GPU::ShaderVariantMap& defines, GPU::ShaderTemplateProgram* shaderTemplate) override
+	{
+		ASSERT(shader->IsReady());
+		ScopedMutex lock(shaderMutex);
+
+		HashCombiner hasher;
+		for (auto& define : defines)
+			hasher.HashCombine(define.c_str());
+
+		for (auto& i : toCompileShaders)
+		{
+			if (i.shader == shader && i.hash == hasher.Get() && i.shaderTemplate == shaderTemplate)
+				return nullptr;
+		}
+		ShaderToCompile item = {};
+		item.shader = shader;
+		item.hash = hasher.Get();
+		item.defines = defines;
+		item.shaderTemplate = shaderTemplate;
+		toCompileShaders.push_back(item);
+
+		// TODO: return default shaderProgram
+		return nullptr;
+	}
+
+	void Update(F32 delta) override
+	{
+		// TODO
+		// Compile shaders
+		for (auto& i : toCompileShaders)
+		{
+			auto variant = i.shaderTemplate->RegisterVariant(i.defines);
+			auto program = variant->GetProgram();
+			i.shader->programs.insert(i.hash, program);
+		}
+		toCompileShaders.clear();
+	}
+
 private:
 	Engine& engine;
 	RenderPath3D defaultPath;
 	RenderScene* scene = nullptr;
+	Mutex shaderMutex;
+	Array<ShaderToCompile> toCompileShaders;
 };
 
 namespace Renderer
@@ -708,7 +761,7 @@ namespace Renderer
 		out = "rtBlur";
 	}
 
-	void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const Color4& color)
+	void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const F32x4& color)
 	{
 		cmd.SetRasterizerState(GetRasterizerState(RSTYPE_DOUBLE_SIDED));
 		cmd.SetBlendState(GetBlendState(BSTYPE_TRANSPARENT));
@@ -730,7 +783,7 @@ namespace Renderer
 		};
 		push.params0.x = threshold;
 		push.params0.y = thickness;
-		push.params1 = color.ToFloat4();
+		push.params1 = color;
 		cmd.PushConstants(&push, 0, sizeof(push));
 
 		cmd.Draw(3);

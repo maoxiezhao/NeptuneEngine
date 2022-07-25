@@ -17,9 +17,6 @@ namespace VulkanTest
 		if (path.empty())
 			return base.data();
 
-		if (IsAbsolutePath(path.data()))
-			return path.data();
-
 		StaticString<MAX_PATH_LENGTH> ret(base.data());
 		int index = FindStringChar(base.data(), *Path::PATH_SLASH, 0);
 		if (index != base.length() - 1)
@@ -120,9 +117,28 @@ namespace VulkanTest
 		return EqualIStrings(tmp, ext);
 	}
 
-	bool Path::IsAbsolutePath(const char* path)
+	bool Path::ReplaceExtension(char* path, const char* ext)
 	{
-		return false;
+		char* end = path + StringLength(path);
+		while (end > path && *end != '.')
+			--end;
+		if (*end != '.') 
+			return false;
+
+		++end;
+		const char* src = ext;
+		while (*src != '\0' && *end != '\0')
+		{
+			*end = *src;
+			++end;
+			++src;
+		}
+		bool copied_whole_ext = *src == '\0';
+		if (!copied_whole_ext) 
+			return false;
+
+		*end = '\0';
+		return true;
 	}
 
 	PathInfo::PathInfo(const char* path)

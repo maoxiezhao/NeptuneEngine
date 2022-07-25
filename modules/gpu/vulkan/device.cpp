@@ -5,7 +5,6 @@
 #include "core\platform\platform.h"
 #include "core\platform\atomic.h"
 #include "core\filesystem\filesystem.h"
-#include "core\utils\helper.h"
 #include "core\utils\stream.h"
 
 namespace VulkanTest
@@ -291,6 +290,7 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     instance = context.instance;
     queueInfo = context.queueInfo;
     features = context.ext;
+    systemHandles = context.GetSystemHandles();
 
 #ifdef VULKAN_MT
     numThreads = context.numThreads;
@@ -358,9 +358,7 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     semaphoreManager.Initialize(*this);
     eventManager.Initialize(*this);
 
-#ifdef VULKAN_TEST_FILESYSTEM
     InitShaderManagerCache();
-#endif
 }
 
 SwapchainError DeviceVulkan::CreateSwapchain(const SwapChainDesc& desc, VkSurfaceKHR surface, SwapChain* swapchain)
@@ -682,13 +680,15 @@ RenderPassInfo DeviceVulkan::GetSwapchianRenderPassInfo(const SwapChain* swapcha
     return info;
 }
 
-#ifdef VULKAN_TEST_FILESYSTEM
+const char* GetShaderManagerCachePath()
+{
+    return ".export/shader_cache.bin";
+}
 
 void DeviceVulkan::InitShaderManagerCache()
 {
+    shaderManager.LoadShaderCache(GetShaderManagerCachePath());
 }
-
-#endif
 
 RenderPass& DeviceVulkan::RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isCompatible)
 {
@@ -2746,29 +2746,32 @@ BindlessDescriptorHeap* DeviceVulkan::GetBindlessDescriptorHeap(BindlessReosurce
     return nullptr;
 }
 
-std::string GetPipelineCachePath()
+const char* GetPipelineCachePath()
 {
     static const std::string PIPELINE_CACHE_PATH = ".export/pipeline_cache.bin";
-    return PIPELINE_CACHE_PATH;
+    return PIPELINE_CACHE_PATH.c_str();
 }
 
 void DeviceVulkan::InitPipelineCache()
 {
-    // TODO: use filesystem to replace Helper::ReadFile
-    std::vector<uint8_t> pipelineData;
-    if (Helper::FileRead(GetPipelineCachePath(), pipelineData))
+    auto fs = systemHandles.fileSystem;
+    const char* cachePath = GetPipelineCachePath();
+    if (!fs->FileExists(cachePath))
     {
-        if (!pipelineData.empty())
-        {
-            if (!InitPipelineCache(pipelineData.data(), pipelineData.size()))
-                Logger::Warning("Failed to init pipeline cache.");
-            return;
-        }
+        if (!InitPipelineCache(nullptr, 0))
+            Logger::Warning("Failed to init pipeline cache.");
+        return;
     }
 
-    if (!InitPipelineCache(nullptr, 0))
+    OutputMemoryStream mem;
+    if (!fs->LoadContext(cachePath, mem))
+    {
         Logger::Warning("Failed to init pipeline cache.");
-  
+        return;
+    }
+
+    if (!InitPipelineCache(mem.Data(), mem.Size()))
+        Logger::Warning("Failed to init pipeline cache.");
 }
 
 bool DeviceVulkan::InitPipelineCache(const U8* data, size_t size)
@@ -2832,7 +2835,8 @@ bool DeviceVulkan::InitPipelineCache(const U8* data, size_t size)
 
 void DeviceVulkan::FlushPipelineCache()
 {
-    // TODO: use filesystem to replace Helper::FileWrite
+    auto fs = systemHandles.fileSystem;
+
     // Get size of pipeline cache
     size_t size{};
     VkResult res = vkGetPipelineCacheData(device, pipelineCache, &size, nullptr);
@@ -2844,8 +2848,15 @@ void DeviceVulkan::FlushPipelineCache()
     assert(res == VK_SUCCESS);
 
     // Write pipeline cache data to a file in binary format
-    std::string cachePath = GetPipelineCachePath();
-    Helper::FileWrite(cachePath, data.data(), size);
+    const char* cachePath = GetPipelineCachePath();
+    auto file = fs->OpenFile(cachePath, FileFlags::DEFAULT_WRITE);
+    if (!file->IsValid())
+    {
+        Logger::Error("Failed to save pipeline cache.");
+        return;
+    }
+    file->Write(data.data(), size);
+    file->Close();
 }
 
 void DeviceVulkan::SyncPendingBufferBlocks()

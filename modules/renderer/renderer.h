@@ -8,6 +8,7 @@
 #include "core\collections\array.h"
 #include "renderScene.h"
 #include "culling.h"
+#include "shader.h"
 #include "math\math.hpp"
 #include "math\color.h"
 
@@ -20,6 +21,9 @@ namespace VulkanTest
 	{
 		virtual GPU::DeviceVulkan* GetDevice() = 0;
 		virtual RenderScene* GetScene() = 0;
+		virtual Engine& GetEngine() = 0;
+		virtual GPU::ShaderProgram* QueueShaderCompile(Shader* shader, const GPU::ShaderVariantMap& defines, GPU::ShaderTemplateProgram* shaderTemplate) = 0;
+
 	};
 
 	namespace Renderer
@@ -59,7 +63,7 @@ namespace VulkanTest
 
 		// TODO
 		void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment);
-		void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const Color4& color);
+		void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const F32x4& color);
 
 		// Plugin interface
 		RendererPlugin* CreatePlugin(Engine& engine);

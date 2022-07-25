@@ -3,6 +3,7 @@
 #include "definition.h"
 #include "shader.h"
 #include "core\platform\sync.h"
+#include "core\utils\path.h"
 #include "rwSpinLock.h"
 
 namespace VulkanTest
@@ -11,6 +12,13 @@ namespace GPU
 {
 
 class DeviceVulkan;
+
+struct ShaderMemoryData
+{
+	Path path;
+	ShaderStage stage;
+	Array<char> code;
+};
 
 using ShaderVariantMap = std::vector<std::string>;
 struct ShaderTemplateVariant : public Util::IntrusiveHashMapEnabled<ShaderTemplateVariant>
@@ -26,6 +34,7 @@ class ShaderTemplate : public Util::IntrusiveHashMapEnabled<ShaderTemplate>
 {
 public:
 	ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, const std::string& path_, HashValue pathHash_);
+	ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, HashValue pathHash_, char* data_, U32 size_);
 	~ShaderTemplate();
 
 	bool Initialize();
@@ -49,6 +58,8 @@ private:
 	HashValue pathHash;
 	VulkanCache<ShaderTemplateVariant> variants;
 	ShaderStage stage;
+	char* sourceData;
+	U32 sourceSize;
 
 #ifdef VULKAN_MT
 	Mutex lock;
@@ -126,16 +137,18 @@ public:
 	 */
 	ShaderTemplateProgram* RegisterShader(ShaderStage stage, const std::string& filePath);
 
-	/**
-	 * 注册一个Program
-	 */
-	ShaderTemplateProgram* RegisterGraphics(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines);
+
+	ShaderTemplateProgram* RegisterGraphics(const std::string& vertex, const std::string& fragment);
+	ShaderTemplateProgram* RegisterGraphics(const std::string shaders[static_cast<U32>(ShaderStage::Count)]);
+	ShaderTemplateProgram* RegisterCompute(const std::string& comptue);
+	ShaderTemplateProgram* RegsiterProgram(const Array<ShaderMemoryData*>& shaderDatas);
 
 	bool LoadShaderCache(const char* path);
 	void MoveToReadOnly();
 
 private:
 	ShaderTemplate* GetTemplate(ShaderStage stage, const std::string filePath);
+	ShaderTemplate* GetTemplate(ShaderMemoryData& data);
 
 private:
 	VulkanCache<ShaderTemplate> shaders;

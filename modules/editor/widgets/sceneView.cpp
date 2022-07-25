@@ -127,8 +127,8 @@ namespace Editor
 				auto& texOutline = renderGraph.GetPhysicalTexture(renderGraph.GetOrCreateTexture("rtOutline"));
 				cmd.BeginEvent("Selection outline");
 				float opacity = Lerp(0.4f, 1.0f, std::sin(outlineTimer * MATH_2PI * 0.6f) * 0.5f + 0.5f);
-				Color4 color = selectionOutlineColor;
-				color.SetA(color.GetA() * opacity);
+				F32x4 color = selectionOutlineColor.ToFloat4();
+				color.w *= opacity;
 				Renderer::PostprocessOutline(cmd, texOutline, 0.1f, 1.0f, color);
 				cmd.EndEvent();
 			}

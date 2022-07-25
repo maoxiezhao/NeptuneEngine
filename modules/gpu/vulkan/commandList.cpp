@@ -455,7 +455,7 @@ void CommandList::SetShaderProgram(ShaderProgram* program)
 
 void CommandList::SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines)
 {
-   auto* tempProgram = device.GetShaderManager().RegisterGraphics(vertex, fragment, defines);
+   auto* tempProgram = device.GetShaderManager().RegisterGraphics(vertex, fragment);
    if (tempProgram == nullptr)
    {
        SetProgramShaders(nullptr);

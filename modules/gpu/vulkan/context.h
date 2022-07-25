@@ -71,12 +71,12 @@ public:
         return queueInfo;
     }
 
-    void SetSystemHandles(const SystemHandles& handles_)
+    void SetSystemHandles(SystemHandles& handles_)
     {
         handles = handles_;
     }
 
-    const SystemHandles& GetSystemHandles()const
+    SystemHandles& GetSystemHandles()
     {
         return handles;
     }

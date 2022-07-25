@@ -18,6 +18,8 @@ namespace ShaderCompiler
 		std::string entrypoint = "main";
 		std::vector<std::string> includeDirectories;
 		std::vector<std::string> defines;
+		char* shadersourceData = nullptr;
+		U32 shadersourceSize = 0;
 	};
 	struct CompilerOutput
 	{

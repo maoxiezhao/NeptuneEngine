@@ -19,7 +19,7 @@ namespace VulkanTest
 		UniquePtr<FileSystem> fileSystem;
 		ResourceManager resourceManager;
 		WSIPlatform* platform;
-		WSI* wsi;
+		WSI wsi;
 		bool isGameRunning = false;
 		bool isPaused = false;
 
@@ -33,7 +33,6 @@ namespace VulkanTest
 			Logger::Info("Create game engine...");
 
 			platform = &app.GetPlatform();
-			wsi = &app.GetWSI();
 			SetupUnhandledExceptionHandler();
 
 			// Init lua system
@@ -50,6 +49,14 @@ namespace VulkanTest
 				Platform::GetCurrentDir(currentDir);
 				fileSystem = FileSystem::Create(currentDir);
 			}
+
+			// Init wsi
+			wsi.SetPlatform(&app.GetPlatform());
+
+			GPU::SystemHandles systemHandles;
+			systemHandles.fileSystem = &GetFileSystem();
+			bool ret = wsi.Initialize(systemHandles, Platform::GetCPUsCount() + 1);
+			ASSERT(ret);
 
 			// Init resource manager
 			resourceManager.Initialize(*fileSystem);
@@ -88,10 +95,11 @@ namespace VulkanTest
 			pluginManager.Reset();
 			inputSystem.Reset();
 			resourceManager.Uninitialzie();
-			fileSystem.Reset();
 
 			lua_close(luaState);
 
+			wsi.Uninitialize();
+			fileSystem.Reset();
 			platform = nullptr;
 			Logger::Info("Game engine released.");
 		}
@@ -184,7 +192,7 @@ namespace VulkanTest
 
 		WSI& GetWSI() override
 		{
-			return *wsi;
+			return wsi;
 		}
 
 		lua_State* GetLuaState() override

@@ -5,11 +5,19 @@ namespace VulkanTest
     LuaConfig::LuaConfig()
     {
         luaState = luaL_newstate();
+        stateOwned = true;
+    }
+
+    LuaConfig::LuaConfig(lua_State* l)
+    {
+        luaState = l;
+        stateOwned = false;
     }
 
     LuaConfig::~LuaConfig()
     {
-        lua_close(luaState);
+        if (stateOwned)
+            lua_close(luaState);
     }
 
     void LuaConfig::AddFunc(const char* name, lua_CFunction func)

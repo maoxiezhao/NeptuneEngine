@@ -22,12 +22,12 @@ public:
 
 	void Run(std::unique_ptr<WSIPlatform> platform_);
 
-	WSI& GetWSI() {
-		return wsi;
-	}
-
 	WSIPlatform& GetPlatform() {
 		return *platform;
+	}
+
+	WSI& GetWSI() {
+		return engine->GetWSI();
 	}
 
 	Engine& GetEngine() {
@@ -83,7 +83,6 @@ protected:
 protected:
 	std::unique_ptr<WSIPlatform> platform;
 	UniquePtr<Engine> engine;
-	WSI wsi;
 	Timer timer;
 	F32 deltaTime = 0.0f;
 	F32 targetFrameRate = 60;

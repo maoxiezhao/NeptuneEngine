@@ -58,7 +58,7 @@ public:
 	WSI();
 	~WSI();
 
-	bool Initialize(U32 numThread);
+	bool Initialize(GPU::SystemHandles& handles, U32 numThread);
 	bool InitializeExternal(VkSurfaceKHR surface_, GPU::DeviceVulkan& device_, GPU::VulkanContext& context_, I32 width, I32 height);
 	void Uninitialize();
 	void BeginFrame();

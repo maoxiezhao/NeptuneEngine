@@ -3,8 +3,10 @@
 #include "device.h"
 #include "core\platform\atomic.h"
 #include "core\utils\archive.h"
-#include "core\utils\helper.h"
 #include "core\utils\path.h"
+#include "core\utils\helper.h"
+#include "core\utils\string.h"
+#include "core\filesystem\filesystem.h"
 
 #include <unordered_set>
 #include <filesystem>
@@ -19,8 +21,7 @@ using namespace ShaderCompiler;
 #define RUNTIME_SHADERCOMPILER_ENABLED
 
 // Shader flow:
-// ShaderManager -> ShaderTemplateProgram -> ShaderTemplateProgramVariant 
-// -> ShaderTemplate -> Variant -> Shader
+// ShaderManager -> ShaderTemplateProgram -> ShaderTemplateProgramVariant  -> ShaderTemplate -> Variant -> Shader
 
 namespace {
 
@@ -31,11 +32,11 @@ namespace {
 	std::unordered_set<std::string> registeredShaders;
 	std::unordered_map<HashValue, HashValue> shaderCache;
 
-	HashValue GetPathHash(ShaderStage stage, const std::string& path)
+	HashValue GetPathHash(ShaderStage stage, const char* path)
 	{
 		HashCombiner hasher;
 		hasher.HashCombine(static_cast<U32>(stage));
-		hasher.HashCombine(path.c_str());
+		hasher.HashCombine(path);
 		return hasher.Get();
 	}
 
@@ -47,21 +48,19 @@ namespace {
 #endif
 	}
 
-	bool IsShaderOutdated(const std::string& shaderfilename)
+	bool IsShaderOutdated(FileSystem& fs, const char* shaderfilename)
 	{
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
-		std::string filepath = shaderfilename;
-		Helper::MakePathAbsolute(filepath);
-		if (!Helper::FileExists(filepath))
-			return true; // no shader file = outdated shader, apps can attempt to rebuild it
+		if (!fs.FileExists(shaderfilename))
+			return true;
 
-		std::string dependencylibrarypath = Helper::ReplaceExtension(shaderfilename, "shadermeta");
-		if (!Helper::FileExists(dependencylibrarypath))
-			return false; // no metadata file = no dependency, up to date (for example packaged builds)
+		std::string metaPath = shaderfilename;
+		metaPath = Helper::ReplaceExtension(metaPath, "shadermeta");
+		if (!fs.FileExists(metaPath.c_str()))
+			return false;
 
-		const auto tim = std::filesystem::last_write_time(filepath);
-
-		Archive dependencyLibrary(dependencylibrarypath);
+		const U64 lastModeTime = fs.GetLastModTime(shaderfilename);
+		Archive dependencyLibrary(metaPath);
 		if (dependencyLibrary.IsOpen())
 		{
 			std::string rootdir = dependencyLibrary.GetSourceDirectory();
@@ -71,47 +70,55 @@ namespace {
 			for (auto& x : dependencies)
 			{
 				std::string dependencypath = rootdir + x;
-				Helper::MakePathAbsolute(dependencypath);
-				if (Helper::FileExists(dependencypath))
+				if (fs.FileExists(dependencypath.c_str()))
 				{
-					const auto dep_tim = std::filesystem::last_write_time(dependencypath);
-
-					if (tim < dep_tim)
-					{
+					const U64 depModTime = fs.GetLastModTime(dependencypath.c_str());
+					if (lastModeTime < depModTime)
 						return true;
-					}
 				}
 			}
 		}
-#endif // RUNTIME_SHADERCOMPILER_ENABLED
-
+#endif
 		return false;
 	}
 
-	bool SaveShaderAndMetadata(const std::string& shaderfilename, const CompilerOutput& output)
+	bool SaveShaderAndMetadata(FileSystem& fs, const char* shaderfilename, const CompilerOutput& output)
 	{
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
-		Helper::DirectoryCreate(Helper::GetDirectoryFromPath(shaderfilename));
+		if (!Platform::DirExists(EXPORT_SHADER_PATH.c_str()))
+		{
+			if (!Platform::MakeDir(EXPORT_SHADER_PATH.c_str()))
+			{
+				Logger::Error("Failed to create the directory of export shader:%s", shaderfilename);
+				return false;
+			}
+		}
 
-		Archive dependencyLibrary(Helper::ReplaceExtension(shaderfilename, "shadermeta"), false);
+		std::string metaPath = shaderfilename;
+		metaPath = Helper::ReplaceExtension(metaPath, "shadermeta");
+		Archive dependencyLibrary(metaPath, false);
 		if (dependencyLibrary.IsOpen())
 		{
 			std::string rootdir = dependencyLibrary.GetSourceDirectory();
 			std::vector<std::string> dependencies = output.dependencies;
 			for (auto& x : dependencies)
-			{
 				Helper::MakePathRelative(rootdir, x);
-			}
+
 			dependencyLibrary << dependencies;
 		}
 
-		if (Helper::FileWrite(shaderfilename, output.shaderdata, output.shadersize))
+		auto file = fs.OpenFile(shaderfilename, FileFlags::DEFAULT_WRITE);
+		if (!file->IsValid())
 		{
-			return true;
+			Logger::Error("Failed to save shader metadata.");
+			return false;
 		}
+		file->Write(output.shaderdata, output.shadersize);
+		file->Close();
+
 #endif // RUNTIME_SHADERCOMPILER_ENABLED
 
-		return false;
+		return true;
 	}
 }
 
@@ -119,7 +126,18 @@ ShaderTemplate::ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, const 
 	device(device_),
 	stage(stage_),
 	path(path_),
-	pathHash(pathHash_)
+	pathHash(pathHash_),
+	sourceData(nullptr),
+	sourceSize(0)
+{
+}
+
+ShaderTemplate::ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, HashValue pathHash_, char* data_, U32 size_) :
+	device(device_),
+	stage(stage_),
+	pathHash(pathHash_),
+	sourceData(data_),
+	sourceSize(size_)
 {
 }
 
@@ -189,13 +207,15 @@ void ShaderTemplate::RecompileVariant(ShaderTemplateVariant& variant)
 
 bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderVariantMap& defines)
 {
+	auto& fs = *device.GetSystemHandles().fileSystem;
+
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	{		
 		ScopedMutex holder(lock);
-		std::string exportShaderPath = EXPORT_SHADER_PATH + path + "." + std::to_string(variant->hash);
+		std::string exportShaderPath = EXPORT_SHADER_PATH + std::to_string(variant->hash) + ".shader";
 		RegisterShader(exportShaderPath);
 
-		if (IsShaderOutdated(exportShaderPath))
+		if (IsShaderOutdated(fs, exportShaderPath.c_str()))
 		{
 			String msg = String("Compiling shader:") + path.c_str();
 			if (!defines.empty())
@@ -215,13 +235,22 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 			input.stage = stage;
 			input.includeDirectories.push_back(sourcedir);
 			input.defines = defines;
-			input.shadersourcefilename = Helper::ReplaceExtension(sourcedir + path, "hlsl");
 
+			if (!path.empty() && sourceData == nullptr && sourceSize == 0)
+			{
+				input.shadersourcefilename = Helper::ReplaceExtension(sourcedir + path, "hlsl");
+			}
+			else
+			{
+				input.shadersourceData = sourceData;
+				input.shadersourceSize = sourceSize;
+			}
+	
 			CompilerOutput output;
 			if (Compile(input, output))
 			{
 				Logger::Info("Compile shader successfully:%s", path.c_str());
-				SaveShaderAndMetadata(exportShaderPath, output);
+				SaveShaderAndMetadata(fs, exportShaderPath.c_str(), output);
 				if (!output.errorMessage.empty())
 					Logger::Error(output.errorMessage.c_str());
 
@@ -240,11 +269,15 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 		}
 		else
 		{
-			if (!Helper::FileRead(exportShaderPath, variant->spirv))
+			OutputMemoryStream mem;
+			if (!fs.LoadContext(exportShaderPath.c_str(), mem))
 			{
 				Logger::Error("Failed to load export shader:%s", exportShaderPath.c_str());
 				return false;
 			}
+
+			variant->spirv.resize(mem.Size());
+			memcpy(variant->spirv.data(), mem.Data(), mem.Size());
 		}
 	}
 	return true;
@@ -529,7 +562,7 @@ ShaderTemplateProgram* ShaderManager::RegisterShader(ShaderStage stage, const st
 	return programs.emplace(hasher.Get(), device, stage, templ);
 }
 
-ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines)
+ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string& vertex, const std::string& fragment)
 {
 	ShaderTemplate* vertTempl = GetTemplate(ShaderStage::VS, vertex);
 	ShaderTemplate* fragTempl = GetTemplate(ShaderStage::PS, fragment);
@@ -549,9 +582,57 @@ ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string& vertex
 	return programs.emplace(hasher.Get(), device, templates);
 }
 
+ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string shaders[static_cast<U32>(ShaderStage::Count)])
+{
+	HashCombiner hasher;
+	std::vector<std::pair<ShaderStage, ShaderTemplate*>> templates;
+	for (int i = 0; i < (int)ShaderStage::Count; i++)
+	{
+		if (shaders[i].empty())
+			continue;
+
+		ShaderTemplate* templ = GetTemplate(ShaderStage(i), shaders[i]);
+		if (templ == nullptr)
+			return nullptr;
+
+		hasher.HashCombine(templ->GetPathHash());
+	}
+
+	if (hasher.Get() == HashCombiner().Get())
+		return nullptr;
+
+	auto it = programs.find(hasher.Get());
+	if (it != nullptr)
+		return it;
+
+	return programs.emplace(hasher.Get(), device, templates);
+}
+
+ShaderTemplateProgram* ShaderManager::RegisterCompute(const std::string& comptue)
+{
+	ShaderTemplate* computeTempl = GetTemplate(ShaderStage::CS, comptue);
+	if (computeTempl == nullptr)
+		return nullptr;
+
+	HashCombiner hasher;
+	hasher.HashCombine(computeTempl->GetPathHash());
+	auto it = programs.find(hasher.Get());
+	if (it != nullptr)
+		return it;
+
+	std::vector<std::pair<ShaderStage, ShaderTemplate*>> templates;
+	templates.push_back(std::make_pair(ShaderStage::CS, computeTempl));
+	return programs.emplace(hasher.Get(), device, templates);
+}
+
+ShaderTemplateProgram* ShaderManager::RegsiterProgram(const Array<ShaderMemoryData*>& shaderDatas)
+{
+	return nullptr;
+}
+
 ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string filePath)
 {
-	HashValue hash = GetPathHash(stage, filePath);
+	HashValue hash = GetPathHash(stage, filePath.c_str());
 	ShaderTemplate* temp = shaders.find(hash);
 	if (temp == nullptr)
 	{
@@ -563,6 +644,23 @@ ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string 
 		}
 		temp = shaders.insert(hash, shader);
 	}
+	return temp;
+}
+
+ShaderTemplate* ShaderManager::GetTemplate(ShaderMemoryData& data)
+{
+	HashValue hash = GetPathHash(data.stage, data.path.c_str());
+	ShaderTemplate* temp = shaders.find(hash);
+	if (temp != nullptr)
+		return temp;
+	
+	ShaderTemplate* shader = shaders.allocate(device, data.stage, hash, data.code.data(), data.code.size());
+	if (!shader->Initialize())
+	{
+		shaders.free(shader);
+		return nullptr;
+	}
+	temp = shaders.insert(hash, shader);
 	return temp;
 }
 

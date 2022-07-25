@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\memory\memory.h"
 #include "core\scripts\luaUtils.h"
+#include "core\filesystem\filesystem.h"
 
 namespace VulkanTest
 {

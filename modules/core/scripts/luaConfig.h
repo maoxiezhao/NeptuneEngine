@@ -8,6 +8,7 @@ namespace VulkanTest
 	{
 	public:
 		LuaConfig();
+		LuaConfig(lua_State* l);
 		~LuaConfig();
 
 		void AddFunc(const char* name, lua_CFunction func);
@@ -21,5 +22,6 @@ namespace VulkanTest
 
 	private:
 		lua_State* luaState;
+		bool stateOwned = false;
 	};
 }

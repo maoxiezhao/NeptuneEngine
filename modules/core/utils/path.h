@@ -28,7 +28,7 @@ namespace VulkanTest
 		static Span<const char> GetBaseName(const char* path);
 		static Span<const char> GetExtension(Span<const char> path);
 		static bool HasExtension(const char* path, const char* ext);
-		static bool IsAbsolutePath(const char* path);
+		static bool ReplaceExtension(char* path, const char* ext);
 
 	public:
 		Path();

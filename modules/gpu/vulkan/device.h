@@ -180,8 +180,8 @@ public:
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkInstance instance = VK_NULL_HANDLE;
     QueueInfo queueInfo;
-    
     DeviceFeatures features;
+    SystemHandles systemHandles;
 
     // Sync
     U32 numThreads = 1;
@@ -415,6 +415,7 @@ public:
     VkQueue GetPresentQueue()const;
     DeviceFeatures GetFeatures()const { return features; }
     U32 GetNumThreads()const { return numThreads; }
+    SystemHandles& GetSystemHandles() { return systemHandles; }
 
     RenderPassInfo GetSwapchianRenderPassInfo(const SwapChain* swapchain, SwapchainRenderPassType swapchainRenderPassType = SwapchainRenderPassType::DepthStencil);  
     CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
@@ -431,15 +432,11 @@ public:
     bool InitPipelineCache(const U8* data, size_t size);
     void FlushPipelineCache();
     VkPipelineCache pipelineCache = VK_NULL_HANDLE;
+    void InitShaderManagerCache();
 
     static bool InitRenderdocCapture();
 
     static constexpr U32 IMMUTABLE_SAMPLER_SLOT_BEGIN = 100;
-
-private:
-#ifdef VULKAN_TEST_FILESYSTEM
-    void InitShaderManagerCache();
-#endif
 
 private:
     friend class CommandList;

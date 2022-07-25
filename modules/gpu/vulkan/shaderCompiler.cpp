@@ -123,12 +123,30 @@ namespace ShaderCompiler
 		hr = impl.DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler));
 		assert(SUCCEEDED(hr));
 
-		std::vector<uint8_t> shadersourcedata;
-		if (!Helper::FileRead(input.shadersourcefilename, shadersourcedata))
-			return false;
+		// Compile shader!!
+		DxcBuffer Source;
+		Source.Encoding = DXC_CP_ACP;
+
+		if (!input.shadersourcefilename.empty())
+		{
+			std::vector<uint8_t> shadersourcedata;
+			if (!Helper::FileRead(input.shadersourcefilename, shadersourcedata))
+				return false;
+
+			Source.Ptr = shadersourcedata.data();
+			Source.Size = shadersourcedata.size();
+		}
+		else if (input.shadersourceData != nullptr && input.shadersourceSize > 0)
+		{
+			Source.Ptr = (U8*)input.shadersourceData;
+			Source.Size = input.shadersourceSize;
+		}
+		else
+		{
+			ASSERT(false);
+		}
 
 		// https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll#dxcompiler-dll-interface
-		
 		std::vector<LPCWSTR> args;
 		args.push_back(L"-D"); args.push_back(L"SPIRV");
 		args.push_back(L"-spirv");
@@ -206,12 +224,6 @@ namespace ShaderCompiler
 		std::wstring wsource;
 		Helper::StringConvert(Helper::GetFileNameFromPath(input.shadersourcefilename), wsource);
 		args.push_back(wsource.c_str());
-
-		// Compile shader!!
-		DxcBuffer Source;
-		Source.Ptr = shadersourcedata.data();
-		Source.Size = shadersourcedata.size();
-		Source.Encoding = DXC_CP_ACP;
 
 		IncludeHandler includeHandler;
 		includeHandler.input = &input;

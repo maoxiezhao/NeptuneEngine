@@ -18,6 +18,8 @@
 #include "imgui-docking\imgui.h"
 #include "renderer\imguiRenderer.h"
 #include "renderer\model.h"
+#include "renderer\imageUtil.h"
+#include "renderer\textureHelper.h"
 
 namespace VulkanTest
 {
@@ -79,10 +81,6 @@ namespace Editor
             bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
             ASSERT(ret);
 
-            // Init wsi
-            ret = wsi.Initialize(Platform::GetCPUsCount() + 1);
-            ASSERT(ret);
-
             // Add main window
             mainWindow = platform->GetWindow();
             windows.push_back(mainWindow);
@@ -92,6 +90,7 @@ namespace Editor
             config.windowTitle = GetWindowTitle();
             engine = CreateEngine(config, *this);
 
+            // Init widgets
             assetCompiler = AssetCompiler::Create(*this);
             worldEditor = WorldEditor::Create(*this);
             assetBrowser = AssetBrowser::Create(*this);
@@ -178,7 +177,6 @@ namespace Editor
             engine.Reset();
 
             // Uninit platform
-            wsi.Uninitialize();
             platform.reset();
         }
 
@@ -266,6 +264,7 @@ namespace Editor
                 {
                     settings.window.x = ent.winMove.x;
                     settings.window.y = ent.winMove.y;
+                    std::cout << ent.winMove.x << " " << ent.winMove.y << std::endl;
                 }
                 break;
             }
@@ -367,10 +366,30 @@ namespace Editor
 
         void Render() override
         {
+#if 0
             for (auto widget : widgets)
                 widget->Render();
 
             ImGuiRenderer::Render();
+#endif
+            auto& wsi = GetWSI();
+            auto device = wsi.GetDevice();
+            wsi.BeginFrame();
+            wsi.PresentBegin();
+            {
+                GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(&wsi.GetSwapchain(), GPU::SwapchainRenderPassType::ColorOnly);
+                GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+                cmd->BeginRenderPass(rp);
+
+                ImageUtil::Params params = {};
+                params.EnableFullScreen();
+                ImageUtil::Draw(TextureHelper::GetColor(Color4::Blue())->GetImage(), params, *cmd);
+                cmd->EndRenderPass();
+                device->Submit(cmd);
+            }
+            wsi.PresentEnd();
+            wsi.EndFrame();
+
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
         }
 
