@@ -14,31 +14,38 @@ namespace VulkanTest
 	public:
 		DECLARE_RESOURCE(Shader);
 
-		struct Sources
+#pragma pack(1)
+		struct FileHeader
 		{
-			Path path;
-			Array<GPU::ShaderMemoryData> stages;
-			String common;
+			U32 magic;
+			U32 version;
+		};
+#pragma pack()
+		static const U32 FILE_MAGIC;
+		static const U32 FILE_VERSION;
+
+		struct ShaderContainer
+		{
+			HashMap<U64, GPU::Shader*> shaders;
+
+			void Clear();
+			void Add(GPU::Shader* shader, const String& name, I32 permutationIndex);
+			GPU::Shader* Get(const String& name, I32 permutationIndex);
+
+		private:
+			U64 CalculateHash(const String& name, I32 permutationIndex);
 		};
 
-		Shader(const Path& path_, RendererPlugin& renderer_, ResourceFactory& resFactory_);
+		Shader(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~Shader();
 
-		void PreCompile(const GPU::ShaderVariantMap& defines);
-		GPU::ShaderProgram* GetProgram(const GPU::ShaderVariantMap& defines);
-
-		static void Compile(GPU::ShaderProgram*& program, const GPU::ShaderVariantMap& defines, GPU::ShaderTemplateProgram* shaderTemplate);
-		HashMap<U64, GPU::ShaderProgram*> programs;
+		GPU::Shader* GetShader(GPU::ShaderStage stage, const String& name, I32 permutationIndex);
 
 	protected:
 		bool OnLoaded(U64 size, const U8* mem) override;
 		void OnUnLoaded() override;
 
 	private:
-		void BuildShaderTemplate();
-
-		RendererPlugin& renderer;
-		GPU::ShaderTemplateProgram* shaderTemplate = nullptr;
-		Sources sources;
+		ShaderContainer shaders;
 	};
 }

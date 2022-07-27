@@ -468,6 +468,12 @@ void CommandList::SetProgram(const std::string& vertex, const std::string& fragm
 
 void CommandList::SetProgram(const Shader* vertex, const Shader* fragment)
 {
+    if (vertex == nullptr || fragment == nullptr)
+    {
+        SetProgramShaders(nullptr);
+        return;
+    }
+
     const Shader* shaders[static_cast<U32>(ShaderStage::Count)];
     memset(shaders, 0, sizeof(shaders));
     shaders[(U32)ShaderStage::VS] = vertex;
@@ -482,6 +488,12 @@ void CommandList::SetProgramShaders(const Shader* shaders[static_cast<U32>(Shade
 
 void CommandList::SetProgram(const Shader* compute)
 {
+    if (compute == nullptr)
+    {
+        SetProgramShaders(nullptr);
+        return;
+    }
+
     const Shader* shaders[static_cast<U32>(ShaderStage::Count)];
     memset(shaders, 0, sizeof(shaders));
     shaders[(U32)ShaderStage::CS] = compute;

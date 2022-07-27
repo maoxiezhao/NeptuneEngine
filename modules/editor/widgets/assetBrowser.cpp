@@ -353,7 +353,7 @@ namespace Editor
 
             auto GetThumbnailIndex = [this](int i, int j, int columns) {
                 int idx = j * columns + i;
-                if (idx >= fileInfos.size()) {
+                if (idx >= (int)fileInfos.size()) {
                     return -1;
                 }
                 return idx;

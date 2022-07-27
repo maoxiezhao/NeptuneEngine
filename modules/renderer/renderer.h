@@ -22,8 +22,6 @@ namespace VulkanTest
 		virtual GPU::DeviceVulkan* GetDevice() = 0;
 		virtual RenderScene* GetScene() = 0;
 		virtual Engine& GetEngine() = 0;
-		virtual GPU::ShaderProgram* QueueShaderCompile(Shader* shader, const GPU::ShaderVariantMap& defines, GPU::ShaderTemplateProgram* shaderTemplate) = 0;
-
 	};
 
 	namespace Renderer

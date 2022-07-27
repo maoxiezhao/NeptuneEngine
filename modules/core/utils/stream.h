@@ -43,7 +43,7 @@ namespace VulkanTest
 		return Write(&v, sizeof(v));
 	}
 
-	struct VULKAN_TEST_API InputMemoryStream  final : public IInputStream
+	struct VULKAN_TEST_API InputMemoryStream final : public IInputStream
 	{
 		InputMemoryStream(const void* data_, U64 size_);
 
@@ -82,6 +82,12 @@ namespace VulkanTest
 
 		void operator =(const OutputMemoryStream& rhs);
 		void operator =(OutputMemoryStream&& rhs);
+
+		template <typename T>
+		bool Write(const T& value)
+		{
+			return Write(&value, sizeof(T));
+		}
 
 		bool Write(const void* buffer, U64 size_)override;
 		bool Write(const void* buffer, U64 size_, U64 alignment);

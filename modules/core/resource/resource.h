@@ -40,7 +40,7 @@ namespace VulkanTest
 
 		U32 magic = MAGIC;
 		U32 version = 0;
-		U32 originSize = 0;
+		U64 originSize = 0;
 		bool isCompressed = false;
 	};
 

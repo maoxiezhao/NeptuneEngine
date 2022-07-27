@@ -1,5 +1,6 @@
 #include "assetCompiler.h"
 #include "editor\editor.h"
+#include "core\compress\compressor.h"
 #include "core\platform\platform.h"
 #include "imgui-docking\imgui.h"
 
@@ -410,6 +411,12 @@ namespace Editor
                     char tmp[MAX_PATH_LENGTH];
                     CopyNString(Span(tmp), targetPath.c_str(), targetPath.Length() - 5);    // remove ".meta"
                     targetPath = tmp;
+
+                    // TODO: Temporary
+                    // Ignore the meta of shader
+                    auto resType = GetResourceType(targetPath.c_str());
+                    if (resType == Shader::ResType)
+                        continue;
                 }
 
                 FileSystem& fs = editor.GetEngine().GetFileSystem();
@@ -471,7 +478,7 @@ namespace Editor
 
             const F32 uiWidth = std::max(300.f, ImGui::GetIO().DisplaySize.x * 0.33f);
             const ImVec2 pos = ImGui::GetMainViewport()->Pos;
-            ImGui::SetNextWindowPos(ImVec2((ImGui::GetIO().DisplaySize.x - uiWidth) * 0.5f + pos.x, 30 + pos.y));
+            ImGui::SetNextWindowPos(ImVec2((ImGui::GetIO().DisplaySize.x - uiWidth) * 0.5f + pos.x, ImGui::GetIO().DisplaySize.y * 0.4f + pos.y));
             ImGui::SetNextWindowSize(ImVec2(uiWidth, -1));
             ImGui::SetNextWindowSizeConstraints(ImVec2(-FLT_MAX, 0), ImVec2(FLT_MAX, 200));
             ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
@@ -579,9 +586,11 @@ namespace Editor
             U64 compressedSize = 0;
             if (data.length() > COMPRESSION_SIZE_LIMIT)
             {
-                // Compress data if data is too large
-                ASSERT(0);
-                // TODO
+                if (!Compressor::Compress(compressedData, compressedSize, data))
+                {
+                    Logger::Error("Could not compress %s", path);
+                    return false;
+                }
             }
 
             Path filePath(path);
@@ -595,8 +604,8 @@ namespace Editor
 
             CompiledResourceHeader header;
             header.version = CompiledResourceHeader::VERSION;
-            header.originSize = (U32)data.length();
-            header.isCompressed = compressedSize > 0;
+            header.originSize = (U64)data.length();
+            header.isCompressed = compressedSize > 0 && compressedSize < I32(data.length() / 4 * 3);
             if (header.isCompressed)
             {
                 file->Write(&header, sizeof(header));
@@ -851,6 +860,40 @@ namespace Editor
         DelegateList<void(const Path& path)>& GetListChangedCallback()
         {
             return onListChanged;
+        }
+
+        void UpdateMeta(const Path& path, const char* src) const
+        {
+            const StaticString<MAX_PATH> metaPath(path.c_str(), ".meta");
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            auto file = fs.OpenFile(metaPath, FileFlags::DEFAULT_WRITE);
+            if (!file->IsValid())
+            {
+                Logger::Error("Failed to update meta %s", path.c_str());
+                return;
+            }
+
+            file->Write(src, StringLength(src));
+            file->Close();
+        }
+
+        bool GetMeta(const Path& path, void* userPtr, void (*callback)(void*, lua_State*)) const
+        {
+            const StaticString<MAX_PATH> metaPath(path.c_str(), ".meta");
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            if (!fs.FileExists(metaPath))
+                return false;
+
+            OutputMemoryStream mem;
+            if (!fs.LoadContext(metaPath, mem))
+                return false;
+
+            LuaConfig luaConfig;
+            if (!luaConfig.Load(Span((const char*)mem.Data(), mem.Size())))
+                return false;
+
+            callback(userPtr, luaConfig.GetState());
+            return true;
         }
     };
 

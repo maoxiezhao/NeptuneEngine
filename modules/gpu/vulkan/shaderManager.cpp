@@ -23,10 +23,10 @@ using namespace ShaderCompiler;
 // Shader flow:
 // ShaderManager -> ShaderTemplateProgram -> ShaderTemplateProgramVariant  -> ShaderTemplate -> Variant -> Shader
 
-namespace {
+const std::string ShaderManager::EXPORT_SHADER_PATH = ".export/shaders/";
+const std::string ShaderManager::SOURCE_SHADER_PATH = "shaders/";
 
-	const std::string EXPORT_SHADER_PATH = ".export/shaders/";
-	const std::string SOURCE_SHADER_PATH = "shaders/";
+namespace {
 
 	std::mutex locker;
 	std::unordered_set<std::string> registeredShaders;
@@ -85,9 +85,9 @@ namespace {
 	bool SaveShaderAndMetadata(FileSystem& fs, const char* shaderfilename, const CompilerOutput& output)
 	{
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
-		if (!Platform::DirExists(EXPORT_SHADER_PATH.c_str()))
+		if (!Platform::DirExists(ShaderManager::EXPORT_SHADER_PATH.c_str()))
 		{
-			if (!Platform::MakeDir(EXPORT_SHADER_PATH.c_str()))
+			if (!Platform::MakeDir(ShaderManager::EXPORT_SHADER_PATH.c_str()))
 			{
 				Logger::Error("Failed to create the directory of export shader:%s", shaderfilename);
 				return false;
@@ -167,7 +167,10 @@ ShaderTemplateVariant* ShaderTemplate::RegisterVariant(const ShaderVariantMap& d
 {
 	HashCombiner hasher;
 	for (auto& define : defines)
-		hasher.HashCombine(define.c_str());
+	{
+		hasher.HashCombine(define.name.c_str());
+		hasher.HashCombine(define.definition);
+	}
 
 	HashValue hash = hasher.Get();
 	auto it = variants.find(hash);
@@ -197,8 +200,6 @@ void ShaderTemplate::RecompileVariant(ShaderTemplateVariant& variant)
 	if (!CompileShader(&variant, variant.defines))
 	{
 		Logger::Error("Failed to compile shader:%s", path.c_str());
-		for (auto& define : variant.defines)
-			Logger::Error("  Define: %s", define.c_str());
 		return;
 	}
 
@@ -212,7 +213,7 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	{		
 		ScopedMutex holder(lock);
-		std::string exportShaderPath = EXPORT_SHADER_PATH + std::to_string(variant->hash) + ".shader";
+		std::string exportShaderPath = ShaderManager::EXPORT_SHADER_PATH + std::to_string(variant->hash) + ".shader";
 		RegisterShader(exportShaderPath);
 
 		if (IsShaderOutdated(fs, exportShaderPath.c_str()))
@@ -223,12 +224,14 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 			for (const auto& define : defines)
 			{
 				msg += "\t\t";
-				msg += define.c_str();
+				msg += define.name.c_str();
+				msg += "=";
+				msg += std::to_string(define.definition).c_str();
 				msg += "\n";
 			}
 			Logger::Info(msg.c_str());
 
-			std::string sourcedir = SOURCE_SHADER_PATH;
+			std::string sourcedir = ShaderManager::SOURCE_SHADER_PATH;
 			Helper::MakePathAbsolute(sourcedir);
 
 			CompilerInput input;
@@ -304,7 +307,10 @@ ShaderTemplateProgramVariant* ShaderTemplateProgram::RegisterVariant(const Shade
 {
 	HashCombiner hasher;
 	for (auto& define : defines)
-		hasher.HashCombine(define.c_str());
+	{
+		hasher.HashCombine(define.name.c_str());
+		hasher.HashCombine(define.definition);
+	}
 
 	HashValue hash = hasher.Get();
 	
@@ -582,32 +588,6 @@ ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string& vertex
 	return programs.emplace(hasher.Get(), device, templates);
 }
 
-ShaderTemplateProgram* ShaderManager::RegisterGraphics(const std::string shaders[static_cast<U32>(ShaderStage::Count)])
-{
-	HashCombiner hasher;
-	std::vector<std::pair<ShaderStage, ShaderTemplate*>> templates;
-	for (int i = 0; i < (int)ShaderStage::Count; i++)
-	{
-		if (shaders[i].empty())
-			continue;
-
-		ShaderTemplate* templ = GetTemplate(ShaderStage(i), shaders[i]);
-		if (templ == nullptr)
-			return nullptr;
-
-		hasher.HashCombine(templ->GetPathHash());
-	}
-
-	if (hasher.Get() == HashCombiner().Get())
-		return nullptr;
-
-	auto it = programs.find(hasher.Get());
-	if (it != nullptr)
-		return it;
-
-	return programs.emplace(hasher.Get(), device, templates);
-}
-
 ShaderTemplateProgram* ShaderManager::RegisterCompute(const std::string& comptue)
 {
 	ShaderTemplate* computeTempl = GetTemplate(ShaderStage::CS, comptue);
@@ -625,11 +605,6 @@ ShaderTemplateProgram* ShaderManager::RegisterCompute(const std::string& comptue
 	return programs.emplace(hasher.Get(), device, templates);
 }
 
-ShaderTemplateProgram* ShaderManager::RegsiterProgram(const Array<ShaderMemoryData*>& shaderDatas)
-{
-	return nullptr;
-}
-
 ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string filePath)
 {
 	HashValue hash = GetPathHash(stage, filePath.c_str());
@@ -644,23 +619,6 @@ ShaderTemplate* ShaderManager::GetTemplate(ShaderStage stage, const std::string 
 		}
 		temp = shaders.insert(hash, shader);
 	}
-	return temp;
-}
-
-ShaderTemplate* ShaderManager::GetTemplate(ShaderMemoryData& data)
-{
-	HashValue hash = GetPathHash(data.stage, data.path.c_str());
-	ShaderTemplate* temp = shaders.find(hash);
-	if (temp != nullptr)
-		return temp;
-	
-	ShaderTemplate* shader = shaders.allocate(device, data.stage, hash, data.code.data(), data.code.size());
-	if (!shader->Initialize())
-	{
-		shaders.free(shader);
-		return nullptr;
-	}
-	temp = shaders.insert(hash, shader);
 	return temp;
 }
 

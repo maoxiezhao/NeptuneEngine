@@ -1,6 +1,7 @@
 #include "resource.h"
 #include "resourceManager.h"
 #include "core\utils\string.h"
+#include "core\compress\compressor.h"
 
 namespace VulkanTest
 {
@@ -237,8 +238,20 @@ namespace VulkanTest
 
 		if (resHeader->isCompressed)
 		{
-			ASSERT(0);
-			// TODO: Support LZ4 decompress
+			OutputMemoryStream tmp;
+			tmp.Resize(resHeader->originSize);
+			I32 decompressedSize = Compressor::Decompress(
+				(const char*)mem + sizeof(CompiledResourceHeader),
+				(char*)tmp.Data(),
+				I32(size - sizeof(CompiledResourceHeader)),
+				tmp.Size());
+
+			if (decompressedSize != resHeader->originSize)
+				failedDepCount++;
+			else if (!OnLoaded(decompressedSize, tmp.Data()))
+				failedDepCount++;
+
+			resSize = resHeader->originSize;
 		}
 		else
 		{

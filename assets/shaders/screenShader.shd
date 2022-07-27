@@ -1,0 +1,23 @@
+#include "common/shaderInterop.h"
+
+inline void FullScreenTriangle(in uint vertexID, out float4 pos)
+{
+	pos.x = (float)(vertexID / 2) * 4.0 - 1.0;
+	pos.y = (float)(vertexID % 2) * 4.0 - 1.0;
+	pos.z = 1;
+	pos.w = 1;
+}
+
+META_VS(true)
+float4 PS(uint vID : SV_VERTEXID) : SV_POSITION
+{
+    float4 Out;
+    FullScreenTriangle(vID, Out);
+    return Out;
+}
+
+META_PS(true)
+float4 VS(float4 pos : SV_POSITION) : SV_TARGET
+{
+    return float4(1.0f, 0.0f, 1.0f, 0.5f);
+}

@@ -368,6 +368,7 @@ public:
     void ReleaseSampler(VkSampler sampler);
     void ReleaseDescriptorPool(VkDescriptorPool pool);
     void ReleaseSemaphore(VkSemaphore semaphore);
+    void ReleaseShader(Shader* shader);
     void RecycleSemaphore(VkSemaphore semaphore);
     void ReleaseEvent(VkEvent ent);
     void FreeMemory(const DeviceAllocation& allocation);
@@ -382,6 +383,7 @@ public:
     void ReleaseBufferViewNolock(VkBufferView bufferView);
     void ReleaseSamplerNolock(VkSampler sampler);
     void ReleaseDescriptorPoolNolock(VkDescriptorPool pool);
+    void ReleaseShaderNolock(Shader* shader);
     void ReleaseSemaphoreNolock(VkSemaphore semaphore);
     void RecycleSemaphoreNolock(VkSemaphore semaphore);
     void ReleaseEventNolock(VkEvent ent);

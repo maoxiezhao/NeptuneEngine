@@ -1,6 +1,7 @@
 #pragma once
 
 #include "definition.h"
+#include "shader.h"
 
 namespace VulkanTest
 {
@@ -17,7 +18,7 @@ namespace ShaderCompiler
 		std::string shadersourcefilename;
 		std::string entrypoint = "main";
 		std::vector<std::string> includeDirectories;
-		std::vector<std::string> defines;
+		std::vector<ShaderMacro> defines;
 		char* shadersourceData = nullptr;
 		U32 shadersourceSize = 0;
 	};

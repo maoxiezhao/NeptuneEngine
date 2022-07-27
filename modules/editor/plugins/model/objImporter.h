@@ -8,7 +8,7 @@ namespace VulkanTest
 {
 namespace Editor
 {
-	class OBJImporter
+	class VULKAN_EDITOR_API OBJImporter
 	{
 	public:
 		OBJImporter(class EditorApp& editor_);

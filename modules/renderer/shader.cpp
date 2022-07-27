@@ -6,9 +6,36 @@ namespace VulkanTest
 {
 	DEFINE_RESOURCE(Shader);
 
-	Shader::Shader(const Path& path_, RendererPlugin& renderer_, ResourceFactory& resFactory_) :
-		Resource(path_, resFactory_),
-		renderer(renderer_)
+	const U32 Shader::FILE_MAGIC = 0x5f3cfd1f;
+	const U32 Shader::FILE_VERSION = 0x01;
+
+	void Shader::ShaderContainer::Clear()
+	{
+		// TODO: whether to release GPU::Shader
+		shaders.clear();
+	}
+
+	void Shader::ShaderContainer::Add(GPU::Shader* shader, const String& name, I32 permutationIndex)
+	{
+		shaders.insert(CalculateHash(name, permutationIndex), shader);
+	}
+
+	GPU::Shader* Shader::ShaderContainer::Get(const String& name, I32 permutationIndex)
+	{
+		auto it = shaders.find(CalculateHash(name, permutationIndex));
+		return it.isValid() ? it.value() : nullptr;
+	}
+
+	U64 Shader::ShaderContainer::CalculateHash(const String& name, I32 permutationIndex)
+	{
+		HashCombiner hash;
+		hash.HashCombine(RuntimeHash(name.c_str()).GetHashValue());
+		hash.HashCombine(permutationIndex);
+		return hash.Get();
+	}
+
+	Shader::Shader(const Path& path_, ResourceFactory& resFactory_) :
+		Resource(path_, resFactory_)
 	{
 	}
 
@@ -17,66 +44,108 @@ namespace VulkanTest
 		ASSERT(IsEmpty());
 	}
 
-	void Shader::PreCompile(const GPU::ShaderVariantMap& defines)
+	GPU::Shader* Shader::GetShader(GPU::ShaderStage stage, const String& name, I32 permutationIndex)
 	{
-		ASSERT(shaderTemplate);
-
-		HashCombiner hasher;
-		for (auto& define : defines)
-			hasher.HashCombine(define.c_str());
-
-		auto it = programs.find(hasher.Get());
-		if (!it.isValid())
-			renderer.QueueShaderCompile(this, defines, shaderTemplate);
-	}
-
-	GPU::ShaderProgram* Shader::GetProgram(const GPU::ShaderVariantMap& defines)
-	{
-		ASSERT(shaderTemplate);
-
-		HashCombiner hasher;
-		for (auto& define : defines)
-			hasher.HashCombine(define.c_str());
-		auto it = programs.find(hasher.Get());
-		if (it.isValid())
-			return it.value();
-
-		return renderer.QueueShaderCompile(this, defines, shaderTemplate);
-	}
-
-	void Shader::Compile(GPU::ShaderProgram*& program, const GPU::ShaderVariantMap& defines, GPU::ShaderTemplateProgram* shaderTemplate)
-	{
-		auto variant = shaderTemplate->RegisterVariant(defines);
-		program = variant->GetProgram();
+		auto shader = shaders.Get(name, permutationIndex);
+		if (shader == nullptr)
+			Logger::Error("Missing shader %s %d", name.c_str(), permutationIndex);
+		else if (shader->GetStage() != stage)
+			Logger::Error("Invalid shader stage %s %d, Expected : %d, get %d", name.c_str(), permutationIndex, (U32)stage, (U32)shader->GetStage());
+		
+		return shader;
 	}
 
 	bool Shader::OnLoaded(U64 size, const U8* mem)
 	{
-		lua_State* rootState = renderer.GetEngine().GetLuaState();
-		lua_State* l = lua_newthread(rootState);
-		LuaConfig luaShader(l);
-		luaShader.AddLightUserdata("this", this);
+		PROFILE_FUNCTION();
+		FileHeader header;
 
-		const Span<const char> content((const char*)mem, (U32)size);
-		if (!luaShader.Load(content))
+		InputMemoryStream inputMem(mem, size);
+		inputMem.Read<FileHeader>(header);
+		if (header.magic != FILE_MAGIC)
+		{
+			Logger::Warning("Unsupported shader file %s", GetPath());
+			return false;
+		}
+
+		if (header.version != FILE_VERSION)
+		{
+			Logger::Warning("Unsupported version of shader %s", GetPath());
+			return false;
+		}
+
+		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		ASSERT(device != nullptr);
+		
+		// Shader format:
+		// -------------------------
+		// Shader count
+		// -- Stage
+		// -- Permutations count
+		// -- Function name
+		// ----- CachesSize
+		// ----- Cache
+		// ----- ResLayout
+
+		U32 shaderCount = 0;
+		inputMem.Read(shaderCount);
+		if (shaderCount <= 0)
 			return false;
 
-		BuildShaderTemplate();
+		for (U32 i = 0; i < shaderCount; i++)
+		{
+			// Stage
+			U8 stageValue = 0;
+			inputMem.Read(stageValue);
+
+			// Permutations count
+			U32 permutationsCount = 0;
+			inputMem.Read(permutationsCount);
+
+			// Name
+			U32 strSize;
+			inputMem.Read(strSize);
+			char name[MAX_PATH_LENGTH];
+			name[strSize] = 0;
+			inputMem.Read(name, strSize);
+
+			if (permutationsCount <= 0)
+				continue;
+
+			for (U32 permutationIndex = 0; permutationIndex < permutationsCount; permutationIndex++)
+			{
+				GPU::ShaderResourceLayout resLayout;
+				I32 cacheSize = 0;
+				inputMem.Read(cacheSize);
+				if (cacheSize <= 0)
+				{
+					inputMem.Read(resLayout);
+					continue;
+				}
+
+				// Cache
+				OutputMemoryStream cache;
+				cache.Resize(cacheSize);
+				inputMem.Read(cache.Data(), cacheSize);
+
+				// ShaderResourceLayout
+				inputMem.Read(resLayout);
+
+				GPU::Shader* shader = device->RequestShader(GPU::ShaderStage(stageValue), cache.Data(), cache.Size(), &resLayout);
+				if (shader == nullptr)
+				{
+					Logger::Warning("Failed to create shader");
+					return false;
+				}
+
+				shaders.Add(shader, name, permutationIndex);
+			}
+		}
 		return true;
 	}
 
 	void Shader::OnUnLoaded()
 	{
-		shaderTemplate = nullptr;
-		programs.clear();
-	}
-
-	void Shader::BuildShaderTemplate()
-	{
-		Array<GPU::ShaderMemoryData*> shaderDatas;
-		for (auto& stage : sources.stages)
-			shaderDatas.push_back(&stage);
-
-		shaderTemplate = renderer.GetDevice()->GetShaderManager().RegsiterProgram(shaderDatas);
+		shaders.Clear();
 	}
 }

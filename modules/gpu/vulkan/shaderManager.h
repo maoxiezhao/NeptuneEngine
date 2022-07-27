@@ -13,14 +13,7 @@ namespace GPU
 
 class DeviceVulkan;
 
-struct ShaderMemoryData
-{
-	Path path;
-	ShaderStage stage;
-	Array<char> code;
-};
-
-using ShaderVariantMap = std::vector<std::string>;
+using ShaderVariantMap = std::vector<ShaderMacro>;
 struct ShaderTemplateVariant : public Util::IntrusiveHashMapEnabled<ShaderTemplateVariant>
 {
 	HashValue hash = 0;
@@ -137,18 +130,17 @@ public:
 	 */
 	ShaderTemplateProgram* RegisterShader(ShaderStage stage, const std::string& filePath);
 
-
 	ShaderTemplateProgram* RegisterGraphics(const std::string& vertex, const std::string& fragment);
-	ShaderTemplateProgram* RegisterGraphics(const std::string shaders[static_cast<U32>(ShaderStage::Count)]);
 	ShaderTemplateProgram* RegisterCompute(const std::string& comptue);
-	ShaderTemplateProgram* RegsiterProgram(const Array<ShaderMemoryData*>& shaderDatas);
 
 	bool LoadShaderCache(const char* path);
 	void MoveToReadOnly();
 
+	const static std::string EXPORT_SHADER_PATH;
+	const static std::string SOURCE_SHADER_PATH;
+
 private:
 	ShaderTemplate* GetTemplate(ShaderStage stage, const std::string filePath);
-	ShaderTemplate* GetTemplate(ShaderMemoryData& data);
 
 private:
 	VulkanCache<ShaderTemplate> shaders;

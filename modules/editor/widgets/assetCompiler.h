@@ -5,6 +5,7 @@
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resource.h"
 #include "core\resource\resourceManager.h"
+#include "core\scripts\luaUtils.h"
 
 namespace VulkanTest
 {
@@ -47,6 +48,15 @@ namespace Editor
         virtual const HashMap<U64, ResourceItem>& LockResources() = 0;
         virtual void UnlockResources() = 0;
         virtual DelegateList<void(const Path& path)>& GetListChangedCallback() = 0;
+        virtual void UpdateMeta(const Path& path, const char* src) const = 0;
+        virtual bool GetMeta(const Path& path, void* userPtr, void (*callback)(void*, lua_State*)) const = 0;
+
+        template <typename T>
+        bool GetMeta(const Path& path, T callback) {
+            return GetMeta(path, &callback, [](void* userPtr, lua_State* L) {
+                return (*(T*)userPtr)(L);
+            });
+        }
     };
 }
 }

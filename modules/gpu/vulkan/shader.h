@@ -8,6 +8,12 @@ namespace VulkanTest
 {
 namespace GPU
 {
+	struct ShaderMacro
+	{
+		std::string name;
+		int definition = 0;
+	};
+
 	struct ShaderResourceLayout
 	{
 		DescriptorSetLayout sets[VULKAN_NUM_DESCRIPTOR_SETS];
@@ -86,7 +92,6 @@ namespace GPU
 	class Shader : public Util::IntrusiveHashMapEnabled<Shader>
 	{
 	public:
-		Shader(DeviceVulkan& device_, ShaderStage shaderStage_, VkShaderModule shaderModule_, const ShaderResourceLayout* layout_ = nullptr);
 		Shader(DeviceVulkan& device_, ShaderStage shaderStage_, const void* pShaderBytecode, size_t bytecodeLength, const ShaderResourceLayout* layout_ = nullptr);
 		~Shader();
 
@@ -95,14 +100,19 @@ namespace GPU
 			return shaderModule;
 		}
 
+		ShaderStage GetStage()const 
+		{
+			return shaderStage;
+		}
+
 		const ShaderResourceLayout& GetLayout()const
 		{
 			return layout;
 		}
 
+		static bool ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, size_t spirvSize);
+
 	private:
-		bool ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, size_t spirvSize);
-		
 		DeviceVulkan& device;
 		ShaderStage shaderStage;
 		VkShaderModule shaderModule = VK_NULL_HANDLE;

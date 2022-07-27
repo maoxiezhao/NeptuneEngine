@@ -4,6 +4,12 @@
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
 
+#include "plugins\renderer.h"
+#include "renderer\imguiRenderer.h"
+#include "renderer\model.h"
+#include "renderer\imageUtil.h"
+#include "renderer\textureHelper.h"
+
 #include "widgets\assetBrowser.h"
 #include "widgets\assetCompiler.h"
 #include "widgets\worldEditor.h"
@@ -13,13 +19,8 @@
 #include "widgets\renderGraph.h"
 #include "widgets\gizmo.h"
 
-#include "plugins\renderer.h"
-
 #include "imgui-docking\imgui.h"
-#include "renderer\imguiRenderer.h"
-#include "renderer\model.h"
-#include "renderer\imageUtil.h"
-#include "renderer\textureHelper.h"
+
 
 namespace VulkanTest
 {
@@ -264,7 +265,6 @@ namespace Editor
                 {
                     settings.window.x = ent.winMove.x;
                     settings.window.y = ent.winMove.y;
-                    std::cout << ent.winMove.x << " " << ent.winMove.y << std::endl;
                 }
                 break;
             }
@@ -366,13 +366,14 @@ namespace Editor
 
         void Render() override
         {
-#if 0
+            auto& wsi = GetWSI();
+#if 1
             for (auto widget : widgets)
                 widget->Render();
 
             ImGuiRenderer::Render();
-#endif
-            auto& wsi = GetWSI();
+#else
+  
             auto device = wsi.GetDevice();
             wsi.BeginFrame();
             wsi.PresentBegin();
@@ -389,7 +390,7 @@ namespace Editor
             }
             wsi.PresentEnd();
             wsi.EndFrame();
-
+#endif
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
         }
 
@@ -512,6 +513,10 @@ namespace Editor
                 const char* data = ImGui::SaveIniSettingsToMemory();
                 settings.imguiState = data;
             }
+
+            Platform::WindowRect rect = Platform::GetWindowScreenRect(mainWindow);
+            settings.window.x = rect.left;
+            settings.window.y = rect.top;
             settings.Save();
         }
 
@@ -551,6 +556,7 @@ namespace Editor
                 for (auto widget : widgets)
                     widget->OnGUI();
 
+                assetCompiler->OnGUI();
                 settings.OnGUI();
 
                 if (showDemoWindow)

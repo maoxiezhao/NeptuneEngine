@@ -127,9 +127,9 @@ namespace ShaderCompiler
 		DxcBuffer Source;
 		Source.Encoding = DXC_CP_ACP;
 
+		std::vector<uint8_t> shadersourcedata;
 		if (!input.shadersourcefilename.empty())
 		{
-			std::vector<uint8_t> shadersourcedata;
 			if (!Helper::FileRead(input.shadersourcefilename, shadersourcedata))
 				return false;
 
@@ -199,8 +199,12 @@ namespace ShaderCompiler
 		// defines
 		for (auto& x : input.defines)
 		{
+			if (x.name.empty())
+				continue;
+
+			std::string def = x.name + "=" + std::to_string(x.definition);
 			std::wstring& wstr = wstrings.emplace_back();
-			Helper::StringConvert(x, wstr);
+			Helper::StringConvert(def, wstr);
 			args.push_back(L"-D");
 			args.push_back(wstr.c_str());
 		}
