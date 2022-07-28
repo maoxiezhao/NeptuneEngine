@@ -41,7 +41,7 @@ namespace VulkanTest
 		const GPU::BlendState& GetBlendState(BlendStateTypes type);
 		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);
 		const GPU::DepthStencilState& GetDepthStencilState(DepthStencilStateType type);
-		const GPU::Shader* GetShader(ShaderType type);
+		Shader* GetShader(ShaderType type);
 		const GPU::PipelineStateDesc& GetObjectPipelineState(
 			RENDERPASS renderPass,
 			BlendMode blendMode,

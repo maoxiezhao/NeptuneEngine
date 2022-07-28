@@ -20,7 +20,7 @@ namespace Editor
             virtual ~IPlugin() {}
 
             virtual void OnGui(Span<class Resource*> resource) = 0;
-            virtual void OnResourceUnloaded(Resource* resource) = 0;
+            virtual void OnResourceUnloaded(Resource* resource) {};
             virtual void Update() {}
             virtual ResourceType GetResourceType() const = 0;
         };
@@ -28,6 +28,8 @@ namespace Editor
         static UniquePtr<AssetBrowser> Create(EditorApp& app);
         virtual ~AssetBrowser() {};
 
+        virtual void OpenInExternalEditor(Resource* resource) = 0;
+        virtual void OpenInExternalEditor(const char* path) = 0;
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
     };

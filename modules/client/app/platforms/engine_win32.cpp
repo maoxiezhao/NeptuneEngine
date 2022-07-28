@@ -14,6 +14,8 @@ namespace VulkanTest
 	class EngineImpl final : public Engine
 	{
 	private:
+		const InitConfig& initConfig;
+		App& app;
 		UniquePtr<InputSystem> inputSystem;
 		UniquePtr<PluginManager> pluginManager;
 		UniquePtr<FileSystem> fileSystem;
@@ -28,7 +30,9 @@ namespace VulkanTest
 		DefaultAllocator luaAllocator;
 
 	public:
-		EngineImpl(const InitConfig& initConfig, App& app)
+		EngineImpl(const InitConfig& initConfig_, App& app_) :
+			initConfig(initConfig_),
+			app(app_)
 		{
 			Logger::Info("Create game engine...");
 
@@ -67,26 +71,6 @@ namespace VulkanTest
 			// Create pluginManager
 			pluginManager = PluginManager::Create(*this);
 
-			// Builtin plugins
-			pluginManager->AddPlugin(Renderer::CreatePlugin(*this));
-
-#ifdef VULKAN_TEST_PLUGINS
-			const char* plugins[] = { VULKAN_TEST_PLUGINS };
-			Span<const char*> pluginSpan = Span(plugins);
-			for (const char* plugin : pluginSpan) 
-			{
-				if (plugin == nullptr && !pluginManager->LoadPlugin(plugin))
-					Logger::Info("Failed to load plugin:%s", plugin);
-			}
-#endif
-			for (const char* plugin : initConfig.plugins)
-			{
-				if (plugin == nullptr && !pluginManager->LoadPlugin(plugin))
-					Logger::Info("Failed to load plugin:%s", plugin);
-			}
-
-			pluginManager->InitPlugins();
-
 			Logger::Info("Game engine created.");
 		}
 
@@ -102,6 +86,31 @@ namespace VulkanTest
 			fileSystem.Reset();
 			platform = nullptr;
 			Logger::Info("Game engine released.");
+		}
+
+		void LoadPlugins()override
+		{
+			// Builtin plugins
+			pluginManager->AddPlugin(Renderer::CreatePlugin(*this));
+
+#ifdef VULKAN_TEST_PLUGINS
+			const char* plugins[] = { VULKAN_TEST_PLUGINS };
+			Span<const char*> pluginSpan = Span(plugins);
+			for (const char* plugin : pluginSpan)
+			{
+				if (plugin == nullptr && !pluginManager->LoadPlugin(plugin))
+					Logger::Info("Failed to load plugin:%s", plugin);
+			}
+#endif
+			for (const char* plugin : initConfig.plugins)
+			{
+				if (plugin == nullptr && !pluginManager->LoadPlugin(plugin))
+					Logger::Info("Failed to load plugin:%s", plugin);
+			}
+
+			pluginManager->InitPlugins();
+			
+			Logger::Info("Engine plugins loaded.");
 		}
 
 		World& CreateWorld() override

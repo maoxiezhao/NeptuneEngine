@@ -51,6 +51,7 @@ namespace VulkanTest
 
 		virtual void ProcessAsync() = 0;
 		virtual AsyncLoadHandle LoadFileAsync(const Path& path, const AsyncLoadCallback& cb) = 0;
+		virtual void CancelAsync(AsyncLoadHandle async) = 0;
 	};
 
 	class VULKAN_TEST_API FileSystem
@@ -78,6 +79,7 @@ namespace VulkanTest
 
 		// Load file asynchronously
 		AsyncLoadHandle LoadFileAsync(const Path& path, const AsyncLoadCallback& cb);
+		void CancelAsync(AsyncLoadHandle async);
 
 	private:
 		FileSystem(UniquePtr<FileSystemBackend>&& backend_);

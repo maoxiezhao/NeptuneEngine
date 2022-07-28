@@ -3,9 +3,6 @@
 #include "core\common.h"
 #include "core\scene\world.h"
 #include "core\resource\resource.h"
-#include "meta\meta.hpp"
-#include "meta\factory.hpp"
-#include "meta\policy.hpp"
 
 namespace VulkanTest
 {

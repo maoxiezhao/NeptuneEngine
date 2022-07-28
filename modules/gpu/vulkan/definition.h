@@ -82,7 +82,7 @@ namespace GPU
     static const U32 VULKAN_NUM_DESCRIPTOR_SETS = 4;
     static const U32 VULKAN_NUM_VERTEX_ATTRIBS = 16;
     static const U32 VULKAN_NUM_VERTEX_BUFFERS = 8;
-    static const U32 VULKAN_NUM_BINDINGS = 32;
+    static const U32 VULKAN_NUM_BINDINGS = 16;
     static const U32 VULKAN_PUSH_CONSTANT_SIZE = 128;
     static const U32 VULKAN_MAX_UBO_SIZE = 16 * 1024;
     static const U32 VULKAN_NUM_BINDINGS_BINDLESS_VARYING = 16 * 1024;
@@ -135,9 +135,45 @@ namespace GPU
         PER_INSTANCE_DATA,
     };
 
+    enum DescriptorSetType
+    {
+        DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE,
+        DESCRIPTOR_SET_TYPE_STORAGE_IMAGE,
+        DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER,
+        DESCRIPTOR_SET_TYPE_STORAGE_BUFFER,
+        DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER,
+        DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT,
+        DESCRIPTOR_SET_TYPE_SAMPLER,
+        DESCRIPTOR_SET_TYPE_COUNT,
+    };
+
     static inline U32 GetRolledBinding(U32 unrolledBinding)
     {
         return (unrolledBinding % VULKAN_BINDING_SHIFT_T);
+    }
+
+    static inline U32 GetUnrolledBinding(U32 binding, DescriptorSetType type)
+    {
+        switch (type)
+        {
+        case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
+            binding += VULKAN_BINDING_SHIFT_T;
+            break;
+        case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
+            binding += VULKAN_BINDING_SHIFT_U;
+            break;
+        case DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER:
+        case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
+            binding += VULKAN_BINDING_SHIFT_B;
+            break;
+        case DESCRIPTOR_SET_TYPE_SAMPLER:
+            binding += VULKAN_BINDING_SHIFT_S;
+            break;
+        default:
+            ASSERT(false);
+            break;
+        }
+        return binding;
     }
 
     static inline bool IsFormatHasDepth(VkFormat format)

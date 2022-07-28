@@ -16,9 +16,12 @@ namespace VulkanTest
 
 		void Initialize(ResourceType type, ResourceManager& resManager_);
 		void Uninitialize();
+		void Reload(const Path& path);
+		void Reload(Resource& res);
 		void RemoveUnreferenced();
 
 		Resource* GetResource(const Path& path);
+		ResourceTable& GetResourceTable();
 
 		bool IsUnloadEnable()const {
 			return isUnloadEnable;
@@ -63,14 +66,6 @@ namespace VulkanTest
 
 		void Initialize(class FileSystem& fileSystem_);
 		void Uninitialzie();
-		void RemoveUnreferenced();
-
-		// TODO: to remove
-		template<typename T>
-		T* LoadResource(const Path& path)
-		{
-			return static_cast<T*>(LoadResource(T::ResType, path));
-		}
 
 		template<typename T>
 		ResPtr<T> LoadResourcePtr(const Path& path)
@@ -85,6 +80,10 @@ namespace VulkanTest
 
 		Resource* LoadResource(ResourceType type, const Path& path);
 		
+		void Reload(const Path& path);
+		void ReloadAll();
+		void RemoveUnreferenced();
+
 		ResourceFactory* GetFactory(ResourceType type);
 		FactoryTable& GetAllFactories();
 		void RegisterFactory(ResourceType type, ResourceFactory* factory);
@@ -96,6 +95,13 @@ namespace VulkanTest
 
 		void SetLoadHook(LoadHook* hook);
 		LoadHook::Action OnBeforeLoad(Resource& res);
+
+	private:
+		template<typename T>
+		T* LoadResource(const Path& path)
+		{
+			return static_cast<T*>(LoadResource(T::ResType, path));
+		}
 
 	private:
 		friend class Resource;

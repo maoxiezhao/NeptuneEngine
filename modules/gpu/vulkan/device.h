@@ -235,6 +235,7 @@ public:
         std::vector<VkDescriptorPool> destroyedDescriptorPool;
         std::vector<VkSampler> destroyedSamplers;
         std::vector<VkEvent> recyledEvents;
+        std::vector<VkShaderModule> destroyedShaders;
 
         // bindless
         std::vector<std::pair<I32, BindlessReosurceType>> destroyedBindlessResources;

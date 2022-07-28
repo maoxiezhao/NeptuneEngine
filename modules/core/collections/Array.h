@@ -50,10 +50,21 @@ namespace VulkanTest
             return data_ != nullptr ? data_ + size_ : nullptr;
         }
 
+        T& front()
+        {
+            ASSERT(size_ > 0);
+            return data_[0];
+        }
+
         T& back() 
         {
             ASSERT(size_ > 0);
             return data_[size_ - 1];
+        }
+
+        void pop_front()
+        {
+            eraseAt(0);
         }
 
         void pop_back()

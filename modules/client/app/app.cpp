@@ -82,6 +82,9 @@ void App::Initialize()
     config.windowTitle = GetWindowTitle();
     engine = CreateEngine(config, *this);
 
+    // Load plugins
+    engine->LoadPlugins();
+
     // Create game world
     world = &engine->CreateWorld();
 

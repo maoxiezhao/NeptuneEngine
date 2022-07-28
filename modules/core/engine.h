@@ -22,6 +22,7 @@ namespace VulkanTest
 		virtual class World& CreateWorld() = 0;
 		virtual void DestroyWorld(World& world) = 0;
 
+		virtual void LoadPlugins() = 0;
 		virtual void Start(World& world) {};
 		virtual void Update(World& world, F32 dt) {};
 		virtual void FixedUpdate(World& world) {};

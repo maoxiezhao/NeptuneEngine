@@ -1,15 +1,20 @@
 #include "imageUtil.h"
 #include "renderer.h"
 #include "shaderInterop_image.h"
+#include "shader.h"
+#include "core\resource\resourceManager.h"
 
 namespace VulkanTest::ImageUtil
 {
     GPU::PipelineStateDesc pipelineStates
         [BLENDMODE_COUNT]
         [STENCILMODE_COUNT];
+    ResPtr<Shader> shader;
 
-    void Initialize()
+    void Initialize(ResourceManager& resManager)
     {
+        shader = resManager.LoadResourcePtr<Shader>(Path("shaders/image.shd"));
+
         GPU::BlendState blendStates[BLENDMODE_COUNT] = {};
         GPU::RasterizerState rasterizerState = {};
         GPU::DepthStencilState depthStencilStates[STENCILMODE_COUNT] = {};
@@ -110,8 +115,16 @@ namespace VulkanTest::ImageUtil
         }
     }
 
+    void Uninitialize()
+    {
+        shader.reset();
+    }
+
     void Draw(GPU::Image* image, Params params, GPU::CommandList& cmd)
     {
+        if (!shader->IsReady())
+            return;
+
         ImageCB imageCB = {};
         imageCB.flags = 0;
         if (params.IsFullScreenEnabled())
@@ -139,7 +152,7 @@ namespace VulkanTest::ImageUtil
 
         cmd.SetStencilRef(params.stencilRef, GPU::STENCIL_FACE_FRONT_AND_BACK);
         cmd.SetPipelineState(pipelineStates[params.blendFlag][params.stencilMode]);
-        cmd.SetProgram("imageVS.hlsl", "imagePS.hlsl");
+        cmd.SetProgram(shader->GetVS("VS"), shader->GetPS("PS"));
         cmd.SetTexture(0, 0, image->GetImageView());
         cmd.SetSampler(0, 0, GPU::StockSampler::NearestClamp);
         cmd.Draw(3);

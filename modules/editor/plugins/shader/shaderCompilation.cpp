@@ -28,6 +28,10 @@ namespace Editor
             readers.push_back(CJING_NEW(ComputeShaderFunctionReader));
         }
 
+        ~ShaderParser()
+        {
+        }
+
         void CollectResults(ShaderMeta& shaderMeta)
         {
             for (auto reader : readers)

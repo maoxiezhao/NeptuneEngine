@@ -1,6 +1,7 @@
 #include "filesystem.h"
 #include "core\platform\sync.h"
 #include "core\platform\timer.h"
+#include "core\utils\profiler.h"
 
 #include <queue>
 
@@ -12,12 +13,23 @@ namespace VulkanTest
 
 	struct AsyncLoadJob
 	{
-		enum class State {
+		enum class Flag {
 			Empty,
 			FAILED,
 			CANCELED,
 		};
-		State state = State::Empty;
+		U8 flags = 0;
+
+		bool IsFailed() const { return flags & (U8)Flag::FAILED; }
+		bool IsCanceled() const { return flags & (U8)Flag::CANCELED; }
+
+		void SetFailed() {
+			flags |= (U8)Flag::FAILED;
+		}
+		void SetCanceled() {
+			flags |= (U8)Flag::CANCELED;
+		}
+
 		AsyncLoadCallback cb;
 		MaxPathString path;
 		U32 jobID = 0;
@@ -50,8 +62,8 @@ namespace VulkanTest
 		StaticString<MAX_PATH_LENGTH> basePath;
 		U32 workerCount = 0;
 		U32 lastJobID = 0;
-		std::queue<AsyncLoadJob> pendingJobs;
-		std::queue<AsyncLoadJob> finishedJobs;
+		Array<AsyncLoadJob> pendingJobs;
+		Array<AsyncLoadJob> finishedJobs;
 		Mutex mutex;
 		Semaphore semaphore;
 		AsyncLoadTask* task;
@@ -177,8 +189,9 @@ namespace VulkanTest
 
 		void ProcessAsync() override
 		{
-			// Process async loading jobs. Do callback for finished jobs
+			PROFILE_FUNCTION();
 
+			// Process async loading jobs. Do callback for finished jobs
 			Timer timer;
 			while (true)
 			{
@@ -190,16 +203,19 @@ namespace VulkanTest
 				}
 
 				AsyncLoadJob job = std::move(finishedJobs.front());
-				finishedJobs.pop();
+				finishedJobs.pop_front();
 
 				ASSERT(workerCount > 0);
 				workerCount--;
 				mutex.Unlock();
 
-				job.cb.Invoke(
-					job.data.Size(), 
-					(const U8*)job.data.Data(), 
-					job.state != AsyncLoadJob::State::FAILED);
+				if (!job.IsCanceled())
+				{
+					job.cb.Invoke(
+						job.data.Size(),
+						(const U8*)job.data.Data(),
+						!job.IsFailed());
+				}
 
 				// Cost too much time
 				if (timer.GetTimeSinceStart() > 0.2f)
@@ -220,9 +236,34 @@ namespace VulkanTest
 			job.jobID = lastJobID;
 			job.path = path.c_str();
 			job.cb = cb;
-			pendingJobs.push(job);
+			pendingJobs.push_back(job);
 			semaphore.Signal();
 			return AsyncLoadHandle(lastJobID);
+		}
+
+		void CancelAsync(AsyncLoadHandle async) override
+		{
+			ScopedMutex lock(mutex);
+			for (auto& job : pendingJobs)
+			{
+				if (job.jobID == async.value)
+				{
+					job.SetCanceled();
+					workerCount--;
+					return;
+				}
+			}
+
+			for (auto& job : finishedJobs)
+			{
+				if (job.jobID == async.value)
+				{
+					job.SetCanceled();
+					return;
+				}
+			}
+
+			ASSERT(false);
 		}
 	};
 
@@ -234,6 +275,17 @@ namespace VulkanTest
 			fs.semaphore.Wait();
 			if (isFinished)
 				break;
+
+			// Check is canceled
+			{
+				ScopedMutex lock(fs.mutex);
+				ASSERT(!fs.pendingJobs.empty());
+				if (fs.pendingJobs.front().IsCanceled())
+				{
+					fs.pendingJobs.pop_front();
+					continue;
+				}
+			}
 
 			// Get async loading job
 			MaxPathString filePath;
@@ -251,16 +303,19 @@ namespace VulkanTest
 			{
 				ScopedMutex lock(fs.mutex);
 				ASSERT(!fs.pendingJobs.empty());
-				AsyncLoadJob finishedJob = std::move(fs.pendingJobs.front());
-				finishedJob.data = std::move(mem);
-				if (success == false)
-					finishedJob.state = AsyncLoadJob::State::FAILED;
-			
-				fs.finishedJobs.push(std::move(finishedJob));
-				fs.pendingJobs.pop();
+				if (!fs.pendingJobs.front().IsCanceled())
+				{
+					AsyncLoadJob finishedJob = std::move(fs.pendingJobs.front());
+					finishedJob.data = std::move(mem);
+					if (success == false)
+						finishedJob.SetFailed();
+
+					fs.finishedJobs.push_back(std::move(finishedJob));
+				}
+
+				fs.pendingJobs.pop_front();
 			}
 		}
-
 		return 0;
 	}
 
@@ -353,6 +408,11 @@ namespace VulkanTest
 	AsyncLoadHandle FileSystem::LoadFileAsync(const Path& path, const AsyncLoadCallback& cb)
 	{
 		return backend->LoadFileAsync(path, cb);
+	}
+
+	void FileSystem::CancelAsync(AsyncLoadHandle async)
+	{
+		backend->CancelAsync(async);
 	}
 
 	FileSystem::FileSystem(UniquePtr<FileSystemBackend>&& backend_) :

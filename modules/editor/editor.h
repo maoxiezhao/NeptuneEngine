@@ -38,6 +38,7 @@ namespace Editor
         virtual Utils::Action* GetAction(const char* name) = 0;
         virtual const Array<Platform::WindowEvent>& GetWindowEvents()const = 0;
         virtual class AssetCompiler& GetAssetCompiler() = 0;
+        virtual class AssetBrowser& GetAssetBrowser() = 0;
         virtual class EntityListWidget& GetEntityList() = 0;
         virtual class WorldEditor& GetWorldEditor() = 0;
         virtual Gizmo::Config& GetGizmoConfig() = 0;

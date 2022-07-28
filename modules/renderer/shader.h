@@ -39,6 +39,18 @@ namespace VulkanTest
 		Shader(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~Shader();
 
+		GPU::Shader* GetVS(const String& name, I32 permutationIndex = 0) {
+			return GetShader(GPU::ShaderStage::VS, name, permutationIndex);
+		}
+
+		GPU::Shader* GetPS(const String& name, I32 permutationIndex = 0) {
+			return GetShader(GPU::ShaderStage::PS, name, permutationIndex);
+		}
+
+		GPU::Shader* GetCS(const String& name, I32 permutationIndex = 0) {
+			return GetShader(GPU::ShaderStage::CS, name, permutationIndex);
+		}
+
 		GPU::Shader* GetShader(GPU::ShaderStage stage, const String& name, I32 permutationIndex);
 
 	protected:

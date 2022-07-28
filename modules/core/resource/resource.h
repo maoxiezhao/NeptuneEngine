@@ -87,8 +87,6 @@ namespace VulkanTest
 			return resSize;
 		}
 
-		//void IncRefCount();
-		//void DecRefCount();
 		void Refresh();
 
 		void AddDependency(Resource& depRes);
@@ -102,7 +100,7 @@ namespace VulkanTest
 			return hooked;
 		}
 
-		ResourceFactory& GetResourceFactoyr() {
+		ResourceFactory& GetResourceFactory() {
 			return resFactory;
 		}
 

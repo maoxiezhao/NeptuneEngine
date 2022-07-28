@@ -1,0 +1,55 @@
+#include "common/objectHF.hlsli"
+
+// OBJECTSHADER_LAYOUT:
+// OBJECTSHADER_LAYOUT_COMMON	1	//	- layout for common passes
+// OBJECTSHADER_LAYOUT_PREPASS	2	//	- layout for prepass
+
+// Vertex Shader function for Main Pass
+META_VS(true)
+META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 1)	// Common
+META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 2)	// Prepass
+PixelInput VS(VertexInput input)
+{
+    VertexSurface surface;
+    surface.Create(input);
+
+    PixelInput Out;
+    Out.pos = surface.position;
+    Out.pos = mul(GetCamera().viewProjection, Out.pos);
+
+#ifdef OBJECTSHADER_USE_COLOR
+    Out.color = surface.color;
+#endif
+
+#ifdef OBJECTSHADER_USE_NORMAL
+    Out.nor = surface.normal;
+#endif
+
+#ifdef OBJECTSHADER_USE_POSITION3D
+    Out.pos3D = surface.position.xyz;
+#endif
+
+#ifdef OBJECTSHADER_USE_INSTANCEINDEX
+	Out.instanceIndex = input.GetInstancePointer().instanceIndex;
+#endif
+
+    return Out;
+}
+
+// Pixel Shader function for Main Pass
+META_PS(true)
+META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 1)
+float4 PS(PixelInput input) : SV_Target
+{
+    return GetMaterial().baseColor;
+}
+
+// Pixel Shader function for Depth Pass
+[earlydepthstencil]
+META_PS(true)
+META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 2)
+uint PS_Depth(PixelInput input) : SV_Target
+{
+    return 0;
+}
+

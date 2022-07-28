@@ -16,31 +16,19 @@ namespace GPU
 		Count
 	};
 
-	enum DescriptorSetType
-	{
-		DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE,
-		DESCRIPTOR_SET_TYPE_STORAGE_IMAGE,
-		DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER,
-		DESCRIPTOR_SET_TYPE_STORAGE_BUFFER,
-		DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER,
-		DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT,
-		DESCRIPTOR_SET_TYPE_SAMPLER,
-		DESCRIPTOR_SET_TYPE_COUNT,
-	};
-
-	struct DescriptorSetLayoutBinding
-	{
-		U32 unrolledBinding = 0;
-		U8 arraySize = 0;
-	};
+	//struct DescriptorSetLayoutBinding
+	//{
+	//	U32 unrolledBinding = 0;
+	//	U8  arraySize = 0;
+	//};
 
 	struct DescriptorSetLayout
 	{
 		U32 masks[DESCRIPTOR_SET_TYPE_COUNT] = {};
-		DescriptorSetLayoutBinding bindings[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
+		U8  arraySize[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
 		bool isBindless = false;
 		U32 immutableSamplerMask = 0;
-		DescriptorSetLayoutBinding immutableSamplerBindings[VULKAN_NUM_BINDINGS];
+		U32 immutableSamplerBindings[VULKAN_NUM_BINDINGS];
 		enum { UNSIZED_ARRAY = 0xff };
 	};
 

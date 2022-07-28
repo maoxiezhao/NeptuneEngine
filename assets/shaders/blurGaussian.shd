@@ -34,8 +34,9 @@ static const int TILE_BORDER = GAUSS_KERNEL / 2;
 static const int CACHE_SIZE = TILE_BORDER + POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT + TILE_BORDER;
 groupshared float4 color_cache[CACHE_SIZE];
 
+META_CS(true)
 [numthreads(POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT, 1, 1)]
-void main(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex)
+void CS(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex)
 {	
     float2 direction = push.params0.xy;
 	const bool horizontal = direction.y == 0;

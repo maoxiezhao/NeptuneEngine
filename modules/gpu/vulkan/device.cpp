@@ -1772,6 +1772,12 @@ void DeviceVulkan::ReleaseSemaphore(VkSemaphore semaphore)
     CurrentFrameResource().destroyeSemaphores.push_back(semaphore);
 }
 
+void DeviceVulkan::ReleaseShader(Shader* shader)
+{
+    LOCK();
+    CurrentFrameResource().destroyedShaders.push_back(shader->GetModule());
+}
+
 void DeviceVulkan::RecycleSemaphore(VkSemaphore semaphore)
 {
     LOCK();
@@ -2475,6 +2481,9 @@ void DeviceVulkan::FrameResource::Begin()
         device.eventManager.Recyle(ent);
     for (auto& allocation : destroyedAllocations)
         allocation.Free(device.memory);
+    for (auto& shader : destroyedShaders)
+        vkDestroyShaderModule(vkDevice, shader, nullptr);
+
     for (auto& kvp : destroyedBindlessResources)
     {
         auto heap = device.GetBindlessDescriptorHeap(kvp.second);
@@ -2494,6 +2503,7 @@ void DeviceVulkan::FrameResource::Begin()
     recyledEvents.clear();
     destroyedAllocations.clear();
     destroyedBindlessResources.clear();
+    destroyedShaders.clear();
 
     // reset persistent storage blocks
     for (auto& kvp : storageBlockMap)

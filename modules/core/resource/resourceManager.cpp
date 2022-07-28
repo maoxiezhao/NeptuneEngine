@@ -37,6 +37,35 @@ namespace VulkanTest
 		resManager = nullptr;
 	}
 
+	void ResourceFactory::Reload(const Path& path)
+	{
+		Resource* res = GetResource(path);
+		if (res)
+			Reload(*res);
+	}
+
+	void ResourceFactory::Reload(Resource& res)
+	{
+		// Unload resource
+		if (res.currentState != Resource::State::EMPTY)
+			res.DoUnload();
+		else if (res.desiredState == Resource::State::READY)
+			return;
+
+		// Load resource
+		if (resManager->OnBeforeLoad(res) == ResourceManager::LoadHook::Action::DEFERRED)
+		{
+			ASSERT(res.IsHooked() == false);
+			res.SetHooked(true);
+			res.desiredState = Resource::State::READY;
+			res.AddReference(); // Hook
+		}
+		else
+		{
+			res.DoLoad();
+		}
+	}
+
 	void ResourceFactory::RemoveUnreferenced()
 	{
 		if (isUnloadEnable == false)
@@ -98,6 +127,11 @@ namespace VulkanTest
 		return nullptr;
 	}
 
+	ResourceFactory::ResourceTable& ResourceFactory::GetResourceTable()
+	{
+		return resources;
+	}
+
 	ResourceManager::ResourceManager() = default;
 	ResourceManager::~ResourceManager() = default;
 
@@ -131,6 +165,35 @@ namespace VulkanTest
 			return nullptr;
 
 		return factory->LoadResource(path);
+	}
+
+	void ResourceManager::Reload(const Path& path)
+	{
+		for (auto kvp : factoryTable)
+			kvp.second->Reload(path);
+	}
+
+	void ResourceManager::ReloadAll()
+	{
+		while (fileSystem->HasWork())
+			fileSystem->ProcessAsync();
+
+		Array<Resource*> toReload;
+		for (auto kvp : factoryTable)
+		{
+			auto& resources = kvp.second->GetResourceTable();
+			for (auto i : resources)
+			{
+				if (i.second->IsReady())
+				{
+					i.second->DoUnload();
+					toReload.push_back(i.second);
+				}
+			}
+		}
+
+		for (auto res : toReload)
+			res->DoLoad();
 	}
 
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)

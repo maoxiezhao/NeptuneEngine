@@ -5,7 +5,31 @@ PUSHCONSTANT(push, PostprocessPushConstants)
 
 Texture2D<float> tex : register(t0);
 
-float4 main(float4 pos : SV_POSITION, float2 uv  : TEXCOORD0) : SV_TARGET
+struct VertexToPixel
+{
+    float4 pos : SV_POSITION;
+    float2 uv  : TEXCOORD0;
+};
+inline void FullScreenTriangle(in uint vertexID, out float4 pos, out float2 uv)
+{
+	pos.x = (float)(vertexID / 2) * 4.0 - 1.0;
+	pos.y = (float)(vertexID % 2) * 4.0 - 1.0;
+	pos.z = 0;
+	pos.w = 1;
+    uv.x = (float)(vertexID / 2) * 2;
+	uv.y = 1 - (float)(vertexID % 2) * 2;
+}
+
+META_VS(true)
+VertexToPixel VS(uint vID : SV_VERTEXID)
+{
+    VertexToPixel Out;
+    FullScreenTriangle(vID, Out.pos, Out.uv);
+    return Out;
+}
+
+META_PS(true)
+float4 PS(float4 pos : SV_POSITION, float2 uv  : TEXCOORD0) : SV_TARGET
 {
     const float middle = tex.SampleLevel(samLinearClamp, uv, 0);
 

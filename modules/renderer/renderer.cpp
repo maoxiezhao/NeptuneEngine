@@ -163,12 +163,13 @@ namespace Renderer
 	GPU::BlendState stockBlendStates[BSTYPE_COUNT] = {};
 	GPU::RasterizerState stockRasterizerState[RSTYPE_COUNT] = {};
 	GPU::DepthStencilState depthStencilStates[DSTYPE_COUNT] = {};
-	GPU::Shader* shaders[SHADERTYPE_COUNT] = {};
+	ResPtr<Shader> shaders[SHADERTYPE_COUNT] = {};
 	GPU::BufferPtr frameBuffer;
 	GPU::PipelineStateDesc objectPipelineStates
 		[RENDERPASS_COUNT]
 		[BLENDMODE_COUNT]
 		[OBJECT_DOUBLESIDED_COUNT];
+	bool isObjectPipelineStatesInited = false;
 
 	RendererPlugin* rendererPlugin = nullptr;
 
@@ -274,48 +275,36 @@ namespace Renderer
 
 	void LoadShaders()
 	{
-		// TODO: Replace Shaders with Shader resource
-
-		shaders[SHADERTYPE_VS_OBJECT] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", { {"OBJECTSHADER_LAYOUT_COMMON", 1} });
-		shaders[SHADERTYPE_VS_PREPASS] = PreloadShader(GPU::ShaderStage::VS, "objectVS.hlsl", { {"OBJECTSHADER_LAYOUT_PREPASS", 1} });
-		shaders[SHADERTYPE_VS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::VS, "vertexColorVS.hlsl");
-		shaders[SHADERTYPE_VS_POSTPROCESS] = PreloadShader(GPU::ShaderStage::VS, "postprocessVS.hlsl");
-
-		shaders[SHADERTYPE_CS_POSTPROCESS_BLUR_GAUSSIAN] = PreloadShader(GPU::ShaderStage::CS, "blurGaussianCS.hlsl");
-
-		shaders[SHADERTYPE_PS_OBJECT] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { { "OBJECTSHADER_LAYOUT_COMMON", 1} });
-		shaders[SHADERTYPE_PS_PREPASS] = PreloadShader(GPU::ShaderStage::PS, "objectPS.hlsl", { { "OBJECTSHADER_LAYOUT_PREPASS", 1} });
-		shaders[SHADERTYPE_PS_VERTEXCOLOR] = PreloadShader(GPU::ShaderStage::PS, "vertexColorPS.hlsl");
-		shaders[SHADERTYPE_PS_POSTPROCESS_OUTLINE] = PreloadShader(GPU::ShaderStage::PS, "outlinePS.hlsl");
+		auto resManager = rendererPlugin->GetEngine().GetResourceManager();
+		shaders[SHADERTYPE_OBJECT] = resManager.LoadResourcePtr<Shader>(Path("shaders/object.shd"));
+		shaders[SHADERTYPE_VERTEXCOLOR] = resManager.LoadResourcePtr<Shader>(Path("shaders/vertexColor.shd"));
+		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = resManager.LoadResourcePtr<Shader>(Path("shaders/outline.shd"));
+		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResourcePtr<Shader>(Path("shaders/blurGaussian.shd"));
 	}
 
-	ShaderType GetVSType(RENDERPASS renderPass)
+	GPU::Shader* GetVSShader(RENDERPASS renderPass)
 	{
 		switch (renderPass)
 		{
 		case RENDERPASS_MAIN:
-			return SHADERTYPE_VS_OBJECT;
-			break;
+			return shaders[SHADERTYPE_OBJECT]->GetVS("VS", 0);
 		case RENDERPASS_PREPASS:
-			return SHADERTYPE_VS_PREPASS;
-			break;
+			return shaders[SHADERTYPE_OBJECT]->GetVS("VS", 1);
 		default:
-			return SHADERTYPE_COUNT;
+			return nullptr;
 		}
 	}
 
-	ShaderType GetPSType(RENDERPASS renderPass)
+	GPU::Shader* GetPSShader(RENDERPASS renderPass)
 	{
 		switch (renderPass)
 		{
 		case RENDERPASS_MAIN:
-			return SHADERTYPE_PS_OBJECT;
-			break;
+			return shaders[SHADERTYPE_OBJECT]->GetPS("PS", 0);
 		case RENDERPASS_PREPASS:
-			return SHADERTYPE_PS_PREPASS;
-			break;
+			return shaders[SHADERTYPE_OBJECT]->GetPS("PS_Depth", 0);
 		default:
-			return SHADERTYPE_COUNT;
+			return nullptr;
 		}
 	}
 
@@ -332,11 +321,8 @@ namespace Renderer
 
 					// Shaders
 					const bool transparency = blendMode != BLENDMODE_OPAQUE;
-					ShaderType vsType = GetVSType((RENDERPASS)renderPass);
-					ShaderType psType = GetPSType((RENDERPASS)renderPass);
-
-					pipeline.shaders[(I32)GPU::ShaderStage::VS] = vsType < SHADERTYPE_COUNT ? GetShader(vsType) : nullptr;
-					pipeline.shaders[(I32)GPU::ShaderStage::PS] = psType < SHADERTYPE_COUNT ? GetShader(psType) : nullptr;
+					pipeline.shaders[(I32)GPU::ShaderStage::VS] = GetVSShader((RENDERPASS)renderPass);
+					pipeline.shaders[(I32)GPU::ShaderStage::PS] = GetPSShader((RENDERPASS)renderPass);
 					
 					// Blend states
 					switch (blendMode)
@@ -393,10 +379,16 @@ namespace Renderer
 	{
 		Logger::Info("Render initialized");
 
+		// Initialize resource factories
+		ResourceManager& resManager = engine.GetResourceManager();
+		shaderFactory.Initialize(Shader::ResType, resManager);
+		textureFactory.Initialize(Texture::ResType, resManager);
+		modelFactory.Initialize(Model::ResType, resManager);
+		materialFactory.Initialize(Material::ResType, resManager);
+
 		// Load built-in states
 		InitStockStates();
 		LoadShaders();
-		LoadPipelineStates();
 
 		// Create built-in constant buffers
 		auto device = GetDevice();
@@ -407,15 +399,8 @@ namespace Renderer
 		frameBuffer = device->CreateBuffer(info, nullptr);
 		device->SetName(*frameBuffer, "FrameBuffer");
 
-		// Initialize resource factories
-		ResourceManager& resManager = engine.GetResourceManager();
-		shaderFactory.Initialize(Shader::ResType, resManager);
-		textureFactory.Initialize(Texture::ResType, resManager);
-		modelFactory.Initialize(Model::ResType, resManager);
-		materialFactory.Initialize(Material::ResType, resManager);
-
 		// Initialize image util
-		ImageUtil::Initialize();
+		ImageUtil::Initialize(resManager);
 
 		// Initialize texture helper
 		TextureHelper::Initialize(&resManager);
@@ -423,6 +408,11 @@ namespace Renderer
 
 	void Renderer::Uninitialize()
 	{
+		// Release resources
+		for (int i = 0; i < ARRAYSIZE(shaders); i++)
+			shaders[i].reset();
+
+		ImageUtil::Uninitialize();
 		TextureHelper::Uninitialize();
 
 		frameBuffer.reset();
@@ -458,9 +448,9 @@ namespace Renderer
 		return depthStencilStates[type];
 	}
 
-	const GPU::Shader* GetShader(ShaderType type)
+	Shader* GetShader(ShaderType type)
 	{
-		return shaders[type];
+		return shaders[type].get();
 	}
 
 	const GPU::PipelineStateDesc& GetObjectPipelineState(RENDERPASS renderPass, BlendMode blendMode, ObjectDoubleSided doublesided)
@@ -480,6 +470,17 @@ namespace Renderer
 	{
 		ASSERT(visible.scene);
 		frameCB.scene = visible.scene->GetShaderScene();
+
+		// Update object pipeline states
+		if (!isObjectPipelineStatesInited && GetShader(SHADERTYPE_OBJECT)->IsReady())
+		{
+			isObjectPipelineStatesInited = true;
+			LoadPipelineStates();
+		}
+		else if (isObjectPipelineStatesInited && GetShader(SHADERTYPE_OBJECT)->IsEmpty())
+		{
+			isObjectPipelineStatesInited = false;
+		}
 	}
 
 	void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd)
@@ -672,7 +673,7 @@ namespace Renderer
 			auto& temp = graph.GetPhysicalTexture(tempRes);
 			auto& out = graph.GetPhysicalTexture(output);
 
-			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_CS_POSTPROCESS_BLUR_GAUSSIAN));
+			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN)->GetCS("CS"));
 
 			PostprocessPushConstants push;
 			push.resolution = {
@@ -733,8 +734,8 @@ namespace Renderer
 		cmd.SetDepthStencilState(GetDepthStencilState(DSTYPE_DISABLED));
 		cmd.SetTexture(0, 0, texture);
 		cmd.SetProgram(
-			GetShader(SHADERTYPE_VS_POSTPROCESS),
-			GetShader(SHADERTYPE_PS_POSTPROCESS_OUTLINE)
+			GetShader(SHADERTYPE_POSTPROCESS_OUTLINE)->GetVS("VS"),
+			GetShader(SHADERTYPE_POSTPROCESS_OUTLINE)->GetPS("PS")
 		);
 
 		PostprocessPushConstants push;

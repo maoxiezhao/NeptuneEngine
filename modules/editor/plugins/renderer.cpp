@@ -5,6 +5,7 @@
 #include "editor\widgets\sceneView.h"
 #include "renderer\model.h"
 #include "renderer\material.h"
+#include "imgui-docking\imgui.h"
 
 #include "model\objImporter.h"
 #include "shader\shaderCompilation.h"
@@ -13,6 +14,7 @@ namespace VulkanTest
 {
 namespace Editor
 {
+	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Material editor plugin
 	struct MaterialPlugin final : AssetCompiler::IPlugin
 	{
@@ -37,6 +39,7 @@ namespace Editor
 		}
 	};
 
+	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Model editor plugin
 	struct ModelPlugin final : AssetCompiler::IPlugin
 	{
@@ -99,8 +102,9 @@ namespace Editor
 		}
 	};
 
+	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Shader editor plugin
-	struct ShaderPlugin final : AssetCompiler::IPlugin
+	struct ShaderPlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -199,11 +203,26 @@ namespace Editor
 			return meta;
 		}
 
-		std::vector<const char*> GetSupportExtensions()
+		void OnGui(Span<class Resource*> resource)override
 		{
+			if (resource.length() > 1)
+				return;
+
+			Shader* shader = static_cast<Shader*>(resource[0]);
+			if (ImGui::Button(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
+				app.GetAssetBrowser().OpenInExternalEditor(shader->GetPath().c_str());
+		}
+
+		std::vector<const char*> GetSupportExtensions() {
 			return { "shd" };
 		}
+
+		ResourceType GetResourceType() const override {
+			return Shader::ResType;
+		}
 	};
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	struct RenderPlugin : EditorPlugin
 	{
@@ -227,6 +246,9 @@ namespace Editor
 
 		virtual ~RenderPlugin() 
 		{
+			AssetBrowser& assetBrowser = app.GetAssetBrowser();
+			assetBrowser.RemovePlugin(shaderPlugin);
+
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.RemovePlugin(modelPlugin);
 			assetCompiler.RemovePlugin(materialPlugin);
@@ -237,13 +259,18 @@ namespace Editor
 
 		void Initialize() override
 		{
+			// Add plugins for asset compiler
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.AddPlugin(modelPlugin);
 			assetCompiler.AddPlugin(materialPlugin);
 			assetCompiler.AddPlugin(shaderPlugin);
 
-			app.AddWidget(sceneView);
+			// Add plugins for asset browser
+			AssetBrowser& assetBrowser = app.GetAssetBrowser();
+			assetBrowser.AddPlugin(shaderPlugin);
 
+			// Add widget for editor
+			app.AddWidget(sceneView);
 			sceneView.Init();
 		}
 

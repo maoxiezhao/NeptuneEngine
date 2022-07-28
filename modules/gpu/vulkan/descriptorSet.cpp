@@ -266,10 +266,8 @@ namespace GPU
 				U32 types = 0;
 				if (layout.masks[maskbit] & (1u << i))
 				{
-					auto& binding = layout.bindings[maskbit][i];
-
 					// Calculate array size and pool size
-					U32 arraySize = binding.arraySize;
+					U32 arraySize = layout.arraySize[maskbit][i];
 					U32 poolArraySize = 0;
 					if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY || isBindless)
 					{
@@ -288,7 +286,7 @@ namespace GPU
 
 					auto descriptorType = GetTypeBySetMask(static_cast<DescriptorSetType>(maskbit));
 					bindings.push_back({
-						binding.unrolledBinding,				// binding
+						GetUnrolledBinding(i, (DescriptorSetType)maskbit),				// binding
 						descriptorType, 						// descriptorType
 						arraySize, 								// descriptorCount
 						stages, 								// stageFlags
@@ -307,7 +305,7 @@ namespace GPU
 				auto& binding = layout.immutableSamplerBindings[i];
 
 				// Calculate array size and pool size
-				U32 arraySize = binding.arraySize;
+				U32 arraySize = 1; // binding.arraySize;
 				ASSERT(arraySize != DescriptorSetLayout::UNSIZED_ARRAY);
 				ASSERT(!isBindless);
 				U32 poolArraySize = arraySize * VULKAN_NUM_SETS_PER_POOL;
@@ -316,7 +314,7 @@ namespace GPU
 				auto immutableSampler = device.GetStockSampler((StockSampler)i)->GetSampler().GetSampler();
 				ASSERT(immutableSampler != VK_NULL_HANDLE);
 				bindings.push_back({
-					binding.unrolledBinding,				// binding
+					binding,								// binding
 					VK_DESCRIPTOR_TYPE_SAMPLER, 			// descriptorType
 					arraySize, 								// descriptorCount
 					stages, 								// stageFlags

@@ -94,6 +94,17 @@ namespace VulkanTest
 			char c = MoveForward();
 			char c1 = CurrentChar();
 
+			// Check comment
+			if (c == '/' && c1 == '/')
+			{
+				if (token.length == 0)
+				{
+					ReadLine();
+					token.start = cursor;
+					continue;
+				}
+			}
+
 			// Check separator
 			for (const auto& separator : separators)
 			{

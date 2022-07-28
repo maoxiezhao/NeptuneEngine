@@ -91,8 +91,13 @@ namespace Editor
             config.windowTitle = GetWindowTitle();
             engine = CreateEngine(config, *this);
 
-            // Init widgets
+            // Init asset compiler first
             assetCompiler = AssetCompiler::Create(*this);
+
+            // Load plugins
+            engine->LoadPlugins();
+
+            // Init widgets
             worldEditor = WorldEditor::Create(*this);
             assetBrowser = AssetBrowser::Create(*this);
             renderGraphWidget = RenderGraphWidget::Create(*this);
@@ -295,6 +300,11 @@ namespace Editor
             return *assetCompiler;
         }
 
+        AssetBrowser& GetAssetBrowser()
+        {
+            return *assetBrowser;
+        }
+
         EntityListWidget& GetEntityList()
         {
             return *entityListWidget;
@@ -385,6 +395,7 @@ namespace Editor
                 ImageUtil::Params params = {};
                 params.EnableFullScreen();
                 ImageUtil::Draw(TextureHelper::GetColor(Color4::Blue())->GetImage(), params, *cmd);
+
                 cmd->EndRenderPass();
                 device->Submit(cmd);
             }

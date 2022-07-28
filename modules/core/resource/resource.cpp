@@ -125,8 +125,7 @@ namespace VulkanTest
 		{
 			// Cancel when res is loading
 			FileSystem* fileSystem = resFactory.GetResourceManager().GetFileSystem();
-			// TODO
-			// fileSystem.Cancel(asyncHandle);
+			fileSystem->CancelAsync(asyncHandle);
 			asyncHandle = AsyncLoadHandle::INVALID;
 		}
 

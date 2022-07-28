@@ -313,8 +313,8 @@ namespace Editor::Gizmo
 		cmd.SetRasterizerState(Renderer::GetRasterizerState(RSTYPE_DOUBLE_SIDED));
 		cmd.SetDepthStencilState(Renderer::GetDepthStencilState(DSTYPE_DEFAULT));
 		cmd.SetProgram(
-			Renderer::GetShader(ShaderType::SHADERTYPE_VS_VERTEXCOLOR),
-			Renderer::GetShader(ShaderType::SHADERTYPE_PS_VERTEXCOLOR)
+			Renderer::GetShader(ShaderType::SHADERTYPE_VERTEXCOLOR)->GetVS("VS"),
+			Renderer::GetShader(ShaderType::SHADERTYPE_VERTEXCOLOR)->GetPS("PS")
 		);
 
 		F32 dist = std::max(Distance(transform.GetPosition(), camera.eye) * 0.05f, 0.0001f);

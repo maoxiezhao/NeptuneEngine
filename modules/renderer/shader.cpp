@@ -11,7 +11,12 @@ namespace VulkanTest
 
 	void Shader::ShaderContainer::Clear()
 	{
-		// TODO: whether to release GPU::Shader
+		//GPU::DeviceVulkan* device = Renderer::GetDevice();
+		//if (device != nullptr)
+		//{
+		//	for (auto shader : shaders)
+		//		device->ReleaseShader(shader);
+		//}
 		shaders.clear();
 	}
 
@@ -137,7 +142,7 @@ namespace VulkanTest
 					Logger::Warning("Failed to create shader");
 					return false;
 				}
-
+				shader->SetEntryPoint(name);
 				shaders.Add(shader, name, permutationIndex);
 			}
 		}

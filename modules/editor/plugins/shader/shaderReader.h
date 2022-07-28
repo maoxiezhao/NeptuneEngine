@@ -22,9 +22,10 @@ namespace Editor
 	template<typename ReaderType>
 	struct ITokenReadersContainer
 	{
-		Array<ReaderType*> readers;
+		// Array<ReaderType*> readers;
+		std::vector<ReaderType*> readers;
 
-		~ITokenReadersContainer()
+		virtual ~ITokenReadersContainer()
 		{
 			for (auto reader : readers)
 				CJING_SAFE_DELETE(reader);
@@ -47,6 +48,7 @@ namespace Editor
 
 	struct ShaderMetaCollector : ITokenReader
 	{
+		virtual ~ShaderMetaCollector() {}
 		virtual void CollectResults(IShaderParser& parser, ShaderMeta* result) = 0;
 	};
 
@@ -55,6 +57,10 @@ namespace Editor
 	{
 		Array<MetaType> metaCache;
 		MetaType current;
+
+		~ShaderMetaReader()
+		{
+		}
 
 		void Process(IShaderParser& shaderParser, TextReader& textReader) override
 		{
@@ -209,6 +215,10 @@ namespace Editor
 		ShaderFunctionReader()
 		{
 			ShaderMetaReader<MetaType>::readers.push_back(CJING_NEW(PermutationsReader)(this));
+		}
+
+		~ShaderFunctionReader()
+		{
 		}
 
 		void OnParseBefore(IShaderParser& parser, TextReader& textReader) override

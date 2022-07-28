@@ -5,14 +5,15 @@
 #include "surface.hlsli"
 
 // Use these to define the expected layout for the shader:
-//#define OBJECTSHADER_LAYOUT_PREPASS			- layout for prepass
-//#define OBJECTSHADER_LAYOUT_COMMON			- layout for common passes
+// #define OBJECTSHADER_LAYOUT to set layout
+#define OBJECTSHADER_LAYOUT_COMMON	1	//	- layout for common passes
+#define OBJECTSHADER_LAYOUT_PREPASS	2	//	- layout for prepass
 
-#ifdef OBJECTSHADER_LAYOUT_PREPASS
+#if OBJECTSHADER_LAYOUT == OBJECTSHADER_LAYOUT_PREPASS
 #define OBJECTSHADER_USE_INSTANCEINDEX
 #endif
 
-#ifdef OBJECTSHADER_LAYOUT_COMMON
+#if OBJECTSHADER_LAYOUT == OBJECTSHADER_LAYOUT_COMMON
 #define OBJECTSHADER_USE_COLOR
 #define OBJECTSHADER_USE_NORMAL
 #define OBJECTSHADER_USE_POSITION3D

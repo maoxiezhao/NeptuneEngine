@@ -110,6 +110,9 @@ namespace GPU
 			return layout;
 		}
 
+		void SetEntryPoint(const char* entryPoint_);
+		const char* GetEntryPoint()const;
+
 		static bool ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, size_t spirvSize);
 
 	private:
@@ -117,6 +120,7 @@ namespace GPU
 		ShaderStage shaderStage;
 		VkShaderModule shaderModule = VK_NULL_HANDLE;
 		ShaderResourceLayout layout;
+		std::string entryPoint;
 	};
 
 	struct ShaderProgramInfo

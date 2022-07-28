@@ -60,7 +60,7 @@ namespace VulkanTest
 	{
 		PROFILE_FUNCTION();
 
-		MaterialFactory& factory = static_cast<MaterialFactory&>(GetResourceFactoyr());
+		MaterialFactory& factory = static_cast<MaterialFactory&>(GetResourceFactory());
 		LuaConfig& luaConfig = factory.GetLuaConfig();
 		luaConfig.AddLightUserdata("this", this);
 

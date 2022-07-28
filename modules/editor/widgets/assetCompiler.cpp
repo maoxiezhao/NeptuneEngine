@@ -333,7 +333,12 @@ namespace Editor
                         continue;
 
                     Resource* res = GetResource(compiled.path);
-                    if (res && res->IsHooked() && (!res->IsFailure() || !res->IsReady()))
+                    if (res == nullptr)
+                        break;
+
+                    if (res->IsReady() || res->IsFailure())
+                        res->GetResourceFactory().Reload(*res);
+                    else if (res->IsHooked())
                         lookHook.ContinueLoad(*res);
                 }
 

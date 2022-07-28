@@ -159,20 +159,20 @@ namespace VulkanTest
 	Path::Path(const char* path_)
 	{
 		Path::Normalize(path_, path);
-		hash = StringID(path_);
+		hash = StringID(path);
 	}
 
 	void Path::operator=(const char* rhs)
 	{
 		Path::Normalize(rhs, path);
-		hash = StringID(rhs);
+		hash = StringID(path);
 	}
 
 	void Path::Join(const char* path_)
 	{
 		auto newPath = Path::Join(path, Span(path_, StringLength(path_)));
 		Path::Normalize(newPath, path);
-		hash = StringID(path_);
+		hash = StringID(path);
 	}
 
 	size_t Path::Length() const

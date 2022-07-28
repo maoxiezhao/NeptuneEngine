@@ -1,6 +1,7 @@
 #include "assetBrowser.h"
 #include "assetCompiler.h"
 #include "editor\editor.h"
+#include "editor\widgets\codeEditor.h"
 #include "core\platform\platform.h"
 #include "imgui-docking\imgui.h"
 
@@ -34,11 +35,13 @@ namespace Editor
         };
         Array<FileInfo> fileInfos;  // All file infos in the current directory
 
+        CodeEditor codeEditor;
         HashMap<U64, IPlugin*> plugins;
 
     public:
         AssetBrowserImpl(EditorApp& editor_) :
-            editor(editor_)
+            editor(editor_),
+            codeEditor(editor_)
         {
             filter[0] = '\0';
         }
@@ -122,6 +125,16 @@ namespace Editor
         const char* GetName() override
         {
             return "AssetBrowser";
+        }
+
+        void OpenInExternalEditor(Resource* resource) override
+        {
+            OpenInExternalEditor(resource->GetPath().c_str());
+        }
+
+        void OpenInExternalEditor(const char* path) override
+        {
+            codeEditor.OpenFile(path);
         }
 
         void AddPlugin(IPlugin& plugin) override
@@ -455,6 +468,7 @@ namespace Editor
                 for (auto plugin : plugins)
                     plugin->OnResourceUnloaded(res.get());
                 res->Release();
+                res.reset();
             }
 
             selectedResources.clear();

@@ -1,10 +1,14 @@
 #include "common/shaderInterop_image.h"
 
-struct Output
+Texture2D tex : register(t0);
+SamplerState sam : register(s0);
+
+struct VertexToPixel
 {
     float4 pos : SV_POSITION;
     float2 uv  : TEXCOORD0;
 };
+
 inline void FullScreenTriangle(in uint vertexID, out float4 pos, out float2 uv)
 {
 	pos.x = (float)(vertexID / 2) * 4.0 - 1.0;
@@ -15,9 +19,10 @@ inline void FullScreenTriangle(in uint vertexID, out float4 pos, out float2 uv)
 	uv.y = 1 - (float)(vertexID % 2) * 2;
 }
 
-Output main(uint vID : SV_VERTEXID)
+META_VS(true)
+VertexToPixel VS(uint vID : SV_VERTEXID)
 {
-    Output Out;
+    VertexToPixel Out;
     [branch]
 	if (image.flags & IMAGE_FLAG_FULLSCREEN)
 	{
@@ -51,4 +56,10 @@ Output main(uint vID : SV_VERTEXID)
 		}
     }
     return Out;
+}
+
+META_PS(true)
+float4 PS(VertexToPixel input) : SV_TARGET
+{
+	return tex.Sample(sam, input.uv);
 }
