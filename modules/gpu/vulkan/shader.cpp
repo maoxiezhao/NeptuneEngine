@@ -179,10 +179,7 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 				{
 					rolledBinding -= DeviceVulkan::IMMUTABLE_SAMPLER_SLOT_BEGIN;
 					layout.sets[x->set].immutableSamplerMask |= 1u << rolledBinding;
-
-					auto& binding = layout.sets[x->set].immutableSamplerBindings[rolledBinding];
-					binding.unrolledBinding = x->binding;
-					binding.arraySize = x->count;
+					layout.sets[x->set].immutableSamplerBindings[rolledBinding] = x->binding;
 					continue;
 				}
 			}
@@ -272,12 +269,6 @@ void ShaderProgram::MoveToReadOnly()
 
 void ShaderProgram::Bake()
 {
-	// CombinedResourceLayout
-	// * descriptorSetMask;
-	// * stagesForSets[VULKAN_NUM_DESCRIPTOR_SETS];
-	// * stagesForBindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS];
-
-	// create pipeline layout
 	CombinedResourceLayout resLayout;
 	resLayout.descriptorSetMask = 0;
 
@@ -300,8 +291,6 @@ void ShaderProgram::Bake()
 		for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
 		{
 			bool stageForSet = false;
-
-			// descriptor type masks
 			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
 			{
 				const auto& bindingMask = shaderResLayout.sets[set].masks[maskbit];
@@ -309,20 +298,11 @@ void ShaderProgram::Bake()
 
 				stageForSet |= bindingMask != 0;
 
-				ForEachBit(bindingMask, [&](U32 bit) {
-					
+				ForEachBit(bindingMask, [&](U32 bit) {			
 					resLayout.stagesForBindings[set][bit] |= stageMask;
 					resLayout.sets[set].bindings[maskbit][bit] = shaderResLayout.sets[set].bindings[maskbit][bit];
-
-					//auto& combinedSize = resLayout.sets[set].bindings[maskbit][bit].arraySize;
-					//auto& shaderSize = shaderResLayout.sets[set].bindings[maskbit][bit].arraySize;
-					//if (combinedSize && combinedSize != shaderSize)
-					//	Logger::Error("Mismatch between array sizes in different shaders.\n");
-					//else
-					//	combinedSize = shaderSize;
 				});
 			}
-
 			// Immutable samplers
 			{
 				const auto& bindingMask = shaderResLayout.sets[set].immutableSamplerMask;

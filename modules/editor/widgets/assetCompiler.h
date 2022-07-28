@@ -38,7 +38,7 @@ namespace Editor
         virtual void AddPlugin(IPlugin& plugin, const std::vector<const char*>& exts) = 0;
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
-        virtual void AddDependency(const Path& parent, const Path& dep) = 0;
+        virtual void AddDependency(const Path& from, const Path& dep) = 0;
         virtual bool Compile(const Path& path) = 0;
         virtual bool CopyCompile(const Path& path) = 0;
         virtual bool WriteCompiled(const char* path, Span<const U8>data) = 0;

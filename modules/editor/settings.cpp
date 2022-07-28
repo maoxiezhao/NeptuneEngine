@@ -228,7 +228,7 @@ namespace Editor
 		}
 
 		// Version
-		file->Write("version = 1\n");
+		file->WriteString("version = 1\n");
 
 		*file << "window = { x = " 
 			<< window.x
@@ -245,9 +245,9 @@ namespace Editor
 		SaveEditorStyle(*file);
 
 		// Imgui state
-		file->Write("imgui = [[");
-		file->Write(imguiState.c_str());
-		file->Write("]]\n");
+		file->WriteString("imgui = [[");
+		file->WriteString(imguiState.c_str());
+		file->WriteString("]]\n");
 
 		// Actions
 		auto& actions = app.GetActions();

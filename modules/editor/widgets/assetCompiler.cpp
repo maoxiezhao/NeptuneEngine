@@ -155,8 +155,8 @@ namespace Editor
         {
             Engine& engine = editor.GetEngine();
             FileSystem& fs = engine.GetFileSystem();
-            auto file = fs.OpenFile(EXPORT_RESOURCE_LIST_TEMP, FileFlags::DEFAULT_WRITE);
-            if (!file->IsValid())
+            auto filePtr = fs.OpenFile(EXPORT_RESOURCE_LIST_TEMP, FileFlags::DEFAULT_WRITE);
+            if (!filePtr->IsValid())
             {
                 Logger::Error("Failed to save the list of resources");
                 return;
@@ -167,35 +167,36 @@ namespace Editor
             //   ResPath1,
             //   ResPath2
             // }
-            file->Write("resources = {\n");
+            auto& file = *filePtr;
+            file << "resources = {\n";
             for (auto& item : resources)
             {
-                file->Write("\"");
-                file->Write(item.path.c_str());
-                file->Write("\",\n");
+                file << "\"";
+                file << item.path.c_str();
+                file << "\",\n";
             }
-            file->Write("}\n\n");
+            file << "}\n\n";
             
             // dependencies = {
             //   ["Path1"] = { depPath1, depPath2 },
             //   ["Path2"] = { depPath3, depPath4 }
             // }
-            file->Write("dependencies = {\n");
+            file << "dependencies = {\n";
             for (auto it = dependencies.begin(); it != dependencies.end(); ++it)
             {
-                file->Write("\t[\"");
-                file->Write(it.key().c_str());
-                file->Write("\"] = {\n");
+                file << "\t[\"";
+                file << it.key().c_str();
+                file << "\"] = {\n";
                 for (const Path& path : it.value())
                 {
-                    file->Write("\t\t\"");
-                    file->Write(path.c_str());
-                    file->Write("\",\n");
+                    file << "\t\t\"";
+                    file << path.c_str();
+                    file <<  "\",\n";
                 }
-                file->Write("\t},\n");
+                file << "\t},\n";
             }
-            file->Write("}\n\n");
-            file->Close();
+            file << "}\n\n";
+            file.Close();
             fs.DeleteFile(EXPORT_RESOURCE_LIST);
             fs.MoveFile(EXPORT_RESOURCE_LIST_TEMP, EXPORT_RESOURCE_LIST);
 
@@ -230,6 +231,9 @@ namespace Editor
         void LoadResourceList()
         {
             FileSystem& fs = editor.GetEngine().GetFileSystem();
+            if (!fs.FileExists(EXPORT_RESOURCE_LIST))
+                return;
+
             OutputMemoryStream mem;
             if (fs.LoadContext(EXPORT_RESOURCE_LIST, mem))
             {
@@ -452,19 +456,18 @@ namespace Editor
             }
         }
 
-        void AddDependency(const Path& parent, const Path& dep)override
+        void AddDependency(const Path& from, const Path& dep)override
         {
-            auto it = dependencies.find(parent);
+            auto it = dependencies.find(dep);
             if (!it.isValid())
             {
-                dependencies.insert(parent, std::move(Array<Path>()));
-                it = dependencies.find(parent);
+                dependencies.insert(dep, std::move(Array<Path>()));
+                it = dependencies.find(dep);
             }
 
             Array<Path>& deps = it.value();
-            if (deps.indexOf(dep) < 0)
-                deps.push_back(dep);
-            
+            if (deps.indexOf(from) < 0)
+                deps.push_back(from);
         }
 
         void EndFrame() override

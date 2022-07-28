@@ -205,6 +205,56 @@ namespace VulkanTest
 		return EqualString(str + len - len2, substr);
 	}
 
+	bool FromCString(Span<const char> input, I32& value)
+	{
+		U32 length = input.length();
+		if (length <= 0)
+			return false;
+		
+		const char* c = input.begin();
+		value = 0;
+		if (*c == '-')
+		{
+			++c;
+			--length;
+			if (!length)
+				return false;
+		}
+		while (length && *c >= '0' && *c <= '9')
+		{
+			value *= 10;
+			value += *c - '0';
+			++c;
+			--length;
+		}
+
+		if (input[0] == '-')
+			value = -value;
+
+		return c == input.end();
+	}
+
+	bool FromCString(Span<const char> input, U32& value)
+	{
+		U32 length = input.length();
+		if (length <= 0)
+			return false;
+
+		const char* c = input.begin();
+		value = 0;
+		if (*c == '-')
+			return false;
+
+		while (length && *c >= '0' && *c <= '9')
+		{
+			value *= 10;
+			value += *c - '0';
+			++c;
+			--length;
+		}
+		return c == input.end();
+	}
+
 	bool ToCString(I32 value, Span<char> output)
 	{
 		char* c = output.begin();

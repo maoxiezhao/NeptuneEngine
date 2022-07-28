@@ -16,8 +16,14 @@ float4 PS(uint vID : SV_VERTEXID) : SV_POSITION
     return Out;
 }
 
+
 META_PS(true)
+META_PERMUTATION_1(COLOR_TEST=1)
 float4 VS(float4 pos : SV_POSITION) : SV_TARGET
 {
+#ifdef COLOR_TEST
     return float4(1.0f, 0.0f, 1.0f, 0.5f);
+#else
+    return float4(0.0f, 0.0f, 1.0f, 0.5f);
+#endif
 }

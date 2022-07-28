@@ -54,9 +54,15 @@ namespace VulkanTest
 		virtual bool IsValid() const = 0;
 		virtual void  Close() = 0;
 
-		bool Write(const char* str)
+		bool WriteString(const char* str)
 		{
 			return Write(str, StringLength(str));
+		}
+
+		template <typename T>
+		bool Write(const T& value)
+		{
+			return Write(&value, sizeof(T));
 		}
 
 		template <typename T> 
