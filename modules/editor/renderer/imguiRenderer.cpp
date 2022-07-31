@@ -16,6 +16,7 @@ namespace ImGuiRenderer
 	App* app;
 	GPU::ImagePtr fontTexture;
 	GPU::SamplerPtr sampler;
+	ResPtr<Shader> shader;
 
 	struct ImGui_ImplVulkan_ViewportData
 	{
@@ -61,6 +62,10 @@ namespace ImGuiRenderer
 		// Store our font texture
 		ImGuiIO& io = ImGui::GetIO();
 		io.Fonts->SetTexID((ImTextureID)&(*fontTexture));
+
+		// Load shader
+		auto& resManager = app->GetEngine().GetResourceManager();
+		shader = resManager.LoadResourcePtr<Shader>(Path("shaders/editor/imGui.shd"));
 	}
 
 	static void UpdateImGuiMonitors() 
@@ -234,6 +239,7 @@ namespace ImGuiRenderer
 
 	void Uninitialize()
 	{
+		shader.reset();
 		sampler.reset();
 		fontTexture.reset();
 		ImGui::DestroyContext();
@@ -284,6 +290,9 @@ namespace ImGuiRenderer
 
 	void RenderViewport(GPU::CommandList* cmd, ImGuiViewport* vp)
 	{
+		if (!shader->IsReady())
+			return;
+
 		cmd->BeginEvent("ImGuiRenderViewport");
 		ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
 		ImDrawData* drawData = vp->DrawData;
@@ -333,7 +342,7 @@ namespace ImGuiRenderer
 		ImGuiConstants* constants = cmd->AllocateConstant<ImGuiConstants>(0, 0);
 		memcpy(&constants->mvp, mvp, sizeof(mvp));
 
-		cmd->SetProgram("editor/imGuiVS.hlsl", "editor/imGuiPS.hlsl");
+		cmd->SetProgram(shader->GetVS("VS"), shader->GetPS("PS"));
 		cmd->SetVertexAttribute(0, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, pos));
 		cmd->SetVertexAttribute(1, 0, VK_FORMAT_R32G32_SFLOAT, (U32)IM_OFFSETOF(ImDrawVert, uv));
 		cmd->SetVertexAttribute(2, 0, VK_FORMAT_R8G8B8A8_UNORM, (U32)IM_OFFSETOF(ImDrawVert, col));

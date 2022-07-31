@@ -4,8 +4,11 @@
 #include "shaderInterop.h"
 #include "shaderInterop_renderer.h"
 
+// Bindless resources
 ByteAddressBuffer bindless_buffers[] : register(space1);
+Texture2D bindless_textures[] : register(space2);
 
+// Immutable samplers
 SamplerState samLinearClamp : register(s100);
 SamplerState samLinearWrap  : register(s101);
 SamplerState samPointClamp  : register(s102);

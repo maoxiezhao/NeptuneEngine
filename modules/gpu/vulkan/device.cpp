@@ -1568,7 +1568,7 @@ BindlessDescriptorPtr DeviceVulkan::CreateBindlessStroageBuffer(const Buffer& bu
     return BindlessDescriptorPtr(bindlessDescriptorHandlers.allocate(*this, BindlessReosurceType::StorageBuffer, index));
 }
 
-BindlessDescriptorPtr DeviceVulkan::CreateBindlessUniformTexelBuffer(const BufferView& bufferView)
+BindlessDescriptorPtr DeviceVulkan::CreateBindlessSampledImage(const ImageView& imageView, VkImageLayout imageLayout)
 {
     auto heap = GetBindlessDescriptorHeap(BindlessReosurceType::SampledImage);
     if (heap == nullptr || !heap->IsInitialized())
@@ -1578,8 +1578,8 @@ BindlessDescriptorPtr DeviceVulkan::CreateBindlessUniformTexelBuffer(const Buffe
     if (index < 0)
         return BindlessDescriptorPtr();
 
-    heap->GetPool().SetUniformTexelBuffer(index, bufferView.GetBufferView());
-    return BindlessDescriptorPtr(bindlessDescriptorHandlers.allocate(*this, BindlessReosurceType::StorageBuffer, index));
+    heap->GetPool().SetTexture(index, imageView, imageLayout);
+    return BindlessDescriptorPtr(bindlessDescriptorHandlers.allocate(*this, BindlessReosurceType::SampledImage, index));
 }
 
 void DeviceVulkan::NextFrameContext()
@@ -2714,12 +2714,12 @@ void DeviceVulkan::InitBindless()
     layout.isBindless = true;
 
     U32 stagesForSets[VULKAN_NUM_BINDINGS] = { VK_SHADER_STAGE_ALL };
-    if (features.features_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind == VK_TRUE)
+    if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
         DescriptorSetLayout tmpLayout = layout;
         tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE] = 1;
         bindlessSampledImagesSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
-        bindlessHandler.bindlessUniformTexelBuffers.Init(*this, bindlessSampledImagesSetAllocator);
+        bindlessHandler.bindlessSampledImages.Init(*this, bindlessSampledImagesSetAllocator);
     }
     if (features.features_1_2.descriptorBindingStorageBufferUpdateAfterBind == VK_TRUE)
     {
@@ -2747,7 +2747,7 @@ BindlessDescriptorHeap* DeviceVulkan::GetBindlessDescriptorHeap(BindlessReosurce
     switch (type)
     {
     case BindlessReosurceType::SampledImage:
-        return &bindlessHandler.bindlessUniformTexelBuffers;
+        return &bindlessHandler.bindlessSampledImages;
     case BindlessReosurceType::StorageBuffer:
         return &bindlessHandler.bindlessStorageBuffers;
     default:

@@ -589,10 +589,4 @@ namespace VulkanTest
     {
         return CJING_MAKE_UNIQUE<RenderSceneImpl>(rendererPlugin, engine, world);
     }
-
-    void RenderScene::Reflect(World* world)
-    {
-        Reflection::Builder builder = Reflection::BuildScene(world, "RenderScene");
-        builder.Component<ObjectComponent, &RenderScene::CreateObject, &RenderScene::DestroyEntity>("Object");
-    }
 }

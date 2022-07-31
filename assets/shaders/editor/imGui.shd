@@ -1,3 +1,8 @@
+#include "common/shaderInterop.h"
+
+Texture2D image : register(t0);
+SamplerState sam : register(s0);
+
 struct VertexInput
 {
 	float2 pos		: POSITION;
@@ -5,7 +10,7 @@ struct VertexInput
 	float4 col		: COLOR0;
 };
 
-struct VertexOutput
+struct VertexToPixel
 {
 	float4 pos : SV_POSITION;
 	float2 uv  : TEXCOORD0;
@@ -18,11 +23,19 @@ cbuffer vertexBuffer : register(b0)
 };
 
 [RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0))")]
-VertexOutput main(VertexInput input)
+META_VS(true)
+VertexToPixel VS(VertexInput input)
 {
-	VertexOutput output;
+	VertexToPixel output;
 	output.pos = float4(mul(float4(input.pos.xy, 1.f, 1.f), ProjectionMatrix), 0.0f, 1.0f);
 	output.uv = input.uv;
 	output.col = input.col; 
 	return output;
 }
+
+META_PS(true)
+float4 PS(VertexToPixel input) : SV_TARGET
+{
+	return input.col * image.Sample(sam, input.uv);
+}
+

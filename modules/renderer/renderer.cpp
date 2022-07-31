@@ -510,9 +510,13 @@ namespace Renderer
 
 	void BindCommonResources(GPU::CommandList& cmd)
 	{
-		auto heap = cmd.GetDevice().GetBindlessDescriptorHeap(GPU::BindlessReosurceType::StorageBuffer);
-		if (heap != nullptr)
-			cmd.SetBindless(1, heap->GetDescriptorSet());
+		auto BindCommonBindless = [&](GPU::BindlessReosurceType type, U32 set) {
+			auto heap = cmd.GetDevice().GetBindlessDescriptorHeap(type);
+			if (heap != nullptr)
+				cmd.SetBindless(set, heap->GetDescriptorSet());
+		};
+		BindCommonBindless(GPU::BindlessReosurceType::StorageBuffer, 1);
+		BindCommonBindless(GPU::BindlessReosurceType::SampledImage, 2);
 
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
 	}
