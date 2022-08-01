@@ -1,66 +1,12 @@
 #include "worldEditor.h"
 #include "editor\editor.h"
 #include "editor\widgets\gizmo.h"
+#include "editor\widgets\entityList.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
-    EntityFolder::EntityFolder(World& world_) :
-        world(world_)
-    {
-        world.EntityCreated().Bind<&EntityFolder::OnEntityCreated>(this);
-        world.EntityDestroyed().Bind<&EntityFolder::OnEntityDestroyed>(this);
-
-        CopyString(rootFolder.name, "root");
-    }
-
-    EntityFolder::~EntityFolder()
-    {
-        world.EntityCreated().Unbind<&EntityFolder::OnEntityCreated>(this);
-        world.EntityDestroyed().Unbind<&EntityFolder::OnEntityDestroyed>(this);
-    }
-
-    void EntityFolder::MoveToRootFolder(ECS::EntityID entity)
-    {
-        while (entities.size() <= entity)
-            entities.resize(entity * 2);
-
-        FolderEntity& folderEntity = entities[(U32)entity];
-        folderEntity.next = rootFolder.firstEntity;
-        folderEntity.prev = ECS::INVALID_ENTITY;
-        rootFolder.firstEntity = entity;
-
-        if (folderEntity.next != ECS::INVALID_ENTITY)
-            entities[(U32)folderEntity.next].prev = entity;
-    }
-
-    ECS::EntityID EntityFolder::GetNextEntity(ECS::EntityID e) const
-    {
-        return entities[(U32)e].next;
-    }
-
-    void EntityFolder::OnEntityCreated(ECS::EntityID e)
-    {
-        MoveToRootFolder(e);
-    }
-
-    void EntityFolder::OnEntityDestroyed(ECS::EntityID e)
-    {
-        FolderEntity& folderEntity = entities[(U32)e];
-        if (rootFolder.firstEntity == e)
-            rootFolder.firstEntity = folderEntity.next;
-
-        if (folderEntity.prev != ECS::INVALID_ENTITY)
-            entities[(U32)folderEntity.prev].next = folderEntity.next;
-
-        if (folderEntity.next != ECS::INVALID_ENTITY)
-            entities[(U32)folderEntity.next].prev = folderEntity.prev;
-
-        folderEntity.prev = ECS::INVALID_ENTITY;
-        folderEntity.next = ECS::INVALID_ENTITY;
-    }
-
     class WorldEditorImpl : public WorldEditor
     {
     private:
