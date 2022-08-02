@@ -129,6 +129,11 @@ namespace VulkanTest
 		return XMVector3Length(V);
 	}
 
+	inline VECTOR XM_CALLCONV Vector3LengthSq(VECTOR V)
+	{
+		return XMVector3LengthSq(V);
+	}
+
 	inline MATRIX XM_CALLCONV MatrixInverse(MATRIX M)
 	{
 		return XMMatrixInverse(nullptr, M);
@@ -323,6 +328,25 @@ namespace VulkanTest
 	)
 	{
 		return XMVector3Unproject(V, ViewportX, ViewportY, ViewportWidth, ViewportHeight, ViewportMinZ, ViewportMaxZ, Projection, View, World);
+	}
+
+	inline VECTOR XM_CALLCONV PlaneFromPointNormal
+	(
+		FXMVECTOR Point,
+		FXMVECTOR Normal
+	)
+	{
+		return XMPlaneFromPointNormal(Point, Normal);
+	}
+
+	inline XMVECTOR XM_CALLCONV PlaneIntersectLine
+	(
+		FXMVECTOR P,
+		FXMVECTOR LinePoint1,
+		FXMVECTOR LinePoint2
+	)
+	{
+		return XMPlaneIntersectLine(P, LinePoint1, LinePoint2);
 	}
 
 	////////////////////////////////////////////////////////////////////////////

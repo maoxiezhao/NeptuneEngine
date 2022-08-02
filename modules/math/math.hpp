@@ -49,6 +49,22 @@ namespace VulkanTest
 		return value1 + (value2 - value1) * amount;
 	}
 
+	constexpr float Clamp(float val, float min, float max)
+	{
+		return std::min(max, std::max(min, val));
+	}
+
+	inline float GetAngle(const F32x3& a, const F32x3& b, const F32x3& axis)
+	{
+		VECTOR A = LoadF32x3(a);
+		VECTOR B = LoadF32x3(b);
+		F32 dp = Clamp(VectorGetX(Vector3Dot(A, B)), -1, 1);
+		float angle = std::acos(dp);
+		if (VectorGetX(Vector3Dot(Vector3Cross(A, B), LoadF32x3(axis))) < 0)	// Check side
+			angle = XM_2PI - angle;
+		return angle;
+	}
+
 	struct Transform
 	{
 		F32x3 translation = F32x3(0.f, 0.f, 0.f);
