@@ -1,6 +1,7 @@
 #include "editor.h"
 #include "editorUtils.h"
 #include "core\platform\platform.h"
+#include "core\scene\reflection.h"
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
 
@@ -141,6 +142,9 @@ namespace Editor
             
             for (auto widget : widgets)
                 widget->InitFinished();
+
+            // Init reflection
+            InitReflection();
         }
 
         void Uninitialize() override
@@ -328,6 +332,18 @@ namespace Editor
         ImFont* GetBoldFont() override 
         { 
             return boldFont;
+        }
+
+        const char* GetComponentIcon(ECS::EntityID compID) const override
+        {
+            auto it = componentIcons.find(compID);
+            return it.isValid() ? it.value().c_str() : "";
+        }
+
+        const char* GetComponentTypeName(ECS::EntityID compID) const override
+        {
+            auto it = componentLabels.find(compID);
+            return it.isValid() ? it.value().c_str() : "Unknown";
         }
 
     protected:
@@ -531,9 +547,19 @@ namespace Editor
             settings.Save();
         }
 
+        void SetRenderInterace(RenderInterface* renderInterface_) override
+        {
+            renderInterface = renderInterface_;
+        }
+
         const Array<Platform::WindowEvent>& GetWindowEvents()const override
         {
             return windowEvents;
+        }
+
+        RenderInterface* GetRenderInterface()override
+        {
+            return renderInterface;
         }
 
         bool showDemoWindow = false;
@@ -701,6 +727,26 @@ namespace Editor
                 plugin->Initialize();
         }
 
+        void RegisterComponent(const char* icon, const char* label, ECS::EntityID compID)
+        {
+            componentLabels.insert(compID, label);
+            if (icon && icon[0])
+                componentIcons.insert(compID, icon);
+        }
+
+        void InitReflection()
+        {
+            for (const auto& cmp : Reflection::GetComponents())
+            {
+                ASSERT(cmp.meta->compID != ECS::INVALID_ENTITY);
+                const auto meta = cmp.meta;
+                if (componentLabels.find(meta->compID).isValid())
+                    continue;
+
+                RegisterComponent(meta->icon, meta->name, meta->compID);
+            }
+        }
+
         ImFont* AddFontFromFile(const char* path, F32 fontSize, bool mergeIcons = false)
         {
             Engine& engine = GetEngine();
@@ -769,6 +815,16 @@ namespace Editor
             return *action;
         }
 
+        EditorPlugin* GetPlugin(const char* name)override
+        {
+            for (auto plugin : plugins)
+            {
+                if (EqualString(plugin->GetName(), name))
+                    return plugin;
+            }
+            return nullptr;
+        }
+
         Utils::Action* GetAction(const char* name)override
         {
             for (Utils::Action* action : actions)
@@ -826,6 +882,9 @@ namespace Editor
         Array<Platform::WindowEvent> windowEvents;
         bool mouseCaptured = false;
 
+        // Render interace
+        RenderInterface* renderInterface = nullptr;
+
         // Builtin widgets
         UniquePtr<AssetCompiler> assetCompiler;
         UniquePtr<AssetBrowser> assetBrowser;
@@ -834,6 +893,10 @@ namespace Editor
         UniquePtr<PropertyWidget> propertyWidget;
         UniquePtr<EntityListWidget> entityListWidget;
         UniquePtr<RenderGraphWidget> renderGraphWidget;
+
+        // Reflection
+        HashMap<ECS::EntityID, String> componentLabels;
+        HashMap<ECS::EntityID, StaticString<5>> componentIcons;
 
         // Fonts
         ImFont* font;

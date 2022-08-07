@@ -29,7 +29,8 @@ namespace VulkanTest
 			if (!res->IsEmpty())
 				Logger::Error("Resource %s leak", res->GetPath().c_str());
 			
-			DestroyResource(res);
+			if (!res->IsOwnedBySelf())
+				DestroyResource(res);
 		}
 		resources.clear();
 

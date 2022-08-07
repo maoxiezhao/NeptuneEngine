@@ -84,6 +84,7 @@ namespace Reflection
 		~ComponentMeta();
 
 		const char* name;
+		const char* icon = "";
 		ECS::EntityID compID;
 		CreateComponent creator;
 		DestroyComponent destroyer;
@@ -122,6 +123,11 @@ namespace Reflection
 			RegisterCmp(cmp);
 
 			return *this;
+		}
+
+		Builder& Icon(const char* icon)
+		{
+			scene->cmps.back()->icon = icon;
 		}
 
 		template <auto Getter, auto Setter = nullptr>
@@ -170,5 +176,7 @@ namespace Reflection
 	};
 
 	VULKAN_TEST_API Builder BuildScene(World* world, const char* name);
+	VULKAN_TEST_API ComponentMeta* GetComponent(ECS::EntityID compID);
+	VULKAN_TEST_API Span<const RegisteredComponent> GetComponents();
 }
 }

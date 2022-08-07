@@ -269,6 +269,8 @@ namespace VulkanTest
             return -1;
         }
 
+        operator Span<T>() const { return Span(begin(), end()); }
+        operator Span<const T>() const { return Span(begin(), end()); }
 
     private:
         void MoveData(T* dst, T* src, U32 count) 

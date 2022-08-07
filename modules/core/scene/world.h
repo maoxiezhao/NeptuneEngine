@@ -59,6 +59,12 @@ namespace VulkanTest
 			return world->HasComponent<C>(entity);
 		}
 
+		template <typename Func>
+		void EachComponent(ECS::EntityID entity, const Func& func) const
+		{
+			world->EachComponent(entity, func);
+		}
+
 		template<typename C>
 		ECS::EntityID GetComponentID()
 		{

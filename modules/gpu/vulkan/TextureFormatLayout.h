@@ -68,6 +68,10 @@ namespace GPU
 			return mipInfos[level];
 		}
 
+		U32 GetMipLevels()const {
+			return mipLevels;
+		}
+
 		U32 GetRowSize(U32 level)const
 		{
 			return mipInfos[level].blockW * blockStride;

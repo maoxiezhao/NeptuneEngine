@@ -5,15 +5,102 @@
 #include "editor\widgets\sceneView.h"
 #include "renderer\model.h"
 #include "renderer\material.h"
+#include "gpu\vulkan\typeToString.h"
 #include "imgui-docking\imgui.h"
 
-#include "model\objImporter.h"
-#include "shader\shaderCompilation.h"
+#include "editor\plugins\model\objImporter.h"
+#include "editor\plugins\shader\shaderCompilation.h"
+#include "editor\plugins\texture\textureImporter.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
+	/////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Texture editor plugin
+	struct TexturePlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
+	{
+	private:
+		EditorApp& app;
+		Texture* curTexture = nullptr;
+
+		struct TextureMeta
+		{
+			bool generateMipmaps = true;
+			bool compress = false;
+		};
+
+	public:
+		TexturePlugin(EditorApp& app_) :
+			app(app_)
+		{
+			app_.GetAssetCompiler().RegisterExtension("raw", Texture::ResType);
+			app_.GetAssetCompiler().RegisterExtension("png", Texture::ResType);
+			app_.GetAssetCompiler().RegisterExtension("jpg", Texture::ResType);
+			app_.GetAssetCompiler().RegisterExtension("tga", Texture::ResType);
+		}
+
+		bool Compile(const Path& path)override
+		{
+			TextureMeta meta = GetMeta(path);
+			TextureImporter::ImportConfig config;
+			config.compress = meta.compress;
+			config.generateMipmaps = meta.generateMipmaps;
+			if (!TextureImporter::Import(app, path.c_str(), config))
+			{
+				Logger::Error("Failed to import %s", path.c_str());
+				return false;
+			}
+			return true;
+		}
+
+		TextureMeta GetMeta(const Path& path)const
+		{
+			TextureMeta meta = {};
+			return meta;
+		}
+
+		std::vector<const char*> GetSupportExtensions()
+		{
+			return { "raw", "png", "jpg", "tga" };
+		}
+
+		void OnGui(Span<class Resource*> resource)override
+		{
+			if (resource.length() > 1)
+				return;
+
+			Shader* shader = static_cast<Shader*>(resource[0]);
+			if (ImGui::Button(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
+				app.GetAssetBrowser().OpenInExternalEditor(shader->GetPath().c_str());
+
+			auto* texture = static_cast<Texture*>(resource[0]);
+			const auto& imgInfo = texture->GetImageInfo();
+
+			ImGuiEx::Label("Size");
+			ImGui::Text("%dx%d", imgInfo.width, imgInfo.height);
+			ImGuiEx::Label("Mips");
+			ImGui::Text("%d", imgInfo.levels);
+			ImGuiEx::Label("Format");
+			ImGui::TextUnformatted(GPU::FormatToString(imgInfo.format));
+
+			if (texture->GetImage())
+			{
+				ImVec2 textureSize(200, 200);
+				if (imgInfo.width > imgInfo.height)
+					textureSize.y = textureSize.x * imgInfo.height / imgInfo.width;
+				else
+					textureSize.x = textureSize.y * imgInfo.width / imgInfo.height;
+
+				ImGui::Image(texture->GetImage(), textureSize);
+			}
+		}
+
+		ResourceType GetResourceType() const override {
+			return Texture::ResType;
+		}
+	};
+
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Material editor plugin
 	struct MaterialPlugin final : AssetCompiler::IPlugin
@@ -224,12 +311,58 @@ namespace Editor
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 
+	struct RenderInterfaceImpl final : RenderInterface
+	{
+	private:
+		EditorApp& app;
+		HashMap<void*, ResPtr<Texture>> textures;
+
+	public:
+		RenderInterfaceImpl(EditorApp& app_) : app(app_) {}
+
+		virtual void* LoadTexture(const Path& path) override
+		{
+			auto& resManager = app.GetEngine().GetResourceManager();
+			ResPtr<Texture> texture = resManager.LoadResourcePtr<Texture>(path);
+			textures.insert(texture->GetImage(), texture);
+			return texture->GetImage();
+		}
+		
+		virtual void* CreateTexture(const char* name, const void* pixels, int w, int h) override
+		{
+			auto& resManager = app.GetEngine().GetResourceManager();
+			Texture* texture = CJING_NEW(Texture)(Path(name), *resManager.GetFactory(Texture::ResType));
+			if (!texture->Create(w, h, VK_FORMAT_R8G8B8A8_UNORM, pixels))
+			{
+				Logger::Error("Failed to create the texture.");
+				CJING_SAFE_DELETE(texture);
+				return nullptr;
+			}
+			texture->SetOwnedBySelf(true);
+			textures.insert(texture->GetImage(), ResPtr<Texture>(texture));
+			return texture->GetImage();
+		}
+		
+		virtual void DestroyTexture(void* handle) override
+		{
+			auto it = textures.find(handle);
+			if (!it.isValid())
+				return;
+
+			auto texture = it.value();
+			textures.erase(it);
+			texture->Destroy();
+		}
+	};
+
 	struct RenderPlugin : EditorPlugin
 	{
 	private:
 		EditorApp& app;
 		SceneView sceneView;
+		RenderInterfaceImpl renderInterface;
 
+		TexturePlugin texturePlugin;
 		ModelPlugin modelPlugin;
 		MaterialPlugin materialPlugin;
 		ShaderPlugin shaderPlugin;
@@ -237,6 +370,8 @@ namespace Editor
 	public:
 		RenderPlugin(EditorApp& app_) :
 			app(app_),
+			renderInterface(app_),
+			texturePlugin(app_),
 			modelPlugin(app_),
 			materialPlugin(app_),
 			shaderPlugin(app_),
@@ -248,25 +383,33 @@ namespace Editor
 		{
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.RemovePlugin(shaderPlugin);
+			assetBrowser.RemovePlugin(texturePlugin);
 
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.RemovePlugin(modelPlugin);
 			assetCompiler.RemovePlugin(materialPlugin);
 			assetCompiler.RemovePlugin(shaderPlugin);
+			assetCompiler.RemovePlugin(texturePlugin);
 
 			app.RemoveWidget(sceneView);
+			app.SetRenderInterace(nullptr);
 		}
 
 		void Initialize() override
 		{
+			// Set render interface
+			app.SetRenderInterace(&renderInterface);
+
 			// Add plugins for asset compiler
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
+			assetCompiler.AddPlugin(texturePlugin);
 			assetCompiler.AddPlugin(modelPlugin);
 			assetCompiler.AddPlugin(materialPlugin);
 			assetCompiler.AddPlugin(shaderPlugin);
 
 			// Add plugins for asset browser
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
+			assetBrowser.AddPlugin(texturePlugin);
 			assetBrowser.AddPlugin(shaderPlugin);
 
 			// Add widget for editor

@@ -98,9 +98,9 @@ namespace VulkanTest
 
 		virtual void UpdateVisibility(struct Visibility& vis) = 0;
 		virtual void UpdateRenderData(GPU::CommandList& cmd) = 0;
-
 		virtual const ShaderSceneCB& GetShaderScene()const = 0;
 
+		// Entity
 		virtual ECS::EntityID CreateEntity(const char* name) = 0;
 		virtual void DestroyEntity(ECS::EntityID entity) = 0;
 

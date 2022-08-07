@@ -24,7 +24,6 @@ namespace VulkanTest
 		auto formatInfo = GPU::GetFormatInfo(format);
 		GPU::SubresourceData resData = {};
 		resData.data = data;
-		resData.rowLength = w * formatInfo.GetFormatStride() / formatInfo.GetFormatBlockSize();
 		handle = device->CreateImage(info, &resData);
 
 		bool isReady = bool(handle);
@@ -39,9 +38,42 @@ namespace VulkanTest
 
 	bool Texture::OnLoaded(U64 size, const U8* mem)
 	{
-		// TODO
-		ASSERT(false);
-		return false;
+		PROFILE_FUNCTION();
+		InputMemoryStream inputMem(mem, size);
+
+		TextureHeader header;
+		inputMem.Read<TextureHeader>(header);
+		if (header.magic != TextureHeader::MAGIC)
+		{
+			Logger::Warning("Unsupported texture file %s", GetPath());
+			return false;
+		}
+
+		if (header.version != TextureHeader::LAST_VERSION)
+		{
+			Logger::Warning("Unsupported version of texture %s", GetPath());
+			return false;
+		}
+
+		const U8* imgData = mem + sizeof(TextureHeader);
+
+		GPU::ImageCreateInfo info = GPU::ImageCreateInfo::ImmutableImage2D(header.width, header.height, header.format);
+		info.levels = header.mips;
+
+		GPU::TextureFormatLayout layout;
+		layout.SetTexture2D(header.format, header.width, header.height, 1, header.mips);
+		layout.SetBuffer((void*)imgData, size - sizeof(TextureHeader));
+
+		GPU::SubresourceData resData[16];
+		for (int i = 0; i < header.mips; i++)
+			resData[i].data = layout.Data(0, i);
+		
+		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		handle = device->CreateImage(info, resData);
+		if (handle)
+			this->info = info;
+
+		return bool(handle);
 	}
 
 	void Texture::OnUnLoaded()

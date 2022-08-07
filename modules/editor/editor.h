@@ -34,9 +34,12 @@ namespace Editor
         virtual Array<Utils::Action*>& GetActions() = 0;
         virtual void SetCursorCaptured(bool capture) = 0;
         virtual void SaveSettings() = 0;
+        virtual void SetRenderInterace(RenderInterface* renderInterface_) = 0;
 
+        virtual EditorPlugin* GetPlugin(const char* name) = 0;
         virtual Utils::Action* GetAction(const char* name) = 0;
         virtual const Array<Platform::WindowEvent>& GetWindowEvents()const = 0;
+        virtual RenderInterface* GetRenderInterface() = 0;
         virtual class AssetCompiler& GetAssetCompiler() = 0;
         virtual class AssetBrowser& GetAssetBrowser() = 0;
         virtual class EntityListWidget& GetEntityList() = 0;
@@ -44,6 +47,9 @@ namespace Editor
         virtual Gizmo::Config& GetGizmoConfig() = 0;
         virtual ImFont* GetBigIconFont() = 0;
         virtual ImFont* GetBoldFont() = 0;
+
+        virtual const char* GetComponentIcon(ECS::EntityID compID) const = 0;
+        virtual const char* GetComponentTypeName(ECS::EntityID compID) const = 0;
     };
 }   
 } 

@@ -17,21 +17,12 @@ namespace VulkanTest
 	{
 		if (res->resFactory.IsUnloadEnable())
 			res->DoUnload();
+
+		if (res->ownedBySelf)
+			CJING_SAFE_DELETE(res);
 	}
 
 	Resource::~Resource() = default;
-
-	//void Resource::IncRefCount()
-	//{
-	//	refCount++;
-	//}
-
-	//void Resource::DecRefCount()
-	//{
-	//	ASSERT(refCount > 0);
-	//	if (--refCount == 0 && resFactory.IsUnloadEnable())
-	//		DoUnload();
-	//}
 
 	void Resource::Refresh()
 	{

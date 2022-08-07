@@ -1158,9 +1158,7 @@ InitialImageBuffer DeviceVulkan::CreateImageStagingBuffer(const ImageCreateInfo&
     {
         layout.SetBuffer(mapped, layout.GetRequiredSize());
 
-        U32 index = 0;
-        U32 blockStride = layout.GetBlockStride();
-        for (U32 level = 0; level < copyLevels; level++, index++)
+        for (U32 level = 0, index = 0; level < copyLevels; level++, index++)
         {
             // Calculate dst stride
             const auto& mipInfo = layout.GetMipInfo(level);

@@ -60,11 +60,25 @@ namespace VulkanTest
 		}
 	};
 
+	template<typename T>
+	struct HashMapHashFunc<T*>
+	{
+		static U32 Get(const void* key)
+		{
+			U64 x = (U64)key;
+			x ^= x >> 30;
+			x *= 0xbf58476d1ce4e5b9U;
+			x ^= x >> 27;
+			x *= 0x94d049bb133111ebU;
+			x ^= x >> 31;
+			return U32((x >> 32) ^ x);
+		}
+	};
+
 	template <typename T>
 	struct HashFuncDirect {
 		static U32 Get(const T& key) { return key; }
 	};
-
 
 	template<typename K, typename V, typename CustomHasher = HashMapHashFunc<K>>
 	struct HashMap

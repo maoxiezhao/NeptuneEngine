@@ -1,4 +1,5 @@
 #include "reflection.h"
+#include "core\collections\hashMap.h"
 
 namespace VulkanTest
 {
@@ -8,6 +9,7 @@ namespace Reflection
 	{
 		SceneMeta* firstScene = nullptr;
 		Array<RegisteredComponent> comps;
+		HashMap<ECS::EntityID, RegisteredComponent*> compMap;
 
 		~Context()
 		{
@@ -52,6 +54,17 @@ namespace Reflection
 		return builder;
 	}
 
+	ComponentMeta* GetComponent(ECS::EntityID compID)
+	{
+		auto it = GetContext().compMap.find(compID);
+		return it.isValid() ? it.value()->meta : nullptr;
+	}
+
+	Span<const RegisteredComponent> GetComponents()
+	{
+		return Span(GetContext().comps.data(), GetContext().comps.size());
+	}
+
 	Builder::Builder()
 	{
 		scene = CJING_NEW(SceneMeta)();
@@ -61,6 +74,12 @@ namespace Reflection
 	{
 		lastComp = cmp;
 		scene->cmps.push_back(cmp);
+
+		auto& meta = GetContext().comps.emplace();
+		meta.meta = cmp;
+		meta.name = StringID(cmp->name);
+		meta.scene = StringID(scene->name);
+		GetContext().compMap.insert(cmp->compID, &meta);
 	}
 
 	void Builder::AddProp(PropertyMetaBase* p)

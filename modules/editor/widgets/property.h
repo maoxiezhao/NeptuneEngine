@@ -29,7 +29,8 @@ namespace Editor
 
     private:
         void ShowBaseProperties(ECS::EntityID entity);
-        
+        void ShowComponentProperties(ECS::EntityID entity, ECS::EntityID compID);
+
         EditorApp& editor;
         WorldEditor& worldEditor;
 

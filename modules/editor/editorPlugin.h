@@ -39,5 +39,14 @@ namespace Editor
         }
         bool isOpen = true;
     };
+
+    struct RenderInterface
+    {
+        virtual~RenderInterface() = default;
+
+        virtual void* LoadTexture(const Path& path) = 0;
+        virtual void* CreateTexture(const char* name, const void* pixels, int w, int h) = 0;
+        virtual void  DestroyTexture(void* handle) = 0;
+    };
 } 
 } 

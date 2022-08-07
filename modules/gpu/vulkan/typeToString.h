@@ -89,5 +89,88 @@ namespace GPU
 
 		return result;
 	}
+
+	static inline const char* FormatToString(VkFormat format)
+	{
+		switch (format)
+		{
+		case VK_FORMAT_R8_UNORM:
+			return "R8_UNORM";
+		case VK_FORMAT_R8_SNORM:
+			return "R8_SNORM";
+		case VK_FORMAT_R8_UINT:
+			return "R8_UINT";
+		case VK_FORMAT_R8_SINT:
+			return "R8_SINT";
+		case VK_FORMAT_R8_SRGB:
+			return "R8_SRGB";
+		case VK_FORMAT_R8G8_UNORM:
+			return "R8_UINT";
+		case VK_FORMAT_R8G8_SNORM:
+			return "R8G8_SNORM";
+		case VK_FORMAT_R8G8_UINT:
+			return "R8G8_UINT";
+		case VK_FORMAT_R8G8_SINT:
+			return "R8G8_SINT";
+		case VK_FORMAT_R8G8_SRGB:
+			return "R8G8_SRGB";
+		case VK_FORMAT_R8G8B8_UNORM:
+			return "R8G8B8_UNORM";
+		case VK_FORMAT_R8G8B8_SNORM:
+			return "R8G8B8_SNORM";
+		case VK_FORMAT_R8G8B8_UINT:
+			return "R8G8B8_UINT";
+		case VK_FORMAT_R8G8B8_SINT:
+			return "R8G8B8_SINT";
+		case VK_FORMAT_R8G8B8_SRGB:
+			return "R8G8B8_SRGB";
+		case VK_FORMAT_R8G8B8A8_UNORM:
+			return "R8G8B8A8_UNORM";
+		case VK_FORMAT_R8G8B8A8_SNORM:
+			return "R8G8B8A8_SNORM";
+		case VK_FORMAT_R8G8B8A8_UINT:
+			return "R8G8B8A8_UINT";
+		case VK_FORMAT_R8G8B8A8_SINT:
+			return "R8G8B8A8_SINT";
+		case VK_FORMAT_R8G8B8A8_SRGB:
+			return "R8G8B8A8_SRGB";
+		case VK_FORMAT_R16_UNORM:
+			return "R16_UNORM";
+		case VK_FORMAT_R16_SNORM:
+			return "R16_SNORM";
+		case VK_FORMAT_R16_UINT:
+			return "R16_UINT";
+		case VK_FORMAT_R16_SINT:
+			return "R16_SINT";
+		case VK_FORMAT_R16_SFLOAT:
+			return "R16_SFLOAT";
+		case VK_FORMAT_R32_UINT:
+			return "R32_UINT";
+		case VK_FORMAT_R32_SINT:
+			return "R32_SINT";
+		case VK_FORMAT_R32_SFLOAT:
+			return "R32_SFLOAT";
+		case VK_FORMAT_R32G32_UINT:
+			return "RG32_UINT";
+		case VK_FORMAT_R32G32_SINT:
+			return "RG32_SINT";
+		case VK_FORMAT_R32G32_SFLOAT:
+			return "RG32_SFLOAT";
+		case VK_FORMAT_R32G32B32_UINT:
+			return "RGB32_UINT";
+		case VK_FORMAT_R32G32B32_SINT:
+			return "RGB32_SINT";
+		case VK_FORMAT_R32G32B32_SFLOAT:
+			return "RGB32_SFLOAT";
+		case VK_FORMAT_R32G32B32A32_UINT:
+			return "RGBA32_UINT";
+		case VK_FORMAT_R32G32B32A32_SINT:
+			return "RGBA32_SINT";
+		case VK_FORMAT_R32G32B32A32_SFLOAT:
+			return "RGBA32_SFLOAT";
+		default:
+			return "UNKNOWN";
+		}
+	}
 }
 }

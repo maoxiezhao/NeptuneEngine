@@ -100,6 +100,14 @@ namespace VulkanTest
 			return hooked;
 		}
 
+		void SetOwnedBySelf(bool ownedBySelf_) {
+			ownedBySelf = ownedBySelf_;
+		}
+
+		bool IsOwnedBySelf()const {
+			return ownedBySelf;
+		}
+
 		ResourceFactory& GetResourceFactory() {
 			return resFactory;
 		}
@@ -141,6 +149,7 @@ namespace VulkanTest
 
 		Path path;
 		bool hooked = false;
+		bool ownedBySelf = false;
 		State currentState;
 		StateChangedCallback cb;
 		AsyncLoadHandle asyncHandle;

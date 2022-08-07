@@ -110,6 +110,8 @@ namespace VulkanTest
 			return data;
 		}
 
+		operator Span<const U8>() const { return Span(data, data + size); }
+
 	private:
 		U8* data;
 		U64 capacity;

@@ -83,6 +83,7 @@ namespace Editor
 		}
 		void WriteString(const char* str);
 
+	private:
 		EditorApp& editor;
 
 		tinyobj::attrib_t objAttrib;

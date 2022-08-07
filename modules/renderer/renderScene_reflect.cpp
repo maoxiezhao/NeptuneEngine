@@ -8,5 +8,6 @@ namespace VulkanTest
     {
         Reflection::Builder builder = Reflection::BuildScene(world, "RenderScene");
         builder.Component<ObjectComponent, &RenderScene::CreateObject, &RenderScene::DestroyEntity>("Object");
+        builder.Component<MaterialComponent, &RenderScene::CreateMaterial, &RenderScene::DestroyEntity>("Material");
     }
 }

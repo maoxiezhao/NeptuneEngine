@@ -11,6 +11,24 @@ namespace Editor
 {
     static constexpr int TILE_SIZE = 96;
 
+    static void ClampText(char* text, int width)
+    {
+        char* end = text + StringLength(text);
+        ImVec2 size = ImGui::CalcTextSize(text);
+        if (size.x <= width) return;
+
+        do
+        {
+            *(end - 1) = '\0';
+            *(end - 2) = '.';
+            *(end - 3) = '.';
+            *(end - 4) = '.';
+            --end;
+
+            size = ImGui::CalcTextSize(text);
+        } while (size.x > width && end - text > 4);
+    }
+
     class AssetBrowserImpl : public AssetBrowser
     {
     public:
@@ -32,6 +50,7 @@ namespace Editor
             MaxPathString filename;
             StringID filePathHash;
             GPU::ImagePtr tex;
+            bool isLoading = false;
         };
         Array<FileInfo> fileInfos;  // All file infos in the current directory
 
@@ -44,6 +63,12 @@ namespace Editor
             codeEditor(editor_)
         {
             filter[0] = '\0';
+
+            // Check directory of resource tiles
+            const char* path = editor.GetEngine().GetFileSystem().GetBasePath();
+            StaticString<MAX_PATH_LENGTH> tilePath(path, ".export/resources_tiles");
+            if (!Platform::DirExists(tilePath.c_str()))
+                Platform::MakeDir(tilePath.c_str());
         }
 
         ~AssetBrowserImpl()
@@ -211,7 +236,11 @@ namespace Editor
             FileInfo info = {};
             info.filePathHash = path.GetHash();
             info.filepath = path.c_str();
-            info.filename = Path::GetBaseName(path.c_str()).data();
+
+            char filename[MAX_PATH_LENGTH];
+            CopyString(filename, Path::GetBaseName(path.c_str()));
+            ClampText(filename, thumbnailSize * TILE_SIZE);
+            info.filename = filename;
 
             fileInfos.push_back(info);
         }
@@ -412,6 +441,55 @@ namespace Editor
 
             ImGui::EndChild();
         }
+
+        // State of Thumbnail tile
+        enum class TileState 
+        {
+            OK,
+            OUTDATED,
+            DELETED,
+            NOT_CREATED
+        };
+        static TileState GetTileState(const FileInfo& info, FileSystem& fs) 
+        {
+            if (!fs.FileExists(info.filepath)) 
+                return TileState::DELETED;
+        
+            StaticString<MAX_PATH_LENGTH> path(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
+            if (!fs.FileExists(path)) 
+                return TileState::NOT_CREATED;
+
+            MaxPathString compiledPath(".export/Resources/", info.filePathHash.GetHashValue(), ".res");
+            const U64 lastModified = fs.GetLastModTime(path);
+            if (lastModified < fs.GetLastModTime(info.filepath) || lastModified < fs.GetLastModTime(compiledPath))
+                return TileState::OUTDATED;
+
+            return TileState::OK;
+        }
+
+        bool CopyThumbnailTile(const char* from, const char* to)
+        {
+            return true;
+        }
+
+        bool CreateThumbnailTile(FileInfo& info)
+        {
+            if (info.isLoading)
+                return false;
+
+            info.isLoading = true;
+
+            auto& compiler = editor.GetAssetCompiler();
+            auto resType = compiler.GetResourceType(info.filepath);
+
+            StaticString<MAX_PATH_LENGTH> tilePath(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
+            // Check is builtin thumnailtile
+            if (resType == Shader::ResType)
+                return CopyThumbnailTile("editor/textures/tile_shader.tga", tilePath.c_str());
+
+            return true;
+        }
+
         void ShowThumbnail(FileInfo& info, F32 size, bool selected)
         {
             ImGui::BeginGroup();
@@ -426,8 +504,26 @@ namespace Editor
             {
                 ImGuiEx::Rect(imgSize.x, imgSize.y, 0xffffFFFF);
 
-                // TODO:
                 // Create custom thumbnail image
+                auto renderInterface = editor.GetRenderInterface();
+                if (renderInterface != nullptr)
+                {
+                    auto& fs = editor.GetEngine().GetFileSystem();
+                    TileState state = GetTileState(info, fs);
+                    switch (state)
+                    {
+                    case TileState::OK:
+                        break;
+                    case TileState::OUTDATED:
+                    case TileState::DELETED:
+                        CreateThumbnailTile(info);
+                        break;
+                    case TileState::NOT_CREATED:
+                        break;
+                    default:
+                        break;
+                    }
+                }
             }
 
             // Show filename

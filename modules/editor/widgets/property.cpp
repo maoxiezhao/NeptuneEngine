@@ -1,4 +1,5 @@
 #include "property.h"
+#include "core\scene\reflection.h"
 #include "editor\editor.h"
 #include "editor\widgets\worldEditor.h"
 #include "imgui-docking\imgui.h"
@@ -47,6 +48,10 @@ namespace Editor
 		if (ImGui::Begin("Inspector##inspector", &isOpen))
 		{
 			ShowBaseProperties(entity);
+
+			worldEditor.GetWorld()->EachComponent(entity, [&](ECS::EntityID compID) {
+				ShowComponentProperties(entity, compID);
+			});
 
 			ImGui::Separator();
 			const float x = (ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Add component").x - ImGui::GetStyle().FramePadding.x * 2) * 0.5f;
@@ -122,6 +127,43 @@ namespace Editor
 			}		
 		}
 
+		ImGui::TreePop();
+	}
+
+	void PropertyWidget::ShowComponentProperties(ECS::EntityID entity, ECS::EntityID compID)
+	{
+		auto compMeta = Reflection::GetComponent(compID);
+		if (compMeta == nullptr)
+			return;
+
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowItemOverlap;
+		ImGui::Separator();
+		const char* name = editor.GetComponentTypeName(compID);
+		const char* icon = editor.GetComponentIcon(compID);
+		ImGui::PushFont(editor.GetBoldFont());
+		bool isOpen = ImGui::TreeNodeEx((void*)(U64)compID, flags, "%s%s", icon, name);
+		ImGui::PopFont();
+
+		// Show component context popup
+		ImGuiStyle& style = ImGui::GetStyle();
+		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(ICON_FA_ELLIPSIS_V).x);
+		if (ImGuiEx::IconButton(ICON_FA_ELLIPSIS_V, "Context menu"))
+			ImGui::OpenPopup("ctx");
+		if (ImGui::BeginPopup("ctx")) 
+		{
+			if (ImGui::Selectable("Remove component")) 
+			{
+				ImGui::EndPopup();
+				if (isOpen) 
+					ImGui::TreePop();
+				return;
+			}
+			ImGui::EndPopup();
+		}
+
+		if (!isOpen)
+			return;
+	
 		ImGui::TreePop();
 	}
 }
