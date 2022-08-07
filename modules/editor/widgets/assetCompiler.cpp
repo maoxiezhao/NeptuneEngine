@@ -797,6 +797,9 @@ namespace Editor
 
             if (StartsWith(filePath, ".export/resources/"))
                 return ResourceManager::LoadHook::Action::IMMEDIATE;
+
+            if (StartsWith(filePath, ".export/resources_tiles/"))
+                return ResourceManager::LoadHook::Action::IMMEDIATE;
          
             const U64 hash = res.GetPath().GetHashValue();
             const StaticString<MAX_PATH> dstPath(".export/resources/", hash, ".res");

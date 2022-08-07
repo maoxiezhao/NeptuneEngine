@@ -3,6 +3,7 @@
 #include "editor\editor.h"
 #include "editor\widgets\codeEditor.h"
 #include "core\platform\platform.h"
+#include "renderer\texture.h"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -49,7 +50,7 @@ namespace Editor
             MaxPathString filepath;
             MaxPathString filename;
             StringID filePathHash;
-            GPU::ImagePtr tex;
+            GPU::Image* tex = nullptr;
             bool isLoading = false;
         };
         Array<FileInfo> fileInfos;  // All file infos in the current directory
@@ -196,8 +197,6 @@ namespace Editor
         void SetCurrentDir(const char* path)
         {
             // Clear file infos
-            for (auto& info : fileInfos)
-                info.tex.reset();
             fileInfos.clear();
 
             // Remove the '/' or '\\' in last pos when called Path::GetDir
@@ -469,6 +468,24 @@ namespace Editor
 
         bool CopyThumbnailTile(const char* from, const char* to)
         {
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            OutputMemoryStream mem;
+            if (!fs.LoadContext(from, mem))
+                return false;
+
+            auto file = fs.OpenFile(to, FileFlags::DEFAULT_WRITE);
+            if (!file)
+            {
+                Logger::Error("Failed to create tile file %s", to);
+                return false;
+            }
+
+            // Create a compiled texture resource
+            TextureHeader header = {};
+            header.type = TextureResourceType::TGA;
+            file->Write(header);
+            file->Write(mem.Data(), mem.Size());
+            file->Close();
             return true;
         }
 
@@ -487,7 +504,7 @@ namespace Editor
             if (resType == Shader::ResType)
                 return CopyThumbnailTile("editor/textures/tile_shader.tga", tilePath.c_str());
 
-            return true;
+            return false;
         }
 
         void ShowThumbnail(FileInfo& info, F32 size, bool selected)
@@ -498,13 +515,14 @@ namespace Editor
             // Show thumbnail image
             if (info.tex)
             {
-                ImGui::Image(info.tex->GetImage(), imgSize);
+                ImGui::Image(info.tex, imgSize);
             }
             else
             {
                 ImGuiEx::Rect(imgSize.x, imgSize.y, 0xffffFFFF);
 
                 // Create custom thumbnail image
+                StaticString<MAX_PATH_LENGTH> path(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
                 auto renderInterface = editor.GetRenderInterface();
                 if (renderInterface != nullptr)
                 {
@@ -513,12 +531,13 @@ namespace Editor
                     switch (state)
                     {
                     case TileState::OK:
+                        info.tex = (GPU::Image*)renderInterface->LoadTexture(Path(path));
                         break;
                     case TileState::OUTDATED:
-                    case TileState::DELETED:
+                    case TileState::NOT_CREATED:
                         CreateThumbnailTile(info);
                         break;
-                    case TileState::NOT_CREATED:
+                    case TileState::DELETED:
                         break;
                     default:
                         break;

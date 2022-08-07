@@ -6,6 +6,12 @@
 
 namespace VulkanTest
 {
+	enum TextureResourceType
+	{
+		TGA,		// Only used for editor
+		INTERNAL
+	};
+
 #pragma pack(1)
 	struct TextureHeader
 	{
@@ -17,6 +23,7 @@ namespace VulkanTest
 		U32 width;
 		U32 height;
 		U32 mips;
+		TextureResourceType type = TextureResourceType::INTERNAL;
 	};
 #pragma pack()
 
@@ -55,6 +62,9 @@ namespace VulkanTest
 		void OnUnLoaded() override;
 
 	private:
+		bool LoadTextureTGA(const TextureHeader& header, const U8* imgData, U64 size);
+		bool LoadTextureInternal(const TextureHeader& header, const U8* imgData, U64 size);
+
 		GPU::ImagePtr handle;
 		GPU::ImageCreateInfo info;
 	};

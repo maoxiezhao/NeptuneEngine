@@ -224,6 +224,7 @@ namespace Editor
             header.width = input.w;
             header.height = input.h;
             header.mips = mipLevels;
+            header.type = TextureResourceType::INTERNAL;
             outMem.Write(header);
 
             // Write texture data

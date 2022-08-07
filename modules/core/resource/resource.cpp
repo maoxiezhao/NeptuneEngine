@@ -105,6 +105,14 @@ namespace VulkanTest
 		AsyncLoadCallback cb;
 		cb.Bind<&Resource::OnFileLoaded>(this);
 
+		// Load resource tiles directly
+		if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
+		{
+			asyncHandle = fileSystem->LoadFileAsync(GetPath(), cb);
+			return;
+		}
+
+		// Load normal compiled resources
 		const U64 pathHash = path.GetHashValue();
 		StaticString<MAX_PATH_LENGTH> fullResPath(".export/resources/", pathHash, ".res");
 		asyncHandle = fileSystem->LoadFileAsync(Path(fullResPath), cb);
@@ -196,6 +204,20 @@ namespace VulkanTest
 			return;
 		}
 
+		// Load resource tiles directly
+		if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
+		{
+			bool ret = OnLoaded(size, mem);
+			if (ret == false)
+			{
+				Logger::Error("Failed to load resource %s", GetPath().c_str());
+				failedDepCount++;
+			}
+			resSize = size;
+			return;
+		}
+
+		// Load normal compiled resource
 		// Ok, file loaded success, let's process the file as CompiledResource
 		// CompiledReource:
 		// ---------------------------
