@@ -39,6 +39,8 @@ namespace VulkanTest
 		Shader(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~Shader();
 
+		bool Create(U64 size, const U8* mem);
+
 		GPU::Shader* GetVS(const String& name, I32 permutationIndex = 0) {
 			return GetShader(GPU::ShaderStage::VS, name, permutationIndex);
 		}
@@ -54,6 +56,7 @@ namespace VulkanTest
 		GPU::Shader* GetShader(GPU::ShaderStage stage, const String& name, I32 permutationIndex);
 
 	protected:
+		bool LoadFromMemory(InputMemoryStream& inputMem);
 		bool OnLoaded(U64 size, const U8* mem) override;
 		void OnUnLoaded() override;
 

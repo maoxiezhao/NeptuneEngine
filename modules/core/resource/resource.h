@@ -72,11 +72,11 @@ namespace VulkanTest
 		bool IsEmpty()const {
 			return currentState == State::EMPTY;
 		}
-		bool IsReady()const {
-			return currentState == State::READY;
-		}
 		bool IsFailure()const {
 			return currentState == State::FAILURE;
+		}
+		virtual bool IsReady()const {
+			return currentState == State::READY;
 		}
 
 		const Path& GetPath()const {

@@ -49,6 +49,14 @@ namespace VulkanTest
 		ASSERT(IsEmpty());
 	}
 
+	bool Shader::Create(U64 size, const U8* mem)
+	{
+		InputMemoryStream inputMem(mem, size);
+		bool isReady = LoadFromMemory(inputMem);
+		OnCreated(isReady ? Resource::State::READY : Resource::State::FAILURE);
+		return isReady;
+	}
+
 	GPU::Shader* Shader::GetShader(GPU::ShaderStage stage, const String& name, I32 permutationIndex)
 	{
 		auto shader = shaders.Get(name, permutationIndex);
@@ -79,9 +87,20 @@ namespace VulkanTest
 			return false;
 		}
 
+		return LoadFromMemory(inputMem);
+	}
+
+	void Shader::OnUnLoaded()
+	{
+		shaders.Clear();
+	}
+
+
+	bool Shader::LoadFromMemory(InputMemoryStream& inputMem)
+	{
 		GPU::DeviceVulkan* device = Renderer::GetDevice();
 		ASSERT(device != nullptr);
-		
+
 		// Shader format:
 		// -------------------------
 		// Shader count
@@ -149,8 +168,4 @@ namespace VulkanTest
 		return true;
 	}
 
-	void Shader::OnUnLoaded()
-	{
-		shaders.Clear();
-	}
 }

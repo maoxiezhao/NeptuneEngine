@@ -3,12 +3,71 @@
 #include "core\resource\resource.h"
 #include "core\resource\resourceManager.h"
 #include "core\scripts\luaConfig.h"
-#include "math\color.h"
-#include "renderer\shader.h"
-#include "enums.h"
+#include "materials\materialShader.h"
 
 namespace VulkanTest
 {
+	struct MaterialFactory;
+
+#pragma pack(1)
+	struct MaterialHeader
+	{
+		static constexpr U32 LAST_VERSION = 0;
+		static constexpr U32 MAGIC = '_CST';
+		U32 magic = MAGIC;
+		U32 version = LAST_VERSION;
+		MaterialInfo materialInfo;
+	};
+#pragma pack()
+
+	struct MaterialParams
+	{
+		enum FLAGS
+		{
+			EMPTY = 0,
+			DIRTY = 1 << 0,
+			CAST_SHADOW = 1 << 1,
+			DOUBLE_SIDED = 1 << 2,
+		};
+
+		Color4 color;
+		U32 flags = EMPTY;
+		ResPtr<Texture> textures[Texture::TextureType::COUNT];
+
+		bool Load(U64 size, const U8* mem, MaterialFactory& factory);
+		void Unload();
+	};
+
+	class VULKAN_TEST_API Material final : public Resource
+	{
+	public:
+		DECLARE_RESOURCE(Material);
+
+		Material(const Path& path_, ResourceFactory& resFactory_);
+		virtual ~Material();
+
+		void Bind(MaterialShader::BindParameters& params);
+
+		MaterialParams& GetParams(){
+			return params;
+		}
+
+		const MaterialParams& GetParams()const {
+			return params;
+		}
+
+		bool IsReady()const override;
+		const Shader* GetShader()const;
+
+	protected:
+		bool OnLoaded(U64 size, const U8* mem) override;
+		void OnUnLoaded() override;
+
+	private:
+		MaterialParams params;
+		MaterialShader* materialShader = nullptr;
+	};
+
 	struct MaterialFactory : public ResourceFactory
 	{
 	public:
@@ -25,38 +84,5 @@ namespace VulkanTest
 
 	private:
 		LuaConfig luaConfig;
-	};
-
-	class VULKAN_TEST_API Material final : public Resource
-	{
-	public:
-		DECLARE_RESOURCE(Material);
-
-		enum FLAGS
-		{
-			EMPTY = 0,
-			DIRTY = 1 << 0,
-			CAST_SHADOW = 1 << 1,
-			DOUBLE_SIDED = 1 << 2,
-		};
-
-		Material(const Path& path_, ResourceFactory& resFactory_);
-		virtual ~Material();
-	
-		Color4 GetColor() const { return color; }
-		void SetColor(const F32x4& color_) { color = Color4(color_); }
-		BlendMode GetBlendMode()const { return blendMode; }
-		bool IsCastingShadow() const { return flags & CAST_SHADOW; }
-		bool IsDoubleSided() const { return  flags & DOUBLE_SIDED; }
-
-	protected:
-		bool OnLoaded(U64 size, const U8* mem) override;
-		void OnUnLoaded() override;
-
-	private:
-		Color4 color;
-		BlendMode blendMode = BlendMode::BLENDMODE_OPAQUE;
-		U32 flags = EMPTY;
-		ResPtr<Shader> shader;
 	};
 }

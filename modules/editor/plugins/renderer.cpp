@@ -103,7 +103,7 @@ namespace Editor
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Material editor plugin
-	struct MaterialPlugin final : AssetCompiler::IPlugin
+	struct MaterialPlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -117,12 +117,53 @@ namespace Editor
 	
 		bool Compile(const Path& path)override
 		{
-			return app.GetAssetCompiler().CopyCompile(path);
+			FileSystem& fs = app.GetEngine().GetFileSystem();
+			OutputMemoryStream mem;
+			if (!fs.LoadContext(path.c_str(), mem))
+			{
+				Logger::Error("failed to read file:%s", path.c_str());
+				return false;
+			}
+
+			InputMemoryStream input(mem);
+			MaterialInfo materialInfo;
+			input.Read<MaterialInfo>(materialInfo);
+
+			OutputMemoryStream output;
+
+			// Header
+			MaterialHeader header = {};
+			header.materialInfo = materialInfo;
+			output.Write(header);
+
+			// Compile material shader
+			// TODO..
+
+			// Params
+			output.Write((const U8*)input.GetBuffer() + input.GetPos(), input.Size() - sizeof(MaterialInfo));
+
+			return app.GetAssetCompiler().WriteCompiled(path.c_str(), output);
+		}
+
+
+		void OnGui(Span<class Resource*> resource)override
+		{
+			if (resource.length() > 1)
+				return;
+
+			Material* material = static_cast<Material*>(resource[0]);
+			if (ImGui::Button(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
+				app.GetAssetBrowser().OpenInExternalEditor(material->GetPath().c_str());
+
 		}
 
 		std::vector<const char*> GetSupportExtensions()
 		{
 			return { "mat" };
+		}
+
+		ResourceType GetResourceType() const override {
+			return Material::ResType;
 		}
 	};
 
@@ -384,6 +425,7 @@ namespace Editor
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.RemovePlugin(shaderPlugin);
 			assetBrowser.RemovePlugin(texturePlugin);
+			assetBrowser.RemovePlugin(materialPlugin);
 
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.RemovePlugin(modelPlugin);
@@ -411,6 +453,7 @@ namespace Editor
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.AddPlugin(texturePlugin);
 			assetBrowser.AddPlugin(shaderPlugin);
+			assetBrowser.AddPlugin(materialPlugin);
 
 			// Add widget for editor
 			app.AddWidget(sceneView);

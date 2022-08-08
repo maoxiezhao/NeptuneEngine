@@ -57,6 +57,12 @@ namespace VulkanTest
 	{
 	}
 
+	InputMemoryStream::InputMemoryStream(const OutputMemoryStream& blob) :
+		data((const U8*)blob.Data()),
+		size(blob.Size()),
+		pos(0)
+	{}
+
 	bool InputMemoryStream::Read(void* buffer_, U64 size_)
 	{
 		if (pos + size_ > size)
@@ -167,6 +173,19 @@ namespace VulkanTest
 		rhs.data = nullptr;
 		rhs.capacity = 0;
 		rhs.size = 0;
+	}
+
+	void OutputMemoryStream::WriteString(const char* string)
+	{
+		if (string) 
+		{
+			const I32 size = StringLength(string) + 1;
+			Write(string, size);
+		}
+		else 
+		{
+			Write((char)0);
+		}
 	}
 
 	bool OutputMemoryStream::Write(const void* buffer, U64 size_)

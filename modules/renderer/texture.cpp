@@ -224,7 +224,7 @@ namespace VulkanTest
 		layout.SetBuffer((void*)imgData, size);
 
 		GPU::SubresourceData resData[16];
-		for (int i = 0; i < header.mips; i++)
+		for (U32 i = 0; i < header.mips; i++)
 			resData[i].data = layout.Data(0, i);
 
 		GPU::DeviceVulkan* device = Renderer::GetDevice();

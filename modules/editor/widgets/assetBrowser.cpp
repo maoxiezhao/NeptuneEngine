@@ -238,7 +238,7 @@ namespace Editor
 
             char filename[MAX_PATH_LENGTH];
             CopyString(filename, Path::GetBaseName(path.c_str()));
-            ClampText(filename, thumbnailSize * TILE_SIZE);
+            ClampText(filename, I32(thumbnailSize * TILE_SIZE));
             info.filename = filename;
 
             fileInfos.push_back(info);

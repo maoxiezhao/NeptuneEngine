@@ -5,16 +5,15 @@ namespace VulkanTest
 {
 	DEFINE_RESOURCE(Material);
 
-
 	namespace LuaAPI
 	{
 		int color(lua_State* l)
 		{
 			const F32x4 c = LuaUtils::Get<F32x4>(l, 1);
 			lua_getglobal(l, "this");
-			Material* material = (Material*)lua_touserdata(l, -1);
+			MaterialParams* params = (MaterialParams*)lua_touserdata(l, -1);
 			lua_pop(l, 1);
-			material->SetColor(c);
+			params->color = c;
 			return 0;
 		}
 
@@ -22,6 +21,24 @@ namespace VulkanTest
 		{
 			return 0;
 		}
+	}
+
+	bool MaterialParams::Load(U64 size, const U8* mem, MaterialFactory& factory)
+	{
+		if (size <= 0)
+			return false;
+
+		LuaConfig& luaConfig = factory.GetLuaConfig();
+		luaConfig.AddLightUserdata("this", this);
+
+		const Span<const char> content((const char*)mem, (U32)size);
+		return luaConfig.Load(content);
+	}
+
+	void MaterialParams::Unload()
+	{
+		for (auto texture : textures)
+			texture.reset();
 	}
 
 	MaterialFactory::MaterialFactory()
@@ -56,24 +73,73 @@ namespace VulkanTest
 	{
 	}
 
+	void Material::Bind(MaterialShader::BindParameters& params)
+	{
+		ASSERT(IsReady());
+		materialShader->Bind(params);
+	}
+
+	bool Material::IsReady() const
+	{
+		return (Resource::IsReady() && materialShader && materialShader->IsReady());
+	}
+
+	const Shader* Material::GetShader() const
+	{
+		return materialShader ? materialShader->GetShader() : nullptr;
+	}
+
 	bool Material::OnLoaded(U64 size, const U8* mem)
 	{
 		PROFILE_FUNCTION();
+		ASSERT(materialShader == nullptr);
 
-		MaterialFactory& factory = static_cast<MaterialFactory&>(GetResourceFactory());
-		LuaConfig& luaConfig = factory.GetLuaConfig();
-		luaConfig.AddLightUserdata("this", this);
-
-		const Span<const char> content((const char*)mem, (U32)size);
-		if (!luaConfig.Load(content))
+		// Check material header
+		MaterialHeader header;
+		InputMemoryStream inputMem(mem, size);
+		inputMem.Read<MaterialHeader>(header);
+		if (header.magic != MaterialHeader::MAGIC)
+		{
+			Logger::Warning("Unsupported material file %s", GetPath());
 			return false;
+		}
 
-		Logger::Print("Material loaded %s", GetPath().c_str());
+		if (header.version != MaterialHeader::LAST_VERSION)
+		{
+			Logger::Warning("Unsupported version of material %s", GetPath());
+			return false;
+		}
+
+		auto& factory = static_cast<MaterialFactory&>(GetResourceFactory());
+
+		// Create material shader
+		const String name(GetPath().c_str());
+		materialShader = MaterialShader::Create(name, inputMem, header.materialInfo, factory);
+		if (materialShader == nullptr)
+		{
+			Logger::Warning("Failed to create material shader %s", GetPath().c_str());
+			return false;
+		}
+
+		// Load material params
+		if (!params.Load(size - inputMem.GetPos(), mem + inputMem.GetPos(), factory))
+		{
+			Logger::Warning("Failed to load material params %s", GetPath().c_str());
+			return false;
+		}
+
 		return true;
 	}
 
 	void Material::OnUnLoaded()
 	{
-		Logger::Print("Material unloaded %s", GetPath().c_str());
+		if (materialShader != nullptr)
+		{
+			materialShader->Unload();
+			CJING_SAFE_DELETE(materialShader);
+			materialShader = nullptr;
+		}
+
+		params.Unload();
 	}
 }

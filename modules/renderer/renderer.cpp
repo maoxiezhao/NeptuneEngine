@@ -165,10 +165,6 @@ namespace Renderer
 	GPU::DepthStencilState depthStencilStates[DSTYPE_COUNT] = {};
 	ResPtr<Shader> shaders[SHADERTYPE_COUNT] = {};
 	GPU::BufferPtr frameBuffer;
-	GPU::PipelineStateDesc objectPipelineStates
-		[RENDERPASS_COUNT]
-		[BLENDMODE_COUNT]
-		[OBJECT_DOUBLESIDED_COUNT];
 	bool isObjectPipelineStatesInited = false;
 
 	RendererPlugin* rendererPlugin = nullptr;
@@ -282,99 +278,6 @@ namespace Renderer
 		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResourcePtr<Shader>(Path("shaders/blurGaussian.shd"));
 	}
 
-	GPU::Shader* GetVSShader(RENDERPASS renderPass)
-	{
-		switch (renderPass)
-		{
-		case RENDERPASS_MAIN:
-			return shaders[SHADERTYPE_OBJECT]->GetVS("VS", 0);
-		case RENDERPASS_PREPASS:
-			return shaders[SHADERTYPE_OBJECT]->GetVS("VS", 1);
-		default:
-			return nullptr;
-		}
-	}
-
-	GPU::Shader* GetPSShader(RENDERPASS renderPass)
-	{
-		switch (renderPass)
-		{
-		case RENDERPASS_MAIN:
-			return shaders[SHADERTYPE_OBJECT]->GetPS("PS", 0);
-		case RENDERPASS_PREPASS:
-			return shaders[SHADERTYPE_OBJECT]->GetPS("PS_Depth", 0);
-		default:
-			return nullptr;
-		}
-	}
-
-	void LoadPipelineStates()
-	{
-		for (I32 renderPass = 0; renderPass < RENDERPASS_COUNT; ++renderPass)
-		{
-			for (I32 blendMode = 0; blendMode < BLENDMODE_COUNT; ++blendMode)
-			{
-				for (I32 doublesided = 0; doublesided < OBJECT_DOUBLESIDED_COUNT; ++doublesided)
-				{
-					GPU::PipelineStateDesc pipeline = {};
-					memset(&pipeline, 0, sizeof(pipeline));
-
-					// Shaders
-					const bool transparency = blendMode != BLENDMODE_OPAQUE;
-					pipeline.shaders[(I32)GPU::ShaderStage::VS] = GetVSShader((RENDERPASS)renderPass);
-					pipeline.shaders[(I32)GPU::ShaderStage::PS] = GetPSShader((RENDERPASS)renderPass);
-					
-					// Blend states
-					switch (blendMode)
-					{
-					case BLENDMODE_OPAQUE:
-						pipeline.blendState = GetBlendState(BlendStateTypes::BSTYPE_OPAQUE);
-						break;
-					case BLENDMODE_ALPHA:
-						pipeline.blendState = GetBlendState(BlendStateTypes::BSTYPE_TRANSPARENT);
-						break;
-					case BLENDMODE_PREMULTIPLIED:
-						pipeline.blendState = GetBlendState(BlendStateTypes::BSTYPE_PREMULTIPLIED);
-						break;
-					default:
-						ASSERT(false);
-						break;
-					}
-
-					// DepthStencilStates
-					switch (renderPass)
-					{
-					case RENDERPASS_MAIN:
-						pipeline.depthStencilState = GetDepthStencilState(DepthStencilStateType::DSTYPE_READEQUAL);
-						break;
-					default:
-						pipeline.depthStencilState = GetDepthStencilState(DepthStencilStateType::DSTYPE_DEFAULT);
-						break;
-					}
-
-					// RasterizerStates
-					switch (doublesided)
-					{
-					case OBJECT_DOUBLESIDED_FRONTSIDE:
-						pipeline.rasterizerState = GetRasterizerState(RasterizerStateTypes::RSTYPE_FRONT);
-						break;
-					case OBJECT_DOUBLESIDED_ENABLED:
-						pipeline.rasterizerState = GetRasterizerState(RasterizerStateTypes::RSTYPE_DOUBLE_SIDED);
-						break;
-					case OBJECT_DOUBLESIDED_BACKSIDE:
-						pipeline.rasterizerState = GetRasterizerState(RasterizerStateTypes::RSTYPE_BACK);
-						break;
-					default:
-						ASSERT(false);
-						break;
-					}
-	
-					objectPipelineStates[renderPass][blendMode][doublesided] = pipeline;
-				}
-			}
-		}
-	}
-
 	void Renderer::Initialize(Engine& engine)
 	{
 		Logger::Info("Render initialized");
@@ -386,11 +289,11 @@ namespace Renderer
 		modelFactory.Initialize(Model::ResType, resManager);
 		materialFactory.Initialize(Material::ResType, resManager);
 
-		// Load built-in states
+		// Load builtin states
 		InitStockStates();
 		LoadShaders();
 
-		// Create built-in constant buffers
+		// Create builtin constant buffers
 		auto device = GetDevice();
 		GPU::BufferCreateInfo info = {};
 		info.domain = GPU::BufferDomain::Device;
@@ -414,7 +317,6 @@ namespace Renderer
 
 		ImageUtil::Uninitialize();
 		TextureHelper::Uninitialize();
-
 		frameBuffer.reset();
 
 		// Uninitialize resource factories
@@ -448,14 +350,9 @@ namespace Renderer
 		return depthStencilStates[type];
 	}
 
-	Shader* GetShader(ShaderType type)
+	ResPtr<Shader> GetShader(ShaderType type)
 	{
-		return shaders[type].get();
-	}
-
-	const GPU::PipelineStateDesc& GetObjectPipelineState(RENDERPASS renderPass, BlendMode blendMode, ObjectDoubleSided doublesided)
-	{
-		return objectPipelineStates[renderPass][blendMode][doublesided];
+		return shaders[type];
 	}
 
 	void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd)
@@ -470,17 +367,6 @@ namespace Renderer
 	{
 		ASSERT(visible.scene);
 		frameCB.scene = visible.scene->GetShaderScene();
-
-		// Update object pipeline states
-		if (!isObjectPipelineStatesInited && GetShader(SHADERTYPE_OBJECT)->IsReady())
-		{
-			isObjectPipelineStatesInited = true;
-			LoadPipelineStates();
-		}
-		else if (isObjectPipelineStatesInited && GetShader(SHADERTYPE_OBJECT)->IsEmpty())
-		{
-			isObjectPipelineStatesInited = false;
-		}
 	}
 
 	void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd)
@@ -574,12 +460,14 @@ namespace Renderer
 					continue;
 
 				MaterialComponent* material = scene->GetComponent<MaterialComponent>(subset.materialID);
-				if (!material || !material->material)
+				if (!material || !material->material || !material->material->IsReady())
 					continue;
 
-				BlendMode blendMode = material->material->GetBlendMode();
-				ObjectDoubleSided doubleSided = material->material->IsDoubleSided() ? OBJECT_DOUBLESIDED_ENABLED : OBJECT_DOUBLESIDED_FRONTSIDE;
-				cmd.SetPipelineState(GetObjectPipelineState(renderPass, blendMode, doubleSided));
+				// Bind material
+				MaterialShader::BindParameters bindParams = {};
+				bindParams.cmd = &cmd;
+				bindParams.renderPass = renderPass;
+				material->material->Bind(bindParams);
 
 				// StencilRef
 				U8 stencilRef = instancedBatch.stencilRef;

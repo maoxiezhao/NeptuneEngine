@@ -479,6 +479,15 @@ namespace Editor
 
 			outMem.Clear();
 
+			// TODO: Use MaterialImporter to write material
+			// Write texture header
+			MaterialInfo materialInfo;
+			memset(&materialInfo, 0, sizeof(MaterialInfo));
+			materialInfo.domain = MaterialDomain::Object;
+			materialInfo.useCustomShader = false;
+			outMem.Write(materialInfo);
+
+			// Write params
 			auto WriteTexture = [this, material](Texture::TextureType type)
 			{
 				auto& texture = material.textures[(U32)type];

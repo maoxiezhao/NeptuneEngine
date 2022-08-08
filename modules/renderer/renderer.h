@@ -41,11 +41,7 @@ namespace VulkanTest
 		const GPU::BlendState& GetBlendState(BlendStateTypes type);
 		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);
 		const GPU::DepthStencilState& GetDepthStencilState(DepthStencilStateType type);
-		Shader* GetShader(ShaderType type);
-		const GPU::PipelineStateDesc& GetObjectPipelineState(
-			RENDERPASS renderPass,
-			BlendMode blendMode,
-			ObjectDoubleSided doublesided);
+		ResPtr<Shader> GetShader(ShaderType type);
 
 		void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd);
 		void DebugDrawBox(const FMat4x4& boxMatrix, const F32x4& color = F32x4(1.0f));
