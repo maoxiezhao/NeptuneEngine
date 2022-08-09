@@ -23,7 +23,7 @@ namespace Util
 			return --count == 0;
 		}
 
-		inline int GetRef()
+		inline int GetRef()const
 		{
 			return (int)count;
 		}
@@ -51,7 +51,7 @@ namespace Util
 			return result == 1;
 		}
 
-		inline int GetRef()
+		inline int GetRef()const
 		{
 			return (int)count.load();
 		}
@@ -83,7 +83,7 @@ namespace Util
 			refCount.AddRef();
 		}
 
-		int GetReference()
+		int GetReference()const
 		{
 			return refCount.GetRef();
 		}

@@ -87,38 +87,6 @@ namespace VulkanTest
 		}
 	}
 
-	Resource* ResourceFactory::LoadResource(const Path& path)
-	{
-		ASSERT(resManager != nullptr);
-
-		if (path.IsEmpty())
-			return nullptr;
-
-		Resource* res = GetResource(path);
-		if (res == nullptr)
-		{
-			res = CreateResource(path);
-			resources[path.GetHashValue()] = res;
-		}
-
-		if (res->IsEmpty() && res->desiredState == Resource::State::EMPTY)
-		{
-			if (resManager->OnBeforeLoad(*res) == ResourceManager::LoadHook::Action::DEFERRED)
-			{
-				ASSERT(res->IsHooked() == false);
-				res->SetHooked(true);
-				res->desiredState = Resource::State::READY;
-				res->AddReference(); // Hook
-				// res->AddReference(); // Self
-				return res;
-			}
-			res->DoLoad();
-		}
-
-		// res->AddReference();
-		return res;
-	}
-
 	Resource* ResourceFactory::GetResource(const Path& path)
 	{
 		auto it = resources.find(path.GetHashValue());
@@ -131,6 +99,23 @@ namespace VulkanTest
 	ResourceFactory::ResourceTable& ResourceFactory::GetResourceTable()
 	{
 		return resources;
+	}
+
+	Resource* ResourceFactory::LoadResource(Resource* res)
+	{
+		if (res->IsEmpty() && res->desiredState == Resource::State::EMPTY)
+		{
+			if (resManager->OnBeforeLoad(*res) == ResourceManager::LoadHook::Action::DEFERRED)
+			{
+				ASSERT(res->IsHooked() == false);
+				res->SetHooked(true);
+				res->desiredState = Resource::State::READY;
+				res->AddReference(); // Hook
+				return res;
+			}
+			res->DoLoad();
+		}
+		return res;
 	}
 
 	ResourceManager::ResourceManager() = default;
@@ -146,6 +131,17 @@ namespace VulkanTest
 	void ResourceManager::Uninitialzie()
 	{
 		ASSERT(isInitialized == true);
+
+		for (auto storage : storageMap)
+		{
+			if (storage != nullptr)
+			{
+				storage->Unload();
+				CJING_SAFE_DELETE(storage);
+			}
+		}
+		storageMap.clear();
+
 		isInitialized = false;
 	}
 
@@ -153,7 +149,26 @@ namespace VulkanTest
 	{
 		ASSERT(isInitialized);
 		for (auto& kvp : factoryTable)
-			kvp.second->RemoveUnreferenced();	
+			kvp.second->RemoveUnreferenced();
+	}
+
+	void ResourceManager::UpdateResourceStorages()
+	{
+		for (auto it = storageMap.begin(); it != storageMap.end(); ++it)
+		{
+			if (it.value()->ShouldDispose())
+				toRemoved.push_back({ it.key(), it.value() });
+			else
+				it.value()->Tick();
+		}
+
+		for (auto kvp : toRemoved)
+		{
+			storageMap.erase(kvp.first);
+			kvp.second->Unload();
+			CJING_SAFE_DELETE(kvp.second);
+		}
+		toRemoved.clear();
 	}
 
 	Resource* ResourceManager::LoadResource(ResourceType type, const Path& path)
@@ -230,6 +245,24 @@ namespace VulkanTest
 	ResourceManager::LoadHook::Action ResourceManager::OnBeforeLoad(Resource& res)
 	{
 		return loadHook != nullptr ? loadHook->OnBeforeLoad(res) : LoadHook::Action::IMMEDIATE;
+	}
+
+	ResourceStorageRef ResourceManager::GetStorage(const Path& path)
+	{
+		ResourceStorage* ret = nullptr;
+		auto it = storageMap.find(path.GetHashValue());
+		if (!it.isValid())
+		{
+			auto newStorage = CJING_NEW(ResourceStorage)(path, *fileSystem);
+			storageMap.insert(path.GetHashValue(), newStorage);
+			ret = newStorage;
+		}
+		else
+		{
+			ret = it.value();
+		}
+
+		return ResourceStorageRef(ret);
 	}
 
 	void ResourceManager::LoadHook::ContinueLoad(Resource& res)

@@ -33,17 +33,6 @@ namespace VulkanTest
 		StringID type;
 	};
 
-	struct VULKAN_TEST_API CompiledResourceHeader
-	{
-		static constexpr U32 MAGIC = 'FUCK';
-		static constexpr U32 VERSION = 0x01;
-
-		U32 magic = MAGIC;
-		U32 version = 0;
-		U64 originSize = 0;
-		bool isCompressed = false;
-	};
-
 	class Resource;
 	struct ResourceDeleter
 	{
@@ -120,17 +109,14 @@ namespace VulkanTest
 	protected:
 		Resource(const Path& path_, ResourceFactory& resFactory_);
 	
-		void DoLoad();
-		void DoUnload();
-		void CheckState();
+		virtual void DoLoad();
+		virtual void DoUnload();
 
 		virtual void OnCreated(State state);
-		virtual bool OnLoaded(U64 size, const U8* mem) = 0;
+		virtual bool OnLoaded() = 0;
 		virtual void OnUnLoaded() = 0;
 
-#if DEBUG
-		virtual bool NeedExport()const;
-#endif
+		void CheckState();
 
 		ResourceFactory& resFactory;
 		State desiredState;
@@ -144,7 +130,6 @@ namespace VulkanTest
 		Resource(const Resource&) = delete;
 		void operator=(const Resource&) = delete;
 		
-		void OnFileLoaded(U64 size, const U8* mem, bool success);
 		void OnStateChanged(State oldState, State newState, Resource& res);
 
 		Path path;
@@ -152,7 +137,6 @@ namespace VulkanTest
 		bool ownedBySelf = false;
 		State currentState;
 		StateChangedCallback cb;
-		AsyncLoadHandle asyncHandle;
 	};
 
 	template<typename T>

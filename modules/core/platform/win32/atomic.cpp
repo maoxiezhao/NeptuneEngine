@@ -70,6 +70,11 @@ namespace VulkanTest
 			}
 		}
 	}
+	I32 AtomicRead(volatile I32* pw)
+	{
+		return (I32)_InterlockedCompareExchange((long volatile*)pw, 0, 0);
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	// I64
 	//////////////////////////////////////////////////////////////////////////
@@ -131,6 +136,11 @@ namespace VulkanTest
 				return val;
 			}
 		}
+	}
+
+	I64 AtomicRead(volatile I64* pw)
+	{
+		return _InterlockedCompareExchange64(pw, 0, 0);
 	}
 }
 

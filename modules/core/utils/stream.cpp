@@ -105,7 +105,7 @@ namespace VulkanTest
 
 	OutputMemoryStream::OutputMemoryStream(void* data_, U64 size_) :
 		data((U8*)data_),
-		size(0),
+		size(size_),
 		capacity(size_)
 	{
 	}

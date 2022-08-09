@@ -53,7 +53,7 @@ namespace VulkanTest
 		depRes.cb.Unbind<&Resource::OnStateChanged>(this);
 		if (depRes.IsEmpty())
 		{
-			ASSERT(emptyDepCount > 1 || (emptyDepCount == 1 && !asyncHandle.IsValid()));
+			ASSERT(emptyDepCount > 1 || (emptyDepCount == 1)); // && !asyncHandle.IsValid()));
 			emptyDepCount--;
 		}
 		if (depRes.IsFailure())
@@ -77,57 +77,16 @@ namespace VulkanTest
 		desiredState(State::EMPTY),
 		resSize(0),
 		path(path_),
-		resFactory(resFactory_),
-		asyncHandle(AsyncLoadHandle::INVALID)
+		resFactory(resFactory_)
 	{
 	}
 
 	void Resource::DoLoad()
 	{
-		// Check resource is loaded
-		if (desiredState == State::READY)
-			return;
-		desiredState = State::READY;
-
-		FileSystem* fileSystem = resFactory.GetResourceManager().GetFileSystem();
-#if DEBUG
-		if (!NeedExport())
-		{
-			OutputMemoryStream mem;
-			bool ret = fileSystem->LoadContext(path.c_str(), mem);
-			OnFileLoaded(mem.Size(), (const U8*)mem.Data(), ret);
-			return;
-		}
-#endif
-		if (asyncHandle.IsValid())
-			return;
-
-		AsyncLoadCallback cb;
-		cb.Bind<&Resource::OnFileLoaded>(this);
-
-		// Load resource tiles directly
-		if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
-		{
-			asyncHandle = fileSystem->LoadFileAsync(GetPath(), cb);
-			return;
-		}
-
-		// Load normal compiled resources
-		const U64 pathHash = path.GetHashValue();
-		StaticString<MAX_PATH_LENGTH> fullResPath(".export/resources/", pathHash, ".res");
-		asyncHandle = fileSystem->LoadFileAsync(Path(fullResPath), cb);
 	}
 
 	void Resource::DoUnload()
 	{
-		if (asyncHandle.IsValid())
-		{
-			// Cancel when res is loading
-			FileSystem* fileSystem = resFactory.GetResourceManager().GetFileSystem();
-			fileSystem->CancelAsync(asyncHandle);
-			asyncHandle = AsyncLoadHandle::INVALID;
-		}
-
 		desiredState = State::EMPTY;
 		OnUnLoaded();
 		ASSERT(emptyDepCount <= 1);
@@ -174,113 +133,6 @@ namespace VulkanTest
 		desiredState = State::READY;
 		failedDepCount = state == State::FAILURE ? 1 : 0;
 		emptyDepCount = 0;
-	}
-
-#if DEBUG
-	bool Resource::NeedExport()const
-	{
-		return true;
-	}
-#endif
-
-	void Resource::OnFileLoaded(U64 size, const U8* mem, bool success)
-	{
-		ASSERT(asyncHandle.IsValid());
-		asyncHandle = AsyncLoadHandle::INVALID;
-
-		// Desired state changed when file loading, so is a invalid loading
-		if (desiredState != State::READY)
-			return;
-
-		ASSERT(currentState != State::READY);
-		ASSERT(emptyDepCount == 1);
-
-		if (success == false)
-		{
-			Logger::Error("Failed to load %s", GetPath().c_str());
-			emptyDepCount--;
-			failedDepCount++;
-			CheckState();
-			return;
-		}
-
-		// Load resource tiles directly
-		if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
-		{
-			bool ret = OnLoaded(size, mem);
-			if (ret == false)
-			{
-				Logger::Error("Failed to load resource %s", GetPath().c_str());
-				failedDepCount++;
-			}
-			resSize = size;
-			return;
-		}
-
-		// Load normal compiled resource
-		// Ok, file loaded success, let's process the file as CompiledResource
-		// CompiledReource:
-		// ---------------------------
-		// |  CompiledResourceHeader |
-		// ---------------------------
-		// |   Bytes context         |
-		// ---------------------------
-
-		const CompiledResourceHeader* resHeader = (const CompiledResourceHeader*)mem;
-		if (size < sizeof(CompiledResourceHeader))
-		{
-			Logger::Error("Invalid compiled resource %s", GetPath().c_str());
-			failedDepCount++;			
-			goto CHECK_STATE;
-		}
-		
-		if (resHeader->magic != CompiledResourceHeader::MAGIC)
-		{
-			Logger::Error("Invalid compiled resource %s", GetPath().c_str());
-			failedDepCount++;
-			goto CHECK_STATE;
-		}
-
-		if (resHeader->version != CompiledResourceHeader::VERSION)
-		{
-			Logger::Error("Invalid compiled resource %s", GetPath().c_str());
-			failedDepCount++;
-			goto CHECK_STATE;
-		}
-
-		if (resHeader->isCompressed)
-		{
-			OutputMemoryStream tmp;
-			tmp.Resize(resHeader->originSize);
-			I32 decompressedSize = Compressor::Decompress(
-				(const char*)mem + sizeof(CompiledResourceHeader),
-				(char*)tmp.Data(),
-				I32(size - sizeof(CompiledResourceHeader)),
-				tmp.Size());
-
-			if (decompressedSize != resHeader->originSize)
-				failedDepCount++;
-			else if (!OnLoaded(decompressedSize, tmp.Data()))
-				failedDepCount++;
-
-			resSize = resHeader->originSize;
-		}
-		else
-		{
-			bool ret = OnLoaded(size - sizeof(*resHeader), mem + sizeof(*resHeader));
-			if (ret == false)
-			{
-				Logger::Error("Failed to load resource %s", GetPath().c_str());
-				failedDepCount++;
-			}	
-			resSize = resHeader->originSize;
-		}
-
-	CHECK_STATE:
-		ASSERT(emptyDepCount > 0);
-		emptyDepCount--;
-		CheckState();
-		asyncHandle = AsyncLoadHandle::INVALID;		
 	}
 
 	void Resource::OnStateChanged(State oldState, State newState, Resource& res)

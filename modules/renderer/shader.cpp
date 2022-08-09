@@ -40,7 +40,7 @@ namespace VulkanTest
 	}
 
 	Shader::Shader(const Path& path_, ResourceFactory& resFactory_) :
-		Resource(path_, resFactory_)
+		BinaryResource(path_, resFactory_)
 	{
 	}
 
@@ -68,12 +68,15 @@ namespace VulkanTest
 		return shader;
 	}
 
-	bool Shader::OnLoaded(U64 size, const U8* mem)
+	bool Shader::OnLoaded()
 	{
 		PROFILE_FUNCTION();
-		FileHeader header;
+		const auto dataChunk = GetChunk(0);
+		if (dataChunk == nullptr || !dataChunk->IsLoaded())
+			return false;
 
-		InputMemoryStream inputMem(mem, size);
+		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
+		FileHeader header;
 		inputMem.Read<FileHeader>(header);
 		if (header.magic != FILE_MAGIC)
 		{
@@ -94,7 +97,6 @@ namespace VulkanTest
 	{
 		shaders.Clear();
 	}
-
 
 	bool Shader::LoadFromMemory(InputMemoryStream& inputMem)
 	{
@@ -167,5 +169,4 @@ namespace VulkanTest
 		}
 		return true;
 	}
-
 }

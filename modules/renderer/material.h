@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core\resource\resource.h"
+#include "core\resource\binaryResource.h"
 #include "core\resource\resourceManager.h"
 #include "core\scripts\luaConfig.h"
 #include "materials\materialShader.h"
@@ -38,7 +38,7 @@ namespace VulkanTest
 		void Unload();
 	};
 
-	class VULKAN_TEST_API Material final : public Resource
+	class VULKAN_TEST_API Material final : public BinaryResource
 	{
 	public:
 		DECLARE_RESOURCE(Material);
@@ -60,7 +60,7 @@ namespace VulkanTest
 		const Shader* GetShader()const;
 
 	protected:
-		bool OnLoaded(U64 size, const U8* mem) override;
+		bool OnLoaded()override;
 		void OnUnLoaded() override;
 
 	private:
@@ -68,7 +68,7 @@ namespace VulkanTest
 		MaterialShader* materialShader = nullptr;
 	};
 
-	struct MaterialFactory : public ResourceFactory
+	struct MaterialFactory : public BinaryResourceFactory
 	{
 	public:
 		MaterialFactory();

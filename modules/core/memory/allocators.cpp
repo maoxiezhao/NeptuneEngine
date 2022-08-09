@@ -35,7 +35,12 @@ namespace VulkanTest
 		// (32, 64] => 3; 
 		ASSERT(size > 0);
 		ASSERT(size <= SMALL_ALLOC_MAX_SIZE);
-		return 31 - LeadingZeroes(((U32)size - 1) >> 2);
+#ifdef _WIN32
+		unsigned long res;
+		return _BitScanReverse(&res, ((unsigned long)size - 1) >> 2) ? res : 0;
+#else
+		return 31 - __builtin_clz((n - 1) >> 2);
+#endif
 	}
 
 	static void InitMemPage(DefaultAllocator::MemPage* page, int itemSize)

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "resource.h"
+#include "resourceStorage.h"
+#include "core\collections\hashMap.h"
 
 namespace VulkanTest
 {
@@ -32,12 +34,13 @@ namespace VulkanTest
 		}
 
 	protected:
-		Resource* LoadResource(const Path& path);
-
+		virtual Resource* LoadResource(const Path& path) = 0;
 		virtual Resource* CreateResource(const Path& path) = 0;
 		virtual void DestroyResource(Resource* res) = 0;
 
-	private:
+		Resource* LoadResource(Resource* res);
+
+	protected:
 		ResourceTable resources;
 		bool isUnloadEnable;
 		ResourceType resType;
@@ -83,6 +86,7 @@ namespace VulkanTest
 		void Reload(const Path& path);
 		void ReloadAll();
 		void RemoveUnreferenced();
+		void UpdateResourceStorages();
 
 		ResourceFactory* GetFactory(ResourceType type);
 		FactoryTable& GetAllFactories();
@@ -95,6 +99,8 @@ namespace VulkanTest
 
 		void SetLoadHook(LoadHook* hook);
 		LoadHook::Action OnBeforeLoad(Resource& res);
+
+		ResourceStorageRef GetStorage(const Path& path);
 
 	private:
 		template<typename T>
@@ -110,5 +116,9 @@ namespace VulkanTest
 		FactoryTable factoryTable;
 		bool isInitialized = false;
 		LoadHook* loadHook = nullptr;
+
+		HashMap<U64, ResourceStorage*> storageMap;
+		Array<std::pair<U64, ResourceStorage*>> toRemoved;
+
 	};
 }

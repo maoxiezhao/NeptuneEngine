@@ -100,6 +100,10 @@ function setup_project_definines()
     if renderdoc_debug then 
         defines { "DEBUG_RENDERDOC" }
     end 
+
+    if build_editor then 
+        defines { "CJING3D_EDITOR" }
+    end 
 end 
 
 function force_Link(name)

@@ -14,6 +14,9 @@ namespace VulkanTest
 		F32 GetTimeSinceTick();
 		F32 GetTotalDeltaTime();
 
+		static U64 GetRawTimestamp();
+		static U64 GetFrequency();
+
 	private:
 		U64 frequency;
 		U64 lastTick;

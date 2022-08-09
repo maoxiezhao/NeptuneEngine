@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core\resource\resource.h"
+#include "core\resource\binaryResource.h"
 #include "core\collections\hashMap.h"
 #include "gpu\vulkan\device.h"
 #include "gpu\vulkan\shader.h"
@@ -9,7 +9,7 @@ namespace VulkanTest
 {
 	struct RendererPlugin;
 
-	class VULKAN_TEST_API Shader final : public Resource
+	class VULKAN_TEST_API Shader final : public BinaryResource
 	{
 	public:
 		DECLARE_RESOURCE(Shader);
@@ -57,7 +57,7 @@ namespace VulkanTest
 
 	protected:
 		bool LoadFromMemory(InputMemoryStream& inputMem);
-		bool OnLoaded(U64 size, const U8* mem) override;
+		bool OnLoaded()override;
 		void OnUnLoaded() override;
 
 	private:

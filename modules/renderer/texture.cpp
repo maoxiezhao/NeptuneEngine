@@ -8,7 +8,7 @@ namespace VulkanTest
 	DEFINE_RESOURCE(Texture);
 
 	Texture::Texture(const Path& path_, ResourceFactory& resFactory_) :
-		Resource(path_, resFactory_)
+		BinaryResource(path_, resFactory_)
 	{
 	}
 
@@ -37,10 +37,14 @@ namespace VulkanTest
 		DoUnload();
 	}
 
-	bool Texture::OnLoaded(U64 size, const U8* mem)
+	bool Texture::OnLoaded()
 	{
 		PROFILE_FUNCTION();
-		InputMemoryStream inputMem(mem, size);
+		const auto dataChunk = GetChunk(0);
+		if (dataChunk == nullptr || !dataChunk->IsLoaded())
+			return false;
+
+		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
 
 		TextureHeader header;
 		inputMem.Read<TextureHeader>(header);
@@ -56,13 +60,13 @@ namespace VulkanTest
 			return false;
 		}
 
-		const U8* imgData = mem + sizeof(TextureHeader);
+		const U8* imgData = dataChunk->Data() + sizeof(TextureHeader);
 		switch (header.type)
 		{
 		case TextureResourceType::TGA:
-			return LoadTextureTGA(header, imgData, size - sizeof(TextureHeader));
+			return LoadTextureTGA(header, imgData, dataChunk->Size() - sizeof(TextureHeader));
 		case TextureResourceType::INTERNAL:
-			return LoadTextureInternal(header, imgData, size - sizeof(TextureHeader));
+			return LoadTextureInternal(header, imgData, dataChunk->Size() - sizeof(TextureHeader));
 		default:
 			ASSERT(false);
 			return false;

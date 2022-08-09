@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core\resource\resource.h"
+#include "core\resource\binaryResource.h"
 #include "core\utils\stream.h"
 #include "core\collections\array.h"
 #include "core\scene\world.h"
@@ -85,7 +85,7 @@ namespace VulkanTest
 		bool CreateRenderData();
 	};
 
-	class VULKAN_TEST_API Model final : public Resource
+	class VULKAN_TEST_API Model final : public BinaryResource
 	{
 	public:
 		DECLARE_RESOURCE(Model);
@@ -114,7 +114,7 @@ namespace VulkanTest
 		}
 
 	protected:
-		bool OnLoaded(U64 size, const U8* mem) override;
+		bool OnLoaded()override;
 		void OnUnLoaded() override;
 
 	private:

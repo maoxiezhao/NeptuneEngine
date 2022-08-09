@@ -4,6 +4,7 @@
 #include "editor\editorPlugin.h"
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resource.h"
+#include "core\resource\resourceStorage.h"
 #include "core\resource\resourceManager.h"
 #include "core\scripts\luaUtils.h"
 
@@ -41,6 +42,7 @@ namespace Editor
         virtual void AddDependency(const Path& from, const Path& dep) = 0;
         virtual bool Compile(const Path& path) = 0;
         virtual bool CopyCompile(const Path& path) = 0;
+        virtual bool WriteCompiled(const char* path, const ResourceInitData& initData) = 0;
         virtual bool WriteCompiled(const char* path, Span<const U8>data) = 0;
         virtual ResourceType GetResourceType(const char* path) const = 0;
         virtual void RegisterExtension(const char* extension, ResourceType type) = 0;

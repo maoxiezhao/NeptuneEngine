@@ -5,6 +5,7 @@
 #include "gpu\vulkan\wsi.h"
 #include "core\utils\profiler.h"
 #include "core\resource\resourceManager.h"
+#include "core\resource\binaryResource.h"
 #include "renderScene.h"
 #include "renderPath3D.h"
 #include "model.h"
@@ -141,7 +142,7 @@ namespace Renderer
 	};
 
 	template <typename T>
-	struct RenderResourceFactory : public ResourceFactory
+	struct RenderResourceFactory : public BinaryResourceFactory
 	{
 	protected:
 		virtual Resource* CreateResource(const Path& path) override
@@ -271,7 +272,7 @@ namespace Renderer
 
 	void LoadShaders()
 	{
-		auto resManager = rendererPlugin->GetEngine().GetResourceManager();
+		auto& resManager = rendererPlugin->GetEngine().GetResourceManager();
 		shaders[SHADERTYPE_OBJECT] = resManager.LoadResourcePtr<Shader>(Path("shaders/object.shd"));
 		shaders[SHADERTYPE_VERTEXCOLOR] = resManager.LoadResourcePtr<Shader>(Path("shaders/vertexColor.shd"));
 		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = resManager.LoadResourcePtr<Shader>(Path("shaders/outline.shd"));

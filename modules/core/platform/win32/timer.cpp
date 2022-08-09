@@ -46,6 +46,23 @@ namespace VulkanTest
 	{
 		return totalDeltaTime;
 	}
+
+	U64 Timer::GetRawTimestamp()
+	{
+		LARGE_INTEGER tick;
+		QueryPerformanceCounter(&tick);
+		return tick.QuadPart;
+	}
+
+	U64 Timer::GetFrequency()
+	{
+		static U64 freq = []() {
+			LARGE_INTEGER f;
+			QueryPerformanceFrequency(&f);
+			return f.QuadPart;
+		}();
+		return freq;
+	}
 }
 
 #endif

@@ -65,7 +65,7 @@ namespace VulkanTest
 	}
 
 	Material::Material(const Path& path_, ResourceFactory& resFactory_) :
-		Resource(path_, resFactory_)
+		BinaryResource(path_, resFactory_)
 	{
 	}
 
@@ -89,14 +89,18 @@ namespace VulkanTest
 		return materialShader ? materialShader->GetShader() : nullptr;
 	}
 
-	bool Material::OnLoaded(U64 size, const U8* mem)
+	bool Material::OnLoaded()
 	{
 		PROFILE_FUNCTION();
 		ASSERT(materialShader == nullptr);
 
+		const auto dataChunk = GetChunk(0);
+		if (dataChunk == nullptr || !dataChunk->IsLoaded())
+			return false;
+
 		// Check material header
 		MaterialHeader header;
-		InputMemoryStream inputMem(mem, size);
+		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
 		inputMem.Read<MaterialHeader>(header);
 		if (header.magic != MaterialHeader::MAGIC)
 		{
@@ -122,7 +126,7 @@ namespace VulkanTest
 		}
 
 		// Load material params
-		if (!params.Load(size - inputMem.GetPos(), mem + inputMem.GetPos(), factory))
+		if (!params.Load(dataChunk->Size() - inputMem.GetPos(), dataChunk->Data() + inputMem.GetPos(), factory))
 		{
 			Logger::Warning("Failed to load material params %s", GetPath().c_str());
 			return false;

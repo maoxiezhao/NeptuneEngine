@@ -104,6 +104,7 @@ namespace VulkanTest
 		const void* GetBuffer() const override {
 			return data;
 		}
+
 		U64 Size() const override {
 			return size;
 		}

@@ -19,7 +19,7 @@ namespace VulkanTest
 		UniquePtr<InputSystem> inputSystem;
 		UniquePtr<PluginManager> pluginManager;
 		UniquePtr<FileSystem> fileSystem;
-		ResourceManager resourceManager;
+		UniquePtr<ResourceManager> resourceManager;
 		WSIPlatform* platform;
 		WSI wsi;
 		bool isGameRunning = false;
@@ -63,7 +63,8 @@ namespace VulkanTest
 			ASSERT(ret);
 
 			// Init resource manager
-			resourceManager.Initialize(*fileSystem);
+			resourceManager = CJING_MAKE_UNIQUE<ResourceManager>();
+			resourceManager->Initialize(*fileSystem);
 
 			// Init input system
 			inputSystem = InputSystem::Create(*this);
@@ -78,7 +79,7 @@ namespace VulkanTest
 		{
 			pluginManager.Reset();
 			inputSystem.Reset();
-			resourceManager.Uninitialzie();
+			resourceManager->Uninitialzie();
 
 			lua_close(luaState);
 
@@ -168,6 +169,9 @@ namespace VulkanTest
 
 			// Process async loading jobs
 			fileSystem->ProcessAsync();
+
+			// Process resource storages
+			resourceManager->UpdateResourceStorages();
 		}
 
 		void Stop(World& world) override
@@ -191,7 +195,7 @@ namespace VulkanTest
 
 		ResourceManager& GetResourceManager() override
 		{
-			return resourceManager;
+			return *resourceManager;
 		}
 
 		PluginManager& GetPluginManager() override

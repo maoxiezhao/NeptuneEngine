@@ -21,7 +21,6 @@ namespace Editor
 {
     class AssetCompilerImpl;
 
-    constexpr U32 COMPRESSION_SIZE_LIMIT = 4096;
     constexpr U32 MAX_PROCESS_COMPILED_JOB_COUNT = 16;
 
     #define EXPORT_RESOURCE_LIST ".export/resources/_list.list"
@@ -587,20 +586,16 @@ namespace Editor
             return WriteCompiled(path.c_str(), Span(mem.Data(), mem.Size()));
         }
 
-        bool WriteCompiled(const char* path, Span<const U8> data)override
+        bool WriteCompiled(const char* path, const ResourceInitData& initData)override
         {
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            OutputMemoryStream compressedData;
-            U64 compressedSize = 0;
-            if (data.length() > COMPRESSION_SIZE_LIMIT)
+            OutputMemoryStream output;
+            if (!ResourceStorage::Save(output, initData))
             {
-                if (!Compressor::Compress(compressedData, compressedSize, data))
-                {
-                    Logger::Error("Could not compress %s", path);
-                    return false;
-                }
+                Logger::Error("Failed to save resource storage.");
+                return false;
             }
-
+            
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
             Path filePath(path);
             MaxPathString exportPath(".export/Resources/", filePath.GetHashValue(), ".res");
             auto file = fs.OpenFile(exportPath.c_str(), FileFlags::DEFAULT_WRITE);
@@ -610,23 +605,26 @@ namespace Editor
                 return false;
             }
 
-            CompiledResourceHeader header;
-            header.version = CompiledResourceHeader::VERSION;
-            header.originSize = (U64)data.length();
-            header.isCompressed = compressedSize > 0 && compressedSize < I32(data.length() / 4 * 3);
-            if (header.isCompressed)
-            {
-                file->Write(&header, sizeof(header));
-                file->Write(compressedData.Data(), compressedSize);
-            }
-            else
-            {
-                file->Write(&header, sizeof(header));
-                file->Write(data.data(), data.length());
-            }
-
+            file->Write(output.Data(), output.Size());
             file->Close();
             return true;
+        }
+
+        bool WriteCompiled(const char* path, Span<const U8> data)override
+        {
+            if (data.length() <= 0)
+                return false;
+
+            DataChunk dataChunk;
+            dataChunk.mem.Write(data.data(), data.length());
+
+            ResourceInitData initData;
+            memset(&initData.header, 0, sizeof(initData.header));
+            initData.path = Path(path);
+            initData.resType = GetResourceType(path);
+            initData.header.chunks[0] = &dataChunk;
+    
+            return WriteCompiled(path, initData);
         }
 
         ResourceType GetResourceType(const char* path) const override

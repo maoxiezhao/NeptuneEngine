@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core\resource\resource.h"
+#include "core\resource\binaryResource.h"
 #include "gpu\vulkan\device.h"
 #include "math\color.h"
 
@@ -27,7 +27,7 @@ namespace VulkanTest
 	};
 #pragma pack()
 
-	class VULKAN_TEST_API Texture final : public Resource
+	class VULKAN_TEST_API Texture final : public BinaryResource
 	{
 	public:
 		DECLARE_RESOURCE(Texture);
@@ -58,7 +58,7 @@ namespace VulkanTest
 		}
 
 	protected:
-		bool OnLoaded(U64 size, const U8* mem) override;
+		bool OnLoaded()override;
 		void OnUnLoaded() override;
 
 	private:
