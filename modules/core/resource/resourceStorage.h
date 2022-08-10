@@ -38,6 +38,33 @@ namespace VulkanTest
 		Path path;
 		ResourceType resType;
 		ResourceChunkHeader header;
+
+		ResourceInitData(const Path& path_, ResourceType type_) :
+			path(path_),
+			resType(type_)
+		{
+			memset(&header, 0, sizeof(header));
+		}
+	};
+
+	struct ResourceDataWriter
+	{
+		ResourceInitData data;
+		Array<DataChunk> chunks;
+
+		ResourceDataWriter(const Path& path_, ResourceType type_) : data(path_, type_) {}
+
+		DataChunk* GetChunk(I32 index)
+		{
+			ASSERT(index >= 0 && index < MAX_RESOURCE_DATA_CHUNKS);
+			DataChunk* chunk = data.header.chunks[index];
+			if (chunk == nullptr)
+			{
+				chunk = &chunks.emplace();
+				data.header.chunks[index] = chunk;
+			}
+			return chunk;
+		}
 	};
 
 	class ResourceStorage;
@@ -69,7 +96,6 @@ namespace VulkanTest
 		void Tick();
 		bool LoadChunksHeader(ResourceChunkHeader* resChunks);
 		bool LoadChunk(DataChunk* chunk);
-
 		bool ShouldDispose()const;
 
 		bool IsLoaded() const {
@@ -84,16 +110,15 @@ namespace VulkanTest
 			return buffer.Size();
 		}
 
-		void LockChunks()
-		{
+		void LockChunks() {
 			AtomicIncrement(&chunksLock);
 		}
 
-		void UnlockChunks()
-		{
+		void UnlockChunks() {
 			AtomicDecrement(&chunksLock);
 		}
 
+		// Scoed locker
 		struct ScopedLock
 		{
 			friend ResourceStorage;

@@ -94,13 +94,16 @@ namespace VulkanTest
 		PROFILE_FUNCTION();
 		ASSERT(materialShader == nullptr);
 
-		const auto dataChunk = GetChunk(0);
-		if (dataChunk == nullptr || !dataChunk->IsLoaded())
+		const auto shaderChunk = GetChunk(MATERIAL_CHUNK_SHADER_SOURCE);
+		if (shaderChunk == nullptr || !shaderChunk->IsLoaded())
+		{
+			Logger::Warning("The shader content of material is not load");
 			return false;
+		}
 
 		// Check material header
 		MaterialHeader header;
-		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
+		InputMemoryStream inputMem(shaderChunk->Data(), shaderChunk->Size());
 		inputMem.Read<MaterialHeader>(header);
 		if (header.magic != MaterialHeader::MAGIC)
 		{
@@ -126,10 +129,14 @@ namespace VulkanTest
 		}
 
 		// Load material params
-		if (!params.Load(dataChunk->Size() - inputMem.GetPos(), dataChunk->Data() + inputMem.GetPos(), factory))
+		const auto paramsChunk = GetChunk(MATERIAL_CHUNK_PARAMS);
+		if (paramsChunk != nullptr && paramsChunk->IsLoaded())
 		{
-			Logger::Warning("Failed to load material params %s", GetPath().c_str());
-			return false;
+			if (!params.Load(paramsChunk->Size(), paramsChunk->Data(), factory))
+			{
+				Logger::Warning("Failed to load material params %s", GetPath().c_str());
+				return false;
+			}
 		}
 
 		return true;
@@ -145,5 +152,10 @@ namespace VulkanTest
 		}
 
 		params.Unload();
+	}
+
+	AssetChunksFlag Material::GetChunksToPreload() const
+	{
+		return GET_CHUNK_FLAG(MATERIAL_CHUNK_SHADER_SOURCE) | GET_CHUNK_FLAG(MATERIAL_CHUNK_PARAMS);
 	}
 }

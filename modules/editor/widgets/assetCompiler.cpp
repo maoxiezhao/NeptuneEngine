@@ -616,12 +616,9 @@ namespace Editor
                 return false;
 
             DataChunk dataChunk;
-            dataChunk.mem.Write(data.data(), data.length());
+            dataChunk.mem.Link(data.data(), data.length());
 
-            ResourceInitData initData;
-            memset(&initData.header, 0, sizeof(initData.header));
-            initData.path = Path(path);
-            initData.resType = GetResourceType(path);
+            ResourceInitData initData(Path(path), GetResourceType(path));
             initData.header.chunks[0] = &dataChunk;
     
             return WriteCompiled(path, initData);

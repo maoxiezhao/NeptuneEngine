@@ -80,6 +80,7 @@ namespace VulkanTest
 			pluginManager.Reset();
 			inputSystem.Reset();
 			resourceManager->Uninitialzie();
+			resourceManager.Reset();
 
 			lua_close(luaState);
 

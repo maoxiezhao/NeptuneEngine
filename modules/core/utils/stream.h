@@ -68,6 +68,8 @@ namespace VulkanTest
 		void Reserve(U64 newSize);
 		void Clear();
 		void Free();
+		void Link(const U8* buffer, U64 size_);
+		void Unlink();
 
 		bool Empty()const {
 			return size == 0;
@@ -91,6 +93,7 @@ namespace VulkanTest
 		U8* data;
 		U64 capacity;
 		U64 size;
+		bool allocated;
 	};
 
 	struct VULKAN_TEST_API InputMemoryStream final : public IInputStream

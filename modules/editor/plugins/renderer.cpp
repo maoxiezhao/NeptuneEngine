@@ -126,23 +126,35 @@ namespace Editor
 			}
 
 			InputMemoryStream input(mem);
-			MaterialInfo materialInfo;
-			input.Read<MaterialInfo>(materialInfo);
+			ResourceDataWriter resWriter(path, Material::ResType);
 
-			OutputMemoryStream output;
+			// Shader chunk
+			auto shaderData = resWriter.GetChunk(MATERIAL_CHUNK_SHADER_SOURCE);
+			if (shaderData)
+			{
+				// Header
+				MaterialInfo materialInfo;
+				input.Read<MaterialInfo>(materialInfo);
 
-			// Header
-			MaterialHeader header = {};
-			header.materialInfo = materialInfo;
-			output.Write(header);
+				MaterialHeader header = {};
+				header.materialInfo = materialInfo;
+				shaderData->mem.Write(header);
 
-			// Compile material shader
-			// TODO..
+				// TODO Write compiled material shader
+				if (materialInfo.useCustomShader && materialInfo.shaderPath[0] != '/0')
+				{
 
-			// Params
-			output.Write((const U8*)input.GetBuffer() + input.GetPos(), input.Size() - sizeof(MaterialInfo));
+				}
+			}
 
-			return app.GetAssetCompiler().WriteCompiled(path.c_str(), output);
+			// Param chunk
+			auto paramsData = resWriter.GetChunk(MATERIAL_CHUNK_PARAMS);
+			if (paramsData)
+			{
+				paramsData->mem.Write((const U8*)input.GetBuffer() + input.GetPos(), input.Size() - sizeof(MaterialInfo));
+			}
+
+			return app.GetAssetCompiler().WriteCompiled(path.c_str(), resWriter.data);
 		}
 
 

@@ -99,14 +99,16 @@ namespace VulkanTest
 	OutputMemoryStream::OutputMemoryStream() :
 		data(nullptr),
 		size(0),
-		capacity(0)
+		capacity(0),
+		allocated(false)
 	{
 	}
 
 	OutputMemoryStream::OutputMemoryStream(void* data_, U64 size_) :
 		data((U8*)data_),
 		size(size_),
-		capacity(size_)
+		capacity(size_),
+		allocated(false)
 	{
 	}
 
@@ -115,10 +117,12 @@ namespace VulkanTest
 		data = rhs.data;
 		size = rhs.size;
 		capacity = rhs.capacity;
+		allocated = rhs.allocated;
 
 		rhs.data = nullptr;
 		rhs.capacity = 0;
 		rhs.size = 0;
+		rhs.allocated = false;
 	}
 
 	OutputMemoryStream::OutputMemoryStream(const OutputMemoryStream& rhs)
@@ -126,38 +130,60 @@ namespace VulkanTest
 		size = rhs.size;
 		if (rhs.capacity > 0)
 		{
-			data = (U8*)CJING_MALLOC(rhs.capacity);
-			Memory::Memcpy(data, rhs.data, capacity);
-			capacity = rhs.capacity;
+			if (rhs.allocated)
+			{
+				data = (U8*)CJING_MALLOC(rhs.capacity);
+				Memory::Memcpy(data, rhs.data, capacity);
+				capacity = rhs.capacity;
+			}
+			else
+			{
+				data = rhs.data;
+				capacity = rhs.capacity;
+			}
+
+			allocated = rhs.allocated;
 		}
 		else
 		{
 			data = nullptr;
 			capacity = 0;
+			allocated = false;
 		}
 	}
 
 	OutputMemoryStream::~OutputMemoryStream()
 	{
-		CJING_SAFE_FREE(data);
+		if (allocated)
+			CJING_SAFE_FREE(data);
 	}
 
 	void OutputMemoryStream::operator=(const OutputMemoryStream& rhs)
 	{
-		if (data != nullptr)
+		if (allocated && data != nullptr)
 			CJING_SAFE_FREE(data);
 
 		size = rhs.size;
+		allocated = rhs.allocated;
 		if (rhs.capacity > 0)
 		{
-			data = (U8*)CJING_MALLOC(rhs.capacity);
-			Memory::Memcpy(data, rhs.data, capacity);
-			capacity = rhs.capacity;
+			if (allocated)
+			{
+				data = (U8*)CJING_MALLOC(rhs.capacity);
+				Memory::Memcpy(data, rhs.data, capacity);
+				capacity = rhs.capacity;
+			}
+			else
+			{
+				data = rhs.data;
+				capacity = rhs.capacity;
+			}
 		}
 		else
 		{
 			data = nullptr;
 			capacity = 0;
+			allocated = false;
 		}
 	}
 
@@ -169,10 +195,12 @@ namespace VulkanTest
 		data = rhs.data;
 		size = rhs.size;
 		capacity = rhs.capacity;
+		allocated = rhs.allocated;
 
 		rhs.data = nullptr;
 		rhs.capacity = 0;
 		rhs.size = 0;
+		rhs.allocated = false;
 	}
 
 	void OutputMemoryStream::WriteString(const char* string)
@@ -229,26 +257,28 @@ namespace VulkanTest
 	void OutputMemoryStream::Resize(U64 newSize)
 	{
 		size = newSize;
-		if (size <= capacity) 
+		if (allocated && size <= capacity)
 			return;
 
 		U8* tempData = (U8*)CJING_MALLOC(size);
 		memcpy(tempData, data, capacity);
-		CJING_SAFE_FREE(data);
+		if (allocated) CJING_SAFE_FREE(data);
 		data = tempData;
 		capacity = size;
+		allocated = true;
 	}
 
 	void OutputMemoryStream::Reserve(U64 newSize)
 	{
-		if (newSize <= capacity)
+		if (allocated && newSize <= capacity)
 			return;
 
 		U8* tempData = (U8*)CJING_MALLOC(newSize);
 		memcpy(tempData, data, capacity);
-		CJING_SAFE_FREE(data);
+		if (allocated) CJING_SAFE_FREE(data);
 		data = tempData;
 		capacity = newSize;
+		allocated = true;
 	}
 
 	void OutputMemoryStream::Clear()
@@ -258,9 +288,28 @@ namespace VulkanTest
 
 	void OutputMemoryStream::Free()
 	{
-		CJING_SAFE_DELETE(data);
+		if (allocated)
+			CJING_SAFE_DELETE(data);
 		size = 0;
 		capacity = 0;
 		data = nullptr;
+		allocated = false;
+	}
+
+	void OutputMemoryStream::Link(const U8* buffer, U64 size_)
+	{
+		Free();
+		allocated = false;
+		data = (U8*)buffer;
+		size = size_;
+		capacity = size_;
+	}
+
+	void OutputMemoryStream::Unlink()
+	{
+		allocated = false;
+		data = nullptr;
+		size = 0;
+		capacity = 0;
 	}
 }

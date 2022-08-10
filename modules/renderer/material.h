@@ -9,6 +9,9 @@ namespace VulkanTest
 {
 	struct MaterialFactory;
 
+#define MATERIAL_CHUNK_SHADER_SOURCE 0
+#define MATERIAL_CHUNK_PARAMS 1
+
 #pragma pack(1)
 	struct MaterialHeader
 	{
@@ -62,6 +65,7 @@ namespace VulkanTest
 	protected:
 		bool OnLoaded()override;
 		void OnUnLoaded() override;
+		AssetChunksFlag GetChunksToPreload()const override;
 
 	private:
 		MaterialParams params;
