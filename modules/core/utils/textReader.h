@@ -2,7 +2,7 @@
 
 #include "string.h"
 #include "stringID.h"
-#include "core\collections\Array.h"
+#include "core\collections\array.h"
 
 namespace VulkanTest
 {

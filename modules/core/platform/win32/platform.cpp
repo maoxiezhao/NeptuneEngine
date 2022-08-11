@@ -314,7 +314,8 @@ namespace Platform {
 	{
 		if (threadIndex == ~0u)
 		{
-			Logger::Error("Current thread dose not set thread index.");
+			// Resource loading thread may cause this case
+			// Logger::Error("Current thread dose not set thread index.");
 			return 0;
 		}
 		return threadIndex;

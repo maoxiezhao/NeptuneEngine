@@ -39,6 +39,9 @@ namespace VulkanTest
 			platform = &app.GetPlatform();
 			SetupUnhandledExceptionHandler();
 
+			// Init services
+			EngineService::OnInit();
+
 			// Init lua system
 			luaState = luaL_newstate();
 			luaL_openlibs(luaState);
@@ -87,6 +90,9 @@ namespace VulkanTest
 			wsi.Uninitialize();
 			fileSystem.Reset();
 			platform = nullptr;
+
+			EngineService::OnUninit();
+
 			Logger::Info("Game engine released.");
 		}
 
@@ -154,6 +160,8 @@ namespace VulkanTest
 		void FixedUpdate(World& world) override
 		{
 			pluginManager->FixedUpdatePlugins();
+
+			EngineService::OnFixedUpdate();
 		}
 
 		void Update(World& world, F32 dt) override
@@ -173,6 +181,14 @@ namespace VulkanTest
 
 			// Process resource storages
 			resourceManager->UpdateResourceStorages();
+
+			// Update engine servies
+			EngineService::OnUpdate();
+		}
+
+		void LateUpdate(World& world)override
+		{
+			EngineService::OnLateUpdate();
 		}
 
 		void Stop(World& world) override

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\resource\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
 #include "core\utils\path.h"
 #include "core\utils\stringID.h"
@@ -77,9 +78,9 @@ namespace VulkanTest
 		}
 
 		void Refresh();
-
 		void AddDependency(Resource& depRes);
 		void RemoveDependency(Resource& depRes);
+		void OnContentLoaded(Task::State state);
 
 		void SetHooked(bool isHooked) {
 			hooked = isHooked;
@@ -115,6 +116,7 @@ namespace VulkanTest
 		virtual void OnCreated(State state);
 		virtual bool OnLoaded() = 0;
 		virtual void OnUnLoaded() = 0;
+		virtual ContentLoadingTask* CreateLoadingTask() = 0;
 
 		void CheckState();
 
@@ -123,6 +125,7 @@ namespace VulkanTest
 		U32 failedDepCount;
 		U32 emptyDepCount;
 		U64 resSize;
+		ContentLoadingTask* loadingTask;
 
 	private:
 		friend struct ResourceDeleter;
@@ -141,6 +144,7 @@ namespace VulkanTest
 
 	template<typename T>
 	using ResPtr = Util::IntrusivePtr<T>;
+
 
 #define DECLARE_RESOURCE(CLASS_NAME)															\
 	static const ResourceType ResType;                                                          \

@@ -1,4 +1,5 @@
 #include "resourceStorage.h"
+#include "resourceManager.h"
 #include "compress\compressor.h"
 #include "core\platform\timer.h"
 
@@ -13,11 +14,11 @@ namespace VulkanTest
 		res->Unload();
 	}
 
-	ResourceStorage::ResourceStorage(const Path& path_, FileSystem& fs_) :
+	ResourceStorage::ResourceStorage(const Path& path_, ResourceManager& resManager_) :
 		path(path_),
-		fs(fs_),
-		asyncHandle(AsyncLoadHandle::INVALID),
-		chunksLock(0)
+		resManager(resManager_),
+		chunksLock(0),
+		stream(nullptr)
 	{
 	}
 
@@ -27,28 +28,77 @@ namespace VulkanTest
 		ASSERT(chunksLock == 0);
 	}
 
-	void ResourceStorage::Load()
+	bool ResourceStorage::Load()
 	{
-		if (isLoaded)
-			return;
+		if (IsLoaded())
+			return true;
 
-		if (asyncHandle.IsValid())
-			return;
+		ScopedMutex lock(mutex);
+		if (IsLoaded())
+			return true;
 
-		AsyncLoadCallback cb;
-		cb.Bind<&ResourceStorage::OnFileLoaded>(this);
+		OutputMemoryStream* stream = LoadContent();
+		if (stream == nullptr)
+			return false;
 
-		// Load resource tiles directly
-		if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
+		// Resource format
+		// -----------------------------------
+		// ResourceStorageHeader
+		// Entries
+		// Chunk locations
+		// Chunk header (count == entries count)
+		// Chunk datas
+		
+		InputMemoryStream inputMem(*stream);
+		if (inputMem.Size() < sizeof(ResourceStorageHeader))
 		{
-			asyncHandle = fs.LoadFileAsync(GetPath(), cb);
-			return;
+			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
+			return false;
 		}
 
-		// Load normal compiled resources
-		const U64 pathHash = path.GetHashValue();
-		StaticString<MAX_PATH_LENGTH> fullResPath(".export/resources/", pathHash, ".res");
-		asyncHandle = fs.LoadFileAsync(Path(fullResPath), cb);
+		// ResourceStorageHeader
+		ResourceStorageHeader resHeader;
+		inputMem.Read(resHeader);
+		if (resHeader.magic != ResourceStorageHeader::MAGIC)
+		{
+			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
+			return false;
+		}
+
+		if (resHeader.version != ResourceStorageHeader::VERSION)
+		{
+			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
+			return false;
+		}
+
+		// Entries
+		ASSERT_MSG(resHeader.assetsCount == 1, "Unsupport multiple resources now");
+		for (U32 i = 0; i < resHeader.assetsCount; i++)
+		{
+			ResourceEntry entry;
+			inputMem.Read(entry);
+			this->entry = entry;
+		}
+
+		// Chunk locations
+		for (U32 i = 0; i < resHeader.chunksCount; i++)
+		{
+			DataChunk::Location location;
+			inputMem.Read(location);
+			if (location.Size == 0)
+			{
+				Logger::Warning("Empty chunk %s", GetPath().c_str());
+				return false;
+			}
+
+			auto chunk = CJING_NEW(DataChunk);
+			chunk->location = location;
+			inputMem.Read(chunk->compressed);
+			chunks.push_back(chunk);
+		}
+
+		isLoaded = true;
+		return true;
 	}
 
 	void ResourceStorage::Unload()
@@ -56,22 +106,7 @@ namespace VulkanTest
 		if (!isLoaded)
 			return;
 
-		if (asyncHandle.IsValid())
-		{
-			// Cancel when res is loading
-			fs.CancelAsync(asyncHandle);
-			asyncHandle = AsyncLoadHandle::INVALID;
-		}
-
-		I32 waitTime = 10;
-		while (AtomicRead(&chunksLock) != 0 && waitTime-- > 0)
-			Platform::Sleep(10);
-
-		if (AtomicRead(&chunksLock) != 0)
-		{
-			// TODO
-			ASSERT(false);
-		}
+		CloseContent();
 
 		for (auto chunk : chunks)
 			CJING_SAFE_DELETE(chunk);
@@ -102,16 +137,18 @@ namespace VulkanTest
 
 		// Clear file buffer, if all chunks are unused;
 		if (!wasAnyUsed && AtomicRead(&chunksLock) == 0)
-			buffer.Free();
+			CloseContent();
 	}
 
 	bool ResourceStorage::LoadChunksHeader(ResourceChunkHeader* resChunks)
 	{
 		ASSERT(isLoaded);
-		if (buffer.Size() == 0)
+		
+		OutputMemoryStream* stream = LoadContent();
+		if (stream == nullptr)
 			return false;
 
-		InputMemoryStream input(buffer);
+		InputMemoryStream input(*stream);
 		input.SetPos(entry.address);
 
 		ChunkHeader chunkHeader;
@@ -143,11 +180,12 @@ namespace VulkanTest
 			return false;
 		}
 
-		if (buffer.Size() == 0)
+		OutputMemoryStream* stream = LoadContent();
+		if (stream == nullptr)
 			return false;
 
 		ScopedLock lock(this);
-		InputMemoryStream input(buffer);
+		InputMemoryStream input(*stream);
 		input.SetPos(chunk->location.Address);
 
 		auto size = chunk->location.Size;
@@ -185,6 +223,19 @@ namespace VulkanTest
 		return GetReference() == 0 && AtomicRead((I64*)&chunksLock) == 0;
 	}
 
+	bool ResourceStorage::Reload()
+	{
+		if (!IsLoaded())
+		{
+			Logger::Warning("Resoure isn't loaded %s", GetPath().c_str());
+			return false;
+		}
+
+		Unload();
+		return Load();
+	}
+
+#ifdef CJING3D_EDITOR
 	bool ResourceStorage::Save(OutputMemoryStream& output, const ResourceInitData& data)
 	{
 		Array<DataChunk*> chunks;
@@ -287,84 +338,59 @@ namespace VulkanTest
 
 		return true;
 	}
+#endif
 
-	void ResourceStorage::OnFileLoaded(U64 size, const U8* mem, bool success)
+	OutputMemoryStream* ResourceStorage::LoadContent()
 	{
-		ASSERT(asyncHandle.IsValid());
-		asyncHandle = AsyncLoadHandle::INVALID;
-		if (!success)
+		if (stream == nullptr)
 		{
-			cb.Invoke(false);
-			return;
-		}
+			stream = CJING_NEW(OutputMemoryStream);
 
-		if (size < sizeof(ResourceStorageHeader))
-		{
-			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
-			success = false;
-			asyncHandle = AsyncLoadHandle::INVALID;
-			cb.Invoke(success);
-			return;
-		}
-
-		// Resource format
-		// -----------------------------------
-		// ResourceStorageHeader
-		// Entries
-		// Chunk locations
-		// Chunk header (count == entries count)
-		// Chunk datas
-
-		// ResourceStorageHeader
-		InputMemoryStream input(mem + sizeof(ResourceStorageHeader), size - sizeof(ResourceStorageHeader));
-		const ResourceStorageHeader* resHeader = (const ResourceStorageHeader*)mem;
-		if (resHeader->magic != ResourceStorageHeader::MAGIC)
-		{
-			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
-			success = false;
-			goto CHECK_STATE;
-		}
-
-		if (resHeader->version != ResourceStorageHeader::VERSION)
-		{
-			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
-			success = false;
-			goto CHECK_STATE;
-		}
-
-		// Entries
-		ASSERT_MSG(resHeader->assetsCount == 1, "Unsupport multiple resources now");
-		for (U32 i = 0; i < resHeader->assetsCount; i++)
-		{
-			ResourceEntry entry;
-			input.Read(entry);
-			this->entry = entry;
-		}
-
-		// Chunk locations
-		for (U32 i = 0; i < resHeader->chunksCount; i++)
-		{
-			DataChunk::Location location;
-			input.Read(location);
-			if (location.Size == 0)
+			StaticString<MAX_PATH_LENGTH> fullResPath;
+			// Load resource tiles directly
+			if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
 			{
-				Logger::Warning("Empty chunk %s", GetPath().c_str());
-				success = false;
-				goto CHECK_STATE;
+				fullResPath = GetPath().c_str();
+			}
+			else
+			{
+				const U64 pathHash = path.GetHashValue();
+				fullResPath = StaticString<MAX_PATH_LENGTH>(".export/resources/", pathHash, ".res");
 			}
 
-			auto chunk = CJING_NEW(DataChunk);
-			chunk->location = location;
-			input.Read(chunk->compressed);
-			chunks.push_back(chunk);
+			if (!resManager.GetFileSystem()->LoadContext(fullResPath.c_str(), *stream))
+			{
+				Logger::Error("Cannot open compiled resource storage %s", GetPath().c_str());
+				CJING_SAFE_DELETE(stream);
+				return nullptr;
+			}
+		}
+		return stream;
+	}
+
+	void ResourceStorage::CloseContent()
+	{
+		// Ensure that no one is using this resource
+		I32 waitTime = 10;
+		while (AtomicRead(&chunksLock) != 0 && waitTime-- > 0)
+			Platform::Sleep(10);
+
+		if (AtomicRead(&chunksLock) != 0)
+		{
+			auto factory = resManager.GetFactory(entry.type);
+			if (factory)
+			{
+				Resource* res = factory->GetResource(path);
+				if (res)
+				{
+					Logger::Info("Resource canceling stream %s", path.c_str());
+
+				}
+			}
 		}
 
-		buffer.Resize(size);
-		memcpy(buffer.Data(), mem, size);
-		isLoaded = true;
+		ASSERT(chunksLock == 0);
 
-	CHECK_STATE:
-		asyncHandle = AsyncLoadHandle::INVALID;
-		cb.Invoke(success);
+		CJING_SAFE_DELETE(stream);
 	}
 }

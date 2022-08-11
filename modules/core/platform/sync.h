@@ -74,6 +74,7 @@ namespace VulkanTest
 
 		void Sleep(Mutex& lock);
 		void Wakeup();
+		void WakupAll();
 
 	private:
 		ConditionVariable(const ConditionVariable&) = delete;
@@ -96,6 +97,7 @@ namespace VulkanTest
 		bool IsFinished()const;
 		bool Create(const char* name);
 		void Destroy();
+		void Join();
 
 		virtual int Task() { return 0; };
 

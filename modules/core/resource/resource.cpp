@@ -65,6 +65,29 @@ namespace VulkanTest
 		CheckState();
 	}
 
+	void Resource::OnContentLoaded(Task::State state)
+	{
+		ASSERT(currentState != State::READY);
+		ASSERT(emptyDepCount == 1);
+
+		if (state == Task::State::Finished)
+		{
+			emptyDepCount--;
+			CheckState();
+		}
+		else if (state == Task::State::Failed)
+		{
+			emptyDepCount--;
+			failedDepCount++;
+			CheckState();
+		}
+		else if (state == Task::State::Canceled)
+		{
+			desiredState = State::EMPTY;
+			CheckState();
+		}
+	}
+
 	ResourceManager& Resource::GetResourceManager()
 	{
 		return resFactory.GetResourceManager();
@@ -77,12 +100,22 @@ namespace VulkanTest
 		desiredState(State::EMPTY),
 		resSize(0),
 		path(path_),
-		resFactory(resFactory_)
+		resFactory(resFactory_),
+		loadingTask(nullptr)
 	{
 	}
 
 	void Resource::DoLoad()
 	{
+		if (IsReady())
+			return;
+
+		desiredState = State::READY;
+
+		ASSERT(loadingTask == nullptr);
+		loadingTask = CreateLoadingTask();
+		ASSERT(loadingTask != nullptr);
+		loadingTask->Start();
 	}
 
 	void Resource::DoUnload()

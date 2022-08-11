@@ -146,6 +146,12 @@ void App::Update(F32 deltaTime)
     }
 }
 
+void App::LateUpate()
+{
+    PROFILE_BLOCK("LateUpate");
+    engine->LateUpdate(*world);
+}
+
 void App::FixedUpdate()
 {
     engine->FixedUpdate(*world);
@@ -201,6 +207,10 @@ void App::OnIdle()
 
     ComputeSmoothTimeDelta();
 
+    // Update engine
+    Update(dt);
+    LateUpate();
+
     // FixedUpdate engine
     Profiler::BeginBlock("FixedUpdate");
     {
@@ -222,9 +232,6 @@ void App::OnIdle()
         }
     }
     Profiler::EndBlock();
-
-    // Update engine
-    Update(dt);
 
     // Render frame
     Render();

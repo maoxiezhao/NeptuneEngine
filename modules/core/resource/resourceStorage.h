@@ -2,7 +2,6 @@
 
 #include "resource.h"
 #include "core\common.h"
-#include "core\filesystem\filesystem.h"
 #include "core\utils\path.h"
 #include "core\utils\dataChunk.h"
 #include "core\utils\intrusivePtr.hpp"
@@ -12,8 +11,9 @@ namespace VulkanTest
 {
 #define INVALID_CHUNK_INDEX (-1)
 #define MAX_RESOURCE_DATA_CHUNKS 16
-
 #define GET_CHUNK_FLAG(chunkIndex) (1 << chunkIndex)
+
+	class ResourceManager;
 
 #pragma pack(1)
 	struct VULKAN_TEST_API ResourceStorageHeader
@@ -47,6 +47,7 @@ namespace VulkanTest
 		}
 	};
 
+#ifdef CJING3D_EDITOR
 	struct ResourceDataWriter
 	{
 		ResourceInitData data;
@@ -66,6 +67,7 @@ namespace VulkanTest
 			return chunk;
 		}
 	};
+#endif
 
 	class ResourceStorage;
 	struct ResourceStorageDeleter
@@ -88,15 +90,16 @@ namespace VulkanTest
 			I32 chunkIndex[MAX_RESOURCE_DATA_CHUNKS];
 		};
 
-		ResourceStorage(const Path& path_, FileSystem& fs_);
+		ResourceStorage(const Path& path_, ResourceManager& resManager_);
 		virtual ~ResourceStorage();
 
-		void Load();
+		bool Load();
 		void Unload();
 		void Tick();
 		bool LoadChunksHeader(ResourceChunkHeader* resChunks);
 		bool LoadChunk(DataChunk* chunk);
 		bool ShouldDispose()const;
+		bool Reload();
 
 		bool IsLoaded() const {
 			return isLoaded;
@@ -107,7 +110,7 @@ namespace VulkanTest
 		}
 
 		U64 Size()const {
-			return buffer.Size();
+			return stream ? stream->Size() : 0;
 		}
 
 		void LockChunks() {
@@ -141,25 +144,23 @@ namespace VulkanTest
 			}
 		};
 
-		using LoadedCallback = DelegateList<void(bool)>;
-		LoadedCallback& GetLoadedCallback() { return cb; }
-
+#ifdef CJING3D_EDITOR
 		static bool Save(OutputMemoryStream& output, const ResourceInitData& data);
+#endif
 
 	private:
 		friend struct ResourceStorageDeleter;
 
-		void OnFileLoaded(U64 size, const U8* mem, bool success);
+		OutputMemoryStream* LoadContent();
+		void CloseContent();
 
 		Path path;
-		FileSystem& fs;
+		ResourceManager& resManager;
 		ResourceEntry entry;
 		Array<DataChunk*> chunks;
-		OutputMemoryStream buffer;
-		LoadedCallback cb;
-		AsyncLoadHandle asyncHandle;
+		OutputMemoryStream* stream;
 		bool isLoaded = false;
-
+		Mutex mutex;
 		volatile I64 chunksLock;
 	};
 	using ResourceStorageRef = Util::IntrusivePtr<ResourceStorage>;

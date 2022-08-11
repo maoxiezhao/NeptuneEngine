@@ -72,6 +72,7 @@ protected:
 	}
 
 	virtual void Update(F32 deltaTime);
+	virtual void LateUpate();
 	virtual void FixedUpdate();
 	virtual void Render();
 

@@ -1,4 +1,5 @@
 #include "resourceManager.h"
+#include "resourceLoading.h"
 #include "core\filesystem\filesystem.h"
 
 namespace VulkanTest
@@ -124,6 +125,10 @@ namespace VulkanTest
 	void ResourceManager::Initialize(FileSystem& fileSystem_)
 	{
 		ASSERT(isInitialized == false);
+
+		// Init resource loading
+		ContentLoadingManager::Initialize();
+
 		fileSystem = &fileSystem_;
 		isInitialized = true;
 	}
@@ -141,6 +146,9 @@ namespace VulkanTest
 			}
 		}
 		storageMap.clear();
+
+		// Uninit resource loading
+		ContentLoadingManager::Uninitialize();
 
 		isInitialized = false;
 	}
@@ -253,7 +261,7 @@ namespace VulkanTest
 		auto it = storageMap.find(path.GetHashValue());
 		if (!it.isValid())
 		{
-			auto newStorage = CJING_NEW(ResourceStorage)(path, *fileSystem);
+			auto newStorage = CJING_NEW(ResourceStorage)(path, *this);
 			storageMap.insert(path.GetHashValue(), newStorage);
 			ret = newStorage;
 		}

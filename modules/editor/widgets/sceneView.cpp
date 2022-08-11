@@ -93,6 +93,11 @@ namespace Editor
 		AttachmentInfo outlineAttachmentInfo = rtAttachmentInfo;
 		outlineAttachmentInfo.format = VK_FORMAT_R8_UNORM;
 
+		AttachmentInfo depth;
+		depth.format = device->GetDefaultDepthStencilFormat();
+		depth.sizeX = (F32)backbufferDim.width;
+		depth.sizeY = (F32)backbufferDim.height;
+
 		// Outline
 		auto& outline = renderGraph.AddRenderPass("EditorOutline", RenderGraphQueueFlag::Graphics);
 		outline.WriteColor("rtOutline", outlineAttachmentInfo);
@@ -113,6 +118,8 @@ namespace Editor
 		editorMain.ReadTexture("rtOutline");
 		editorMain.WriteColor(SetRenderResult2D("rtEditor"), rtAttachmentInfo);
 		editorMain.SetClearColorCallback(DefaultClearColorFunc);
+		editorMain.WriteDepthStencil("depth_editor", depth);
+		editorMain.SetClearDepthStencilCallback(DefaultClearDepthFunc);
 		editorMain.SetBuildCallback([&](GPU::CommandList& cmd) {
 
 			GPU::Viewport viewport;

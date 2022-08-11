@@ -60,13 +60,13 @@ namespace VulkanTest
 			return false;
 		}
 
-		const U8* imgData = dataChunk->Data() + sizeof(TextureHeader);
+		const U8* imgData = (const U8*)inputMem.GetBuffer() + sizeof(TextureHeader);
 		switch (header.type)
 		{
 		case TextureResourceType::TGA:
-			return LoadTextureTGA(header, imgData, dataChunk->Size() - sizeof(TextureHeader));
+			return LoadTextureTGA(header, imgData, inputMem.Size() - sizeof(TextureHeader));
 		case TextureResourceType::INTERNAL:
-			return LoadTextureInternal(header, imgData, dataChunk->Size() - sizeof(TextureHeader));
+			return LoadTextureInternal(header, imgData, inputMem.Size() - sizeof(TextureHeader));
 		default:
 			ASSERT(false);
 			return false;
@@ -121,13 +121,7 @@ namespace VulkanTest
 		TGAHeader tgaHeader;
 		inputMem.Read<TGAHeader>(tgaHeader);
 		int image_size = tgaHeader.width * tgaHeader.height * 4;
-		if (tgaHeader.dataType == 2)
-		{
-			Logger::Warning("Unsupported texture format %s", GetPath().c_str());
-			return false;
-		}
-
-		if (tgaHeader.dataType != 10)
+		if (tgaHeader.dataType != 10 && tgaHeader.dataType != 2)
 		{
 			int w, h, cmp;
 			stbi_uc* stbData = stbi_load_from_memory(static_cast<const stbi_uc*>(imgData) + 7, size - 7, &w, &h, &cmp, 4);
@@ -158,47 +152,91 @@ namespace VulkanTest
 
 			int pixelCount = tgaHeader.width * tgaHeader.height;
 			U32 bytesPerPixel = tgaHeader.bitsPerPixel / 8;
-			U8* out = data.Data();
-			U8 byte;
-			struct Pixel {
-				U8 uint8[4];
-			} pixel;
-			do
+
+			if (tgaHeader.dataType == 10)
 			{
-				inputMem.Read(&byte, sizeof(byte));
-				if (byte < 128)
+				U8* out = data.Data();
+				U8 byte;
+				struct Pixel {
+					U8 uint8[4];
+				} pixel;
+				do
 				{
-					U8 count = byte + 1;
-					for (U8 i = 0; i < count; ++i)
+					inputMem.Read(&byte, sizeof(byte));
+					if (byte < 128)
 					{
+						U8 count = byte + 1;
+						for (U8 i = 0; i < count; ++i)
+						{
+							inputMem.Read(&pixel, bytesPerPixel);
+							out[0] = pixel.uint8[2];
+							out[1] = pixel.uint8[1];
+							out[2] = pixel.uint8[0];
+							if (bytesPerPixel == 4)
+								out[3] = pixel.uint8[3];
+							else
+								out[3] = 255;
+							out += 4;
+						}
+					}
+					else
+					{
+						byte -= 127;
 						inputMem.Read(&pixel, bytesPerPixel);
-						out[0] = pixel.uint8[2];
-						out[1] = pixel.uint8[1];
-						out[2] = pixel.uint8[0];
-						if (bytesPerPixel == 4) 
-							out[3] = pixel.uint8[3];
-						else 
-							out[3] = 255;
-						out += 4;
+						for (int i = 0; i < byte; ++i)
+						{
+							out[0] = pixel.uint8[2];
+							out[1] = pixel.uint8[1];
+							out[2] = pixel.uint8[0];
+							if (bytesPerPixel == 4)
+								out[3] = pixel.uint8[3];
+							else
+								out[3] = 255;
+							out += 4;
+						}
+					}
+				} while (out - data.Data() < pixelCount * 4);
+			}
+			else
+			{
+				U8* image_dest = data.Data();
+
+				PROFILE_BLOCK("read");
+				if (bytesPerPixel == 4)
+				{
+					PROFILE_BLOCK("read 4BPP");
+					inputMem.Read(image_dest, header.width * header.height * bytesPerPixel);
+					for (U32 y = 0; y < header.height; y++)
+					{
+						U32 idx = y * header.width * bytesPerPixel;
+						U8* __restrict cursor = &image_dest[idx];
+						const U8* row_end = cursor + header.width * bytesPerPixel;
+						while (cursor != row_end)
+						{
+							const U8 tmp = cursor[0];
+							cursor[0] = cursor[2];
+							cursor[2] = tmp;
+							cursor += 4;
+						}
 					}
 				}
 				else
 				{
-					byte -= 127;
-					inputMem.Read(&pixel, bytesPerPixel);
-					for (int i = 0; i < byte; ++i)
+					PROFILE_BLOCK("read 3BPP");
+					for (U32 y = 0; y < header.height; y++)
 					{
-						out[0] = pixel.uint8[2];
-						out[1] = pixel.uint8[1];
-						out[2] = pixel.uint8[0];
-						if (bytesPerPixel == 4) 
-							out[3] = pixel.uint8[3];
-						else 
-							out[3] = 255;
-						out += 4;
+						U32 idx = y * header.width * 4;
+						for (U32 x = 0; x < header.width; x++)
+						{
+							inputMem.Read(&image_dest[idx + 2], sizeof(U8));
+							inputMem.Read(&image_dest[idx + 1], sizeof(U8));
+							inputMem.Read(&image_dest[idx + 0], sizeof(U8));
+							image_dest[idx + 3] = 255;
+							idx += 4;
+						}
 					}
 				}
-			} while (out - data.Data() < pixelCount * 4);
+			}
 
 			// Need to flip
 			if ((tgaHeader.imageDescriptor & 32) == 0) 

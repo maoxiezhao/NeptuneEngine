@@ -19,21 +19,23 @@ namespace VulkanTest
 				return nullptr;
 			}
 			resources[path.GetHashValue()] = res;
-		}
-
-		auto storage = GetResourceManager().GetStorage(path);
-		if (!static_cast<BinaryResource*>(res)->InitStorage(storage))
-		{
-			Logger::Warning("Cannot initialize resource %s", path.c_str());
-			DestroyResource(res);
-			return nullptr;
+		
+			auto storage = GetResourceManager().GetStorage(path);
+			if (!static_cast<BinaryResource*>(res)->SetStorage(storage))
+			{
+				Logger::Warning("Cannot initialize resource %s", path.c_str());
+				DestroyResource(res);
+				return nullptr;
+			}
 		}
 
 		return ResourceFactory::LoadResource(res);
 	}
 
 	BinaryResource::BinaryResource(const Path& path_, ResourceFactory& resFactory_) :
-		Resource(path_, resFactory_)
+		Resource(path_, resFactory_),
+		header(),
+		storage(nullptr)
 	{
 	}
 
@@ -41,63 +43,26 @@ namespace VulkanTest
 	{
 	}
 
-	void BinaryResource::DoLoad()
-	{
-		ASSERT(storage);
-		if (desiredState == State::READY)
-			return;
-
-		desiredState = State::READY;
-
-		if (storage->IsLoaded())
-		{
-			OnResourceLoaded(true);
-			return;
-		}
-
-		storage->GetLoadedCallback().Bind<&BinaryResource::OnResourceLoaded>(this);
-		storage->Load();
-	}
-
 	void BinaryResource::DoUnload()
 	{
 		if (storage)
-		{
-			storage->GetLoadedCallback().Unbind<&BinaryResource::OnResourceLoaded>(this);
-			storage.reset();
-		}
+			storage->Unload();
+
 		Resource::DoUnload();
 	}
 
-	void BinaryResource::OnResourceLoaded(bool success)
+	bool BinaryResource::InitStorage()
 	{
 		ASSERT(storage && storage->IsLoaded());
-
-		// Desired state changed when file loading, so is a invalid loading
-		if (desiredState != State::READY)
-			return;
-
 		ASSERT(GetState() != State::READY);
 		ASSERT(emptyDepCount == 1);
 
-		if (success == false)
-		{
-			Logger::Error("Failed to load %s", GetPath().c_str());
-			emptyDepCount--;
-			failedDepCount++;
-			CheckState();
-			return;
-		}
+		// Desired state changed when file loading, so is a invalid loading
+		if (desiredState != State::READY)
+			return false;
 
-		// TODO
-		// Use jobsystem
-// 
-		// Load resource chunks
 		if (!storage->LoadChunksHeader(&header))
-		{
-			failedDepCount++;
-			goto CHECK_STATE;
-		}
+			return false;
 
 		// Preload chunks
 		if (GetChunksToPreload() > 0)
@@ -112,10 +77,7 @@ namespace VulkanTest
 						continue;
 
 					if (!storage->LoadChunk(chunk))
-					{
-						failedDepCount++;
-						goto CHECK_STATE;
-					}
+						return false;
 				}
 			}
 		}
@@ -124,20 +86,63 @@ namespace VulkanTest
 		if (!OnLoaded())
 		{
 			Logger::Error("Failed to load resource %s", GetPath().c_str());
-			failedDepCount++;
+			return false;
 		}
 		resSize = storage->Size();
-
-	CHECK_STATE:
-		ASSERT(emptyDepCount > 0);
-		emptyDepCount--;
-		CheckState();
+		return true;
 	}
 
-	bool BinaryResource::InitStorage(const ResourceStorageRef& storage_)
+	class LoadStorageTask : public ContentLoadingTask
+	{
+	public:
+		LoadStorageTask(BinaryResource* resource_) :
+			ContentLoadingTask(ContentLoadingTask::LoadResource),
+			resource(resource_)
+		{
+		}
+
+		bool Run()override
+		{
+			// TODO resoruce could be unloaded when task is running
+			// Check resource state
+			ASSERT(resource && resource->IsEmpty());
+
+			ResourceStorage* storage = resource->storage;
+			if (storage->IsLoaded())
+				return false;
+
+			if (!storage->Load())
+				return false;
+			
+			if (!resource->InitStorage())
+				return false;
+
+			return true;
+		}
+
+		void OnEnd()override
+		{
+			Task::OnEnd();
+
+			if (resource)
+				resource->OnContentLoaded(GetState());
+		}
+
+	private:
+		BinaryResource* resource;
+	};
+
+	ContentLoadingTask* BinaryResource::CreateLoadingTask()
+	{
+		LoadStorageTask* task = CJING_NEW(LoadStorageTask)(this);
+		return task;
+	}
+
+	bool BinaryResource::SetStorage(const ResourceStorageRef& storage_)
 	{
 		ASSERT(!storage && IsEmpty());
-		storage = storage_;
+		storageRef = storage_;
+		storage = storageRef.get();
 		return true;
 	}
 

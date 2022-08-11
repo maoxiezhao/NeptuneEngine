@@ -91,6 +91,11 @@ namespace VulkanTest
 		::WakeConditionVariable((CONDITION_VARIABLE*)implData);
 	}
 
+	void ConditionVariable::WakupAll()
+	{
+		::WakeAllConditionVariable((CONDITION_VARIABLE*)implData);
+	}
+
 	struct ThreadImpl
 	{
 		DWORD threadID = 0;
@@ -215,6 +220,11 @@ namespace VulkanTest
 			::CloseHandle(impl->threadHandle);
 			impl->threadHandle = nullptr;
 		}
+	}
+
+	void Thread::Join()
+	{
+		WaitForSingleObject(impl->threadHandle, INFINITE);
 	}
 
 	struct RWLockImpl

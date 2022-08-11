@@ -473,6 +473,23 @@ namespace Editor
             if (!fs.LoadContext(from, mem))
                 return false;
 
+            ResourceDataWriter resWriter(Path("path"), Texture::ResType);
+            auto data = resWriter.GetChunk(0);
+            if (!data)
+                return false;
+
+            TextureHeader header = {};
+            header.type = TextureResourceType::TGA;
+            data->mem.Write(header);
+            data->mem.Write(mem.Data(), mem.Size());
+
+            OutputMemoryStream output;
+            if (!ResourceStorage::Save(output, resWriter.data))
+            {
+                Logger::Error("Failed to save resource storage.");
+                return false;
+            }
+
             auto file = fs.OpenFile(to, FileFlags::DEFAULT_WRITE);
             if (!file)
             {
@@ -480,11 +497,7 @@ namespace Editor
                 return false;
             }
 
-            // Create a compiled texture resource
-            TextureHeader header = {};
-            header.type = TextureResourceType::TGA;
-            file->Write(header);
-            file->Write(mem.Data(), mem.Size());
+            file->Write(output.Data(), output.Size());
             file->Close();
             return true;
         }

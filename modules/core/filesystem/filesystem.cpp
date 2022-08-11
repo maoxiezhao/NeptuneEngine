@@ -172,6 +172,13 @@ namespace VulkanTest
 			auto file = OpenFile(path, FileFlags::DEFAULT_READ);
 			if (file)
 			{
+				if (file->Size() <= 0)
+				{
+					Logger::Error("Failed to read %s", path);
+					file->Close();
+					return false;
+				}
+
 				mem.Resize(file->Size());
 				if (!file->Read(mem.Data(), mem.Size()))
 				{

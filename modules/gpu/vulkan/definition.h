@@ -7,7 +7,7 @@
 #include "core\utils\stackAllocator.h"
 #include "core\utils\tempHashMap.h"
 #include "core\collections\intrusiveHashMap.hpp"
-#include "core\collections\Array.h"
+#include "core\collections\array.h"
 #include "math\hash.h"
 
 // #include "vulkanCache.h"

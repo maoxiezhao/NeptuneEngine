@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\common.h"
-#include "core\collections\Array.h"
+#include "core\collections\array.h"
 
 namespace VulkanTest
 {

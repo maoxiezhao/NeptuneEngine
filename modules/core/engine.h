@@ -7,6 +7,30 @@
 
 namespace VulkanTest
 {
+	class EngineService
+	{
+	public:
+		// TODO use Array
+		typedef std::vector<EngineService*> ServicesArray;
+		static ServicesArray& GetServices();
+
+		virtual ~EngineService();
+
+#define DECLARE_ENGINE_SERVICE(result, name) virtual result name(); static void On##name();
+		DECLARE_ENGINE_SERVICE(bool, Init);
+		DECLARE_ENGINE_SERVICE(void, FixedUpdate);
+		DECLARE_ENGINE_SERVICE(void, Update);
+		DECLARE_ENGINE_SERVICE(void, LateUpdate);
+		DECLARE_ENGINE_SERVICE(void, Uninit);
+#undef DECLARE_ENGINE_SERVICE_EVENT
+
+	protected:
+		EngineService(const char* name_);
+
+		const char* name;
+		bool initialized = false;
+	};
+
 	class VULKAN_TEST_API Engine
 	{
 	public:
@@ -25,6 +49,7 @@ namespace VulkanTest
 		virtual void LoadPlugins() = 0;
 		virtual void Start(World& world) {};
 		virtual void Update(World& world, F32 dt) {};
+		virtual void LateUpdate(World& world) {};
 		virtual void FixedUpdate(World& world) {};
 		virtual void Stop(World& world) {};
 
