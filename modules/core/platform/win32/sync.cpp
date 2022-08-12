@@ -3,7 +3,7 @@
 #include "platform\sync.h"
 #include "platform\platform.h"
 #include "platform\atomic.h"
-#include "utils\profiler.h"
+#include "core\profiler\profiler.h"
 
 #include <intrin.h>
 #include <thread>

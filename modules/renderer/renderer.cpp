@@ -3,7 +3,7 @@
 #include "shaderInterop_renderer.h"
 #include "shaderInterop_postprocess.h"
 #include "gpu\vulkan\wsi.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 #include "core\resource\resourceManager.h"
 #include "core\resource\binaryResource.h"
 #include "renderScene.h"

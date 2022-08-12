@@ -204,13 +204,13 @@ namespace VulkanTest
                 CJING_SAFE_DELETE(system);
             systems.clear();
 
-            // TODO: unbind the callback
             // world.SetComponenetOnRemoved<MeshComponent>(nullptr);
 
             for (auto kvp : modelEntityMap)
             {
                 Model* model = kvp.first;
-                model->StateChangedCallback.Unbind<&RenderSceneImpl::OnModelStateChanged>(this);
+                model->OnLoadedCallback.Unbind<&RenderSceneImpl::OnModelLoadedCallback>(this);
+                model->OnUnloadedCallback.Unbind<&RenderSceneImpl::OnModelUnloadedCallback>(this);
             }
             modelEntityMap.clear();
         }
@@ -326,7 +326,8 @@ namespace VulkanTest
             else 
             {
                 modelEntityMap.insert({ model, entity });
-                model->StateChangedCallback.Bind<&RenderSceneImpl::OnModelStateChanged>(this);
+                model->OnLoadedCallback.Bind<&RenderSceneImpl::OnModelLoadedCallback>(this);
+                model->OnUnloadedCallback.Bind<&RenderSceneImpl::OnModelUnloadedCallback>(this);
             }
         }
 
@@ -335,7 +336,8 @@ namespace VulkanTest
             auto it = modelEntityMap.find(model);
             if (it != modelEntityMap.end() && it->second == entity)
             {
-                model->StateChangedCallback.Unbind<&RenderSceneImpl::OnModelStateChanged>(this);
+                model->OnLoadedCallback.Unbind<&RenderSceneImpl::OnModelLoadedCallback>(this);
+                model->OnUnloadedCallback.Unbind<&RenderSceneImpl::OnModelUnloadedCallback>(this);
                 modelEntityMap.erase(it);
             }
         }
@@ -395,21 +397,20 @@ namespace VulkanTest
             }
         }
 
-        void OnModelStateChanged(Resource::State oldState, Resource::State newState, Resource& resource)
+        void OnModelLoadedCallback(Resource* resource)
         {
-            Model* model = static_cast<Model*>(&resource);
-            if (newState == Resource::State::READY)
-            {
-                auto it = modelEntityMap.find(model);
-                if (it != modelEntityMap.end())
-                    OnModelLoaded(model, it->second);
-            }
-            else if (oldState == Resource::State::READY)
-            {
-                auto it = modelEntityMap.find(model);
-                if (it != modelEntityMap.end())
-                    OnModelUnloaded(model, it->second);
-            }
+            Model* model = static_cast<Model*>(resource);
+            auto it = modelEntityMap.find(model);
+            if (it != modelEntityMap.end())
+                OnModelLoaded(model, it->second);
+        }
+
+        void OnModelUnloadedCallback(Resource* resource)
+        {
+            Model* model = static_cast<Model*>(resource);
+            auto it = modelEntityMap.find(model);
+            if (it != modelEntityMap.end())
+                OnModelUnloaded(model, it->second);
         }
 
         void UpdateRenderData(GPU::CommandList& cmd)

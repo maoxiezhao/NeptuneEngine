@@ -1,6 +1,6 @@
 #include "app.h"
 #include "core\utils\log.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 #include "core\events\event.h"
 #include "core\platform\platform.h"
 #include "core\jobsystem\jobsystem.h"

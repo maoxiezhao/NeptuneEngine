@@ -5,7 +5,7 @@
 #include "core\input\inputSystem.h"
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resourceManager.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 #include "app\app.h"
 #include "renderer\renderer.h"
 

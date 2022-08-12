@@ -1,5 +1,5 @@
 #include "model.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 #include "renderer\renderer.h"
 #include "core\resource\resourceManager.h"
 

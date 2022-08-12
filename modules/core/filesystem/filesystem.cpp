@@ -1,7 +1,7 @@
 #include "filesystem.h"
 #include "core\platform\sync.h"
 #include "core\platform\timer.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 
 #include <queue>
 

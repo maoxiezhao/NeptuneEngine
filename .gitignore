@@ -2,6 +2,8 @@ app/bin
 app/build
 tests/bin
 tests/build
+editor/bin
+editor/build
 
 # 3rdparty
 3rdparty/glfw/build

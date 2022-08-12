@@ -15,7 +15,7 @@ import "../tools/cjing_build/config_base.jsc"
     win32 :
     {
         // custom visual studio dir
-        custom_vs_dir_path : "C:\\Program Files (x86)\\Microsoft Visual Studio",
+        custom_vs_dir_path : "C:\\Program Files\\Microsoft Visual Studio",
 
         // source assets directory
         jcs_def : 

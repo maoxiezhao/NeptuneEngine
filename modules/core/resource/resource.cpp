@@ -2,7 +2,7 @@
 #include "resourceManager.h"
 #include "core\utils\string.h"
 #include "core\compress\compressor.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {
@@ -165,6 +165,7 @@ namespace VulkanTest
 			{
 				currentState = State::READY;
 				StateChangedCallback.Invoke(oldState, currentState, *this);
+				GetResourceFactory().OnResourceLoaded(this);
 			}
 
 			if (currentState != State::EMPTY && emptyDepCount > 0)
@@ -209,13 +210,11 @@ namespace VulkanTest
 
 		// Refresh resoruce state
 		ASSERT(currentState != State::READY);
-		ASSERT(emptyDepCount == 1);
 
 		auto state = task->GetState();
 		if (state == Task::State::Finished)
 		{
 			emptyDepCount--;
-			GetResourceFactory().OnResourceLoaded(this);
 		}
 		else if (state == Task::State::Failed)
 		{

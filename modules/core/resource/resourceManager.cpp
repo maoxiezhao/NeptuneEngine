@@ -1,7 +1,7 @@
 #include "resourceManager.h"
 #include "resourceLoading.h"
 #include "core\filesystem\filesystem.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {
@@ -286,6 +286,7 @@ namespace VulkanTest
 
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)
 	{
+		ScopedMutex lock(factoryMutex);
 		auto it = factoryTable.find(type.GetHashValue());
 		if (it != factoryTable.end())
 			return it->second;

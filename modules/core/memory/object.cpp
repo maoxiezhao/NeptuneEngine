@@ -1,6 +1,6 @@
 #include "object.h"
 #include "core\engine.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 #include "core\platform\timer.h"
 
 namespace VulkanTest

@@ -3,7 +3,7 @@ dofile("../tools/cjing_build/premake/globals.lua")
 dofile("../tools/cjing_build/premake/plugins.lua")
 dofile("../tools/cjing_build/premake/example_app.lua")
 
-app_name = "app"
+app_name = "studio"
 
 start_project = app_name
 if not build_editor then 
@@ -37,10 +37,8 @@ solution (sln_name)
     filter { }
     
     dofile "../modules/modules.lua"
-    -- dofile "../tests/project.lua"
-
     create_example_app(
-        "app",                          -- project_name
+        start_project,                  -- project_name
         "src",                          -- source_directory
         get_current_script_path(),      -- target_directory
         "ConsoleApp",                   -- app kind

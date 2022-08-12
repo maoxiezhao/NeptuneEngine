@@ -221,7 +221,11 @@ namespace VulkanTest
 
 	void* DefaultAllocator::ReallocateAligned(void* ptr, size_t newBytes, size_t align, const char* filename, int line)
 	{
-		void* ret = IsSmallAlloc(*this, ptr) ? ReallocSmallAligned(*this, ptr, newBytes, align) : _aligned_realloc(ptr, newBytes, align);
+		void* ret;
+		if (IsSmallAlloc(*this, ptr))
+			ret = ReallocSmallAligned(*this, ptr, newBytes, align);
+		else
+			ret = _aligned_realloc(ptr, newBytes, align);
 		MemoryTracker::Get().RecordRealloc(ret, ptr, newBytes, filename, line);
 		return ret;
 	}

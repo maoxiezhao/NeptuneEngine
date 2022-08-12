@@ -52,14 +52,12 @@ namespace VulkanTest
 		Resource* res = GetResource(path);
 		if (res == nullptr)
 		{
-			ScopedMutex lock(resLock);
 			res = static_cast<BinaryResource*>(CreateResource(path));
 			if (res == nullptr)
 			{
 				Logger::Warning("Invalid binary resource %s", path.c_str());
 				return nullptr;
 			}
-			resources[path.GetHashValue()] = res;
 		
 			auto storage = GetResourceManager().GetStorage(path);
 			if (!static_cast<BinaryResource*>(res)->SetStorage(storage))
@@ -68,6 +66,9 @@ namespace VulkanTest
 				DestroyResource(res);
 				return nullptr;
 			}
+
+			ScopedMutex lock(resLock);
+			resources[path.GetHashValue()] = res;
 		}
 
 		return ResourceFactory::LoadResource(res);

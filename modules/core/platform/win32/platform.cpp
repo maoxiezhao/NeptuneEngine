@@ -6,7 +6,7 @@
 
 #include "platform\platform.h"
 #include "core\utils\string.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 
 #include <array>
 

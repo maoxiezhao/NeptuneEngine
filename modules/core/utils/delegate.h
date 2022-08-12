@@ -85,6 +85,7 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>();
+			ScopedMutex lock(mutex);
 			delegates.push_back(cb);
 		}
 
@@ -93,6 +94,7 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>(ptr);
+			ScopedMutex lock(mutex);
 			delegates.push_back(cb);
 		}
 
@@ -101,6 +103,7 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>();
+			ScopedMutex lock(mutex);
 			for (U32 i = 0; i < delegates.size(); i++)
 			{
 				if (delegates[i] == cb)
@@ -116,6 +119,7 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>(ptr);
+			ScopedMutex lock(mutex);
 			for (U32 i = 0; i < delegates.size(); i++)
 			{
 				if (delegates[i] == cb)
@@ -128,11 +132,19 @@ namespace VulkanTest
 
 		void Invoke(Args... args)
 		{
-			for (auto& d : delegates)
+			Array<DelegateT> temp;
+			{
+				ScopedMutex lock(mutex);
+				for (auto& d : delegates)
+					temp.push_back(d);
+			}
+
+			for (auto& d : temp)
 				d.Invoke(args...);
 		}
 
 	private:
 		Array<DelegateT> delegates;
+		Mutex mutex;
 	};
 }

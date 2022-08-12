@@ -7,7 +7,7 @@
 #include "core\platform\platform.h"
 #include "core\utils\string.h"
 #include "core\utils\delegate.h"
-#include "core\utils\profiler.h"
+#include "core\profiler\profiler.h"
 #include "core\scripts\luaUtils.h"
 #include "core\scene\world.h"
 #include "math\hash.h"

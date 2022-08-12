@@ -116,6 +116,7 @@ namespace VulkanTest
 		friend class Resource;
 
 		class FileSystem* fileSystem = nullptr;
+		Mutex factoryMutex;
 		FactoryTable factoryTable;
 		bool isInitialized = false;
 		LoadHook* loadHook = nullptr;
