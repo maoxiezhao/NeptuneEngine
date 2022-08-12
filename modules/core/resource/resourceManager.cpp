@@ -1,11 +1,11 @@
 #include "resourceManager.h"
 #include "resourceLoading.h"
 #include "core\filesystem\filesystem.h"
+#include "core\utils\profiler.h"
 
 namespace VulkanTest
 {
 	ResourceFactory::ResourceFactory() :
-		isUnloadEnable(true),
 		resManager(nullptr)
 	{
 	}
@@ -24,19 +24,39 @@ namespace VulkanTest
 
 	void ResourceFactory::Uninitialize()
 	{
-		for (auto& kvp : resources)
+		// Unload remaining resources
 		{
-			Resource* res = kvp.second;
-			if (!res->IsEmpty())
-				Logger::Error("Resource %s leak", res->GetPath().c_str());
-			
-			if (!res->IsOwnedBySelf())
-				DestroyResource(res);
+			ScopedMutex lock(resLock);
+			for (auto& kvp : resources)
+			{
+				Resource* res = kvp.second;
+				UnloadResoruce(res);
+			}
+			resources.clear();
 		}
-		resources.clear();
 
 		resManager->UnregisterFactory(resType);
 		resManager = nullptr;
+	}
+	
+	void ResourceFactory::Update(F32 dt)
+	{
+		// Refresh state of resoruces
+		{
+			ScopedMutex lock(resLock);
+			for (auto& kvp : resources)
+			{
+				if (kvp.second->IsStateDirty())
+					kvp.second->CheckState();
+			}
+		}
+		// Broadcast OnLoaded 
+		{
+			ScopedMutex lock(loadedResLock);
+			for (auto res : loadedResources)
+				res->OnLoaded();
+			loadedResources.clear();
+		}
 	}
 
 	void ResourceFactory::Reload(const Path& path)
@@ -70,13 +90,10 @@ namespace VulkanTest
 
 	void ResourceFactory::RemoveUnreferenced()
 	{
-		if (isUnloadEnable == false)
-			return;
-
-		std::vector<Resource*> toRemoved;
+		ScopedMutex lock(resLock);
 		for (auto& kvp : resources)
 		{
-			if (kvp.second->GetReference() == 0)
+			if (kvp.second->GetReference() <= 0)
 				toRemoved.push_back(kvp.second);
 		}
 
@@ -84,12 +101,29 @@ namespace VulkanTest
 		{
 			auto it = resources.find(res->GetPath().GetHashValue());
 			if (it != resources.end())
-				resources.erase(it);
+			{
+				if (res->GetReference() <= 0)
+				{
+					UnloadResoruce(res);
+					resources.erase(it);
+				}
+			}
 		}
+		toRemoved.clear();
+	}
+
+	void ResourceFactory::OnResourceLoaded(Resource* res)
+	{
+		ScopedMutex lock(loadedResLock);
+		loadedResources.push_back(res);
 	}
 
 	Resource* ResourceFactory::GetResource(const Path& path)
 	{
+		if (path.IsEmpty())
+			return nullptr;
+
+		ScopedMutex lock(resLock);
 		auto it = resources.find(path.GetHashValue());
 		if (it != resources.end())
 			return it->second;
@@ -117,6 +151,19 @@ namespace VulkanTest
 			res->DoLoad();
 		}
 		return res;
+	}
+
+	void ResourceFactory::UnloadResoruce(Resource* res)
+	{
+		if (res == nullptr)
+			return;
+
+		res->DoUnload();
+
+		if (!res->IsOwnedBySelf())
+			DestroyResource(res);
+
+		loadedResources.erase(res);
 	}
 
 	ResourceManager::ResourceManager() = default;
@@ -151,32 +198,6 @@ namespace VulkanTest
 		ContentLoadingManager::Uninitialize();
 
 		isInitialized = false;
-	}
-
-	void ResourceManager::RemoveUnreferenced()
-	{
-		ASSERT(isInitialized);
-		for (auto& kvp : factoryTable)
-			kvp.second->RemoveUnreferenced();
-	}
-
-	void ResourceManager::UpdateResourceStorages()
-	{
-		for (auto it = storageMap.begin(); it != storageMap.end(); ++it)
-		{
-			if (it.value()->ShouldDispose())
-				toRemoved.push_back({ it.key(), it.value() });
-			else
-				it.value()->Tick();
-		}
-
-		for (auto kvp : toRemoved)
-		{
-			storageMap.erase(kvp.first);
-			kvp.second->Unload();
-			CJING_SAFE_DELETE(kvp.second);
-		}
-		toRemoved.clear();
 	}
 
 	Resource* ResourceManager::LoadResource(ResourceType type, const Path& path)
@@ -218,6 +239,49 @@ namespace VulkanTest
 
 		for (auto res : toReload)
 			res->DoLoad();
+	}
+
+	void ResourceManager::Update(F32 dt)
+	{
+		ASSERT(isInitialized);
+		PROFILE_FUNCTION();
+		for (auto& kvp : factoryTable)
+			kvp.second->Update(dt);
+	}
+
+	static F32 UnloadCheckInterval = 0.5f;
+	void ResourceManager::LateUpdate()
+	{
+		ASSERT(isInitialized);
+		PROFILE_FUNCTION();
+
+		// Remove unreferenced
+		// Keep a time interval, resources may be loaded immediately after unloading
+		const F32 now = timer.GetTimeSinceStart();
+		if (now - lastUnloadCheckTime >= UnloadCheckInterval)
+		{
+			for (auto& kvp : factoryTable)
+				kvp.second->RemoveUnreferenced();
+
+			lastUnloadCheckTime = now;
+		}
+
+		// Process storages
+		// Relase resource storage if it should dispose (no reference and no lock)
+		for (auto it = storageMap.begin(); it != storageMap.end(); ++it)
+		{
+			if (it.value()->ShouldDispose())
+				toRemoved.push_back({ it.key(), it.value() });
+			else
+				it.value()->Tick();
+		}
+		for (auto kvp : toRemoved)
+		{
+			storageMap.erase(kvp.first);
+			kvp.second->Unload();
+			CJING_SAFE_DELETE(kvp.second);
+		}
+		toRemoved.clear();
 	}
 
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)
@@ -276,7 +340,7 @@ namespace VulkanTest
 	void ResourceManager::LoadHook::ContinueLoad(Resource& res)
 	{
 		ASSERT(res.IsEmpty());
-		res.Release();
+		res.RemoveReference();
 		res.SetHooked(false);
 		res.desiredState = Resource::State::EMPTY;
 		res.DoLoad();

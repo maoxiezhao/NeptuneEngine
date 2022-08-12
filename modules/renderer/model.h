@@ -114,8 +114,8 @@ namespace VulkanTest
 		}
 
 	protected:
-		bool OnLoaded()override;
-		void OnUnLoaded() override;
+		bool Load()override;
+		void Unload() override;
 
 	private:
 		Model(const Model&) = delete;

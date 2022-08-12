@@ -25,11 +25,16 @@ namespace Util
 
 		inline int GetRef()const
 		{
-			return (int)count;
+			return count;
+		}
+
+		void SetRef(int ref)
+		{
+			count = ref;
 		}
 
 	private:
-		size_t count = 1;
+		int count = 1;
 	};
 
 	class MultiThreadCounter
@@ -53,11 +58,16 @@ namespace Util
 
 		inline int GetRef()const
 		{
-			return (int)count.load();
+			return count.load();
+		}
+
+		void SetRef(I32 ref)
+		{
+			count.store(ref, std::memory_order_relaxed);
 		}
 
 	private:
-		std::atomic_size_t count;
+		std::atomic_int32_t count;
 	};
 
 	template <typename T>
@@ -93,6 +103,11 @@ namespace Util
 		void operator=(const IntrusivePtrEnabled&) = delete;
 
 	protected:
+		void SetReference(int ref)
+		{
+			refCount.SetRef(ref);
+		}
+
 		Util::IntrusivePtr<T> reference_from_this()
 		{
 			AddReference();

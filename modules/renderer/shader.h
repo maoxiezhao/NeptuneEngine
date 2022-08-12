@@ -57,8 +57,8 @@ namespace VulkanTest
 
 	protected:
 		bool LoadFromMemory(InputMemoryStream& inputMem);
-		bool OnLoaded()override;
-		void OnUnLoaded() override;
+		bool Load()override;
+		void Unload() override;
 
 	private:
 		ShaderContainer shaders;

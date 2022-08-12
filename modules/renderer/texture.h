@@ -58,8 +58,8 @@ namespace VulkanTest
 		}
 
 	protected:
-		bool OnLoaded()override;
-		void OnUnLoaded() override;
+		bool Load()override;
+		void Unload() override;
 
 	private:
 		bool LoadTextureTGA(const TextureHeader& header, const U8* imgData, U64 size);

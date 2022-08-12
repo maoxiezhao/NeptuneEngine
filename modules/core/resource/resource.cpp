@@ -2,24 +2,48 @@
 #include "resourceManager.h"
 #include "core\utils\string.h"
 #include "core\compress\compressor.h"
+#include "core\utils\profiler.h"
 
 namespace VulkanTest
 {
 	const ResourceType ResourceType::INVALID_TYPE("");
 
+	class LoadResourceTask : public ContentLoadingTask
+	{
+	public:
+		LoadResourceTask(Resource* resource_) :
+			ContentLoadingTask(ContentLoadingTask::LoadResource),
+			resource(resource_)
+		{
+		}
+
+		bool Run() override
+		{
+			PROFILE_FUNCTION();
+			ResPtr<Resource> res = resource.get();
+			if (res == nullptr)
+				return false;
+
+			return resource->LoadingFromTask(this);
+		}
+
+		void OnEnd() override
+		{ 
+			// Loading task finished, refresh resource state
+			if (resource)
+				resource->OnLoadedFromTask(this);
+
+			ContentLoadingTask::OnEnd();
+		}
+
+	private:
+		WeakResPtr<Resource> resource;
+	};
+
 	ResourceType::ResourceType(const char* typeName)
 	{
 		ASSERT(typeName[0] == 0 || (typeName[0] >= 'a' && typeName[0] <= 'z') || (typeName[0] >= 'A' && typeName[0] <= 'Z'));
 		type = StringID(typeName);
-	}
-
-	void ResourceDeleter::operator()(Resource* res)
-	{
-		if (res->resFactory.IsUnloadEnable())
-			res->DoUnload();
-
-		if (res->ownedBySelf)
-			CJING_SAFE_DELETE(res);
 	}
 
 	Resource::~Resource() = default;
@@ -31,7 +55,7 @@ namespace VulkanTest
 
 		State oldState = currentState;
 		currentState = State::EMPTY;
-		cb.Invoke(oldState, currentState, *this);
+		StateChangedCallback.Invoke(oldState, currentState, *this);
 		CheckState();
 	}
 
@@ -39,7 +63,7 @@ namespace VulkanTest
 	{
 		ASSERT(desiredState != State::EMPTY);
 
-		depRes.cb.Bind<&Resource::OnStateChanged>(this);
+		depRes.StateChangedCallback.Bind<&Resource::OnStateChanged>(this);
 		if (depRes.IsEmpty())
 			emptyDepCount++;
 		if (depRes.IsFailure())
@@ -50,10 +74,10 @@ namespace VulkanTest
 
 	void Resource::RemoveDependency(Resource& depRes)
 	{
-		depRes.cb.Unbind<&Resource::OnStateChanged>(this);
+		depRes.StateChangedCallback.Unbind<&Resource::OnStateChanged>(this);
 		if (depRes.IsEmpty())
 		{
-			ASSERT(emptyDepCount > 1 || (emptyDepCount == 1)); // && !asyncHandle.IsValid()));
+			ASSERT(emptyDepCount > 1 || (emptyDepCount == 1));
 			emptyDepCount--;
 		}
 		if (depRes.IsFailure())
@@ -65,27 +89,14 @@ namespace VulkanTest
 		CheckState();
 	}
 
-	void Resource::OnContentLoaded(Task::State state)
+	I32 Resource::GetReference() const
 	{
-		ASSERT(currentState != State::READY);
-		ASSERT(emptyDepCount == 1);
+		return (I32)AtomicRead(const_cast<I64 volatile*>(&refCount));
+	}
 
-		if (state == Task::State::Finished)
-		{
-			emptyDepCount--;
-			CheckState();
-		}
-		else if (state == Task::State::Failed)
-		{
-			emptyDepCount--;
-			failedDepCount++;
-			CheckState();
-		}
-		else if (state == Task::State::Canceled)
-		{
-			desiredState = State::EMPTY;
-			CheckState();
-		}
+	ResourceFactory& Resource::GetResourceFactory()
+	{
+		return resFactory;
 	}
 
 	ResourceManager& Resource::GetResourceManager()
@@ -101,7 +112,8 @@ namespace VulkanTest
 		resSize(0),
 		path(path_),
 		resFactory(resFactory_),
-		loadingTask(nullptr)
+		loadingTask(nullptr),
+		refCount(0)
 	{
 	}
 
@@ -122,7 +134,12 @@ namespace VulkanTest
 	{
 		desiredState = State::EMPTY;
 		OnUnLoaded();
-		ASSERT(emptyDepCount <= 1);
+		
+		// Unload real resource content
+		mutex.Lock();
+		if (IsReady())
+			Unload();
+		mutex.Unlock();
 
 		// Refresh current state
 		resSize = 0;
@@ -134,11 +151,12 @@ namespace VulkanTest
 	void Resource::CheckState()
 	{
 		// Refresh the current state according to failedDep and emtpyDep
+		isStateDirty = false;
 		State oldState = currentState;
 		if (currentState != State::FAILURE && failedDepCount > 0)
 		{
 			currentState = State::FAILURE;
-			cb.Invoke(oldState, currentState, *this);
+			StateChangedCallback.Invoke(oldState, currentState, *this);
 		}
 
 		if (failedDepCount == 0)
@@ -146,13 +164,13 @@ namespace VulkanTest
 			if (currentState != State::READY && desiredState != State::EMPTY && emptyDepCount == 0)
 			{
 				currentState = State::READY;
-				cb.Invoke(oldState, currentState, *this);
+				StateChangedCallback.Invoke(oldState, currentState, *this);
 			}
 
 			if (currentState != State::EMPTY && emptyDepCount > 0)
 			{
 				currentState = State::EMPTY;
-				cb.Invoke(oldState, currentState,*this);
+				StateChangedCallback.Invoke(oldState, currentState,*this);
 			}
 		}
 	}
@@ -166,6 +184,66 @@ namespace VulkanTest
 		desiredState = State::READY;
 		failedDepCount = state == State::FAILURE ? 1 : 0;
 		emptyDepCount = 0;
+	}
+
+	ContentLoadingTask* Resource::CreateLoadingTask()
+	{
+		LoadResourceTask* task = CJING_NEW(LoadResourceTask)(this);
+		return task;
+	}
+
+	bool Resource::LoadingFromTask(LoadResourceTask* task)
+	{
+		if (loadingTask == nullptr)
+			return false;
+
+		ScopedMutex lock(mutex);
+		bool ret = LoadResource();
+		loadingTask = nullptr;
+		return ret;
+	}
+
+	void Resource::OnLoadedFromTask(LoadResourceTask* task)
+	{
+		ScopedMutex lock(mutex);
+
+		// Refresh resoruce state
+		ASSERT(currentState != State::READY);
+		ASSERT(emptyDepCount == 1);
+
+		auto state = task->GetState();
+		if (state == Task::State::Finished)
+		{
+			emptyDepCount--;
+			GetResourceFactory().OnResourceLoaded(this);
+		}
+		else if (state == Task::State::Failed)
+		{
+			emptyDepCount--;
+			failedDepCount++;
+		}
+		else if (state == Task::State::Canceled)
+		{
+			desiredState = State::EMPTY;
+		}
+		isStateDirty = true;
+	}
+
+	void Resource::OnLoaded()
+	{
+		OnLoadedCallback.Invoke(this);
+	}
+
+	void Resource::OnUnLoaded()
+	{
+		OnUnloadedCallback.Invoke(this);
+
+		if (loadingTask)
+		{
+			auto task = loadingTask;
+			loadingTask = nullptr;
+			task->Cancel();
+		}
 	}
 
 	void Resource::OnStateChanged(State oldState, State newState, Resource& res)

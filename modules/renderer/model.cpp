@@ -104,7 +104,7 @@ namespace VulkanTest
 	{
 	}
 
-	bool Model::OnLoaded()
+	bool Model::Load()
 	{
 		PROFILE_FUNCTION();
 
@@ -137,7 +137,7 @@ namespace VulkanTest
 		return true;
 	}
 
-	void Model::OnUnLoaded()
+	void Model::Unload()
 	{
 		for (auto& mesh : meshes)
 		{

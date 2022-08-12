@@ -7,7 +7,7 @@ namespace VulkanTest
 {
 	constexpr U32 COMPRESSION_SIZE_LIMIT = 4096;
 
-	ResourceStorage::ScopedLock ResourceStorage::ScopedLock::Invalid(nullptr);
+	ResourceStorage::StorageLock ResourceStorage::StorageLock::Invalid(nullptr);
 
 	void ResourceStorageDeleter::operator()(ResourceStorage* res)
 	{
@@ -184,7 +184,7 @@ namespace VulkanTest
 		if (stream == nullptr)
 			return false;
 
-		ScopedLock lock(this);
+		StorageLock lock(this);
 		InputMemoryStream input(*stream);
 		input.SetPos(chunk->location.Address);
 
@@ -304,13 +304,13 @@ namespace VulkanTest
 		// Write chunk locations
 		for (U32 i = 0; i < header.chunksCount; i++)
 		{
-			I32 size = chunks[i]->Size();
+			U64 size = chunks[i]->Size();
 			if (compressedChunks[i].Size() > 0)
 				size = compressedChunks[i].Size() + sizeof(I32); // Add original data size
-			chunks[i]->location.Size = size;
+			chunks[i]->location.Size = (U32)size;
 			chunks[i]->location.Address = currentAddress;
 
-			currentAddress += size;
+			currentAddress += (U32)size;
 
 			output.Write(chunks[i]->location);
 			output.Write(chunks[i]->compressed);
@@ -347,7 +347,6 @@ namespace VulkanTest
 			stream = CJING_NEW(OutputMemoryStream);
 
 			StaticString<MAX_PATH_LENGTH> fullResPath;
-			// Load resource tiles directly
 			if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
 			{
 				fullResPath = GetPath().c_str();
@@ -360,7 +359,7 @@ namespace VulkanTest
 
 			if (!resManager.GetFileSystem()->LoadContext(fullResPath.c_str(), *stream))
 			{
-				Logger::Error("Cannot open compiled resource storage %s", GetPath().c_str());
+				Logger::Error("Cannot open compiled resource content %s", GetPath().c_str());
 				CJING_SAFE_DELETE(stream);
 				return nullptr;
 			}
@@ -370,27 +369,11 @@ namespace VulkanTest
 
 	void ResourceStorage::CloseContent()
 	{
-		// Ensure that no one is using this resource
 		I32 waitTime = 10;
 		while (AtomicRead(&chunksLock) != 0 && waitTime-- > 0)
 			Platform::Sleep(10);
 
-		if (AtomicRead(&chunksLock) != 0)
-		{
-			auto factory = resManager.GetFactory(entry.type);
-			if (factory)
-			{
-				Resource* res = factory->GetResource(path);
-				if (res)
-				{
-					Logger::Info("Resource canceling stream %s", path.c_str());
-
-				}
-			}
-		}
-
 		ASSERT(chunksLock == 0);
-
 		CJING_SAFE_DELETE(stream);
 	}
 }

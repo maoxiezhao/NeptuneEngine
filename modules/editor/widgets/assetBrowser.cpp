@@ -595,7 +595,6 @@ namespace Editor
             {
                 for (auto plugin : plugins)
                     plugin->OnResourceUnloaded(res.get());
-                res->Release();
                 res.reset();
             }
 

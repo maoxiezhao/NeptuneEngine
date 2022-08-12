@@ -156,10 +156,10 @@ namespace Renderer
 		}
 	};
 
-	RenderResourceFactory<Shader> shaderFactory;
-	RenderResourceFactory<Texture> textureFactory;
-	RenderResourceFactory<Model> modelFactory;
-	MaterialFactory materialFactory;
+	LocalPtr<RenderResourceFactory<Shader>> shaderFactory;
+	LocalPtr<RenderResourceFactory<Texture>> textureFactory;
+	LocalPtr<RenderResourceFactory<Model>> modelFactory;
+	LocalPtr<MaterialFactory> materialFactory;
 
 	GPU::BlendState stockBlendStates[BSTYPE_COUNT] = {};
 	GPU::RasterizerState stockRasterizerState[RSTYPE_COUNT] = {};
@@ -285,10 +285,10 @@ namespace Renderer
 
 		// Initialize resource factories
 		ResourceManager& resManager = engine.GetResourceManager();
-		shaderFactory.Initialize(Shader::ResType, resManager);
-		textureFactory.Initialize(Texture::ResType, resManager);
-		modelFactory.Initialize(Model::ResType, resManager);
-		materialFactory.Initialize(Material::ResType, resManager);
+		shaderFactory.Create(); shaderFactory->Initialize(Shader::ResType, resManager);
+		textureFactory.Create(); textureFactory->Initialize(Texture::ResType, resManager);
+		modelFactory.Create(); modelFactory->Initialize(Model::ResType, resManager);
+		materialFactory.Create(); materialFactory->Initialize(Material::ResType, resManager);
 
 		// Load builtin states
 		InitStockStates();
@@ -321,10 +321,15 @@ namespace Renderer
 		frameBuffer.reset();
 
 		// Uninitialize resource factories
-		materialFactory.Uninitialize();
-		modelFactory.Uninitialize();
-		textureFactory.Uninitialize();
-		shaderFactory.Uninitialize();
+		materialFactory->Uninitialize();
+		modelFactory->Uninitialize();
+		textureFactory->Uninitialize();
+		shaderFactory->Uninitialize();
+
+		materialFactory.Destroy();
+		modelFactory.Destroy();
+		textureFactory.Destroy();
+		shaderFactory.Destroy();
 
 		rendererPlugin = nullptr;
 		Logger::Info("Render uninitialized");

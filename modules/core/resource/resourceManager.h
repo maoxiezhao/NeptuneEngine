@@ -2,7 +2,9 @@
 
 #include "resource.h"
 #include "resourceStorage.h"
+#include "resourceReference.h"
 #include "core\collections\hashMap.h"
+#include "core\platform\timer.h"
 
 namespace VulkanTest
 {
@@ -18,17 +20,14 @@ namespace VulkanTest
 
 		void Initialize(ResourceType type, ResourceManager& resManager_);
 		void Uninitialize();
+		void Update(F32 dt);
 		void Reload(const Path& path);
 		void Reload(Resource& res);
 		void RemoveUnreferenced();
+		void OnResourceLoaded(Resource* res);
 
 		Resource* GetResource(const Path& path);
 		ResourceTable& GetResourceTable();
-
-		bool IsUnloadEnable()const {
-			return isUnloadEnable;
-		}
-
 		ResourceManager& GetResourceManager() {
 			return *resManager;
 		}
@@ -39,12 +38,16 @@ namespace VulkanTest
 		virtual void DestroyResource(Resource* res) = 0;
 
 		Resource* LoadResource(Resource* res);
+		void UnloadResoruce(Resource* res);
 
 	protected:
 		ResourceTable resources;
-		bool isUnloadEnable;
 		ResourceType resType;
 		ResourceManager* resManager;
+		Mutex resLock;
+		Array<Resource*> toRemoved;
+		Mutex loadedResLock;
+		Array<Resource*> loadedResources;
 	};
 
 	class VULKAN_TEST_API ResourceManager
@@ -85,8 +88,8 @@ namespace VulkanTest
 		
 		void Reload(const Path& path);
 		void ReloadAll();
-		void RemoveUnreferenced();
-		void UpdateResourceStorages();
+		void Update(F32 dt);
+		void LateUpdate();
 
 		ResourceFactory* GetFactory(ResourceType type);
 		FactoryTable& GetAllFactories();
@@ -119,6 +122,7 @@ namespace VulkanTest
 
 		HashMap<U64, ResourceStorage*> storageMap;
 		Array<std::pair<U64, ResourceStorage*>> toRemoved;
-
+		F32 lastUnloadCheckTime = 0.0f;
+		Timer timer;
 	};
 }

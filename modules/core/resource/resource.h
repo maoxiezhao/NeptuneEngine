@@ -12,7 +12,9 @@ namespace VulkanTest
 {
 	class ResourceFactory;
 	class ResourceManager;
+	class LoadResourceTask;
 
+	// Resource type
 	struct VULKAN_TEST_API ResourceType
 	{
 		ResourceType() = default;
@@ -35,12 +37,7 @@ namespace VulkanTest
 	};
 
 	class Resource;
-	struct ResourceDeleter
-	{
-		void operator()(Resource* res);
-	};
-
-	class VULKAN_TEST_API Resource : public Util::IntrusivePtrEnabled<Resource, ResourceDeleter>
+	class VULKAN_TEST_API Resource
 	{
 	public:
 		friend class ResourceFactory;
@@ -80,7 +77,6 @@ namespace VulkanTest
 		void Refresh();
 		void AddDependency(Resource& depRes);
 		void RemoveDependency(Resource& depRes);
-		void OnContentLoaded(Task::State state);
 
 		void SetHooked(bool isHooked) {
 			hooked = isHooked;
@@ -98,27 +94,52 @@ namespace VulkanTest
 			return ownedBySelf;
 		}
 
-		ResourceFactory& GetResourceFactory() {
-			return resFactory;
+		bool IsStateDirty()const {
+			return isStateDirty;
 		}
 
+		FORCE_INLINE void AddReference() {
+			AtomicIncrement(&refCount);
+		}
+
+		FORCE_INLINE void RemoveReference() {
+			AtomicDecrement(&refCount);
+		}
+
+		I32 GetReference() const;
+
+		ResourceFactory& GetResourceFactory();
 		ResourceManager& GetResourceManager();
 
-		using StateChangedCallback = DelegateList<void(State, State, Resource&)>;
-		StateChangedCallback& GetStateChangedCallback() { return cb; }
+		using EventCallback = DelegateList<void(Resource*)>;
+		EventCallback OnLoadedCallback;
+		EventCallback OnReloadingCallback;
+		EventCallback OnUnloadedCallback;
 
 	protected:
+		friend class LoadResourceTask;
+
 		Resource(const Path& path_, ResourceFactory& resFactory_);
 	
 		virtual void DoLoad();
 		virtual void DoUnload();
-
-		virtual void OnCreated(State state);
-		virtual bool OnLoaded() = 0;
-		virtual void OnUnLoaded() = 0;
-		virtual ContentLoadingTask* CreateLoadingTask() = 0;
+		virtual bool LoadResource() = 0;
 
 		void CheckState();
+		void OnLoaded();
+		void OnUnLoaded();
+
+		virtual void OnCreated(State state);
+		virtual ContentLoadingTask* CreateLoadingTask();
+		bool LoadingFromTask(LoadResourceTask* task);
+		void OnLoadedFromTask(LoadResourceTask* task);
+
+		using StateChangedCallbackType = DelegateList<void(State, State, Resource&)>;
+		StateChangedCallbackType StateChangedCallback;
+
+	protected:
+		virtual bool Load() = 0;
+		virtual void Unload() = 0;
 
 		ResourceFactory& resFactory;
 		State desiredState;
@@ -126,6 +147,9 @@ namespace VulkanTest
 		U32 emptyDepCount;
 		U64 resSize;
 		ContentLoadingTask* loadingTask;
+		volatile I64 refCount;
+		Mutex mutex;
+		bool isStateDirty = false;
 
 	private:
 		friend struct ResourceDeleter;
@@ -139,11 +163,7 @@ namespace VulkanTest
 		bool hooked = false;
 		bool ownedBySelf = false;
 		State currentState;
-		StateChangedCallback cb;
 	};
-
-	template<typename T>
-	using ResPtr = Util::IntrusivePtr<T>;
 
 
 #define DECLARE_RESOURCE(CLASS_NAME)															\

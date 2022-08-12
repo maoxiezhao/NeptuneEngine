@@ -210,7 +210,7 @@ namespace VulkanTest
             for (auto kvp : modelEntityMap)
             {
                 Model* model = kvp.first;
-                model->GetStateChangedCallback().Unbind<&RenderSceneImpl::OnModelStateChanged>(this);
+                model->StateChangedCallback.Unbind<&RenderSceneImpl::OnModelStateChanged>(this);
             }
             modelEntityMap.clear();
         }
@@ -326,7 +326,7 @@ namespace VulkanTest
             else 
             {
                 modelEntityMap.insert({ model, entity });
-                model->GetStateChangedCallback().Bind<&RenderSceneImpl::OnModelStateChanged>(this);
+                model->StateChangedCallback.Bind<&RenderSceneImpl::OnModelStateChanged>(this);
             }
         }
 
@@ -335,7 +335,7 @@ namespace VulkanTest
             auto it = modelEntityMap.find(model);
             if (it != modelEntityMap.end() && it->second == entity)
             {
-                model->GetStateChangedCallback().Unbind<&RenderSceneImpl::OnModelStateChanged>(this);
+                model->StateChangedCallback.Unbind<&RenderSceneImpl::OnModelStateChanged>(this);
                 modelEntityMap.erase(it);
             }
         }

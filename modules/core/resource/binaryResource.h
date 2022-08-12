@@ -29,16 +29,16 @@ namespace VulkanTest
 			return header.chunks[index] != nullptr && header.chunks[index]->IsLoaded();
 		}
 
-	public:
+		// Real resourceStorage pointer from storageRef
 		ResourceStorage* storage;
 
 	protected:
 		BinaryResource(const Path& path_, ResourceFactory& resFactory_);
 	
+		bool LoadResource() override;
 		void DoUnload() override;
 		ContentLoadingTask* CreateLoadingTask()override;
 
-	protected:
 		virtual AssetChunksFlag GetChunksToPreload() const {
 			return GET_CHUNK_FLAG(0);
 		}

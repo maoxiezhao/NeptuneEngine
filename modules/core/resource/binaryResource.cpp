@@ -2,6 +2,46 @@
 
 namespace VulkanTest
 {
+	class LoadStorageTask : public ContentLoadingTask
+	{
+	public:
+		LoadStorageTask(BinaryResource* resource_) :
+			ContentLoadingTask(ContentLoadingTask::LoadResource),
+			resource(resource_),
+			lock(resource_->storage->Lock())
+		{
+		}
+
+		bool Run()override
+		{
+			ResPtr<BinaryResource> res = resource.get();
+			if (res == nullptr)
+				return false;
+
+			ResourceStorage* storage = res->storage;
+			if (storage->IsLoaded())
+				return false;
+
+			if (!storage->Load())
+				return false;
+
+			if (!res->InitStorage())
+				return false;
+
+			return true;
+		}
+
+		void OnEnd()override
+		{
+			lock.Release();
+			Task::OnEnd();
+		}
+
+	private:
+		WeakResPtr<BinaryResource> resource;
+		ResourceStorage::StorageLock lock;
+	};
+
 	Resource* BinaryResourceFactory::LoadResource(const Path& path)
 	{
 		ASSERT(resManager != nullptr);
@@ -12,6 +52,7 @@ namespace VulkanTest
 		Resource* res = GetResource(path);
 		if (res == nullptr)
 		{
+			ScopedMutex lock(resLock);
 			res = static_cast<BinaryResource*>(CreateResource(path));
 			if (res == nullptr)
 			{
@@ -41,6 +82,13 @@ namespace VulkanTest
 
 	BinaryResource::~BinaryResource()
 	{
+	}
+
+	bool BinaryResource::LoadResource()
+	{
+		ASSERT(storage && storage->IsLoaded());
+		auto lock = storage->Lock();
+		return Load();
 	}
 
 	void BinaryResource::DoUnload()
@@ -82,59 +130,18 @@ namespace VulkanTest
 			}
 		}
 
-		// Load real resource
-		if (!OnLoaded())
-		{
-			Logger::Error("Failed to load resource %s", GetPath().c_str());
-			return false;
-		}
 		resSize = storage->Size();
 		return true;
 	}
 
-	class LoadStorageTask : public ContentLoadingTask
-	{
-	public:
-		LoadStorageTask(BinaryResource* resource_) :
-			ContentLoadingTask(ContentLoadingTask::LoadResource),
-			resource(resource_)
-		{
-		}
-
-		bool Run()override
-		{
-			// TODO resoruce could be unloaded when task is running
-			// Check resource state
-			ASSERT(resource && resource->IsEmpty());
-
-			ResourceStorage* storage = resource->storage;
-			if (storage->IsLoaded())
-				return false;
-
-			if (!storage->Load())
-				return false;
-			
-			if (!resource->InitStorage())
-				return false;
-
-			return true;
-		}
-
-		void OnEnd()override
-		{
-			Task::OnEnd();
-
-			if (resource)
-				resource->OnContentLoaded(GetState());
-		}
-
-	private:
-		BinaryResource* resource;
-	};
-
 	ContentLoadingTask* BinaryResource::CreateLoadingTask()
 	{
+		auto loadResTask = Resource::CreateLoadingTask();
+		ASSERT(loadResTask);
+
+		// Load resource storage first
 		LoadStorageTask* task = CJING_NEW(LoadStorageTask)(this);
+		task->SetNextTask(loadResTask);
 		return task;
 	}
 

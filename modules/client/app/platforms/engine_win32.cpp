@@ -179,8 +179,8 @@ namespace VulkanTest
 			// Process async loading jobs
 			fileSystem->ProcessAsync();
 
-			// Process resource storages
-			resourceManager->UpdateResourceStorages();
+			// Update resource manager
+			resourceManager->Update(dt);
 
 			// Update engine servies
 			EngineService::OnUpdate();
@@ -188,6 +188,8 @@ namespace VulkanTest
 
 		void LateUpdate(World& world)override
 		{
+			resourceManager->LateUpdate();
+
 			EngineService::OnLateUpdate();
 		}
 

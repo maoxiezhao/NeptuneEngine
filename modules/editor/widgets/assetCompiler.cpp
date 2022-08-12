@@ -214,7 +214,7 @@ namespace Editor
             for (Resource* res : onInitLoad)
             {
                 PushToCompileQueue(res->GetPath());
-                res->Release();
+                res->RemoveReference();
             }
             onInitLoad.clear();
 

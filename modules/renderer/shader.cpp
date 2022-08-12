@@ -68,7 +68,7 @@ namespace VulkanTest
 		return shader;
 	}
 
-	bool Shader::OnLoaded()
+	bool Shader::Load()
 	{
 		PROFILE_FUNCTION();
 		const auto dataChunk = GetChunk(0);
@@ -93,7 +93,7 @@ namespace VulkanTest
 		return LoadFromMemory(inputMem);
 	}
 
-	void Shader::OnUnLoaded()
+	void Shader::Unload()
 	{
 		shaders.Clear();
 	}

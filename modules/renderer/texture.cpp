@@ -37,7 +37,7 @@ namespace VulkanTest
 		DoUnload();
 	}
 
-	bool Texture::OnLoaded()
+	bool Texture::Load()
 	{
 		PROFILE_FUNCTION();
 		const auto dataChunk = GetChunk(0);
@@ -73,7 +73,7 @@ namespace VulkanTest
 		}
 	}
 
-	void Texture::OnUnLoaded()
+	void Texture::Unload()
 	{
 		handle.reset();
 	}

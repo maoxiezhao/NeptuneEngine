@@ -63,8 +63,8 @@ namespace VulkanTest
 		const Shader* GetShader()const;
 
 	protected:
-		bool OnLoaded()override;
-		void OnUnLoaded() override;
+		bool Load()override;
+		void Unload() override;
 		AssetChunksFlag GetChunksToPreload()const override;
 
 	private:

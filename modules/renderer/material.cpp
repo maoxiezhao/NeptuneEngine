@@ -89,7 +89,7 @@ namespace VulkanTest
 		return materialShader ? materialShader->GetShader() : nullptr;
 	}
 
-	bool Material::OnLoaded()
+	bool Material::Load()
 	{
 		PROFILE_FUNCTION();
 		ASSERT(materialShader == nullptr);
@@ -142,7 +142,7 @@ namespace VulkanTest
 		return true;
 	}
 
-	void Material::OnUnLoaded()
+	void Material::Unload()
 	{
 		if (materialShader != nullptr)
 		{

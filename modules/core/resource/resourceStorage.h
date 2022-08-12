@@ -122,27 +122,55 @@ namespace VulkanTest
 		}
 
 		// Scoed locker
-		struct ScopedLock
+		struct StorageLock
 		{
 			friend ResourceStorage;
-			static ScopedLock Invalid;
+			static StorageLock Invalid;
+
+			StorageLock(const StorageLock& lock) :
+				storage(lock.storage)
+			{
+				if (storage)
+					storage->LockChunks();
+			}
+
+			StorageLock(StorageLock&& lock) noexcept :
+				storage(lock.storage)
+			{
+				lock.storage = nullptr;
+			}
+
+			~StorageLock()
+			{
+				if (storage)
+					storage->UnlockChunks();
+			}
+
+			void Release()
+			{
+				if (storage)
+				{
+					storage->UnlockChunks();
+					storage = nullptr;
+				}
+			}
 
 		private:
 			ResourceStorage* storage;
 
-			ScopedLock(ResourceStorage* storage_) :
+			StorageLock(ResourceStorage* storage_) :
 				storage(storage_)
 			{
 				if (storage)
 					storage->LockChunks();
 			}
 
-			~ScopedLock()
-			{
-				if (storage)
-					storage->UnlockChunks();
-			}
 		};
+
+		StorageLock Lock()
+		{
+			return StorageLock(this);
+		}
 
 #ifdef CJING3D_EDITOR
 		static bool Save(OutputMemoryStream& output, const ResourceInitData& data);
