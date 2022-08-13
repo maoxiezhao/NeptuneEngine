@@ -402,26 +402,6 @@ namespace VulkanTest
 		return backend->LoadContext(path, mem);
 	}
 
-	bool FileSystem::HasWork()const
-	{
-		return backend->HasWork();
-	}
-
-	void FileSystem::ProcessAsync()
-	{
-		backend->ProcessAsync();
-	}
-
-	AsyncLoadHandle FileSystem::LoadFileAsync(const Path& path, const AsyncLoadCallback& cb)
-	{
-		return backend->LoadFileAsync(path, cb);
-	}
-
-	void FileSystem::CancelAsync(AsyncLoadHandle async)
-	{
-		backend->CancelAsync(async);
-	}
-
 	FileSystem::FileSystem(UniquePtr<FileSystemBackend>&& backend_) :
 		backend(backend_.Move())
 	{

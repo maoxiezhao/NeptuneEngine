@@ -34,7 +34,7 @@ namespace VulkanTest
 
 	void Texture::Destroy()
 	{
-		DoUnload();
+		DeleteObjectNow();
 	}
 
 	bool Texture::Load()

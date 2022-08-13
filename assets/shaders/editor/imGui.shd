@@ -38,4 +38,3 @@ float4 PS(VertexToPixel input) : SV_TARGET
 {
 	return input.col * image.Sample(sam, input.uv);
 }
-

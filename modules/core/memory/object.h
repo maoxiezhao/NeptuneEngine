@@ -13,7 +13,7 @@ namespace VulkanTest
 		void DeleteObjectNow();
 		void DeleteObject(F32 timeToRemove = 1.0f);
 
-		virtual void Delete()
+		virtual void OnDelete()
 		{
 			CJING_DELETE(this);
 		}
@@ -27,6 +27,7 @@ namespace VulkanTest
 		static void Dereference(Object* obj);
 		static void Add(Object* obj, F32 time = 1.0f);
 		static void Flush(F32 dt);
+		static void FlushNow();
 
 	private:
 		static bool HasNewObjectsForFlush();

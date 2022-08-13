@@ -22,7 +22,7 @@ namespace VulkanTest
 	{
 	public:
 		ObjectServiceImpl() :
-			EngineService("ObjectService"),
+			EngineService("ObjectService", -1000),
 			lastUpdate(0.0f)
 		{}
 
@@ -52,7 +52,7 @@ namespace VulkanTest
 				for (auto it = gImpl.toRemoved.begin(); it != gImpl.toRemoved.end(); it++)
 				{
 					auto obj = it->first;
-					obj->Delete();
+					obj->OnDelete();
 				}
 				gImpl.toRemoved.clear();
 			}
@@ -71,7 +71,7 @@ namespace VulkanTest
 	void Object::DeleteObjectNow()
 	{
 		ObjectService::Dereference(this);
-		Delete();
+		OnDelete();
 	}
 
 	void Object::DeleteObject(F32 timeToRemove)
@@ -120,7 +120,7 @@ namespace VulkanTest
 				if (time < 0.001f)
 				{
 					it = gImpl.toRemoved.erase(it);
-					obj->Delete();
+					obj->OnDelete();
 				}
 				else
 				{
@@ -150,7 +150,7 @@ namespace VulkanTest
 					if (it->second < 0.001f)
 					{
 						it = gImpl.toRemoved.erase(it);
-						obj->Delete();
+						obj->OnDelete();
 					}
 					else
 					{
@@ -159,6 +159,11 @@ namespace VulkanTest
 				}
 			}
 		}
+	}
+
+	void ObjectService::FlushNow()
+	{
+		Flush(0.0f);
 	}
 
 	bool ObjectService::HasNewObjectsForFlush()

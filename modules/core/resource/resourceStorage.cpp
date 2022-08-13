@@ -18,7 +18,9 @@ namespace VulkanTest
 		path(path_),
 		resManager(resManager_),
 		chunksLock(0),
-		stream(nullptr)
+		stream(nullptr),
+		refCount(0),
+		lastRefLoseTime(0.0f)
 	{
 	}
 
@@ -26,6 +28,7 @@ namespace VulkanTest
 	{
 		ASSERT(!IsLoaded());
 		ASSERT(chunksLock == 0);
+		// ASSERT(refCount == 0);
 	}
 
 	bool ResourceStorage::Load()
@@ -220,7 +223,10 @@ namespace VulkanTest
 
 	bool ResourceStorage::ShouldDispose() const
 	{
-		return GetReference() == 0 && AtomicRead((I64*)&chunksLock) == 0;
+		F32 refLostTime = ((F32)Timer::GetRawTimestamp() / (F32)Timer::GetFrequency());
+		return GetReference() == 0 && 
+			AtomicRead((I64*)&chunksLock) == 0 &&
+			refLostTime - lastRefLoseTime >= 0.5f;
 	}
 
 	bool ResourceStorage::Reload()
@@ -232,7 +238,24 @@ namespace VulkanTest
 		}
 
 		Unload();
-		return Load();
+		bool ret = Load();
+		OnReloaded.Invoke(this, ret);
+		return ret;
+	}
+
+	void ResourceStorage::AddReference()
+	{
+		refCount++;
+	}
+
+	void ResourceStorage::RemoveReference()
+	{
+		if (refCount > 0)
+		{
+			refCount--;
+			if (refCount == 0)
+				lastRefLoseTime = (F32)Timer::GetRawTimestamp() / (F32)Timer::GetFrequency();
+		}
 	}
 
 #ifdef CJING3D_EDITOR

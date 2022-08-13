@@ -13,6 +13,7 @@ namespace VulkanTest
 		// TODO use Array
 		typedef std::vector<EngineService*> ServicesArray;
 		static ServicesArray& GetServices();
+		static void Sort();
 
 		virtual ~EngineService();
 
@@ -24,10 +25,11 @@ namespace VulkanTest
 		DECLARE_ENGINE_SERVICE(void, Uninit);
 #undef DECLARE_ENGINE_SERVICE_EVENT
 
-	protected:
-		EngineService(const char* name_);
-
 		const char* name;
+		I32 order;
+
+	protected:
+		EngineService(const char* name_, I32 order_ = 0);
 		bool initialized = false;
 	};
 

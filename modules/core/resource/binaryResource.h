@@ -12,6 +12,8 @@ namespace VulkanTest
 	{
 	protected:
 		Resource* LoadResource(const Path& path)override;
+		void ContinuleLoadResource(Resource* res)override;
+		void ReloadResource(Resource* res)override;
 	};
 
 	class VULKAN_TEST_API BinaryResource : public Resource
@@ -21,6 +23,7 @@ namespace VulkanTest
 
 		bool SetStorage(const ResourceStorageRef& storage_);
 		bool InitStorage();
+
 		DataChunk* GetChunk(I32 index = 0)const;
 
 		bool HasChunkLoaded(I32 index) const
@@ -33,15 +36,18 @@ namespace VulkanTest
 		ResourceStorage* storage;
 
 	protected:
+		friend class BinaryResourceFactory;
+
 		BinaryResource(const Path& path_, ResourceFactory& resFactory_);
 	
 		bool LoadResource() override;
-		void DoUnload() override;
 		ContentLoadingTask* CreateLoadingTask()override;
 
 		virtual AssetChunksFlag GetChunksToPreload() const {
 			return GET_CHUNK_FLAG(0);
 		}
+
+		void OnStorageReloaded(ResourceStorage* storage_, bool ret);
 
 	private:
 		ResourceStorageRef storageRef;

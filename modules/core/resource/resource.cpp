@@ -94,6 +94,31 @@ namespace VulkanTest
 		return (I32)AtomicRead(const_cast<I64 volatile*>(&refCount));
 	}
 
+	void Resource::OnDelete()
+	{
+		// Send event
+		OnUnLoaded();
+
+		mutex.Lock();
+
+		desiredState = State::EMPTY;
+
+		// Unload real resource content
+		if (IsReady())
+			Unload();
+
+		// Refresh current state
+		resSize = 0;
+		emptyDepCount = 1;
+		failedDepCount = 0;
+		mutex.Unlock();
+
+		CheckState();
+
+		// Delete self
+		Object::OnDelete();
+	}
+
 	ResourceFactory& Resource::GetResourceFactory()
 	{
 		return resFactory;
@@ -130,22 +155,39 @@ namespace VulkanTest
 		loadingTask->Start();
 	}
 
-	void Resource::DoUnload()
+	void Resource::Reload()
 	{
+		Logger::Info("Reloading resource %s", GetPath().c_str());
+
+		// Cancel current loading task
+		if (loadingTask)
+		{
+			auto task = loadingTask;
+			loadingTask = nullptr;
+			task->Cancel();
+		}
+
+		// Fire event
+		OnReloadingCallback.Invoke(this);
+
+		ScopedMutex lock(mutex);
+
 		desiredState = State::EMPTY;
-		OnUnLoaded();
-		
+
 		// Unload real resource content
-		mutex.Lock();
 		if (IsReady())
 			Unload();
-		mutex.Unlock();
 
 		// Refresh current state
 		resSize = 0;
 		emptyDepCount = 1;
 		failedDepCount = 0;
 		CheckState();
+
+		// Start reloading
+		DoLoad();
+
+		isReloading = false;
 	}
 
 	void Resource::CheckState()

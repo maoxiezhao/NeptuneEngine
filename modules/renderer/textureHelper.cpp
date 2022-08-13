@@ -19,10 +19,7 @@ namespace VulkanTest
 		for (auto texture : colorTextures)
 		{
 			if (texture)
-			{
 				texture->Destroy();
-				CJING_SAFE_DELETE(texture);
-			}
 		}
 		colorTextures.clear();
 		resourceManager = nullptr;

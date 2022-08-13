@@ -149,11 +149,8 @@ namespace Editor
 
         void Uninitialize() override
         {
+            // Save editor settings
             SaveSettings();
-
-            FileSystem& fs = engine->GetFileSystem();
-            while (fs.HasWork())
-                fs.ProcessAsync();
 
             // Destroy world
             worldEditor->DestroyWorld();
@@ -619,9 +616,6 @@ namespace Editor
 
                 auto rect = Platform::GetClientBounds(mainWindow);
                 StaticString<128> fpsTxt("");
-                if (engine->GetFileSystem().HasWork())
-                    fpsTxt << ICON_FA_HOURGLASS "Loading... | ";
-
                 fpsTxt << (U32)rect.width << "x" << (U32)rect.height;
                 fpsTxt << " FPS: ";
                 fpsTxt << (U32)(fps + 0.5f);

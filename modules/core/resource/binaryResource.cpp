@@ -74,15 +74,58 @@ namespace VulkanTest
 		return ResourceFactory::LoadResource(res);
 	}
 
+	void BinaryResourceFactory::ContinuleLoadResource(Resource* res)
+	{
+		BinaryResource* binaryRes = static_cast<BinaryResource*>(res);
+		ASSERT(binaryRes);
+
+		binaryRes->RemoveReference();
+		binaryRes->SetHooked(false);
+		binaryRes->desiredState = Resource::State::EMPTY;
+		if (binaryRes->IsReloading())
+		{
+			binaryRes->storage->Reload();
+		}
+		else
+		{
+			binaryRes->DoLoad();
+		}
+	}
+
+	void BinaryResourceFactory::ReloadResource(Resource* res)
+	{
+		ASSERT(res != nullptr);
+
+		BinaryResource* binaryRes = static_cast<BinaryResource*>(res);
+		// Load resource
+		if (resManager->OnBeforeLoad(*binaryRes) == ResourceManager::LoadHook::Action::DEFERRED)
+		{
+			ASSERT(binaryRes->IsHooked() == false);
+			binaryRes->SetIsReloading(true);
+			binaryRes->SetHooked(true);
+			binaryRes->AddReference(); // Hook
+			binaryRes->desiredState = Resource::State::READY;
+		}
+		else
+		{
+			binaryRes->storage->Reload();
+		}
+	}
+
 	BinaryResource::BinaryResource(const Path& path_, ResourceFactory& resFactory_) :
 		Resource(path_, resFactory_),
 		header(),
-		storage(nullptr)
+		storage(nullptr),
+		storageRef(nullptr)
 	{
 	}
 
 	BinaryResource::~BinaryResource()
 	{
+#ifdef CJING3D_EDITOR
+		if (storage)
+			storage->OnReloaded.Unbind<&BinaryResource::OnStorageReloaded>(this);
+#endif
 	}
 
 	bool BinaryResource::LoadResource()
@@ -92,24 +135,11 @@ namespace VulkanTest
 		return Load();
 	}
 
-	void BinaryResource::DoUnload()
-	{
-		if (storage)
-			storage->Unload();
-
-		Resource::DoUnload();
-	}
-
 	bool BinaryResource::InitStorage()
 	{
 		ASSERT(storage && storage->IsLoaded());
-		ASSERT(GetState() != State::READY);
-		ASSERT(emptyDepCount == 1);
 
-		// Desired state changed when file loading, so is a invalid loading
-		if (desiredState != State::READY)
-			return false;
-
+		// Load resource chunk header
 		if (!storage->LoadChunksHeader(&header))
 			return false;
 
@@ -137,20 +167,55 @@ namespace VulkanTest
 
 	ContentLoadingTask* BinaryResource::CreateLoadingTask()
 	{
-		auto loadResTask = Resource::CreateLoadingTask();
-		ASSERT(loadResTask);
+		auto task = Resource::CreateLoadingTask();
+		ASSERT(task);
 
 		// Load resource storage first
-		LoadStorageTask* task = CJING_NEW(LoadStorageTask)(this);
-		task->SetNextTask(loadResTask);
+		if (!storage->IsLoaded())
+		{
+			LoadStorageTask* loadTask = CJING_NEW(LoadStorageTask)(this);
+			loadTask->SetNextTask(task);
+			task = loadTask;
+		}
+
 		return task;
+	}
+
+	void BinaryResource::OnStorageReloaded(ResourceStorage* storage_, bool ret)
+	{
+		ASSERT(storage_ && storage == storage_);
+		auto oldHeader = header;
+		memset(&header, 0, sizeof(header));
+		if (ret == false)
+		{
+			Logger::Error("Failed to reload resource storage %s", GetPath().c_str());
+			return;
+		}
+
+		// Reinitialize storage
+		if (!InitStorage())
+		{
+			Logger::Error("Failed to reload resource storage %s", GetPath().c_str());
+			return;
+		}
+
+		// Reload resource
+		Reload();
 	}
 
 	bool BinaryResource::SetStorage(const ResourceStorageRef& storage_)
 	{
 		ASSERT(!storage && IsEmpty());
+		if (storage_ == storageRef)
+			return true;
+
 		storageRef = storage_;
-		storage = storageRef.get();
+		storage = storageRef.Get();
+
+#ifdef CJING3D_EDITOR
+		if (storage)
+			storage->OnReloaded.Bind<&BinaryResource::OnStorageReloaded>(this);
+#endif
 		return true;
 	}
 

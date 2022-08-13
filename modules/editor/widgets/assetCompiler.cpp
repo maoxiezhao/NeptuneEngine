@@ -336,7 +336,7 @@ namespace Editor
                         break;
 
                     if (res->IsReady() || res->IsFailure())
-                        res->GetResourceFactory().Reload(*res);
+                        res->GetResourceFactory().Reload(res);
                     else if (res->IsHooked())
                         lookHook.ContinueLoad(*res);
                 }

@@ -37,7 +37,7 @@ namespace VulkanTest
 	};
 
 	class Resource;
-	class VULKAN_TEST_API Resource
+	class VULKAN_TEST_API Resource : public Object
 	{
 	public:
 		friend class ResourceFactory;
@@ -108,6 +108,17 @@ namespace VulkanTest
 
 		I32 GetReference() const;
 
+		void SetIsReloading(bool isReloading_) {
+			isReloading = isReloading_;
+		}
+
+		bool IsReloading()const {
+			return isReloading;
+		}
+
+		// Called by ObjectService
+		void OnDelete()override;
+
 		ResourceFactory& GetResourceFactory();
 		ResourceManager& GetResourceManager();
 
@@ -121,15 +132,15 @@ namespace VulkanTest
 
 		Resource(const Path& path_, ResourceFactory& resFactory_);
 	
-		virtual void DoLoad();
-		virtual void DoUnload();
-		virtual bool LoadResource() = 0;
-
+		void DoLoad();
+		void Reload();
 		void CheckState();
 		void OnLoaded();
 		void OnUnLoaded();
 
+		virtual bool LoadResource() = 0;
 		virtual void OnCreated(State state);
+
 		virtual ContentLoadingTask* CreateLoadingTask();
 		bool LoadingFromTask(LoadResourceTask* task);
 		void OnLoadedFromTask(LoadResourceTask* task);
@@ -150,6 +161,7 @@ namespace VulkanTest
 		volatile I64 refCount;
 		Mutex mutex;
 		bool isStateDirty = false;
+		bool isReloading = false;
 
 	private:
 		friend struct ResourceDeleter;

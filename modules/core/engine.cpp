@@ -25,8 +25,17 @@ namespace VulkanTest
 		return Services;
 	}
 
-	EngineService::EngineService(const char* name_) :
-		name(name_)
+    void EngineService::Sort()
+    {
+        auto& services = GetServices();
+        std::sort(services.begin(), services.end(), [](EngineService* a, EngineService* b) {
+            return a->order < b->order;
+        });
+    }
+
+	EngineService::EngineService(const char* name_, I32 order_) :
+		name(name_),
+        order(order_)
 	{
 		GetServices().push_back(this);
 	}
@@ -38,6 +47,9 @@ namespace VulkanTest
 
     void EngineService::OnInit()
     {
+        // Sort services first
+        Sort();
+
         // Init services from front to back
         auto& services = GetServices();
         for (I32 i = 0; i < services.size(); i++)

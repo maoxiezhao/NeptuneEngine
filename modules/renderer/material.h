@@ -84,7 +84,6 @@ namespace VulkanTest
 
 	protected:
 		Resource* CreateResource(const Path& path) override;
-		void DestroyResource(Resource* res) override;
 
 	private:
 		LuaConfig luaConfig;

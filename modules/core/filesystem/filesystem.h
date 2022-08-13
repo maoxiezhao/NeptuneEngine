@@ -74,12 +74,6 @@ namespace VulkanTest
 		const char* GetBasePath()const;
 
 		bool LoadContext(const char* path, OutputMemoryStream& mem);
-		bool HasWork()const;
-		void ProcessAsync();
-
-		// Load file asynchronously
-		AsyncLoadHandle LoadFileAsync(const Path& path, const AsyncLoadCallback& cb);
-		void CancelAsync(AsyncLoadHandle async);
 
 	private:
 		FileSystem(UniquePtr<FileSystemBackend>&& backend_);

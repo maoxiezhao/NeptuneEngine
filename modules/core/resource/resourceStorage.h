@@ -75,7 +75,7 @@ namespace VulkanTest
 		void operator()(ResourceStorage* res);
 	};
 
-	class VULKAN_TEST_API ResourceStorage : public Util::IntrusivePtrEnabled<ResourceStorage, ResourceStorageDeleter>
+	class VULKAN_TEST_API ResourceStorage : public Object
 	{
 	public:
 		struct ResourceEntry
@@ -121,6 +121,12 @@ namespace VulkanTest
 			AtomicDecrement(&chunksLock);
 		}
 
+		void AddReference();
+		void RemoveReference();
+		I32 GetReference() const {
+			return refCount;
+		}
+
 		// Scoed locker
 		struct StorageLock
 		{
@@ -164,7 +170,6 @@ namespace VulkanTest
 				if (storage)
 					storage->LockChunks();
 			}
-
 		};
 
 		StorageLock Lock()
@@ -174,6 +179,8 @@ namespace VulkanTest
 
 #ifdef CJING3D_EDITOR
 		static bool Save(OutputMemoryStream& output, const ResourceInitData& data);
+
+		DelegateList<void(ResourceStorage*, bool)> OnReloaded; 
 #endif
 
 	private:
@@ -190,6 +197,85 @@ namespace VulkanTest
 		bool isLoaded = false;
 		Mutex mutex;
 		volatile I64 chunksLock;
+		I32 refCount;
+		F32 lastRefLoseTime;
 	};
-	using ResourceStorageRef = Util::IntrusivePtr<ResourceStorage>;
+
+	class VULKAN_TEST_API ResourceStorageRef
+	{
+	private:
+		ResourceStorage* storage;
+
+	public:
+		ResourceStorageRef(ResourceStorage* storage_) :
+			storage(storage_)
+		{
+			if (storage)
+				storage->AddReference();
+		}
+
+		~ResourceStorageRef()
+		{
+			if (storage)
+				storage->RemoveReference();
+		}
+
+		ResourceStorageRef(const ResourceStorageRef& other) :
+			storage(other.storage)
+		{
+			if (storage)
+				storage->AddReference();
+		}
+
+		ResourceStorageRef& operator=(const ResourceStorageRef& other)
+		{
+			if (this != &other)
+			{
+				if (storage)
+					storage->RemoveReference();
+				storage = other.storage;
+				if (storage)
+					storage->AddReference();
+			}
+			return *this;
+		}
+
+		FORCE_INLINE bool operator ==(const ResourceStorageRef& other) const
+		{
+			return storage == other.storage;
+		}
+
+		FORCE_INLINE bool operator !=(const ResourceStorageRef& other) const
+		{
+			return storage != other.storage;
+		}
+
+		FORCE_INLINE operator ResourceStorage* () const
+		{
+			return storage;
+		}
+
+		FORCE_INLINE operator bool() const
+		{
+			return storage != nullptr;
+		}
+
+		FORCE_INLINE ResourceStorage* operator->() const
+		{
+			return storage;
+		}
+
+		FORCE_INLINE ResourceStorage* Get() {
+			return storage;
+		}
+
+		void reset()
+		{
+			if (storage)
+			{
+				storage->RemoveReference();
+				storage = nullptr;
+			}
+		}
+	};
 }

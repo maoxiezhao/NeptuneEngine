@@ -59,11 +59,6 @@ namespace VulkanTest
 		return CJING_NEW(Material)(path, *this);
 	}
 
-	void MaterialFactory::DestroyResource(Resource* res)
-	{
-		CJING_SAFE_DELETE(res);
-	}
-
 	Material::Material(const Path& path_, ResourceFactory& resFactory_) :
 		BinaryResource(path_, resFactory_)
 	{
@@ -150,7 +145,6 @@ namespace VulkanTest
 			CJING_SAFE_DELETE(materialShader);
 			materialShader = nullptr;
 		}
-
 		params.Unload();
 	}
 

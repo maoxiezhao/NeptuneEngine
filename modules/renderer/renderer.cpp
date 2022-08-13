@@ -149,11 +149,6 @@ namespace Renderer
 		{
 			return CJING_NEW(T)(path, *this);
 		}
-
-		virtual void DestroyResource(Resource* res) override
-		{
-			CJING_DELETE(res);
-		}
 	};
 
 	LocalPtr<RenderResourceFactory<Shader>> shaderFactory;

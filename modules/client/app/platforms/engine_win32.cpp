@@ -176,9 +176,6 @@ namespace VulkanTest
 			// Update input system
 			inputSystem->Update(dt);
 
-			// Process async loading jobs
-			fileSystem->ProcessAsync();
-
 			// Update resource manager
 			resourceManager->Update(dt);
 

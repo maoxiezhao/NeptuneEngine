@@ -21,8 +21,6 @@ namespace VulkanTest
     }
 }
 
-using namespace VulkanTest;
-
 int main(int argc, char* argv[])
 {
     return VulkanTest::ApplicationMain(VulkanTest::CreateApplication, argc, argv);
