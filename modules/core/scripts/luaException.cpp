@@ -5,37 +5,45 @@
 
 namespace VulkanTest::LuaUtils
 {
-	void LuaException::Error(lua_State * l, const std::string & message)
+	void LuaException::Error(lua_State* l, const char* format, ...)
 	{
-		std::string msg(message);
+		StaticString<64> msg;
+		va_list args;
+		va_start(args, format);
+		vsnprintf(msg.data, 64, format, args);
+		va_end(args);
 		luaL_traceback(l, l, NULL, 1);
 		msg += lua_tostring(l, -1);
-
-		std::cout << msg << std::endl;
 		throw LuaException(l, msg);
 	}
 
-	void LuaException::ArgError(lua_State * l, int index, const std::string & message)
+	void LuaException::ArgError(lua_State* l, int index, const const char* format, ...)
 	{
+		StaticString<64> msg;
+		va_list args;
+		va_start(args, format);
+		vsnprintf(msg.data, 64, format, args);
+		va_end(args);
+
 		std::ostringstream oss;
 		lua_Debug info;
 		if (!lua_getstack(l, 0, &info))
 		{
-			oss << "Bad argument #" << index << "(" << message << ")";
-			Error(l, oss.str());
+			oss << "Bad argument #" << index << "(" << msg.c_str() << ")";
+			Error(l, oss.str().c_str());
 		}
 
 		lua_getinfo(l, "n", &info);
-		if (std::string(info.namewhat) == "method")
+		if (String(info.namewhat) == "method")
 		{
-			oss << "Calling:" << info.name << " failed. (" << message << ")";
-			Error(l, oss.str());
+			oss << "Calling:" << info.name << " failed. (" << msg.c_str() << ")";
+			Error(l, oss.str().c_str());
 		}
 
 		if (info.name == nullptr)
 			info.name = "?";
 
-		oss << "Bad argument #" << index << " to " << info.name << "(" << message << ")";
-		Error(l, oss.str());
+		oss << "Bad argument #" << index << " to " << info.name << "(" << msg.c_str() << ")";
+		Error(l, oss.str().c_str());
 	}
 }

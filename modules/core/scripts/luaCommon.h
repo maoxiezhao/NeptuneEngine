@@ -2,6 +2,7 @@
 
 #include "core\common.h"
 #include "core\memory\allocator.h"
+#include "core\utils\string.h"
 
 extern "C"
 {

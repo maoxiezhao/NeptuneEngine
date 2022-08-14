@@ -4,7 +4,7 @@ dofile("../tools/cjing_build/premake/plugins.lua")
 dofile("../tools/cjing_build/premake/example_app.lua")
 
 app_name = "studio"
-
+app_dir = "editor"
 start_project = app_name
 if not build_editor then 
     start_project = app_name

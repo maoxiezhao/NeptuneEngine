@@ -31,6 +31,7 @@ namespace VulkanTest::LuaUtils
 		l(other.l),
 		ref(other.ref)
 	{
+		other.l = nullptr;
 		other.ref = LUA_REFNIL;
 	}
 
@@ -51,8 +52,10 @@ namespace VulkanTest::LuaUtils
 
 	LuaRef& LuaRef::operator=(LuaRef&& other)
 	{
-		std::swap(l, other.l);
-		std::swap(ref, other.ref);
+		l = other.l;
+		ref = other.ref;
+		other.l = nullptr;
+		other.ref = LUA_REFNIL;
 		return *this;
 	}
 
@@ -97,6 +100,18 @@ namespace VulkanTest::LuaUtils
 		return CreateRef(l);
 	}
 
+	LuaRef LuaRef::CreateFromPtr(lua_State* l, void* ptr)
+	{
+		lua_pushlightuserdata(l, ptr);
+		return CreateRef(l);
+	}
+
+	LuaRef LuaRef::CreateTable(lua_State* l, int narray, int nrec)
+	{
+		lua_createtable(l, narray, nrec);
+		return CreateRef(l);
+	}
+
 	void LuaRef::Clear()
 	{
 		if (l != nullptr && ref != LUA_REFNIL && ref != LUA_NOREF) {
@@ -110,6 +125,14 @@ namespace VulkanTest::LuaUtils
 	bool LuaRef::IsEmpty() const
 	{
 		return l == nullptr || (ref == LUA_REFNIL || ref == LUA_NOREF);
+	}
+
+	void LuaRef::SetMetatable(LuaRef& luaRef)
+	{
+		Push();
+		luaRef.Push();
+		lua_setmetatable(l, -2);
+		lua_pop(l, 1);
 	}
 
 	void LuaRef::Push() const

@@ -3,6 +3,7 @@
 #include "luaCommon.h"
 #include "luaException.h"
 
+#include "core\utils\string.h"
 #include "core\utils\path.h"
 #include "math\math.hpp"
 
@@ -62,7 +63,7 @@ namespace VulkanTest::LuaUtils
 		{
 			index = GetPositiveIndex(l, index);
 			if (!lua_isnumber(l, index))
-				LuaException::ArgError(l, index, std::string("Excepted:Number, got ") + luaL_typename(l, index));
+				LuaException::ArgError(l, index, "Excepted:Number, got %s.", luaL_typename(l, index));
 
 			return static_cast<T>(lua_tonumber(l, index));
 		}
@@ -93,7 +94,7 @@ namespace VulkanTest::LuaUtils
 		{
 			index = GetPositiveIndex(l, index);
 			if (!lua_isinteger(l, index))
-				LuaException::ArgError(l, index, std::string("Excepted:Integer, got ") + luaL_typename(l, index));
+				LuaException::ArgError(l, index, "Excepted:Integer, got %s.", luaL_typename(l, index));
 
 			return static_cast<T>(lua_tointeger(l, index));
 		}
@@ -128,7 +129,7 @@ namespace VulkanTest::LuaUtils
 		{
 			index = GetPositiveIndex(l, index);
 			if (!lua_isboolean(l, index))
-				LuaException::ArgError(l, index, std::string("Excepted:boolean, got ") + luaL_typename(l, index));
+				LuaException::ArgError(l, index, "Excepted:boolean, got %s", luaL_typename(l, index));
 
 			return lua_toboolean(l, index);
 		}
@@ -156,7 +157,7 @@ namespace VulkanTest::LuaUtils
 		{
 			index = GetPositiveIndex(l, index);
 			if (!lua_isstring(l, index))
-				LuaException::ArgError(l, index, std::string("Excepted:char*, got ") + luaL_typename(l, index));
+				LuaException::ArgError(l, index, "Excepted:char*, got ", luaL_typename(l, index));
 
 			return lua_tostring(l, index);
 		}
@@ -203,12 +204,40 @@ namespace VulkanTest::LuaUtils
 		{
 			index = GetPositiveIndex(l, index);
 			if (!lua_isstring(l, index))
-				LuaException::ArgError(l, index, std::string("Excepted:path, got ") + luaL_typename(l, index));
+				LuaException::ArgError(l, index, "Excepted:path, got ", luaL_typename(l, index));
 
 			return Path(lua_tostring(l, index));
 		}
 
 		static Path Opt(lua_State* l, int index, const Path& defValue)
+		{
+			return lua_isnoneornil(l, index) ? defValue : Get(l, index);
+		}
+
+		static bool Check(lua_State* l, int index)
+		{
+			return lua_isstring(l, index);
+		}
+	};
+
+	template<>
+	struct LuaTypeNormalMapping<String>
+	{
+		static void Push(lua_State* l, const String& str)
+		{
+			lua_pushstring(l, str.c_str());
+		}
+
+		static String Get(lua_State* l, int index)
+		{
+			index = GetPositiveIndex(l, index);
+			if (!lua_isstring(l, index))
+				LuaException::ArgError(l, index, "Excepted:String, got ", luaL_typename(l, index));
+
+			return String(lua_tostring(l, index));
+		}
+
+		static String Opt(lua_State* l, int index, const String& defValue)
 		{
 			return lua_isnoneornil(l, index) ? defValue : Get(l, index);
 		}

@@ -1,8 +1,8 @@
 -- config
 local module_env = "../../"
 set_module_location( module_env .. "modules")
-set_build_location(module_env .. "app/build/" ..  platform_dir .. "/modules")
-set_lib_location(module_env .. "app/bin/" ..  platform_dir .. "/libs")
+set_build_location(module_env .. app_dir .. "/build/" ..  platform_dir .. "/modules")
+set_lib_location(module_env .. app_dir .. "/bin/" ..  platform_dir .. "/libs")
 set_third_party_location(module_env .. "3rdparty")
 set_asset_location(module_env .. "assets")
 

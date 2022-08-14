@@ -128,6 +128,12 @@ namespace VulkanTest::LuaUtils
 		static LuaRef CreateRef(lua_State* l);
 		static LuaRef CreateRef(lua_State* l, int index);
 		static LuaRef CreateGlobalRef(lua_State* l);
+		static LuaRef CreateFromPtr(lua_State* l, void* ptr);
+		static LuaRef CreateTable(lua_State* l, int narray = 0, int nrec = 0);
+
+		lua_State* GetState() {
+			return l;
+		}
 
 		template<typename T>
 		static std::enable_if_t<std::is_function<T>::value, LuaRef>
@@ -188,10 +194,41 @@ namespace VulkanTest::LuaUtils
 		void Clear();
 		void Push()const;
 		bool IsEmpty()const;
+		void SetMetatable(LuaRef& luaRef);
 
 		static LuaRef NULL_REF;
 	private:
 		lua_State* l;
 		int ref;
+	};
+
+	template<>
+	struct LuaTypeNormalMapping<LuaRef>
+	{
+		static void Push(lua_State* l, const LuaRef& value)
+		{
+			if (value.IsEmpty())
+				lua_pushnil(l);
+			else
+				value.Push();
+		}
+
+		static LuaRef Get(lua_State* l, int index)
+		{
+			if (lua_isnil(l, index))
+				return LuaRef::NULL_REF;
+			else
+				return LuaRef::CreateRef(l, index);
+		}
+
+		static LuaRef Opt(lua_State* l, int index, const LuaRef& defValue)
+		{
+			return lua_isnone(l, index) ? defValue : Get(l, index);
+		}
+
+		static bool Check(lua_State* l, int index)
+		{
+			return true;
+		}
 	};
 }
