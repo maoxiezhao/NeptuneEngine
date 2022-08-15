@@ -60,6 +60,47 @@ namespace Editor::Gizmo
 	} 
 	impl;
 
+	MATRIX GetMirrorMatrix(Axis axis, const Transform& transform, const CameraComponent& camera)
+	{
+		XMMATRIX mirror = XMMatrixIdentity();
+		switch (axis)
+		{
+		case Axis::X:
+			if (camera.eye.x < transform.translation.x)
+				mirror *= XMMatrixScaling(-1, 1, 1);
+			break;
+		case Axis::Y:
+			if (camera.eye.y < transform.translation.y)
+				mirror *= XMMatrixScaling(1, -1, 1);
+			break;
+		case Axis::Z:
+			if (camera.eye.z < transform.translation.z)
+				mirror *= XMMatrixScaling(1, 1, -1);
+			break;
+		case Axis::XY:
+			if (camera.eye.x < transform.translation.x)
+				mirror *= XMMatrixScaling(-1, 1, 1);
+			if (camera.eye.y < transform.translation.y)
+				mirror *= XMMatrixScaling(1, -1, 1);
+			break;
+		case Axis::XZ:
+			if (camera.eye.x < transform.translation.x)
+				mirror *= XMMatrixScaling(-1, 1, 1);
+			if (camera.eye.z < transform.translation.z)
+				mirror *= XMMatrixScaling(1, 1, -1);
+			break;
+		case Axis::YZ:
+			if (camera.eye.y < transform.translation.y)
+				mirror *= XMMatrixScaling(1, -1, 1);
+			if (camera.eye.z < transform.translation.z)
+				mirror *= XMMatrixScaling(1, 1, -1);
+			break;
+		default:
+			break;
+		}
+		return mirror;
+	}
+
 	Axis Collide(const Transform& transform, WorldView& view, const Gizmo::Config& cfg)
 	{
 		const CameraComponent& camera = view.GetCamera();
@@ -69,14 +110,14 @@ namespace Editor::Gizmo
 		F32 dist = std::max(Distance(position, camera.eye) * 0.05f, 0.0001f);
 
 		// Translate
-		if (cfg.mode == Config::Mode::TRANSLATE)
+		if (cfg.mode == Config::Mode::TRANSLATE || cfg.mode == Config::Mode::SCALE)
 		{
 			AABB aabbOrigin = AABB::CreateFromHalfWidth(position, F32x3(originSize * dist, originSize * dist, originSize * dist));
-			F32x3 maxp = position + F32x3(axisLength, 0, 0) * dist;
+			F32x3 maxp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(axisLength, 0, 0) * dist), GetMirrorMatrix(Axis::X, transform, camera)));
 			AABB aabbX = AABB::Merge(AABB(Min(position, maxp), Max(position, maxp)), aabbOrigin);
-			maxp = position + F32x3(0, axisLength, 0) * dist;
+			maxp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(0, axisLength, 0) * dist), GetMirrorMatrix(Axis::Y, transform, camera)));
 			AABB aabbY = AABB::Merge(AABB(Min(position, maxp), Max(position, maxp)), aabbOrigin);
-			maxp = position + F32x3(0, 0, axisLength) * dist;
+			maxp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(0, 0, axisLength) * dist), GetMirrorMatrix(Axis::Z, transform, camera)));
 			AABB aabbZ = AABB::Merge(AABB(Min(position, maxp), Max(position, maxp)), aabbOrigin);
 
 			if (aabbX.Intersects(ray))
@@ -86,45 +127,49 @@ namespace Editor::Gizmo
 			else if (aabbZ.Intersects(ray))
 				return Axis::Z;
 
-			F32x3 minp = position + F32x3(planeMin, planeMin, 0.0f) * dist;
-			maxp = position + F32x3(planeMax, planeMax, 0.0f) * dist;
-			AABB aabbXY = AABB(Min(minp, maxp), Max(minp, maxp));
-
-			minp = position + F32x3(planeMin, 0.0f, planeMin) * dist;
-			maxp = position + F32x3(planeMax, 0.0f, planeMax) * dist;
-			AABB aabbXZ = AABB(Min(minp, maxp), Max(minp, maxp));
-
-			minp = position + F32x3(0.0f, planeMin, planeMin) * dist;
-			maxp = position + F32x3(0.0f, planeMax, planeMax) * dist;
-			AABB aabbYZ = AABB(Min(minp, maxp), Max(minp, maxp));
-
-			// Find the closest plane (by checking plane ray trace distance):
-			VECTOR rayDir = LoadF32x3(ray.direction);
-			VECTOR posDelta = LoadF32x3(ray.origin - position);
-			VECTOR N = VectorSet(0, 0, 1, 0);
-
 			Axis ret = Axis::NONE;
-			F32 prio = FLT_MAX;
-			if (aabbXY.Intersects(ray))
+			if (cfg.mode == Config::Mode::TRANSLATE)
 			{
-				ret = Axis::XY;
-				prio = VectorGetX(Vector3Dot(N, VectorDivide(posDelta, VectorAbs(Vector3Dot(N, rayDir)))));
-			}
+				F32x3 minp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(planeMin, planeMin, 0.0f) * dist), GetMirrorMatrix(Axis::XY, transform, camera)));
+				maxp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(planeMax, planeMax, 0.0f) * dist), GetMirrorMatrix(Axis::XY, transform, camera)));
+				AABB aabbXY = AABB(Min(minp, maxp), Max(minp, maxp));
 
-			N = VectorSet(0, 1, 0, 0);
-			float d = VectorGetX(Vector3Dot(N, VectorDivide(posDelta, VectorAbs(Vector3Dot(N, rayDir)))));
-			if (d < prio && aabbXZ.Intersects(ray))
-			{
-				ret = Axis::XZ;
-				prio = d;
-			}
+				minp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(planeMin, 0.0f, planeMin) * dist), GetMirrorMatrix(Axis::XZ, transform, camera)));
+				maxp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(planeMax, 0.0f, planeMax) * dist), GetMirrorMatrix(Axis::XZ, transform, camera)));
+				AABB aabbXZ = AABB(Min(minp, maxp), Max(minp, maxp));
 
-			N = VectorSet(1, 0, 0, 0);
-			d = VectorGetX(Vector3Dot(N, VectorDivide(posDelta, VectorAbs(Vector3Dot(N, rayDir)))));
-			if (d < prio && aabbYZ.Intersects(ray))
-			{
-				ret = Axis::YZ;
+				minp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(0.0f, planeMin, planeMin) * dist), GetMirrorMatrix(Axis::YZ, transform, camera)));
+				maxp = position + StoreF32x3(Vector3Transform(LoadF32x3(F32x3(0.0f, planeMax, planeMax) * dist), GetMirrorMatrix(Axis::YZ, transform, camera)));
+				AABB aabbYZ = AABB(Min(minp, maxp), Max(minp, maxp));
+
+				// Find the closest plane (by checking plane ray trace distance):
+				VECTOR rayDir = LoadF32x3(ray.direction);
+				VECTOR posDelta = LoadF32x3(ray.origin - position);
+				VECTOR N = VectorSet(0, 0, 1, 0);
+
+				F32 prio = FLT_MAX;
+				if (aabbXY.Intersects(ray))
+				{
+					ret = Axis::XY;
+					prio = VectorGetX(Vector3Dot(N, VectorDivide(posDelta, VectorAbs(Vector3Dot(N, rayDir)))));
+				}
+
+				N = VectorSet(0, 1, 0, 0);
+				float d = VectorGetX(Vector3Dot(N, VectorDivide(posDelta, VectorAbs(Vector3Dot(N, rayDir)))));
+				if (d < prio && aabbXZ.Intersects(ray))
+				{
+					ret = Axis::XZ;
+					prio = d;
+				}
+
+				N = VectorSet(1, 0, 0, 0);
+				d = VectorGetX(Vector3Dot(N, VectorDivide(posDelta, VectorAbs(Vector3Dot(N, rayDir)))));
+				if (d < prio && aabbYZ.Intersects(ray))
+				{
+					ret = Axis::YZ;
+				}
 			}
+			
 			return ret;
 		}
 		else if (cfg.mode == Config::Mode::ROTATE)
@@ -167,7 +212,6 @@ namespace Editor::Gizmo
 			}
 			return ret;
 		}
-
 		return Axis::NONE;
 	}
 
@@ -362,7 +406,44 @@ namespace Editor::Gizmo
 
 	bool DoScale(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config)
 	{
-		return false;
+		const bool noneActive = impl.draggedID == ECS::INVALID_ENTITY;
+		if (noneActive)
+		{
+			const Axis axis = Collide(transform, view, config);
+			if (axis != Axis::NONE)
+				impl.activeID = entity;
+			else if (impl.activeID != ECS::INVALID_ENTITY)
+				impl.activeID = ECS::INVALID_ENTITY;
+
+			if (view.IsMouseClick(Platform::MouseButton::LEFT) && axis != Axis::NONE)
+			{
+				impl.draggedID = entity;
+				impl.axis = axis;
+				impl.prevTransform = transform;
+				impl.prevPoint = GetMousePlaneIntersection(transform, view, axis);
+			}
+
+			return false;
+		}
+
+		if (!view.IsMouseDown(Platform::MouseButton::LEFT))
+		{
+			impl.draggedID = ECS::INVALID_ENTITY;
+			impl.axis = Axis::NONE;
+			return false;
+		}
+
+		const F32x3 pos = GetMousePlaneIntersection(transform, view, impl.axis);
+		F32x3 delta = pos - impl.prevPoint;	
+		VECTOR deltaV = Vector3TransformNormal(LoadF32x3(delta), GetMirrorMatrix(impl.axis, impl.prevTransform, view.GetCamera()));
+		deltaV = XMVector3Rotate(deltaV, LoadF32x4(transform.rotation));
+		delta = StoreF32x3(deltaV);
+		F32x3 scale = Max(transform.scale, F32x3(0.001f, 0.001f, 0.001f)); // no zero division
+		scale = F32x3((1.0f / scale.x) * (scale.x + delta.x), (1.0f / scale.y) * (scale.y + delta.y), (1.0f / scale.z) * (scale.z + delta.z));
+
+		transform = impl.prevTransform;
+		transform.Scale(scale);
+		return true;
 	}
 
 	void Update()
@@ -392,10 +473,12 @@ namespace Editor::Gizmo
 		}
 	}
 
-	void SetupTranslatorVertexData(U8* dst, size_t size)
+	void DrawTranslator(GPU::CommandList& cmd, CameraComponent& camera, const Transform& transform, const Config& config)
 	{
+		U32 vertexCount = 0;
+		vertexCount = (cylinderTriangleCount + coneTriangleCount) * 3;
+		Vertex* vertMem = static_cast<Vertex*>(cmd.AllocateVertexBuffer(0, sizeof(Vertex) * vertexCount, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX));
 		const F32x4 color = F32x4(1.0f);
-		U8* old = dst;
 		for (uint32_t i = 0; i < segmentCount; ++i)
 		{
 			const F32 angle0 = (F32)i / (F32)segmentCount * MATH_2PI;
@@ -411,10 +494,9 @@ namespace Editor::Gizmo
 					{F32x4(cylinder_length, std::sin(angle1) * cylinder_radius, std::cos(angle1) * cylinder_radius, 1), color},
 					{F32x4(originSize, std::sin(angle1) * cylinder_radius, std::cos(angle1) * cylinder_radius, 1), color},
 				};
-				std::memcpy(dst, verts, sizeof(verts));
-				dst += sizeof(verts);
+				std::memcpy(vertMem, verts, sizeof(verts));
+				vertMem += ARRAYSIZE(verts);
 			}
-
 			// cone cap:
 			{
 				const float cone_radius = originSize;
@@ -426,20 +508,11 @@ namespace Editor::Gizmo
 					{F32x4(cylinder_length, std::sin(angle0) * cone_radius, std::cos(angle0) * cone_radius, 1), color},
 					{F32x4(cylinder_length, std::sin(angle1) * cone_radius, std::cos(angle1) * cone_radius, 1), color},
 				};
-				std::memcpy(dst, verts, sizeof(verts));
-				dst += sizeof(verts);
+				std::memcpy(vertMem, verts, sizeof(verts));
+				vertMem += ARRAYSIZE(verts);
 			}
 		}
-
-		ASSERT(size == (dst - old));
-	}
-
-	void DrawTranslator(GPU::CommandList& cmd, CameraComponent& camera, const Transform& transform, const Config& config)
-	{
-		U32 vertexCount = 0;
-		vertexCount = (cylinderTriangleCount + coneTriangleCount) * 3;
-		Vertex* vertMem = static_cast<Vertex*>(cmd.AllocateVertexBuffer(0, sizeof(Vertex) * vertexCount, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX));
-		SetupTranslatorVertexData((U8*)vertMem, sizeof(Vertex) * vertexCount);
+		
 		cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
 		cmd.SetVertexAttribute(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(F32x4));
 		cmd.SetDefaultTransparentState();
@@ -456,24 +529,23 @@ namespace Editor::Gizmo
 
 		// X
 		GizmoConstant constant = {};
-		constant.pos = StoreFMat4x4(MatrixIdentity() * mat);
+		constant.pos = StoreFMat4x4(MatrixIdentity() * GetMirrorMatrix(Axis::X, transform, camera) * mat);
 		constant.col = impl.axis == Axis::X ? highlightColor : F32x4(1.0f, 0.25f, 0.25f, 1.0f);
 		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(vertexCount);
 
 		// Y
-		constant.pos = StoreFMat4x4(MatrixRotationZ(MATH_PIDIV2) * MatrixRotationY(MATH_PIDIV2) * mat);
+		constant.pos = StoreFMat4x4(MatrixRotationZ(MATH_PIDIV2) * MatrixRotationY(MATH_PIDIV2) * GetMirrorMatrix(Axis::Y, transform, camera) * mat);
 		constant.col = impl.axis == Axis::Y ? highlightColor : F32x4(0.25f, 1.0f, 0.25f, 1.0f);
 		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(vertexCount);
 
 		// Z
-		constant.pos = StoreFMat4x4(MatrixRotationY(-MATH_PIDIV2) * MatrixRotationZ(-MATH_PIDIV2) * mat);
+		constant.pos = StoreFMat4x4(MatrixRotationY(-MATH_PIDIV2) * MatrixRotationZ(-MATH_PIDIV2) * GetMirrorMatrix(Axis::Z, transform, camera) * mat);
 		constant.col = impl.axis == Axis::Z ? highlightColor : F32x4(0.25f, 0.25f, 1.0f, 1.0f);
 		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(vertexCount);
 
-		const F32x4 color = F32x4(1.0f);
 		const Vertex verts[] = {
 			{F32x4(planeMin, planeMin, 0.0f, 1.0f), color},
 			{F32x4(planeMax, planeMin, 0.0f, 1.0f), color},
@@ -487,19 +559,19 @@ namespace Editor::Gizmo
 		std::memcpy(vertMem, verts, sizeof(verts));
 
 		// XY
-		constant.pos = StoreFMat4x4(MatrixIdentity() * mat);
+		constant.pos = StoreFMat4x4(MatrixIdentity() * GetMirrorMatrix(Axis::XY, transform, camera) * mat);
 		constant.col = impl.axis == Axis::XY ? highlightColor : F32x4(planeMin, planeMin, planeMax, 0.4f);
 		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(ARRAYSIZE(verts));
 
 		// XZ
-		constant.pos = StoreFMat4x4(MatrixRotationY(-MATH_PIDIV2) * MatrixRotationZ(-MATH_PIDIV2) * mat);
+		constant.pos = StoreFMat4x4(MatrixRotationY(-MATH_PIDIV2) * MatrixRotationZ(-MATH_PIDIV2) * GetMirrorMatrix(Axis::XZ, transform, camera) * mat);
 		constant.col = impl.axis == Axis::XZ ? highlightColor : F32x4(planeMin, planeMax, planeMin, 0.4f);
 		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(ARRAYSIZE(verts));
 
 		// YZ
-		constant.pos = StoreFMat4x4(MatrixRotationZ(MATH_PIDIV2) * MatrixRotationY(MATH_PIDIV2) * mat);
+		constant.pos = StoreFMat4x4(MatrixRotationZ(MATH_PIDIV2) * MatrixRotationY(MATH_PIDIV2) * GetMirrorMatrix(Axis::YZ, transform, camera) * mat);
 		constant.col = impl.axis == Axis::YZ ? highlightColor : F32x4(planeMax, planeMin, planeMin, 0.4f);
 		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
 		cmd.Draw(ARRAYSIZE(verts));
@@ -641,8 +713,114 @@ namespace Editor::Gizmo
 		}
 	}
 
+	const Vertex CubeVerts[] = {
+		{F32x4(-1.0f,1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,-1.0f,1.0f), F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,1.0f,1.0f),	F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,-1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,-1.0f,1.0f), F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,1.0f,1.0f),	F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,-1.0f,1.0f), F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,1.0f,1.0f),	F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,1.0f,1.0f),	F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,-1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,-1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,-1.0f,1.0f), F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,-1.0f,1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,-1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,-1.0f,1.0f),   F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(1.0f,1.0f,1.0f,1.0f),	F32x4(1.0f,1.0f,1.0f,1.0f)},
+		{F32x4(-1.0f,1.0f,-1.0f,1.0f),  F32x4(1.0f,1.0f,1.0f,1.0f)},
+	};
+
 	void DrawScaler(GPU::CommandList& cmd, CameraComponent& camera, const Transform& transform, const Config& config)
 	{
+		U32 vertexCount = 0;
+		vertexCount = (cylinderTriangleCount) * 3 + ARRAYSIZE(CubeVerts);
+		Vertex* vertMem = static_cast<Vertex*>(cmd.AllocateVertexBuffer(0, sizeof(Vertex) * vertexCount, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX));
+		const F32x4 color = F32x4(1.0f);
+		for (uint32_t i = 0; i < segmentCount; ++i)
+		{
+			const F32 angle0 = (F32)i / (F32)segmentCount * MATH_2PI;
+			const F32 angle1 = (F32)(i + 1) / (F32)segmentCount * MATH_2PI;
+			// Cylinder base:
+			{
+				const float cylinder_radius = 0.075f;
+				const Vertex verts[] = {
+					{F32x4(originSize, std::sin(angle0) * cylinder_radius, std::cos(angle0) * cylinder_radius, 1), color},
+					{F32x4(originSize, std::sin(angle1) * cylinder_radius, std::cos(angle1) * cylinder_radius, 1), color},
+					{F32x4(cylinder_length, std::sin(angle0) * cylinder_radius, std::cos(angle0) * cylinder_radius, 1), color},
+					{F32x4(cylinder_length, std::sin(angle0) * cylinder_radius, std::cos(angle0) * cylinder_radius, 1), color},
+					{F32x4(cylinder_length, std::sin(angle1) * cylinder_radius, std::cos(angle1) * cylinder_radius, 1), color},
+					{F32x4(originSize, std::sin(angle1) * cylinder_radius, std::cos(angle1) * cylinder_radius, 1), color},
+				};
+				std::memcpy(vertMem, verts, sizeof(verts));
+				vertMem += ARRAYSIZE(verts);
+			}
+		}
+
+		// Cube cap:
+		for (uint32_t i = 0; i < ARRAYSIZE(CubeVerts); ++i)
+		{
+			Vertex vert = CubeVerts[i];
+			vert.position.x = vert.position.x * originSize + cylinder_length - originSize;
+			vert.position.y = vert.position.y * originSize;
+			vert.position.z = vert.position.z * originSize;
+			std::memcpy(vertMem, &vert, sizeof(vert));
+			vertMem += 1;
+		}
+
+		cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+		cmd.SetVertexAttribute(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(F32x4));
+		cmd.SetDefaultTransparentState();
+		cmd.SetBlendState(Renderer::GetBlendState(BSTYPE_TRANSPARENT));
+		cmd.SetRasterizerState(Renderer::GetRasterizerState(RSTYPE_DOUBLE_SIDED));
+		cmd.SetDepthStencilState(Renderer::GetDepthStencilState(DSTYPE_DEFAULT));
+		cmd.SetProgram(
+			Renderer::GetShader(ShaderType::SHADERTYPE_VERTEXCOLOR)->GetVS("VS"),
+			Renderer::GetShader(ShaderType::SHADERTYPE_VERTEXCOLOR)->GetPS("PS")
+		);
+
+		F32 dist = std::max(Distance(transform.GetPosition(), camera.eye) * 0.05f, 0.0001f);
+		MATRIX mat = MatrixScaling(dist, dist, dist) * MatrixTranslationFromVector(LoadF32x3(transform.GetPosition())) * camera.GetViewProjection();
+
+		// X
+		GizmoConstant constant = {};
+		constant.pos = StoreFMat4x4(MatrixIdentity() * GetMirrorMatrix(Axis::X, transform, camera) * mat);
+		constant.col = impl.axis == Axis::X ? highlightColor : F32x4(1.0f, 0.25f, 0.25f, 1.0f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(vertexCount);
+
+		// Y
+		constant.pos = StoreFMat4x4(MatrixRotationZ(MATH_PIDIV2) * MatrixRotationY(MATH_PIDIV2) * GetMirrorMatrix(Axis::Y, transform, camera) * mat);
+		constant.col = impl.axis == Axis::Y ? highlightColor : F32x4(0.25f, 1.0f, 0.25f, 1.0f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(vertexCount);
+
+		// Z
+		constant.pos = StoreFMat4x4(MatrixRotationY(-MATH_PIDIV2) * MatrixRotationZ(-MATH_PIDIV2) * GetMirrorMatrix(Axis::Z, transform, camera) * mat);
+		constant.col = impl.axis == Axis::Z ? highlightColor : F32x4(0.25f, 0.25f, 1.0f, 1.0f);
+		cmd.BindConstant<GizmoConstant>(constant, 0, 0);
+		cmd.Draw(vertexCount);
 	}
 
 	void Draw(GPU::CommandList& cmd, CameraComponent& camera, const Config& config)
