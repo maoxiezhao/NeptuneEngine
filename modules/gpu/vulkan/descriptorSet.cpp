@@ -247,11 +247,6 @@ namespace GPU
 			bindingFlagsInfo.pBindingFlags = &bindingFlags;
 			info.pNext = &bindingFlagsInfo;
 		}
-		else
-		{
-			for (U32 i = 0; i < device.GetNumThreads(); i++)
-				perThreads.emplace_back(new PerThread());
-		}
 
 		std::vector<VkDescriptorSetLayoutBinding> bindings;
 		for(U32 i = 0; i < VULKAN_NUM_BINDINGS; i++)
@@ -347,14 +342,18 @@ namespace GPU
 	{
 		if (!isBindless)
 		{
-			for (auto& perThread : perThreads)
+			Array<PerThread*> threads;
+			perThreads.GetNotNullValues(threads);
+			for (auto& perThread : threads)
 				perThread->shouldBegin = true;
 		}
 	}
 
 	void DescriptorSetAllocator::Clear()
 	{
-		for (auto& perThread : perThreads)
+		Array<PerThread*> threads;
+		perThreads.GetNotNullValues(threads);
+		for (auto perThread : threads)
 		{
 			perThread->descriptorSetNodes.Clear();
 			for (auto& pool : perThread->pools)
@@ -364,24 +363,27 @@ namespace GPU
 			}
 			perThread->pools.clear();
 		}
+		perThreads.DeleteAll();
 	}
 
-	std::pair<VkDescriptorSet, bool> DescriptorSetAllocator::GetOrAllocate(U32 threadIndex, HashValue hash)
+	std::pair<VkDescriptorSet, bool> DescriptorSetAllocator::GetOrAllocate(HashValue hash)
 	{
-		ASSERT(threadIndex >= 0 && threadIndex < perThreads.size());
-		PerThread& perThread = *perThreads[threadIndex];
+		auto& perThread = perThreads.Get();
+		if (perThread == nullptr)
+			perThread = CJING_NEW(PerThread);
+
 		// free set map and push them into setVacants
-		if (perThread.shouldBegin)
+		if (perThread->shouldBegin)
 		{
-			perThread.shouldBegin = false;
-			perThread.descriptorSetNodes.BeginFrame();
+			perThread->shouldBegin = false;
+			perThread->descriptorSetNodes.BeginFrame();
 		}
 
-		DescriptorSetNode* node = perThread.descriptorSetNodes.Requset(hash);
+		DescriptorSetNode* node = perThread->descriptorSetNodes.Requset(hash);
 		if (node != nullptr)
 			return { node->set, true };
 		
-		node = perThread.descriptorSetNodes.RequestVacant(hash);
+		node = perThread->descriptorSetNodes.RequestVacant(hash);
 		if (node && node->set != VK_NULL_HANDLE)
 			return { node->set, false };
 
@@ -417,11 +419,11 @@ namespace GPU
 			return { VK_NULL_HANDLE, false };
 		}
 
-		perThread.pools.push_back(pool);
+		perThread->pools.push_back(pool);
 		for(auto set : sets)
-			perThread.descriptorSetNodes.MakeVacant(set);
+			perThread->descriptorSetNodes.MakeVacant(set);
 
-		return { perThread.descriptorSetNodes.RequestVacant(hash)->set, false };
+		return { perThread->descriptorSetNodes.RequestVacant(hash)->set, false };
 	}
 
 	VkDescriptorPool DescriptorSetAllocator::AllocateBindlessPool(U32 numSets, U32 numDescriptors)

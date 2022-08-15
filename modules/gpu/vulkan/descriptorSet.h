@@ -2,6 +2,7 @@
 
 #include "definition.h"
 #include "buffer.h"
+#include "core\utils\threadLocal.h"
 
 namespace VulkanTest
 {
@@ -94,7 +95,7 @@ namespace GPU
 			return setLayout;
 		}
 
-		std::pair<VkDescriptorSet, bool> GetOrAllocate(U32 threadIndex, HashValue hash);
+		std::pair<VkDescriptorSet, bool> GetOrAllocate(HashValue hash);
 		VkDescriptorPool AllocateBindlessPool(U32 numSets, U32 numDescriptors);
 
 	private:
@@ -117,7 +118,7 @@ namespace GPU
 			std::vector<VkDescriptorPool> pools;
 			bool shouldBegin = false;
 		};
-		std::vector<std::unique_ptr<PerThread>> perThreads;
+		ThreadLocalObject<PerThread> perThreads;
 
 		bool isBindless = false;
 	};

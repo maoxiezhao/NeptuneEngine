@@ -17,7 +17,7 @@ namespace VulkanTest::LuaUtils
 		throw LuaException(l, msg);
 	}
 
-	void LuaException::ArgError(lua_State* l, int index, const const char* format, ...)
+	void LuaException::ArgError(lua_State* l, int index, const char* format, ...)
 	{
 		StaticString<64> msg;
 		va_list args;

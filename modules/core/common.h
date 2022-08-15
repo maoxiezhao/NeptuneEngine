@@ -40,6 +40,10 @@
 #define VULKAN_TEST_API LIBRARY_IMPORT
 #endif
 
+#ifndef PLATFORM_THREADS_LIMIT
+#define PLATFORM_THREADS_LIMIT 64
+#endif
+
 #ifdef DEBUG
 #define ASSERT(x)                                                \
 	do                                                           \

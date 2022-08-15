@@ -924,7 +924,7 @@ void CommandList::EndCommandBufferForThread()
     isEnded = true;
 
     // Must end a cmd on a same thread we requested it on
-    ASSERT(Platform::GetCurrentThreadIndex() == threadIndex);
+    ASSERT(Platform::GetCurrentThreadID() == threadID);
 
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
         Logger::Error("Failed to end command buffer");
@@ -1204,7 +1204,7 @@ void CommandList::FlushDescriptorSet(U32 set)
         });
     }
 
-    auto allocated = allocator->GetOrAllocate(threadIndex, hasher.Get());
+    auto allocated = allocator->GetOrAllocate(hasher.Get());
 	if (!allocated.second) 
     {
         auto updateTemplate = currentLayout->GetUpdateTemplate(set);

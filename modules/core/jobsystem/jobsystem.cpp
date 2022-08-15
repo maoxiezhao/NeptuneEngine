@@ -100,7 +100,6 @@ namespace Jobsystem
 
         int Task() override
         {
-            Platform::SetCurrentThreadIndex(workderIndex + 1);
             gWorker = this;
             primaryFiber = Fiber::Create(Fiber::THIS_THREAD);
 
@@ -121,8 +120,6 @@ namespace Jobsystem
 
     bool Initialize(U32 numWorkers)
     {
-        Platform::SetCurrentThreadIndex(0);
-
         gManager.Create();
 
         for (int i = 0; i < MAX_FIBER_COUNT; i++)

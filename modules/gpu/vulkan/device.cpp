@@ -14,10 +14,7 @@ namespace GPU
 namespace 
 {
 #ifdef VULKAN_MT
-    U32 GetThreadIndex()
-    {
-        return Platform::GetCurrentThreadIndex();
-    }
+
 #define LOCK() std::lock_guard<std::mutex> holder_{mutex}
 #define DRAIN_FRAME_LOCK() \
     std::unique_lock<std::mutex> holder_{ mutex }; \
@@ -291,12 +288,6 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     queueInfo = context.queueInfo;
     features = context.ext;
     systemHandles = context.GetSystemHandles();
-
-#ifdef VULKAN_MT
-    numThreads = context.numThreads;
-#else
-    numThreads = 1;
-#endif
 
     for (auto& index : queueInfo.familyIndices)
     {
@@ -597,23 +588,24 @@ void DeviceVulkan::InitFrameContext(U32 count)
 
 IntrusivePtr<CommandList> DeviceVulkan::RequestCommandList(QueueType queueType)
 {
-    return RequestCommandListForThread(GetThreadIndex(), queueType);
+    return RequestCommandListForThread(queueType);
 }
 
-IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListForThread(int threadIndex, QueueType queueType)
+IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListForThread(QueueType queueType)
 {
     LOCK();
-    return RequestCommandListNolock(threadIndex, queueType);
+    return RequestCommandListNolock(queueType);
 }
 
-IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex, QueueType queueType)
+IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(QueueType queueType)
 {
     QueueIndices queueIndex = GetQueueIndexFromQueueType(queueType);
     auto& pools = CurrentFrameResource().cmdPools[(int)queueIndex];
+    auto& pool = pools.Get();
+    if (pool == nullptr)
+        pool = CJING_NEW(CommandPool)(this, queueInfo.familyIndices[queueIndex]);
 
-    ASSERT_MSG(threadIndex >= 0 && threadIndex < pools.size(), (std::string("Unknown thread index") + std::to_string(threadIndex)).c_str());
-    CommandPool& pool = pools[threadIndex];
-    VkCommandBuffer cmd = pool.RequestCommandBuffer();
+    VkCommandBuffer cmd = pool->RequestCommandBuffer();
     if (cmd == VK_NULL_HANDLE)
         return IntrusivePtr<CommandList>();
 
@@ -624,7 +616,7 @@ IntrusivePtr<CommandList> DeviceVulkan::RequestCommandListNolock(int threadIndex
     AddFrameCounter();
 
     IntrusivePtr<CommandList> cmdPtr(commandListPool.allocate(*this, cmd, queueType, pipelineCache));
-    cmdPtr->SetThreadIndex(threadIndex);
+    cmdPtr->SetThreadID(Platform::GetCurrentThreadID());
 
     // Set persistent storage block
     auto it = CurrentFrameResource().storageBlockMap.find(cmd);
@@ -2361,20 +2353,18 @@ DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_, U32 frameIndex
     device(device_),
     frameIndex(frameIndex_)
 {
-    const int threadCount = device.numThreads;
     for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
     {
         timelineSemaphores[queueIndex] = device_.queueDatas[queueIndex].timelineSemaphore;
-
-        cmdPools[queueIndex].reserve(threadCount);
-        for (int threadIndex = 0; threadIndex < threadCount; threadIndex++)
-            cmdPools[queueIndex].emplace_back(&device_, device_.queueInfo.familyIndices[queueIndex]);
     }
 }
 
 DeviceVulkan::FrameResource::~FrameResource()
 {
     Begin();
+
+    for (auto pools : cmdPools)
+        pools.DeleteAll();
 }
 
 void DeviceVulkan::FrameResource::Begin()
@@ -2434,8 +2424,10 @@ void DeviceVulkan::FrameResource::Begin()
     // Reset command pools
     for (auto& cmdPool : cmdPools)
     {
-        for (auto& pool : cmdPool)
-            pool.BeginFrame();
+        Array<CommandPool*> pools;
+        cmdPool.GetNotNullValues(pools);
+        for (auto pool : pools)
+            pool->BeginFrame();
     }
 
     // Recycle buffer blocks
@@ -2875,7 +2867,7 @@ void DeviceVulkan::SyncPendingBufferBlocks()
         return;
 
     VkBufferUsageFlags usage = 0;
-    auto cmd = RequestCommandListNolock(GetThreadIndex(), QueueType::QUEUE_TYPE_ASYNC_TRANSFER);
+    auto cmd = RequestCommandListNolock(QueueType::QUEUE_TYPE_ASYNC_TRANSFER);
     cmd->BeginEvent("Buffer_block_sync");
     for (auto& block : pendingBufferBlocks.vbo)
     {

@@ -54,7 +54,6 @@ void App::Run(std::unique_ptr<WSIPlatform> platform_)
     Jobsystem::Run(&data, [](void* ptr) 
     {
         Profiler::SetThreadName("AsyncMainThread");
-        Platform::SetCurrentThreadIndex(0);
 
         Data* data = static_cast<Data*>(ptr);
         App* app = data->app;

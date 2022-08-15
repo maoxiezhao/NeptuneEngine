@@ -18,6 +18,7 @@
 #include "event.h"
 
 #include "core\platform\sync.h"
+#include "core\utils\threadLocal.h"
 
 #include <array>
 #include <set>
@@ -183,8 +184,6 @@ public:
     DeviceFeatures features;
     SystemHandles systemHandles;
 
-    // Sync
-    U32 numThreads = 1;
 #ifdef VULKAN_MT
     std::mutex mutex;
     std::condition_variable cond;
@@ -217,8 +216,8 @@ public:
         void TrimCommandPools();
 
         DeviceVulkan& device;
-        U32 frameIndex;
-        std::vector<CommandPool> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
+        U32 frameIndex;    
+        ThreadLocalObject<CommandPool, 32> cmdPools[QueueIndices::QUEUE_INDEX_COUNT];
 
         // timeline
         VkSemaphore timelineSemaphores[QUEUE_INDEX_COUNT] = {};
@@ -319,7 +318,7 @@ public:
     void MoveReadWriteCachesToReadOnly();
 
     CommandListPtr RequestCommandList(QueueType queueType);
-    CommandListPtr RequestCommandListForThread(int threadIndex, QueueType queueType);
+    CommandListPtr RequestCommandListForThread(QueueType queueType);
     RenderPass& RequestRenderPass(const RenderPassInfo& renderPassInfo, bool isCompatible = false);
     FrameBuffer& RequestFrameBuffer(const RenderPassInfo& renderPassInfo);
     PipelineLayout* RequestPipelineLayout(const CombinedResourceLayout& resLayout);
@@ -417,11 +416,10 @@ public:
     SemaphorePtr GetAndConsumeReleaseSemaphore();
     VkQueue GetPresentQueue()const;
     DeviceFeatures GetFeatures()const { return features; }
-    U32 GetNumThreads()const { return numThreads; }
     SystemHandles& GetSystemHandles() { return systemHandles; }
 
     RenderPassInfo GetSwapchianRenderPassInfo(const SwapChain* swapchain, SwapchainRenderPassType swapchainRenderPassType = SwapchainRenderPassType::DepthStencil);  
-    CommandListPtr RequestCommandListNolock(int threadIndex, QueueType queueType);
+    CommandListPtr RequestCommandListNolock(QueueType queueType);
 
     QueueIndices GetPhysicalQueueType(QueueType type)const;
     VkFormat GetDefaultDepthStencilFormat() const;

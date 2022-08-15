@@ -10,7 +10,7 @@ namespace VulkanTest
 	{
 		StaticString<64> name;
 		Mutex mutex;
-		U32 threadID = 0;
+		Platform::ThreadID threadID = 0;
 	};
 
 	struct ProfilerImpl

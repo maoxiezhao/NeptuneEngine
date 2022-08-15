@@ -24,7 +24,7 @@ namespace Platform {
 #ifdef CJING3D_PLATFORM_WIN32
 	using WindowType = HWND;
 	static const HWND INVALID_WINDOW = NULL;
-	using ThreadID = U32;
+	using ThreadID = U64;
 #else 
 	using WindowType = int;
 	static const int INVALID_WINDOW = 0;
@@ -92,8 +92,6 @@ namespace Platform {
 	/////////////////////////////////////////////////////////////////////////////////
 	// Threads
 	ThreadID GetCurrentThreadID();
-	U32 GetCurrentThreadIndex();
-	void SetCurrentThreadIndex(U32 index);
 	I32 GetNumPhysicalCores();
 	U64 GetPhysicalCoreAffinityMask(I32 core);
 	void YieldCPU();

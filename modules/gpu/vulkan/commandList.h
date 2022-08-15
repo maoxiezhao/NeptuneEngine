@@ -156,7 +156,7 @@ private:
     VkSubpassContents subpassContents;
     DynamicState dynamicState = {};
 
-    U32 threadIndex = 0;
+    Platform::ThreadID threadID = 0;
     bool isEnded = false;
 
 public:
@@ -241,14 +241,14 @@ public:
     // Used to end command buffer in a thread, and submitting in a different thread.
     void EndCommandBufferForThread();
 
-    void SetThreadIndex(U32 threadIndex_)
+    void SetThreadID(Platform::ThreadID threadIndex_)
     {
-        threadIndex = threadIndex_;
+        threadID = threadIndex_;
     }
 
-    U32 GetThreadIndex()const
+    Platform::ThreadID GetThreadID()const
     {
-        return threadIndex;
+        return threadID;
     }
 
     QueueType GetQueueType()const
