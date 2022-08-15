@@ -4,6 +4,7 @@
 
 namespace VulkanTest::LuaUtils
 {
+	void PrintLuaStack(lua_State* l);
 	bool LoadBuffer(lua_State* l, const char* data, size_t size, const char* name);
 	void AddFunction(lua_State* l, const char* name, lua_CFunction function);
 
@@ -110,6 +111,40 @@ namespace VulkanTest::LuaUtils
 		});
 	}
 
+	struct UserdataBinder
+	{
+		template<typename T>
+		static typename std::enable_if<!std::is_destructible<T>::value || std::is_trivially_destructible<T>::value>::type
+			PushUserdata(lua_State* l, const T& obj)
+		{
+			void* userdata = lua_newuserdata(l, sizeof(T));
+			new(userdata) T(obj);
+		}
+
+		template<typename T>
+		static typename std::enable_if<std::is_destructible<T>::value && !std::is_trivially_destructible<T>::value>::type
+			PushUserdata(lua_State* l, const T& obj)
+		{
+			void* userdata = lua_newuserdata(l, sizeof(T));
+			new(userdata) T(obj);
+
+			lua_newtable(l);
+			lua_pushcfunction(l, UserdataGC<T>);
+			lua_setfield(l, -2, "__gc");
+			lua_setmetatable(l, -2);
+		}
+
+		template<typename T>
+		static int UserdataGC(lua_State* l)
+		{
+			return ExceptionBoundary(l, [&] {
+				T* obj = static_cast<T*>(lua_touserdata(l, 1));
+				obj->~T();
+				return 0;
+			});
+		}
+	};
+
 	class LuaRef
 	{
 	public:
@@ -130,26 +165,7 @@ namespace VulkanTest::LuaUtils
 		static LuaRef CreateGlobalRef(lua_State* l);
 		static LuaRef CreateFromPtr(lua_State* l, void* ptr);
 		static LuaRef CreateTable(lua_State* l, int narray = 0, int nrec = 0);
-
-		lua_State* GetState() {
-			return l;
-		}
-
-		template<typename T>
-		static std::enable_if_t<std::is_function<T>::value, LuaRef>
-			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
-		{
-			lua_pushcclosure(l, func, 1);
-			return CreateRef(l);
-		}
-
-		template<typename T>
-		static std::enable_if_t<!std::is_function<T>::value, LuaRef>
-			CreateFunc(lua_State* l, lua_CFunction func, const T& userdata)
-		{
-			lua_pushcclosure(l, func, 1);
-			return CreateRef(l);
-		}
+		static LuaRef CreateFunction(lua_State* l, lua_CFunction func);
 
 		template<typename V, typename K>
 		void RawSet(const K& key, const V& value)
@@ -195,6 +211,10 @@ namespace VulkanTest::LuaUtils
 		void Push()const;
 		bool IsEmpty()const;
 		void SetMetatable(LuaRef& luaRef);
+
+		lua_State* GetState() {
+			return l;
+		}
 
 		static LuaRef NULL_REF;
 	private:

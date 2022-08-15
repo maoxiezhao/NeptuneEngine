@@ -43,4 +43,13 @@ namespace VulkanTest::LuaUtils::Binder
 		return true;
 	}
 
+	void LuaBindClassMetaBase::RegisterMethod(const String& name, const LuaRef& func)
+	{
+		meta.RawGet("__CLASS").RawSet(name, func);
+	}
+
+	void LuaBindClassMetaBase::RegisterStaticFunction(const String& name, const LuaRef& func)
+	{
+		meta.RawSet(name, func);
+	}
 }

@@ -1,5 +1,7 @@
 #include "luaUtils.h"
 
+#include<sstream>
+
 namespace VulkanTest::LuaUtils
 {
 	LuaRef LuaRef::NULL_REF;
@@ -112,6 +114,12 @@ namespace VulkanTest::LuaUtils
 		return CreateRef(l);
 	}
 
+	LuaRef LuaRef::CreateFunction(lua_State* l, lua_CFunction func)
+	{
+		lua_pushcfunction(l, func);
+		return CreateRef(l);
+	}
+
 	void LuaRef::Clear()
 	{
 		if (l != nullptr && ref != LUA_REFNIL && ref != LUA_NOREF) {
@@ -140,6 +148,33 @@ namespace VulkanTest::LuaUtils
 		if (IsEmpty()) 
 			return;
 		lua_rawgeti(l, LUA_REGISTRYINDEX, ref);
+	}
+
+	void PrintLuaStack(lua_State* l)
+	{
+		int stackSize = lua_gettop(l);
+		std::ostringstream oss;
+		oss << std::endl;
+		for (int i = 1; i <= stackSize; i++)
+		{
+			switch (lua_type(l, i))
+			{
+			case LUA_TSTRING:
+				oss << "\"" << lua_tostring(l, i) << "\"";
+				break;
+			case LUA_TBOOLEAN:
+				oss << (lua_toboolean(l, i) ? "True" : "False");
+				break;
+			case LUA_TNUMBER:
+				oss << (lua_tonumber(l, i));
+				break;
+			default:
+				oss << lua_typename(l, lua_type(l, i));
+				break;
+			}
+			oss << std::endl;
+		}
+		std::cout << oss.str() << std::endl;
 	}
 
 	bool LoadBuffer(lua_State* l, const char* data, size_t size, const char* name)

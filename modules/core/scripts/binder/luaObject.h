@@ -31,6 +31,14 @@ namespace Binder
 		}
 
 		template<typename T>
+		static T* GetObject(lua_State* l, int index)
+		{
+			auto classID = ClassIDGenerator<T>::ID();
+			LuaObject* obj = GetLuaObject(l, index, classID);
+			return obj ? static_cast<T*>(obj->GetObjectPtr()) : nullptr;
+		}
+
+		template<typename T>
 		static void* Allocate(lua_State* l, void* classID)
 		{
 			void* mem = lua_newuserdata(l, sizeof(T));
@@ -42,7 +50,7 @@ namespace Binder
 		static int MetaIndex(lua_State* l);
 		static int MetaNewIndex(lua_State* l);
 
-		virtual void* GetLuaObjectPtr() = 0;
+		virtual void* GetObjectPtr() = 0;
 
 	protected:
 		static LuaObject* GetLuaObject(lua_State* l, int index, void* classID);
@@ -57,7 +65,7 @@ namespace Binder
 		LuaHandledObject() = default;
 		~LuaHandledObject()
 		{
-			T* obj = static_cast<T*>(GetLuaObjectPtr());
+			T* obj = static_cast<T*>(GetObjectPtr());
 			obj->~T();
 		}
 
@@ -67,7 +75,7 @@ namespace Binder
 			auto classID = ClassIDGenerator<T>::ID();
 			void* mem = Allocate<LuaHandledObject<T>>(l, classID);
 			LuaHandledObject<T>* obj = new(mem) LuaHandledObject<T>();
-			Invoke::ClassConstructor<T>::Call(obj->GetLuaObjectPtr(), args.tuple);
+			Invoke::ClassConstructor<T>::Call(obj->GetObjectPtr(), args.tuple);
 		}
 
 		static void Push(lua_State* l, const T& obj_)
@@ -75,10 +83,10 @@ namespace Binder
 			auto classID = ClassIDGenerator<T>::ID();
 			void* mem = Allocate<LuaHandledObject<T>>(l, classID);
 			LuaHandledObject<T>* obj = new(mem) LuaHandledObject<T>();
-			new(obj->GetLuaObjectPtr()) T(obj_);
+			new(obj->GetObjectPtr()) T(obj_);
 		}
 
-		void* GetLuaObjectPtr()override
+		void* GetObjectPtr()override
 		{
 			return &data[0];
 		}
@@ -104,7 +112,7 @@ namespace Binder
 			new(mem) LuaObjectPtr<T>(obj);
 		}
 
-		void* GetLuaObjectPtr()override
+		void* GetObjectPtr()override
 		{
 			return ptr;
 		}
@@ -159,10 +167,34 @@ struct LuaTypeClassMapping
 	static T& Get(lua_State* l, int index)
 	{
 		Binder::LuaObject* obj = Binder::LuaObject::GetLuaObject<T>(l, index);
-		return *static_cast<T*>(obj->GetLuaObjectPtr());
+		return *static_cast<T*>(obj->GetObjectPtr());
 	}
 
 	static const T& Opt(lua_State* l, int index, const T& defValue)
+	{
+		return lua_isnoneornil(l, index) ? defValue : Get(l, index);
+	}
+};
+
+template<typename T>
+struct LuaTypeNormalMapping<T*>
+{
+	using Type = typename std::decay<T>::type;
+	static void Push(lua_State* l, Type* value)
+	{
+		if (value == nullptr)
+			lua_pushnil(l);
+		else
+			Binder::LuaObjectPtr<T>::Push(l, const_cast<Type*>(value));
+	}
+
+	static T* Get(lua_State* l, int index)
+	{
+		Binder::LuaObject* obj = Binder::LuaObject::GetLuaObject<T>(l, index);
+		return static_cast<T*>(obj->GetObjectPtr());
+	}
+
+	static T* Opt(lua_State* l, int index, Type* defValue)
 	{
 		return lua_isnoneornil(l, index) ? defValue : Get(l, index);
 	}
