@@ -10,7 +10,7 @@ namespace VulkanTest
 	{
 	}
 
-	MaterialShader* MaterialShader::Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info, MaterialFactory& factory)
+	MaterialShader* MaterialShader::Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info, ResourceManager& resManager)
 	{
 		MaterialShader* ret = nullptr;
 		switch (info.domain)
@@ -23,7 +23,7 @@ namespace VulkanTest
 			break;
 		}
 
-		if (!ret->Load(mem, info, factory))
+		if (!ret->Load(mem, info, resManager))
 		{
 			CJING_DELETE(ret);
 			return nullptr;
@@ -52,9 +52,12 @@ namespace VulkanTest
 	{
 	}
 
-	bool MaterialShader::Load(InputMemoryStream& mem, const MaterialInfo& info_, MaterialFactory& factory)
+	bool MaterialShader::Load(InputMemoryStream& mem, const MaterialInfo& info_, ResourceManager& resManager)
 	{
 		ASSERT(isLoaded == false);
+		auto factory = resManager.GetFactory(Shader::ResType);
+		ASSERT(factory);
+
 		info = info_;
 
 		if (info_.useCustomShader && info_.shaderSize > 0)
@@ -63,7 +66,7 @@ namespace VulkanTest
 			if (mem.GetPos() + info.shaderSize > mem.Size())
 				return false;
 
-			shader = ResPtr<Shader>(CJING_NEW(Shader)(Path(name.c_str()), factory));
+			shader = ResPtr<Shader>(CJING_NEW(Shader)(Path(name.c_str()), *factory));
 			shader->SetOwnedBySelf(true);
 			if (!shader->Create(info.shaderSize, (const U8*)mem.GetBuffer() + mem.GetPos()))
 				return false;
@@ -71,7 +74,7 @@ namespace VulkanTest
 		else if (info_.shaderPath[0] != 0)
 		{
 			// Load shader from target path
-			shader = factory.GetResourceManager().LoadResourcePtr<Shader>(Path(info.shaderPath));
+			shader = resManager.LoadResourcePtr<Shader>(Path(info.shaderPath));
 			if (!shader)
 				return false;
 		}

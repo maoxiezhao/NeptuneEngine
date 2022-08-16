@@ -506,12 +506,7 @@ namespace VulkanTest
                 if (!materialMapped || !materialComp.material)
                     return;
 
-                const auto& materialInfo = materialComp.material->GetParams();
-
-                ShaderMaterial shaderMaterial;
-                shaderMaterial.baseColor = materialInfo.color.ToFloat4();
-
-                memcpy(materialMapped + materialComp.materialIndex, &shaderMaterial, sizeof(ShaderMaterial));
+                materialComp.material->WriteShaderMaterial(materialMapped + materialComp.materialIndex);
             });
         }
     };

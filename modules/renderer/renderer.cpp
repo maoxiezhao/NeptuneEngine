@@ -9,7 +9,7 @@
 #include "renderScene.h"
 #include "renderPath3D.h"
 #include "model.h"
-#include "material.h"
+#include "materials\material.h"
 #include "texture.h"
 #include "textureHelper.h"
 #include "imageUtil.h"
@@ -154,7 +154,7 @@ namespace Renderer
 	LocalPtr<RenderResourceFactory<Shader>> shaderFactory;
 	LocalPtr<RenderResourceFactory<Texture>> textureFactory;
 	LocalPtr<RenderResourceFactory<Model>> modelFactory;
-	LocalPtr<MaterialFactory> materialFactory;
+	LocalPtr<RenderResourceFactory<Material>> materialFactory;
 
 	GPU::BlendState stockBlendStates[BSTYPE_COUNT] = {};
 	GPU::RasterizerState stockRasterizerState[RSTYPE_COUNT] = {};

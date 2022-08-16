@@ -88,6 +88,15 @@ namespace VulkanTest
 		return ret;
 	}
 
+	String InputMemoryStream::ReadStringWithLength()
+	{
+		U16 length = Read<U16>();
+		String ret;
+		ret.resize(length);
+		Read(ret.data(), length * sizeof(char));
+		return ret;
+	}
+
 	IOutputStream& IOutputStream::operator<<(F64 data)
 	{
 		char temp[40];
@@ -214,6 +223,12 @@ namespace VulkanTest
 		{
 			Write((char)0);
 		}
+	}
+
+	void OutputMemoryStream::WriteStringWithLength(const String& string)
+	{
+		Write((U16)string.size());
+		Write(string.data(), string.size());
 	}
 
 	bool OutputMemoryStream::Write(const void* buffer, U64 size_)

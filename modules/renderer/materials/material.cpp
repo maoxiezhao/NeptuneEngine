@@ -5,60 +5,6 @@ namespace VulkanTest
 {
 	DEFINE_RESOURCE(Material);
 
-	namespace LuaAPI
-	{
-		int color(lua_State* l)
-		{
-			const F32x4 c = LuaUtils::Get<F32x4>(l, 1);
-			lua_getglobal(l, "this");
-			MaterialParams* params = (MaterialParams*)lua_touserdata(l, -1);
-			lua_pop(l, 1);
-			params->color = c;
-			return 0;
-		}
-
-		int texture(lua_State* l)
-		{
-			return 0;
-		}
-	}
-
-	bool MaterialParams::Load(U64 size, const U8* mem, MaterialFactory& factory)
-	{
-		if (size <= 0)
-			return false;
-
-		LuaConfig& luaConfig = factory.GetLuaConfig();
-		luaConfig.AddLightUserdata("this", this);
-
-		const Span<const char> content((const char*)mem, (U32)size);
-		return luaConfig.Load(content);
-	}
-
-	void MaterialParams::Unload()
-	{
-		for (auto texture : textures)
-			texture.reset();
-	}
-
-	MaterialFactory::MaterialFactory()
-	{	
-#define DEFINE_LUA_FUNC(func) luaConfig.AddFunc(#func, LuaAPI::func);
-		DEFINE_LUA_FUNC(color)
-		DEFINE_LUA_FUNC(texture)
-
-#undef DEFINE_LUA_FUNC
-	}
-
-	MaterialFactory::~MaterialFactory()
-	{
-	}
-
-	Resource* MaterialFactory::CreateResource(const Path& path)
-	{
-		return CJING_NEW(Material)(path, *this);
-	}
-
 	Material::Material(const Path& path_, ResourceFactory& resFactory_) :
 		BinaryResource(path_, resFactory_)
 	{
@@ -66,6 +12,12 @@ namespace VulkanTest
 
 	Material::~Material()
 	{
+	}
+
+	void Material::WriteShaderMaterial(ShaderMaterial* dest)
+	{
+		ASSERT(IsReady());
+		defaultParams.WriteShaderMaterial(dest);
 	}
 
 	void Material::Bind(MaterialShader::BindParameters& params)
@@ -112,11 +64,9 @@ namespace VulkanTest
 			return false;
 		}
 
-		auto& factory = static_cast<MaterialFactory&>(GetResourceFactory());
-
 		// Create material shader
 		const String name(GetPath().c_str());
-		materialShader = MaterialShader::Create(name, inputMem, header.materialInfo, factory);
+		materialShader = MaterialShader::Create(name, inputMem, header.materialInfo, GetResourceManager());
 		if (materialShader == nullptr)
 		{
 			Logger::Warning("Failed to create material shader %s", GetPath().c_str());
@@ -127,11 +77,14 @@ namespace VulkanTest
 		const auto paramsChunk = GetChunk(MATERIAL_CHUNK_PARAMS);
 		if (paramsChunk != nullptr && paramsChunk->IsLoaded())
 		{
-			if (!params.Load(paramsChunk->Size(), paramsChunk->Data(), factory))
+			if (!params.Load(paramsChunk->Size(), paramsChunk->Data(), GetResourceManager()))
 			{
 				Logger::Warning("Failed to load material params %s", GetPath().c_str());
 				return false;
 			}
+
+			// Load default params
+			defaultParams.Load(params);
 		}
 
 		return true;
@@ -145,6 +98,7 @@ namespace VulkanTest
 			CJING_SAFE_DELETE(materialShader);
 			materialShader = nullptr;
 		}
+		defaultParams.Unload();
 		params.Unload();
 	}
 

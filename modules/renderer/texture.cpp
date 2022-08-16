@@ -37,6 +37,18 @@ namespace VulkanTest
 		DeleteObjectNow();
 	}
 
+	I32 Texture::GetDescriptorIndex()
+	{
+		if (!IsReady())
+			return -1;
+
+		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		if (!bindless)
+			bindless = device->CreateBindlessSampledImage(GetImage()->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		
+		return bindless->GetIndex();
+	}
+
 	bool Texture::Load()
 	{
 		PROFILE_FUNCTION();
@@ -76,6 +88,7 @@ namespace VulkanTest
 	void Texture::Unload()
 	{
 		handle.reset();
+		bindless.reset();
 	}
 
 #pragma pack(1)

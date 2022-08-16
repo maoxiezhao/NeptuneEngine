@@ -35,6 +35,7 @@ struct ShaderGeometry
 struct ShaderMaterial
 {
 	float4 baseColor;
+	int	   texture_basecolormap_index;
 };
 
 struct ObjectPushConstants

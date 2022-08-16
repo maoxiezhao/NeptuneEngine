@@ -3,12 +3,11 @@
 #include "core\resource\binaryResource.h"
 #include "core\resource\resourceManager.h"
 #include "core\scripts\luaConfig.h"
-#include "materials\materialShader.h"
+#include "materialShader.h"
+#include "materialParams.h"
 
 namespace VulkanTest
 {
-	struct MaterialFactory;
-
 #define MATERIAL_CHUNK_SHADER_SOURCE 0
 #define MATERIAL_CHUNK_PARAMS 1
 
@@ -23,24 +22,6 @@ namespace VulkanTest
 	};
 #pragma pack()
 
-	struct MaterialParams
-	{
-		enum FLAGS
-		{
-			EMPTY = 0,
-			DIRTY = 1 << 0,
-			CAST_SHADOW = 1 << 1,
-			DOUBLE_SIDED = 1 << 2,
-		};
-
-		Color4 color;
-		U32 flags = EMPTY;
-		ResPtr<Texture> textures[Texture::TextureType::COUNT];
-
-		bool Load(U64 size, const U8* mem, MaterialFactory& factory);
-		void Unload();
-	};
-
 	class VULKAN_TEST_API Material final : public BinaryResource
 	{
 	public:
@@ -49,7 +30,12 @@ namespace VulkanTest
 		Material(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~Material();
 
+		void WriteShaderMaterial(ShaderMaterial* dest);
 		void Bind(MaterialShader::BindParameters& params);
+
+		MaterialParam* GetParam(const String& name) {
+			return params.Get(name);
+		}
 
 		MaterialParams& GetParams(){
 			return params;
@@ -70,22 +56,6 @@ namespace VulkanTest
 	private:
 		MaterialParams params;
 		MaterialShader* materialShader = nullptr;
-	};
-
-	struct MaterialFactory : public BinaryResourceFactory
-	{
-	public:
-		MaterialFactory();
-		virtual ~MaterialFactory();
-
-		LuaConfig& GetLuaConfig() {
-			return luaConfig;
-		}
-
-	protected:
-		Resource* CreateResource(const Path& path) override;
-
-	private:
-		LuaConfig luaConfig;
+		DefaultMaterialParams defaultParams;
 	};
 }

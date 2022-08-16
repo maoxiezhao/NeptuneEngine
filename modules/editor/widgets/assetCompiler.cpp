@@ -31,6 +31,7 @@ namespace Editor
     {
         U32 generation;
         Path path;
+        bool succeed;
     };
 
     struct LoadHook : public ResourceManager::LoadHook
@@ -334,6 +335,12 @@ namespace Editor
                     Resource* res = GetResource(compiled.path);
                     if (res == nullptr)
                         break;
+
+                    if (compiled.succeed == false)
+                    {
+                        res->SetHooked(false);
+                        break;
+                    }
 
                     if (res->IsReady() || res->IsFailure())
                         res->GetResourceFactory().Reload(res);
@@ -939,7 +946,14 @@ namespace Editor
             {
                 PROFILE_BLOCK("Compile asset");
                 if (!impl.Compile(job.path))
+                {
                     Logger::Error("Failed to compile resource:%s", job.path.c_str());
+                    job.succeed = false;
+                }
+                else
+                {
+                    job.succeed = true;
+                }
 
                 ScopedMutex lock(impl.compiledMutex);
                 impl.compiledJobs.push_back(job);

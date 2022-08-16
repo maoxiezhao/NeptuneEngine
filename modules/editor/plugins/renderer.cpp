@@ -4,13 +4,14 @@
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\sceneView.h"
 #include "renderer\model.h"
-#include "renderer\material.h"
+#include "renderer\materials\material.h"
 #include "gpu\vulkan\typeToString.h"
 #include "imgui-docking\imgui.h"
 
 #include "editor\plugins\model\objImporter.h"
 #include "editor\plugins\shader\shaderCompilation.h"
 #include "editor\plugins\texture\textureImporter.h"
+#include "editor\plugins\material\materialImporter.h"
 
 namespace VulkanTest
 {
@@ -47,10 +48,8 @@ namespace Editor
 			config.compress = meta.compress;
 			config.generateMipmaps = meta.generateMipmaps;
 			if (!TextureImporter::Import(app, path.c_str(), config))
-			{
-				Logger::Error("Failed to import %s", path.c_str());
 				return false;
-			}
+
 			return true;
 		}
 
@@ -117,46 +116,8 @@ namespace Editor
 	
 		bool Compile(const Path& path)override
 		{
-			FileSystem& fs = app.GetEngine().GetFileSystem();
-			OutputMemoryStream mem;
-			if (!fs.LoadContext(path.c_str(), mem))
-			{
-				Logger::Error("failed to read file:%s", path.c_str());
-				return false;
-			}
-
-			InputMemoryStream input(mem);
-			ResourceDataWriter resWriter(path, Material::ResType);
-
-			// Shader chunk
-			auto shaderData = resWriter.GetChunk(MATERIAL_CHUNK_SHADER_SOURCE);
-			if (shaderData)
-			{
-				// Header
-				MaterialInfo materialInfo;
-				input.Read<MaterialInfo>(materialInfo);
-
-				MaterialHeader header = {};
-				header.materialInfo = materialInfo;
-				shaderData->mem.Write(header);
-
-				// TODO Write compiled material shader
-				if (materialInfo.useCustomShader && materialInfo.shaderPath[0] != '/0')
-				{
-
-				}
-			}
-
-			// Param chunk
-			auto paramsData = resWriter.GetChunk(MATERIAL_CHUNK_PARAMS);
-			if (paramsData)
-			{
-				paramsData->mem.Write((const U8*)input.GetBuffer() + input.GetPos(), input.Size() - sizeof(MaterialInfo));
-			}
-
-			return app.GetAssetCompiler().WriteCompiled(path.c_str(), resWriter.data);
+			return MaterialImporter::Import(app, path);
 		}
-
 
 		void OnGui(Span<class Resource*> resource)override
 		{
@@ -213,10 +174,7 @@ namespace Editor
 				cfg.scale = meta.scale;
 
 				if (!objImporter.Import(path.c_str()))
-				{
-					Logger::Error("Failed to import %s", path.c_str());
 					return false;
-				}
 
 				objImporter.WriteModel(path.c_str(), cfg);
 				objImporter.WriteMaterials(path.c_str(), cfg);
@@ -277,10 +235,7 @@ namespace Editor
 				options.path = path;
 				options.outMem = &outMem;
 				if (!ShaderCompilation::Compile(app, options))
-				{
-					Logger::Error("Failed to import %s", path.c_str());
 					return false;
-				}
 
 				// Update meta
 				String metaData;

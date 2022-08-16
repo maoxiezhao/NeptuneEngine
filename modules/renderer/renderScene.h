@@ -68,7 +68,7 @@ namespace VulkanTest
 		F32x3 center = F32x3(0, 0, 0);
 		AABB aabb;
 		U32 index = 0;
-		U8 stencilRef = 1;
+		U8 stencilRef = 0;
 	};
 
 	class VULKAN_TEST_API RenderPassPlugin

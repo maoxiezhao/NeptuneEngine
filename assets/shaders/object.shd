@@ -21,6 +21,11 @@ PixelInput VS(VertexInput input)
     Out.color = surface.color;
 #endif
 
+#ifdef OBJECTSHADER_USE_UVSETS
+	Out.uvsets.xy = surface.uv;
+    Out.uvsets.zw = float2(0, 0);    // TODO
+#endif
+
 #ifdef OBJECTSHADER_USE_NORMAL
     Out.nor = surface.normal;
 #endif
@@ -41,7 +46,22 @@ META_PS(true)
 META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 1)
 float4 PS(PixelInput input) : SV_Target
 {
-    return GetMaterial().baseColor;
+    float4 color = 1;
+
+#ifdef OBJECTSHADER_USE_UVSETS
+    [branch]
+    if (GetMaterial().texture_basecolormap_index >= 0)
+    {
+        float4 baseColorMap = texture_basecolormap.Sample(samLinearClamp, input.uvsets.xy);
+        color *= baseColorMap;
+    }
+#endif
+
+#ifdef OBJECTSHADER_USE_COLOR
+    color *= GetMaterial().baseColor;
+#endif
+
+    return color;
 }
 
 // Pixel Shader function for Depth Pass

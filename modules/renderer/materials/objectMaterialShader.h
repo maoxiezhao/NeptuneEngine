@@ -4,8 +4,6 @@
 
 namespace VulkanTest
 {
-	struct MaterialFactory;
-
 	class VULKAN_TEST_API ObjectMaterialShader : public MaterialShader
 	{
 	public:

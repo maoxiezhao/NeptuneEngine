@@ -167,6 +167,9 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 	// parse bindings
 	for (auto& x : bindings)
 	{
+		if (x->set > 1)
+			int a = 0;
+
 		I32 mask = GetMaskByDescriptorType(x->descriptor_type);
 		if (mask >= 0)
 		{

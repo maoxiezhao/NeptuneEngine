@@ -109,13 +109,13 @@ namespace VulkanTest
 			switch (info.side)
 			{
 			case OBJECT_DOUBLESIDED_FRONTSIDE:
-				pipeline.rasterizerState = Renderer::GetRasterizerState(RasterizerStateTypes::RSTYPE_FRONT);
+				pipeline.rasterizerState = Renderer::GetRasterizerState(RasterizerStateTypes::RSTYPE_BACK);
 				break;
 			case OBJECT_DOUBLESIDED_ENABLED:
 				pipeline.rasterizerState = Renderer::GetRasterizerState(RasterizerStateTypes::RSTYPE_DOUBLE_SIDED);
 				break;
 			case OBJECT_DOUBLESIDED_BACKSIDE:
-				pipeline.rasterizerState = Renderer::GetRasterizerState(RasterizerStateTypes::RSTYPE_BACK);
+				pipeline.rasterizerState = Renderer::GetRasterizerState(RasterizerStateTypes::RSTYPE_FRONT);
 				break;
 			default:
 				ASSERT(false);

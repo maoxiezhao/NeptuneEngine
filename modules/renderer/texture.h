@@ -41,6 +41,7 @@ namespace VulkanTest
 			AMBIENT,
 			EMISSIVE,
 			REFLECTION,
+			CUSTOM,
 			COUNT
 		};
 
@@ -49,6 +50,7 @@ namespace VulkanTest
 
 		bool Create(U32 w, U32 h, VkFormat format, const void* data);
 		void Destroy();
+		I32  GetDescriptorIndex();
 
 		GPU::Image* GetImage() {
 			return handle ? handle.get() : nullptr;
@@ -67,5 +69,6 @@ namespace VulkanTest
 
 		GPU::ImagePtr handle;
 		GPU::ImageCreateInfo info;
+		GPU::BindlessDescriptorPtr bindless;
 	};
 }

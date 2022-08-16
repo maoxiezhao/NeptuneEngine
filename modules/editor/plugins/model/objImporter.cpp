@@ -1,6 +1,7 @@
 #include "objImporter.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetCompiler.h"
+#include "editor\plugins\material\materialGenerator.h"
 #include "core\filesystem\filesystem.h"
 #include "renderer\model.h"
 
@@ -470,48 +471,45 @@ namespace Editor
 			if (fs.FileExists(matPath.c_str()))
 				continue;
 
+			outMem.Clear();
+
+			MaterialInfo materialInfo;
+			memset(&materialInfo, 0, sizeof(MaterialInfo));
+			materialInfo.domain = MaterialDomain::Object;
+			materialInfo.useCustomShader = false;
+
+			MaterialGenerator generator;
+	
+			// Write base propreties
+			Color4 baseColor = Color4(F32x4(material.material->diffuse[0], material.material->diffuse[1], material.material->diffuse[2], 1.0f));
+			generator.FindOrCreateEmpty("BaseColor", MaterialParameterType::Color).asColor = baseColor.GetRGBA();
+
+			// Write textures
+			auto WriteTexture = [this, material, &generator](Texture::TextureType type)
+			{
+				auto& texture = material.textures[(U32)type];
+				if (!texture.isValid || texture.path.empty())
+					return;
+
+				auto& param = generator.FindOrAddTexture(type);
+				param.asPath = texture.path.c_str();
+			};	
+			WriteTexture(Texture::TextureType::DIFFUSE);
+			WriteTexture(Texture::TextureType::NORMAL);
+			WriteTexture(Texture::TextureType::SPECULAR);
+
+			if (!generator.GenerateSimple(outMem, materialInfo))
+			{
+				Logger::Error("Failed to write mat file %s", matPath.c_str());
+				return;
+			}
+
 			auto file = fs.OpenFile(matPath.c_str(), FileFlags::DEFAULT_WRITE);
 			if (!file)
 			{
 				Logger::Error("Failed to create mat file %s", matPath.c_str());
 				continue;
 			}
-
-			outMem.Clear();
-
-			// TODO: Use MaterialImporter to write material
-			// Write texture header
-			MaterialInfo materialInfo;
-			memset(&materialInfo, 0, sizeof(MaterialInfo));
-			materialInfo.domain = MaterialDomain::Object;
-			materialInfo.useCustomShader = false;
-			outMem.Write(materialInfo);
-
-			// Write params
-			auto WriteTexture = [this, material](Texture::TextureType type)
-			{
-				auto& texture = material.textures[(U32)type];
-				if (texture.isValid && !texture.path.empty())
-				{
-					WriteString("texture \"/");
-					WriteString(texture.path.c_str());
-					WriteString("\"\n");
-				}
-				else
-				{
-					WriteString("texture \"\"\n");
-				}
-			};
-			
-			WriteTexture(Texture::TextureType::DIFFUSE);
-			WriteTexture(Texture::TextureType::NORMAL);
-			WriteTexture(Texture::TextureType::SPECULAR);
-
-			auto diffuseColor = material.material->diffuse;
-			outMem << "color {" 
-				<< diffuseColor[0] << ","
-				<< diffuseColor[1] << ","
-				<< diffuseColor[2] << ",1}\n";
 
 			if (!file->Write(outMem.Data(), outMem.Size()))
 				Logger::Error("Failed to write mat file %s", matPath.c_str());

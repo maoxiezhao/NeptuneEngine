@@ -51,7 +51,7 @@ namespace GPU
 			switch (mask)
 			{
 			case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
-				return feature_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindSampledImages / 4 : -1;
+				return feature_1_2.descriptorBindingSampledImageUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindSampledImages / 4 : -1;
 			case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
 				return feature_1_2.descriptorBindingStorageImageUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindStorageImages / 4 : -1;
 			case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
@@ -130,15 +130,16 @@ namespace GPU
 		return set;
 	}
 
-	void BindlessDescriptorPool::SetTexture(int binding, const ImageView& iamgeView, VkImageLayout imageLayout)
+	void BindlessDescriptorPool::SetTexture(int binding, const ImageView& imageView, VkImageLayout imageLayout)
 	{
 		VkDescriptorImageInfo imageInfo = {};
 		imageInfo.sampler = VK_NULL_HANDLE;
-		imageInfo.imageView = iamgeView.GetImageView();
+		imageInfo.imageView = imageView.GetImageView();
 		imageInfo.imageLayout = imageLayout;
 
 		VkWriteDescriptorSet write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET  };
 		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		write.dstBinding = 0;
 		write.dstArrayElement = binding;
 		write.descriptorCount = 1;
 		write.dstSet = set;
@@ -281,7 +282,7 @@ namespace GPU
 
 					auto descriptorType = GetTypeBySetMask(static_cast<DescriptorSetType>(maskbit));
 					bindings.push_back({
-						GetUnrolledBinding(i, (DescriptorSetType)maskbit),				// binding
+						isBindless ? 0 : GetUnrolledBinding(i, (DescriptorSetType)maskbit),				// binding
 						descriptorType, 						// descriptorType
 						arraySize, 								// descriptorCount
 						stages, 								// stageFlags

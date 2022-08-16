@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\utils\string.h"
 
 namespace VulkanTest
 {
@@ -61,6 +62,7 @@ namespace VulkanTest
 			return Write(&value, sizeof(T));
 		}
 		void WriteString(const char* string);
+		void WriteStringWithLength(const String& string);
 		bool Write(const void* buffer, U64 size_)override;
 		bool Write(const void* buffer, U64 size_, U64 alignment);
 		void Skip(U64 size_);
@@ -103,6 +105,7 @@ namespace VulkanTest
 
 		bool Read(void* buffer_, U64 size_) override;
 		const char* ReadString();
+		String ReadStringWithLength();
 
 		const void* GetBuffer() const override {
 			return data;

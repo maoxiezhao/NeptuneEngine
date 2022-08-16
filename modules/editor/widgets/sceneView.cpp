@@ -250,6 +250,19 @@ namespace Editor
 			deltaTime = delta;
 			transform.UpdateTransform();
 			camera.UpdateTransform(transform);
+
+			// Clear highlight state
+			RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+			scene->ForEachObjects([&](ECS::EntityID entity, ObjectComponent& obj) {
+				obj.stencilRef = 0;
+			});
+			const auto& selected = worldEditor.GetSelectedEntities();
+			for (auto entity : selected)
+			{
+				auto objComp = worldEditor.GetWorld()->GetComponent<ObjectComponent>(entity);
+				if (objComp != nullptr)
+					objComp->stencilRef = 1;
+			}
 		}
 
 		bool IsMouseDown(Platform::MouseButton button) const override

@@ -15,6 +15,7 @@
 
 #if OBJECTSHADER_LAYOUT == OBJECTSHADER_LAYOUT_COMMON
 #define OBJECTSHADER_USE_COLOR
+#define OBJECTSHADER_USE_UVSETS
 #define OBJECTSHADER_USE_NORMAL
 #define OBJECTSHADER_USE_POSITION3D
 #define OBJECTSHADER_USE_INSTANCEINDEX
@@ -31,6 +32,8 @@ inline ShaderMaterial GetMaterial()
 {
     return LoadMaterial(push.materialIndex);
 }
+
+#define texture_basecolormap bindless_textures[GetMaterial().texture_basecolormap_index]
 
 struct VertexInput
 {
@@ -97,6 +100,10 @@ struct VertexSurface
 struct PixelInput
 {
     float4 pos : SV_POSITION;
+
+#ifdef OBJECTSHADER_USE_UVSETS
+	float4 uvsets : UVSETS;
+#endif
 
 #ifdef OBJECTSHADER_USE_COLOR
 	float4 color : COLOR;

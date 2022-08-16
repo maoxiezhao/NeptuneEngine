@@ -3,11 +3,10 @@
 #include "renderer\enums.h"
 #include "renderer\shader.h"
 #include "renderer\texture.h"
+#include "materialParams.h"
 
 namespace VulkanTest
 {
-	struct MaterialFactory;
-
 	enum class MaterialDomain
 	{
 		Object = 0,
@@ -30,7 +29,7 @@ namespace VulkanTest
 	public:
 		virtual ~MaterialShader();
 
-		static MaterialShader* Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info, MaterialFactory& factory);
+		static MaterialShader* Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info, ResourceManager& resManager);
 
 		bool IsReady()const;
 		const Shader* GetShader()const;
@@ -45,7 +44,7 @@ namespace VulkanTest
 
 	protected:
 		MaterialShader(const String& name_);
-		bool Load(InputMemoryStream& mem, const MaterialInfo& info_, MaterialFactory& factory);
+		bool Load(InputMemoryStream& mem, const MaterialInfo& info_, ResourceManager& resManager);
 
 		virtual bool OnLoaded() = 0;
 
