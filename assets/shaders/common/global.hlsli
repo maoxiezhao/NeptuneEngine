@@ -40,4 +40,19 @@ inline ShaderMeshInstance LoadInstance(uint instanceIndex)
 
 }
 
+// These functions avoid pow() to efficiently approximate sRGB with an error < 0.4%.
+float3 ApplySRGBCurveFast( float3 x )
+{
+    return x < 0.0031308 ? 12.92 * x : 1.13005 * sqrt(x - 0.00228) - 0.13448 * x + 0.005719;
+}
+
+// These functions avoid pow() to efficiently approximate sRGB with an error < 0.4%.
+float3 RemoveSRGBCurveFast( float3 x )
+{
+    return x < 0.04045 ? x / 12.92 : -7.43605 * x - 31.24297 * sqrt(-0.53792 * x + 1.279924) + 35.34864;
+}
+
+#define DEGAMMA(x)		(RemoveSRGBCurveFast(x))
+#define GAMMA(x)		(ApplySRGBCurveFast(x))
+
 #endif

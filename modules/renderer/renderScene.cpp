@@ -245,6 +245,49 @@ namespace VulkanTest
             world.DeleteEntity(entity);
         }
 
+        PickResult CastRayPick(const Ray& ray, U32 mask = ~0)override
+        {
+            PickResult ret;
+            ForEachObjects([&](ECS::EntityID entity, ObjectComponent& comp) 
+            {
+                const AABB& aabb = comp.aabb;
+                if (!ray.Intersects(aabb))
+                    return;
+
+                if (comp.mesh == ECS::INVALID_ENTITY)
+                    return;
+
+                auto meshComp = GetComponent<MeshComponent>(comp.mesh);
+                if (meshComp == nullptr || !meshComp->model || !meshComp->model->IsReady())
+                    return;
+
+                // Transform ray to local object space
+                const MATRIX objectMat = LoadFMat4x4(comp.worldMat);
+                const MATRIX objectMatInverse = MatrixInverse(objectMat);
+                const VECTOR rayOriginLocal = Vector3Transform(LoadF32x3(ray.origin), objectMatInverse);
+                const XMVECTOR rayDirectionLocal = XMVector3Normalize(XMVector3TransformNormal(LoadF32x3(ray.direction), objectMatInverse));
+
+                PickResult hit = meshComp->mesh->CastRayPick(rayOriginLocal, rayDirectionLocal, ray.tMin, ray.tMax);
+                if (hit.isHit)
+                {
+                    // Calculate the distance in world space
+                    const VECTOR posV = Vector3Transform(VectorAdd(rayOriginLocal, rayDirectionLocal * hit.distance), objectMat);
+                    F32x3 pos = StoreF32x3(posV);
+                    F32 distance = Distance(pos, ray.origin);
+
+                    if (distance < ret.distance)
+                    {
+                        ret.isHit = true;
+                        ret.distance = distance;
+                        ret.entity = entity;
+                        ret.position = pos;
+                        ret.normal = StoreF32x3(Vector3Normalize(Vector3Transform(LoadF32x3(hit.normal), objectMat)));
+                    }
+                }
+            });
+            return ret;
+        }
+
         CameraComponent* GetMainCamera()override
         {
             return &mainCamera;
@@ -568,6 +611,7 @@ namespace VulkanTest
                     ShaderMeshInstance inst;
                     inst.init();
                     inst.transform.Create(transform->transform.world);
+                    objComp.worldMat = transform->transform.world;
 
                     memcpy(instanceMapped + objComp.index, &inst, sizeof(ShaderMeshInstance));
                 }

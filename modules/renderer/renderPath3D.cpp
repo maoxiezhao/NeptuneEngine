@@ -128,7 +128,7 @@ namespace VulkanTest
 
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Postprocess
-		Renderer::SetupPostprocessBlurGaussian(renderGraph, GetRenderResult3D(), lastRenderPassRT, rtAttachmentInfo);
+		// Renderer::SetupPostprocessBlurGaussian(renderGraph, GetRenderResult3D(), lastRenderPassRT, rtAttachmentInfo);
 
 		RenderPath2D::SetupPasses(renderGraph);
 	}

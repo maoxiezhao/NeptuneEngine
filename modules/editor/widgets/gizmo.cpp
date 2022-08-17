@@ -446,6 +446,11 @@ namespace Editor::Gizmo
 		return true;
 	}
 
+	bool IsActive()
+	{
+		return impl.activeID != ECS::INVALID_ENTITY || impl.draggedID != ECS::INVALID_ENTITY;
+	}
+
 	void Update()
 	{
 		impl.selectedID = ECS::INVALID_ENTITY;

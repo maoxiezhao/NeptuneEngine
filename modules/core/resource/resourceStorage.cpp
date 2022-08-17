@@ -1,7 +1,6 @@
 #include "resourceStorage.h"
 #include "resourceManager.h"
 #include "compress\compressor.h"
-#include "core\platform\timer.h"
 
 namespace VulkanTest
 {
@@ -243,19 +242,9 @@ namespace VulkanTest
 		return ret;
 	}
 
-	void ResourceStorage::AddReference()
+	I32 ResourceStorage::GetReference() const
 	{
-		refCount++;
-	}
-
-	void ResourceStorage::RemoveReference()
-	{
-		if (refCount > 0)
-		{
-			refCount--;
-			if (refCount == 0)
-				lastRefLoseTime = (F32)Timer::GetRawTimestamp() / (F32)Timer::GetFrequency();
-		}
+		return (I32)AtomicRead(const_cast<I64 volatile*>(&refCount));
 	}
 
 #ifdef CJING3D_EDITOR

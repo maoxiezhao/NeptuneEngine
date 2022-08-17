@@ -27,6 +27,7 @@ namespace Editor
 			bool IsScaleMode() const { return mode == SCALE; }
 		};
 		
+		bool IsActive();
 		void Update();
 		bool Manipulate(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config);
 		void Draw(GPU::CommandList& cmd, CameraComponent& camera, const Config& config);

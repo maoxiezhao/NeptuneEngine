@@ -90,6 +90,38 @@ namespace VulkanTest
 		return true;
 	}
 
+	PickResult Mesh::CastRayPick(const VECTOR& rayOrigin, const VECTOR& rayDirection, F32 tmin, F32 tmax)
+	{
+		PickResult ret = {};
+		LODMeshIndices lodMeshIndex = GetLODMeshIndex(0);
+		for (int index = lodMeshIndex.from; index < lodMeshIndex.to; index++)
+		{
+			const auto& subset = subsets[index];
+			for (U32 i = 0; i < subset.indexCount; i += 3)
+			{
+				const U32 i0 = indices[subset.indexOffset + i + 0];
+				const U32 i1 = indices[subset.indexOffset + i + 1];
+				const U32 i2 = indices[subset.indexOffset + i + 2];
+
+				VECTOR p0 = LoadF32x3(vertexPos[i0]);
+				VECTOR p1 = LoadF32x3(vertexPos[i1]);
+				VECTOR p2 = LoadF32x3(vertexPos[i2]);
+
+				F32 dist;
+				if (RayTriangleIntersects(rayOrigin, rayDirection, p0, p1, p2, dist, tmin, tmax))
+				{
+					if (dist < ret.distance)
+					{
+						ret.isHit = true;
+						ret.distance = dist;
+						ret.normal = StoreF32x3(Vector3Cross(VectorSubtract(p2, p1), VectorSubtract(p1, p0)));
+					}
+				}
+			}
+		}
+		return ret;
+	}
+
 	DEFINE_RESOURCE(Model);
 
 	const U32 Model::FILE_MAGIC = 0x5f4c4d4f;

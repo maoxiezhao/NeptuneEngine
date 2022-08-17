@@ -10,6 +10,15 @@
 
 namespace VulkanTest
 {
+	struct VULKAN_TEST_API PickResult
+	{
+		ECS::EntityID entity = ECS::INVALID_ENTITY;
+		F32x3 position = F32x3(0.0f);
+		F32x3 normal = F32x3(0.0f);
+		F32 distance = std::numeric_limits<float>::max();
+		bool isHit = false;
+	};
+
 	class VULKAN_TEST_API Mesh
 	{
 	public:
@@ -65,6 +74,20 @@ namespace VulkanTest
 		};
 		Array<MeshSubset> subsets;
 
+		struct LODMeshIndices
+		{
+			int from;
+			int to;
+		};
+		Array<LODMeshIndices> lodIndices;
+		const LODMeshIndices& GetLODMeshIndex(U32 lod) 
+		{
+			if (lodIndices.empty())
+				return { 0, (int)subsets.size() };
+
+			return lodIndices[lod];
+		}
+
 		GPU::BufferPtr generalBuffer;
 		
 		struct BufferView
@@ -83,6 +106,9 @@ namespace VulkanTest
 		BufferView vbUVs;
 
 		bool CreateRenderData();
+
+		PickResult CastRayPick(const VECTOR& rayOrigin, const VECTOR& rayDirection, F32 tmin, F32 tmax);
+
 	};
 
 	class VULKAN_TEST_API Model final : public BinaryResource

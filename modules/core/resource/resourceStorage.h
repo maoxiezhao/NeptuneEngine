@@ -6,6 +6,7 @@
 #include "core\utils\dataChunk.h"
 #include "core\utils\intrusivePtr.hpp"
 #include "core\platform\atomic.h"
+#include "core\platform\timer.h"
 
 namespace VulkanTest
 {
@@ -121,11 +122,17 @@ namespace VulkanTest
 			AtomicDecrement(&chunksLock);
 		}
 
-		void AddReference();
-		void RemoveReference();
-		I32 GetReference() const {
-			return refCount;
+		void AddReference() {
+			AtomicIncrement(&refCount);
 		}
+
+		void RemoveReference() {
+			AtomicDecrement(&refCount);
+			if (AtomicRead(&refCount) == 0)
+				lastRefLoseTime = (F32)Timer::GetRawTimestamp() / (F32)Timer::GetFrequency();
+		}
+
+		I32 GetReference() const;
 
 		// Scoed locker
 		struct StorageLock
@@ -197,7 +204,7 @@ namespace VulkanTest
 		bool isLoaded = false;
 		Mutex mutex;
 		volatile I64 chunksLock;
-		I32 refCount;
+		volatile I64 refCount;
 		F32 lastRefLoseTime;
 	};
 

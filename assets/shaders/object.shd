@@ -53,6 +53,7 @@ float4 PS(PixelInput input) : SV_Target
     if (GetMaterial().texture_basecolormap_index >= 0)
     {
         float4 baseColorMap = texture_basecolormap.Sample(samLinearClamp, input.uvsets.xy);
+        baseColorMap.rgb = DEGAMMA(baseColorMap.rgb);
         color *= baseColorMap;
     }
 #endif

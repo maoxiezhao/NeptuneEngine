@@ -221,13 +221,33 @@ namespace Editor
 			isMouseDown[(int)button] = true;
 
 			if (button == Platform::MouseButton::RIGHT)
+			{
 				mouseMode = MouseMode::NAVIGATE;
+			}
+			else if (button == Platform::MouseButton::LEFT)
+			{
+				if (Gizmo::IsActive())
+					return;
 
+				mouseMode = MouseMode::SELECT;
+			}
 		}
 
 		void OnMouseUp(int x, int y, Platform::MouseButton button)
 		{
 			isMouseDown[(int)button] = false;
+			if (mouseMode == MouseMode::SELECT)
+			{
+				RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+				if (scene)
+				{
+					Ray ray = Renderer::GetPickRay(mousePos, camera);
+					PickResult pickResult = scene->CastRayPick(ray);
+					if (pickResult.isHit && pickResult.entity != ECS::INVALID_ENTITY)
+						worldEditor.SelectEntities(Span(&pickResult.entity, 1), false);
+				}
+			}
+
 			mouseMode = MouseMode::NONE;
 		}
 

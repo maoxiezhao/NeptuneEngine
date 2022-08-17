@@ -64,11 +64,14 @@ namespace VulkanTest
 
 	struct ObjectComponent
 	{
-		ECS::EntityID mesh = ECS::INVALID_ENTITY;
 		F32x3 center = F32x3(0, 0, 0);
 		AABB aabb;
 		U32 index = 0;
 		U8 stencilRef = 0;
+
+		// Runtime infos
+		ECS::EntityID mesh = ECS::INVALID_ENTITY;
+		FMat4x4 worldMat = IDENTITY_MATRIX;
 	};
 
 	class VULKAN_TEST_API RenderPassPlugin
@@ -103,6 +106,8 @@ namespace VulkanTest
 		// Entity
 		virtual ECS::EntityID CreateEntity(const char* name) = 0;
 		virtual void DestroyEntity(ECS::EntityID entity) = 0;
+
+		virtual PickResult CastRayPick(const Ray& ray, U32 mask = ~0) = 0;
 
 		// Camera
 		virtual CameraComponent* GetMainCamera() = 0;
