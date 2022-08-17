@@ -80,7 +80,7 @@ namespace VulkanTest
 			int to;
 		};
 		Array<LODMeshIndices> lodIndices;
-		const LODMeshIndices& GetLODMeshIndex(U32 lod) 
+		LODMeshIndices GetLODMeshIndex(U32 lod)
 		{
 			if (lodIndices.empty())
 				return { 0, (int)subsets.size() };

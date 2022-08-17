@@ -516,6 +516,12 @@ namespace Editor
             // Check is builtin thumnailtile
             if (resType == Shader::ResType)
                 return CopyThumbnailTile("editor/textures/tile_shader.tga", tilePath.c_str());
+            else if (resType == Texture::ResType)
+                return CopyThumbnailTile("editor/textures/tile_texture.tga", tilePath.c_str());
+            else if (resType == Material::ResType)
+                return CopyThumbnailTile("editor/textures/tile_material.tga", tilePath.c_str());
+            else if (resType == Model::ResType)
+                return CopyThumbnailTile("editor/textures/tile_model.tga", tilePath.c_str());
 
             return false;
         }

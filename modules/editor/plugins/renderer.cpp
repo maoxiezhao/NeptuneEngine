@@ -4,14 +4,13 @@
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\sceneView.h"
 #include "renderer\model.h"
-#include "renderer\materials\material.h"
 #include "gpu\vulkan\typeToString.h"
 #include "imgui-docking\imgui.h"
 
 #include "editor\plugins\model\objImporter.h"
 #include "editor\plugins\shader\shaderCompilation.h"
 #include "editor\plugins\texture\textureImporter.h"
-#include "editor\plugins\material\materialImporter.h"
+#include "editor\plugins\material\materialPlugin.h"
 
 namespace VulkanTest
 {
@@ -97,46 +96,6 @@ namespace Editor
 
 		ResourceType GetResourceType() const override {
 			return Texture::ResType;
-		}
-	};
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Material editor plugin
-	struct MaterialPlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
-	{
-	private:
-		EditorApp& app;
-
-	public:
-		MaterialPlugin(EditorApp& app_) :
-			app(app_)
-		{
-			app_.GetAssetCompiler().RegisterExtension("mat", Material::ResType);
-		}
-	
-		bool Compile(const Path& path)override
-		{
-			return MaterialImporter::Import(app, path);
-		}
-
-		void OnGui(Span<class Resource*> resource)override
-		{
-			if (resource.length() > 1)
-				return;
-
-			Material* material = static_cast<Material*>(resource[0]);
-			if (ImGui::Button(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
-				app.GetAssetBrowser().OpenInExternalEditor(material->GetPath().c_str());
-
-		}
-
-		std::vector<const char*> GetSupportExtensions()
-		{
-			return { "mat" };
-		}
-
-		ResourceType GetResourceType() const override {
-			return Material::ResType;
 		}
 	};
 
