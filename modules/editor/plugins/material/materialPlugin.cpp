@@ -1,6 +1,5 @@
 #include "materialPlugin.h"
 #include "editor\editor.h"
-#include "renderer\materials\material.h"
 #include "imgui-docking\imgui.h"
 #include "editor\plugins\material\materialImporter.h"
 
@@ -37,7 +36,7 @@ namespace Editor
 		ImGui::Text(buf);
 	}
 
-	void SaveMaterial(Material* material)
+	void MaterialPlugin::SaveMaterial(Material* material)
 	{
 	}
 

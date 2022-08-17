@@ -350,6 +350,8 @@ namespace Platform {
 	bool GetWindowEvent(WindowEvent& event);
 	bool IsKeyDown(Keycode key);
 
+	void CreateGuid(void* result);
+
 	/////////////////////////////////////////////////////////////////////////////////
 	// File 
 	struct FileIterator;

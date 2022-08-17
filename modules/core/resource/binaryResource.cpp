@@ -22,11 +22,72 @@ namespace VulkanTest
 			if (storage->IsLoaded())
 				return false;
 
+			// Load resource storage
 			if (!storage->Load())
 				return false;
 
-			if (!res->InitStorage())
+			// Load resource init data from storage
+			ResourceInitData initData;
+			if (!storage->LoadResourceHeader(initData))
+			{
+				Logger::Warning("Failed to Load resource header");
 				return false;
+			}
+
+			// Initialize resource
+			if (!res->Initialize(initData))
+			{
+				Logger::Warning("Failed to initialize resource");
+				return false;
+			}
+	
+			return true;
+		}
+
+		void OnEnd()override
+		{
+			lock.Release();
+			Task::OnEnd();
+		}
+
+	private:
+		WeakResPtr<BinaryResource> resource;
+		ResourceStorage::StorageLock lock;
+	};
+
+	class LoadChunkDataTask : public ContentLoadingTask
+	{
+	public:
+		LoadChunkDataTask(BinaryResource* resource_, AssetChunksFlag chunkFlag_) :
+			ContentLoadingTask(ContentLoadingTask::LoadResourceData),
+			resource(resource_),
+			chunkFlag(chunkFlag_),
+			lock(resource_->storage->Lock())
+		{
+		}
+
+		bool Run()override
+		{
+			ResPtr<BinaryResource> res = resource.get();
+			if (res == nullptr)
+				return false;
+
+			ResourceStorage* storage = res->storage;
+			if (!storage->IsLoaded())
+				return false;
+
+			for (int i = 0; i < MAX_RESOURCE_DATA_CHUNKS; i++)
+			{
+				if ((1 << i) & chunkFlag)
+				{
+					const auto chunk = res->GetChunk(i);
+					if (chunk == nullptr)
+						continue;
+
+					if (!storage->LoadChunk(chunk))
+						return false;
+				}
+			}
 
 			return true;
 		}
@@ -40,6 +101,7 @@ namespace VulkanTest
 	private:
 		WeakResPtr<BinaryResource> resource;
 		ResourceStorage::StorageLock lock;
+		AssetChunksFlag chunkFlag;
 	};
 
 	Resource* BinaryResourceFactory::LoadResource(const Path& path)
@@ -135,40 +197,27 @@ namespace VulkanTest
 		return Load();
 	}
 
-	bool BinaryResource::InitStorage()
+	bool BinaryResource::Initialize(ResourceInitData& initData)
 	{
 		ASSERT(storage && storage->IsLoaded());
-
-		// Load resource chunk header
-		if (!storage->LoadChunksHeader(&header))
-			return false;
-
-		// Preload chunks
-		if (GetChunksToPreload() > 0)
-		{
-			auto chunkFlags = GetChunksToPreload();
-			for (int i = 0; i < MAX_RESOURCE_DATA_CHUNKS; i++)
-			{
-				if ((1 << i) & chunkFlags)
-				{
-					const auto chunk = GetChunk(i);
-					if (chunk == nullptr)
-						continue;
-
-					if (!storage->LoadChunk(chunk))
-						return false;
-				}
-			}
-		}
-
+		header = initData.header;
 		resSize = storage->Size();
-		return true;
+		return Init(initData);
 	}
 
 	ContentLoadingTask* BinaryResource::CreateLoadingTask()
 	{
 		auto task = Resource::CreateLoadingTask();
 		ASSERT(task);
+
+		// Preload chunks
+		auto chunksToPreload = GetChunksToPreload();
+		if (chunksToPreload > 0)
+		{
+			LoadChunkDataTask* loadTask = CJING_NEW(LoadChunkDataTask)(this, chunksToPreload);
+			loadTask->SetNextTask(task);
+			task = loadTask;
+		}
 
 		// Load resource storage first
 		if (!storage->IsLoaded())
@@ -193,7 +242,15 @@ namespace VulkanTest
 		}
 
 		// Reinitialize storage
-		if (!InitStorage())
+		ResourceInitData initData;
+		if (!storage->LoadResourceHeader(initData))
+		{
+			Logger::Warning("Failed to Load resource header");
+			return;
+		}
+
+		// Reinitialize resource
+		if (!Initialize(initData))
 		{
 			Logger::Error("Failed to reload resource storage %s", GetPath().c_str());
 			return;

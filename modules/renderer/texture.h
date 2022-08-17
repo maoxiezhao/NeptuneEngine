@@ -60,6 +60,7 @@ namespace VulkanTest
 		}
 
 	protected:
+		bool Init(ResourceInitData& initData)override;
 		bool Load()override;
 		void Unload() override;
 
@@ -67,6 +68,7 @@ namespace VulkanTest
 		bool LoadTextureTGA(const TextureHeader& header, const U8* imgData, U64 size);
 		bool LoadTextureInternal(const TextureHeader& header, const U8* imgData, U64 size);
 
+		TextureHeader header;
 		GPU::ImagePtr handle;
 		GPU::ImageCreateInfo info;
 		GPU::BindlessDescriptorPtr bindless;

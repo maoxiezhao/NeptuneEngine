@@ -6,12 +6,18 @@ namespace VulkanTest
 {
 	constexpr U32 COMPRESSION_SIZE_LIMIT = 4096;
 
-	ResourceStorage::StorageLock ResourceStorage::StorageLock::Invalid(nullptr);
-
-	void ResourceStorageDeleter::operator()(ResourceStorage* res)
+	struct VULKAN_TEST_API ResourceStorageHeader
 	{
-		res->Unload();
-	}
+		static constexpr U32 MAGIC = 'FACK';
+		static constexpr U32 VERSION = 0x01;
+
+		U32 magic = MAGIC;
+		U32 version = 0;
+		U32 assetsCount = 0;
+		U32 chunksCount = 0;
+	};
+
+	ResourceStorage::StorageLock ResourceStorage::StorageLock::Invalid(nullptr);
 
 	ResourceStorage::ResourceStorage(const Path& path_, ResourceManager& resManager_) :
 		path(path_),
@@ -48,7 +54,7 @@ namespace VulkanTest
 		// ResourceStorageHeader
 		// Entries
 		// Chunk locations
-		// Chunk header (count == entries count)
+		// resource header (count == entries count)
 		// Chunk datas
 		
 		InputMemoryStream inputMem(*stream);
@@ -142,10 +148,10 @@ namespace VulkanTest
 			CloseContent();
 	}
 
-	bool ResourceStorage::LoadChunksHeader(ResourceChunkHeader* resChunks)
+	bool ResourceStorage::LoadResourceHeader(ResourceInitData& initData)
 	{
 		ASSERT(isLoaded);
-		
+
 		OutputMemoryStream* stream = LoadContent();
 		if (stream == nullptr)
 			return false;
@@ -153,18 +159,47 @@ namespace VulkanTest
 		InputMemoryStream input(*stream);
 		input.SetPos(entry.address);
 
-		ChunkHeader chunkHeader;
-		input.Read(chunkHeader);
-		for (int i = 0; i < ARRAYSIZE(chunkHeader.chunkIndex); i++)
+		// ReasourceHeader
+		// ----------------------------------
+		// Guid
+		// Type
+		// Chunk mapping
+		// Custom data
+
+		// Guid
+		input.Read(initData.header.guid);
+
+		// Type
+		U64 hash = input.Read<U64>();
+		initData.header.type = ResourceType(hash);
+		if (initData.header.type == ResourceType::INVALID_TYPE)
 		{
-			I32 chunkIndex = chunkHeader.chunkIndex[i];
+			Logger::Warning("Invalid resource data stream");
+			return false;
+		}
+
+		// Chunk mapping
+		ChunkMapping chunkMapping;
+		input.Read(chunkMapping);
+		for (int i = 0; i < MAX_RESOURCE_DATA_CHUNKS; i++)
+		{
+			I32 chunkIndex = chunkMapping.chunkIndex[i];
 			if (chunkIndex >= (I32)chunks.size())
 			{
 				Logger::Warning("Invalid chunk mapping");
 				return false;
 			}
-			resChunks->chunks[i] = chunkIndex == INVALID_CHUNK_INDEX ? nullptr : chunks[i];
+			initData.header.chunks[i] = chunkIndex == INVALID_CHUNK_INDEX ? nullptr : chunks[chunkIndex];
 		}
+
+		// Custom data
+		I32 size = input.Read<I32>();
+		if (size > 0)
+		{
+			initData.customData.Resize(size);
+			input.Read(initData.customData.Data(), size);
+		}
+
 		return true;
 	}
 
@@ -262,7 +297,7 @@ namespace VulkanTest
 		// ResourceStorageHeader
 		// Entries
 		// Chunk locations
-		// Chunk header (count == entries count)
+		// Chunk mapping (count == entries count)
 		// Chunk datas
 
 		// Write header
@@ -277,12 +312,17 @@ namespace VulkanTest
 		U32 currentAddress = sizeof(header) + sizeof(entry) + (sizeof(DataChunk::location) + sizeof(U8)) * header.chunksCount;
 
 		ResourceStorage::ResourceEntry entry;
-		entry.pathHash = data.path.GetHashValue();
-		entry.type = data.resType;
+		entry.guid = data.header.guid;
+		entry.type = data.header.type;
 		entry.address = currentAddress;
 		output.Write(entry);
 
-		currentAddress += sizeof(ChunkHeader);
+		// Entry address -> ReasourceHeader(Guid, ResourceType, chunkMapping)
+		currentAddress += 
+			sizeof(Guid) +								// GUID
+			sizeof(U64) +								// TypeName
+			sizeof(ChunkMapping) +						// ChunkMapping
+			sizeof(I32) + (U32)data.customData.Size();  // Custom data size + data
 
 		// Compress chunk
 		Array<OutputMemoryStream> compressedChunks;
@@ -328,11 +368,24 @@ namespace VulkanTest
 			output.Write(chunks[i]->compressed);
 		}
 
-		// Write chunk header
-		ChunkHeader chunkHeader;
+		// Write resource header
+		// ---------------------------------------
+		// Guid
+		// Type
+		// Chunk mapping
+		// Custom data
+
+		output.Write(data.header.guid);
+		output.Write(data.header.type.GetHashValue());
+
+		ChunkMapping chunkMapping;
 		for (U32 i = 0; i < MAX_RESOURCE_DATA_CHUNKS; i++)
-			chunkHeader.chunkIndex[i] = chunks.indexOf(data.header.chunks[i]);
-		output.Write(chunkHeader);
+			chunkMapping.chunkIndex[i] = chunks.indexOf(data.header.chunks[i]);
+		output.Write(chunkMapping);
+
+		output.Write((I32)data.customData.Size());
+		if (data.customData.Size() > 0)
+			output.Write(data.customData.Data(), data.customData.Size());
 
 		// Write chunk data
 		for (U32 i = 0; i < header.chunksCount; i++)

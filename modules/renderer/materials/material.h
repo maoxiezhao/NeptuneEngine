@@ -49,11 +49,13 @@ namespace VulkanTest
 		const Shader* GetShader()const;
 
 	protected:
+		bool Init(ResourceInitData& initData)override;
 		bool Load()override;
 		void Unload() override;
 		AssetChunksFlag GetChunksToPreload()const override;
 
 	private:
+		MaterialHeader header;
 		MaterialParams params;
 		MaterialShader* materialShader = nullptr;
 		DefaultMaterialParams defaultParams;

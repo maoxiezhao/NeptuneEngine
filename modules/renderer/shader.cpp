@@ -68,15 +68,9 @@ namespace VulkanTest
 		return shader;
 	}
 
-	bool Shader::Load()
+	bool Shader::Init(ResourceInitData& initData)
 	{
-		PROFILE_FUNCTION();
-		const auto dataChunk = GetChunk(0);
-		if (dataChunk == nullptr || !dataChunk->IsLoaded())
-			return false;
-
-		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
-		FileHeader header;
+		InputMemoryStream inputMem(initData.customData);
 		inputMem.Read<FileHeader>(header);
 		if (header.magic != FILE_MAGIC)
 		{
@@ -89,7 +83,17 @@ namespace VulkanTest
 			Logger::Warning("Unsupported version of shader %s", GetPath());
 			return false;
 		}
+		return true;
+	}
 
+	bool Shader::Load()
+	{
+		PROFILE_FUNCTION();
+		const auto dataChunk = GetChunk(0);
+		if (dataChunk == nullptr || !dataChunk->IsLoaded())
+			return false;
+
+		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
 		return LoadFromMemory(inputMem);
 	}
 

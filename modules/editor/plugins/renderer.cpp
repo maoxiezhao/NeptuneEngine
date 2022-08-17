@@ -189,10 +189,13 @@ namespace Editor
 				OutputMemoryStream outMem;
 				outMem.Reserve(32 * 1024);
 
+				ResourceDataWriter shaderWriter(Shader::ResType);
+				DataChunk* shaderChunk = shaderWriter.GetChunk(0);
+
 				CompilationOptions options = {};
 				options.Macros.clear();
 				options.path = path;
-				options.outMem = &outMem;
+				options.outMem = &shaderChunk->mem;
 				if (!ShaderCompilation::Compile(app, options))
 					return false;
 
@@ -214,7 +217,13 @@ namespace Editor
 				metaData += "\n}";
 				app.GetAssetCompiler().UpdateMeta(path, metaData.c_str());
 
-				return app.GetAssetCompiler().WriteCompiled(path.c_str(), Span(outMem.Data(), outMem.Size()));
+				// Write header
+				Shader::FileHeader header;
+				header.magic = Shader::FILE_MAGIC;
+				header.version = Shader::FILE_VERSION;
+				shaderWriter.WriteCustomData(header);
+
+				return app.GetAssetCompiler().WriteCompiled(path.c_str(), shaderWriter.data);
 			}
 			else
 			{

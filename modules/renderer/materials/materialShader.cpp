@@ -60,20 +60,23 @@ namespace VulkanTest
 
 		info = info_;
 
-		if (info_.useCustomShader && info_.shaderSize > 0)
+		if (info_.type == MaterialType::Visual)
 		{
-			// Load shader from memory stream
-			if (mem.GetPos() + info.shaderSize > mem.Size())
+			// Load generated shader from the chunk memory
+			if (mem.Size() <= 0)
 				return false;
 
 			shader = ResPtr<Shader>(CJING_NEW(Shader)(Path(name.c_str()), *factory));
 			shader->SetOwnedBySelf(true);
-			if (!shader->Create(info.shaderSize, (const U8*)mem.GetBuffer() + mem.GetPos()))
+			if (!shader->Create(mem.Size(), (const U8*)mem.GetBuffer()))
 				return false;
 		}
-		else if (info_.shaderPath[0] != 0)
+		else if (info_.type == MaterialType::Shader)
 		{
 			// Load shader from target path
+			if (info_.shaderPath[0] == 0)
+				return false;
+
 			shader = resManager.LoadResourcePtr<Shader>(Path(info.shaderPath));
 			if (!shader)
 				return false;

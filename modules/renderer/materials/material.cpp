@@ -36,22 +36,16 @@ namespace VulkanTest
 		return materialShader ? materialShader->GetShader() : nullptr;
 	}
 
-	bool Material::Load()
+	bool Material::Init(ResourceInitData& initData)
 	{
-		PROFILE_FUNCTION();
-		ASSERT(materialShader == nullptr);
-
-		const auto shaderChunk = GetChunk(MATERIAL_CHUNK_SHADER_SOURCE);
-		if (shaderChunk == nullptr || !shaderChunk->IsLoaded())
+		if (initData.customData.Size() < sizeof(MaterialHeader))
 		{
-			Logger::Warning("The shader content of material is not load");
+			Logger::Warning("Unsupported material file %s", GetPath());
 			return false;
 		}
 
-		// Check material header
-		MaterialHeader header;
-		InputMemoryStream inputMem(shaderChunk->Data(), shaderChunk->Size());
-		inputMem.Read<MaterialHeader>(header);
+		memcpy(&header, initData.customData.Data(), sizeof(MaterialHeader));
+
 		if (header.magic != MaterialHeader::MAGIC)
 		{
 			Logger::Warning("Unsupported material file %s", GetPath());
@@ -64,9 +58,21 @@ namespace VulkanTest
 			return false;
 		}
 
+		return true;
+	}
+
+	bool Material::Load()
+	{
+		PROFILE_FUNCTION();
+		ASSERT(materialShader == nullptr);
+
 		// Create material shader
-		const String name(GetPath().c_str());
-		materialShader = MaterialShader::Create(name, inputMem, header.materialInfo, GetResourceManager());
+		InputMemoryStream shaderStream(nullptr, 0);
+		const auto shaderChunk = GetChunk(MATERIAL_CHUNK_SHADER_SOURCE);
+		if (shaderChunk && shaderChunk->IsLoaded())
+			shaderStream = InputMemoryStream(shaderChunk->Data(), shaderChunk->Size());
+
+		materialShader = MaterialShader::Create(String(GetPath().c_str()), shaderStream, header.materialInfo, GetResourceManager());
 		if (materialShader == nullptr)
 		{
 			Logger::Warning("Failed to create material shader %s", GetPath().c_str());

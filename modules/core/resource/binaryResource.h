@@ -22,7 +22,7 @@ namespace VulkanTest
 		virtual ~BinaryResource();
 
 		bool SetStorage(const ResourceStorageRef& storage_);
-		bool InitStorage();
+		bool Initialize(ResourceInitData& initData);
 
 		DataChunk* GetChunk(I32 index = 0)const;
 
@@ -39,9 +39,12 @@ namespace VulkanTest
 		friend class BinaryResourceFactory;
 
 		BinaryResource(const Path& path_, ResourceFactory& resFactory_);
-	
 		bool LoadResource() override;
 		ContentLoadingTask* CreateLoadingTask()override;
+
+		virtual bool Init(ResourceInitData& initData) {
+			return true;
+		}
 
 		virtual AssetChunksFlag GetChunksToPreload() const {
 			return GET_CHUNK_FLAG(0);
@@ -51,6 +54,6 @@ namespace VulkanTest
 
 	private:
 		ResourceStorageRef storageRef;
-		ResourceChunkHeader header;
+		ResourceHeader header;
 	};
 }

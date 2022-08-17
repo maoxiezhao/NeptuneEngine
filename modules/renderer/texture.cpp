@@ -49,16 +49,9 @@ namespace VulkanTest
 		return bindless->GetIndex();
 	}
 
-	bool Texture::Load()
+	bool Texture::Init(ResourceInitData& initData)
 	{
-		PROFILE_FUNCTION();
-		const auto dataChunk = GetChunk(0);
-		if (dataChunk == nullptr || !dataChunk->IsLoaded())
-			return false;
-
-		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
-
-		TextureHeader header;
+		InputMemoryStream inputMem(initData.customData);
 		inputMem.Read<TextureHeader>(header);
 		if (header.magic != TextureHeader::MAGIC)
 		{
@@ -71,14 +64,23 @@ namespace VulkanTest
 			Logger::Warning("Unsupported version of texture %s", GetPath());
 			return false;
 		}
+		return true;
+	}
 
-		const U8* imgData = (const U8*)inputMem.GetBuffer() + sizeof(TextureHeader);
+	bool Texture::Load()
+	{
+		PROFILE_FUNCTION();
+		const auto dataChunk = GetChunk(0);
+		if (dataChunk == nullptr || !dataChunk->IsLoaded())
+			return false;
+
+		const U8* imgData = (const U8*)dataChunk->Data();
 		switch (header.type)
 		{
 		case TextureResourceType::TGA:
-			return LoadTextureTGA(header, imgData, inputMem.Size() - sizeof(TextureHeader));
+			return LoadTextureTGA(header, imgData, dataChunk->Size());
 		case TextureResourceType::INTERNAL:
-			return LoadTextureInternal(header, imgData, inputMem.Size() - sizeof(TextureHeader));
+			return LoadTextureInternal(header, imgData, dataChunk->Size());
 		default:
 			ASSERT(false);
 			return false;

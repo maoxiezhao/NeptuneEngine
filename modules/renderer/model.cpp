@@ -136,6 +136,24 @@ namespace VulkanTest
 	{
 	}
 
+	bool Model::Init(ResourceInitData& initData)
+	{
+		InputMemoryStream inputMem(initData.customData);
+		inputMem.Read<FileHeader>(header);
+		if (header.magic != FILE_MAGIC)
+		{
+			Logger::Warning("Unsupported model file %s", GetPath());
+			return false;
+		}
+		if (header.version != FILE_VERSION)
+		{
+			Logger::Warning("Unsupported version of model %s", GetPath());
+			return false;
+		}
+
+		return true;
+	}
+
 	bool Model::Load()
 	{
 		PROFILE_FUNCTION();
@@ -143,23 +161,8 @@ namespace VulkanTest
 		const auto dataChunk = GetChunk(0);
 		if (dataChunk == nullptr || !dataChunk->IsLoaded())
 			return false;
-
+	
 		InputMemoryStream inputMem(dataChunk->Data(), dataChunk->Size());
-
-		FileHeader header;
-		inputMem.Read<FileHeader>(header);
-		if (header.magic != FILE_MAGIC)
-		{
-			Logger::Warning("Unsupported model file %s", GetPath());
-			return false;
-		}
-
-		if (header.version != FILE_VERSION)
-		{
-			Logger::Warning("Unsupported version of model %s", GetPath());
-			return false;
-		}
-
 		if (!ParseMeshes(inputMem))
 		{
 			Logger::Warning("Invalid model file %s", GetPath());

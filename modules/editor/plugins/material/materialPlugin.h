@@ -1,6 +1,7 @@
 #pragma once
 
 #include "editorPlugin.h"
+#include "renderer\materials\material.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
 
@@ -23,6 +24,9 @@ namespace Editor
 
 		std::vector<const char*> GetSupportExtensions();
 		ResourceType GetResourceType() const override;
+
+	private:
+		void SaveMaterial(Material* material);
 	};
 }
 }

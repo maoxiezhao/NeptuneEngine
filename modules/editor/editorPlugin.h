@@ -1,6 +1,7 @@
 #pragma once
 
 #include "editor\common.h"
+#include "core\resource\resourceHeader.h"
 
 #ifdef STATIC_PLUGINS
 #define VULKAN_EDITOR_ENTRY(plugin_name) \
@@ -47,6 +48,35 @@ namespace Editor
         virtual void* LoadTexture(const Path& path) = 0;
         virtual void* CreateTexture(const char* name, const void* pixels, int w, int h) = 0;
         virtual void  DestroyTexture(void* handle) = 0;
+    };
+
+    struct ResourceDataWriter
+    {
+        ResourceInitData data;
+        Array<DataChunk> chunks;
+
+        ResourceDataWriter(ResourceType type_)
+        {
+            data.header.type = type_;
+        }
+
+        template<typename T>
+        void WriteCustomData(const T& data_)
+        {
+            data.customData.Write(data_);
+        }
+
+        DataChunk* GetChunk(I32 index)
+        {
+            ASSERT(index >= 0 && index < MAX_RESOURCE_DATA_CHUNKS);
+            DataChunk* chunk = data.header.chunks[index];
+            if (chunk == nullptr)
+            {
+                chunk = &chunks.emplace();
+                data.header.chunks[index] = chunk;
+            }
+            return chunk;
+        }
     };
 } 
 } 

@@ -271,14 +271,6 @@ namespace Editor
 		CopyString(out, mesh.name.c_str());
 	}
 
-	void OBJImporter::WriteHeader()
-	{
-		Model::FileHeader header;
-		header.magic = Model::FILE_MAGIC;
-		header.version = Model::FILE_VERSION;
-		outMem.Write(&header, sizeof(header));
-	}
-
 	void OBJImporter::WriteMesh(const char* src, const ImportMesh& mesh)
 	{
 		// Mesh format:
@@ -429,7 +421,7 @@ namespace Editor
 
 	void OBJImporter::WriteString(const char* str)
 	{
-		outMem.Write(str, StringLength(str));
+		outMem->Write(str, StringLength(str));
 	}
 
 	void OBJImporter::WriteModel(const char* filepath, const ImportConfig& cfg)
@@ -440,25 +432,32 @@ namespace Editor
 		if (meshes.empty())
 			return;
 
-		outMem.Clear();
+		ResourceDataWriter writer(Model::ResType);
 
-		// Model format:
-		// ---------------------------
 		// Model header
+		Model::FileHeader header;
+		header.magic = Model::FILE_MAGIC;
+		header.version = Model::FILE_VERSION;
+		writer.WriteCustomData(header);
+
+		auto dataChunk = writer.GetChunk(0);
+		outMem = &dataChunk->mem;
+
+		// Model Data:
+		// ---------------------------
 		// Meshes
 		// Geometry
-
-		WriteHeader();
 		WriteMeshes(filepath, -1, cfg);
 		WriteGeometry(cfg);
 
-		editor.GetAssetCompiler().WriteCompiled(filepath, Span(outMem.Data(), outMem.Size()));
+		editor.GetAssetCompiler().WriteCompiled(filepath, writer.data);
 	}
 
 	void OBJImporter::WriteMaterials(const char* filepath, const ImportConfig& cfg)
 	{
 		PROFILE_FUNCTION();
 	
+		OutputMemoryStream materialData;
 		FileSystem& fs = editor.GetEngine().GetFileSystem();
 		const PathInfo pathInfo(filepath);
 		for (const auto& material : materials)
@@ -471,12 +470,13 @@ namespace Editor
 			if (fs.FileExists(matPath.c_str()))
 				continue;
 
-			outMem.Clear();
+			outMem = &materialData;
+			outMem->Clear();
 
 			MaterialInfo materialInfo;
 			memset(&materialInfo, 0, sizeof(MaterialInfo));
 			materialInfo.domain = MaterialDomain::Object;
-			materialInfo.useCustomShader = false;
+			materialInfo.type = MaterialType::Standard;
 
 			MaterialGenerator generator;
 	
@@ -498,7 +498,7 @@ namespace Editor
 			WriteTexture(Texture::TextureType::NORMAL);
 			WriteTexture(Texture::TextureType::SPECULAR);
 
-			if (!generator.GenerateSimple(outMem, materialInfo))
+			if (!generator.GenerateSimple(*outMem, materialInfo))
 			{
 				Logger::Error("Failed to write mat file %s", matPath.c_str());
 				return;
@@ -511,7 +511,7 @@ namespace Editor
 				continue;
 			}
 
-			if (!file->Write(outMem.Data(), outMem.Size()))
+			if (!file->Write(outMem->Data(), outMem->Size()))
 				Logger::Error("Failed to write mat file %s", matPath.c_str());
 			
 			file->Close();

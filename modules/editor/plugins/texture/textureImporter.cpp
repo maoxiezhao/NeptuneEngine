@@ -192,7 +192,7 @@ namespace Editor
             return true;
         }
 
-        bool WriteTexture(const Input& input, const Options& options, OutputMemoryStream& outMem)
+        bool WriteTexture(const Input& input, const Options& options, ResourceDataWriter& textureWriter)
         {
             // CompiledReource
             // ---------------------------
@@ -225,15 +225,16 @@ namespace Editor
             header.height = input.h;
             header.mips = mipLevels;
             header.type = TextureResourceType::INTERNAL;
-            outMem.Write(header);
+            textureWriter.WriteCustomData(header);
 
             // Write texture data
+            auto textureChunk = textureWriter.GetChunk(0);
             if (!options.compress)
-                WriteTexture(CompressRGBA, input, options, outMem);
+                WriteTexture(CompressRGBA, input, options, textureChunk->mem);
             else if (input.hasAlpha)
-                WriteTexture(CompressBC3, input, options, outMem);
+                WriteTexture(CompressBC3, input, options, textureChunk->mem);
             else
-                WriteTexture(CompressBC1, input, options, outMem);
+                WriteTexture(CompressBC1, input, options, textureChunk->mem);
 
             return true;
         }
@@ -331,14 +332,15 @@ namespace Editor
                 return false;
             }
 
-            OutputMemoryStream outMem;
+            ResourceDataWriter resWriter(Texture::ResType);
+
             TextureCompressor::Options options;
             options.generateMipmaps = config.generateMipmaps;
             options.compress = config.compress;
-            if (!TextureCompressor::WriteTexture(input, options, outMem))
+            if (!TextureCompressor::WriteTexture(input, options, resWriter))
                 return false;
 
-            return editor.GetAssetCompiler().WriteCompiled(filename, Span(outMem.Data(), outMem.Size()));
+            return editor.GetAssetCompiler().WriteCompiled(filename, resWriter.data);
         }
     }
 }

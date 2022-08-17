@@ -1,92 +1,24 @@
 #pragma once
 
 #include "resource.h"
-#include "core\common.h"
-#include "core\utils\path.h"
-#include "core\utils\dataChunk.h"
-#include "core\utils\intrusivePtr.hpp"
-#include "core\platform\atomic.h"
+#include "resourceHeader.h"
 #include "core\platform\timer.h"
 
 namespace VulkanTest
 {
-#define INVALID_CHUNK_INDEX (-1)
-#define MAX_RESOURCE_DATA_CHUNKS 16
-#define GET_CHUNK_FLAG(chunkIndex) (1 << chunkIndex)
-
 	class ResourceManager;
-
-#pragma pack(1)
-	struct VULKAN_TEST_API ResourceStorageHeader
-	{
-		static constexpr U32 MAGIC = 'FACK';
-		static constexpr U32 VERSION = 0x01;
-
-		U32 magic = MAGIC;
-		U32 version = 0;
-		U32 assetsCount = 0;
-		U32 chunksCount = 0;
-	};
-#pragma pack()
-
-	struct ResourceChunkHeader
-	{
-		DataChunk* chunks[MAX_RESOURCE_DATA_CHUNKS];
-	};
-
-	struct ResourceInitData
-	{
-		Path path;
-		ResourceType resType;
-		ResourceChunkHeader header;
-
-		ResourceInitData(const Path& path_, ResourceType type_) :
-			path(path_),
-			resType(type_)
-		{
-			memset(&header, 0, sizeof(header));
-		}
-	};
-
-#ifdef CJING3D_EDITOR
-	struct ResourceDataWriter
-	{
-		ResourceInitData data;
-		Array<DataChunk> chunks;
-
-		ResourceDataWriter(const Path& path_, ResourceType type_) : data(path_, type_) {}
-
-		DataChunk* GetChunk(I32 index)
-		{
-			ASSERT(index >= 0 && index < MAX_RESOURCE_DATA_CHUNKS);
-			DataChunk* chunk = data.header.chunks[index];
-			if (chunk == nullptr)
-			{
-				chunk = &chunks.emplace();
-				data.header.chunks[index] = chunk;
-			}
-			return chunk;
-		}
-	};
-#endif
-
-	class ResourceStorage;
-	struct ResourceStorageDeleter
-	{
-		void operator()(ResourceStorage* res);
-	};
 
 	class VULKAN_TEST_API ResourceStorage : public Object
 	{
 	public:
 		struct ResourceEntry
 		{
-			U64 pathHash;
+			Guid guid;
 			ResourceType type;
 			U32 address;
 		};
 
-		struct ChunkHeader
+		struct ChunkMapping
 		{
 			I32 chunkIndex[MAX_RESOURCE_DATA_CHUNKS];
 		};
@@ -97,7 +29,7 @@ namespace VulkanTest
 		bool Load();
 		void Unload();
 		void Tick();
-		bool LoadChunksHeader(ResourceChunkHeader* resChunks);
+		bool LoadResourceHeader(ResourceInitData& initData);
 		bool LoadChunk(DataChunk* chunk);
 		bool ShouldDispose()const;
 		bool Reload();
@@ -191,8 +123,6 @@ namespace VulkanTest
 #endif
 
 	private:
-		friend struct ResourceStorageDeleter;
-
 		OutputMemoryStream* LoadContent();
 		void CloseContent();
 

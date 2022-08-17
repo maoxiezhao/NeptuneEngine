@@ -107,12 +107,6 @@ namespace Editor
         ASSERT(context.options->outMem);
         auto& output = *context.options->outMem;
 
-        // Write header
-        Shader::FileHeader header;
-        header.magic = Shader::FILE_MAGIC;
-        header.version = Shader::FILE_VERSION;
-        output.Write(&header, sizeof(header));
-
         // Shader count
         U32 shaderCount = context.shaderMeta->GetShadersCount();
         output.Write(shaderCount);

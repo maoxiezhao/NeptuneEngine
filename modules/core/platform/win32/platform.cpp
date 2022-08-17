@@ -864,6 +864,11 @@ namespace Platform {
 		return (res & 0x8000) != 0;
 	}
 
+	void CreateGuid(void* result)
+	{
+		CoCreateGuid(reinterpret_cast<GUID*>(result));
+	}
+
 	/////////////////////////////////////////////////////////////////////////////////
 	// file function
 	bool FileExists(const char* path)

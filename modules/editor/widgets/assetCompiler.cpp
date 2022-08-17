@@ -625,7 +625,8 @@ namespace Editor
             DataChunk dataChunk;
             dataChunk.mem.Link(data.data(), data.length());
 
-            ResourceInitData initData(Path(path), GetResourceType(path));
+            ResourceInitData initData = {};
+            initData.header.type = GetResourceType(path);
             initData.header.chunks[0] = &dataChunk;
     
             return WriteCompiled(path, initData);

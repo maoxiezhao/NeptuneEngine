@@ -13,14 +13,19 @@ namespace VulkanTest
 		Count
 	};
 
+	enum class MaterialType
+	{
+		Standard,
+		Shader,
+		Visual
+	};
+
 	struct MaterialInfo
 	{
 		MaterialDomain domain = MaterialDomain::Object;
 		BlendMode blendMode = BlendMode::BLENDMODE_OPAQUE;
 		ObjectDoubleSided side = ObjectDoubleSided::OBJECT_DOUBLESIDED_FRONTSIDE;
-
-		bool useCustomShader = false;
-		U64 shaderSize = 0;
+		MaterialType type;
 		char shaderPath[MAX_PATH_LENGTH];
 	};
 

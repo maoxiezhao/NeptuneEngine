@@ -57,10 +57,12 @@ namespace VulkanTest
 
 	protected:
 		bool LoadFromMemory(InputMemoryStream& inputMem);
+		bool Init(ResourceInitData& initData)override;
 		bool Load()override;
 		void Unload() override;
 
 	private:
+		FileHeader header;
 		ShaderContainer shaders;
 	};
 }

@@ -67,7 +67,6 @@ namespace Editor
 	private:
 		void PostprocessMeshes(const ImportConfig& cfg);
 		void GetImportMeshName(const ImportMesh& mesh, char(&out)[256]);
-		void WriteHeader();
 		void WriteMesh(const char* src, const ImportMesh& mesh);
 		void WriteMeshes(const char* src, I32 meshIdx, const ImportConfig& cfg);
 		void WriteGeometry(const ImportConfig& cfg);
@@ -76,10 +75,10 @@ namespace Editor
 
 		template <typename T> 
 		void Write(const T& obj) {
-			outMem.Write(&obj, sizeof(obj)); 
+			outMem->Write(&obj, sizeof(obj)); 
 		}
 		void Write(const void* ptr, size_t size) { 
-			outMem.Write(ptr, size);
+			outMem->Write(ptr, size);
 		}
 		void WriteString(const char* str);
 
@@ -92,7 +91,7 @@ namespace Editor
 
 		Array<ImportMesh> meshes;
 		Array<ImportMaterial> materials;
-		OutputMemoryStream outMem;
+		OutputMemoryStream* outMem = nullptr;
 	};
 }
 }

@@ -58,7 +58,8 @@ namespace VulkanTest
 		// Load default object shader if current shader is null
 		if (!shader)
 		{
-			shader = Renderer::GetShader(SHADERTYPE_OBJECT);
+			if (info.type == MaterialType::Standard)
+				shader = Renderer::GetShader(SHADERTYPE_OBJECT);
 			if (!shader)
 				return false;
 		}

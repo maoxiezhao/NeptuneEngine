@@ -3,10 +3,7 @@
 #include "core\common.h"
 #include "core\resource\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
-#include "core\utils\path.h"
-#include "core\utils\stringID.h"
-#include "core\utils\delegate.h"
-#include "core\utils\intrusivePtr.hpp"
+#include "resourceHeader.h"
 
 namespace VulkanTest
 {
@@ -14,29 +11,7 @@ namespace VulkanTest
 	class ResourceManager;
 	class LoadResourceTask;
 
-	// Resource type
-	struct VULKAN_TEST_API ResourceType
-	{
-		ResourceType() = default;
-		explicit ResourceType(const char* typeName);
-		bool operator !=(const ResourceType& rhs) const { 
-			return rhs.type != type; 
-		}
-		bool operator ==(const ResourceType& rhs) const { 
-			return rhs.type == type; 
-		}
-		bool operator <(const ResourceType& rhs) const { 
-			return rhs.type.GetHashValue() < type.GetHashValue();
-		}
-		U64 GetHashValue()const {
-			return type.GetHashValue();
-		}
-
-		static const ResourceType INVALID_TYPE;
-		StringID type;
-	};
-
-	class Resource;
+	// Resource base class
 	class VULKAN_TEST_API Resource : public Object
 	{
 	public:
@@ -50,7 +25,7 @@ namespace VulkanTest
 		enum class State
 		{
 			EMPTY = 0,
-			READY,	 // Loaded success
+			READY,		// Loaded success
 			FAILURE,
 		};
 		State GetState()const {
@@ -160,6 +135,7 @@ namespace VulkanTest
 		ContentLoadingTask* loadingTask;
 		volatile I64 refCount;
 		Mutex mutex;
+
 		bool isStateDirty = false;
 		bool isReloading = false;
 
@@ -176,7 +152,6 @@ namespace VulkanTest
 		bool ownedBySelf = false;
 		State currentState;
 	};
-
 
 #define DECLARE_RESOURCE(CLASS_NAME)															\
 	static const ResourceType ResType;                                                          \

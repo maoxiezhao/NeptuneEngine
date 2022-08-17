@@ -473,14 +473,15 @@ namespace Editor
             if (!fs.LoadContext(from, mem))
                 return false;
 
-            ResourceDataWriter resWriter(Path("path"), Texture::ResType);
-            auto data = resWriter.GetChunk(0);
-            if (!data)
-                return false;
+            ResourceDataWriter resWriter(Texture::ResType);
 
+            // Texture header
             TextureHeader header = {};
             header.type = TextureResourceType::TGA;
-            data->mem.Write(header);
+            resWriter.WriteCustomData(header);
+
+            // Texture data
+            auto data = resWriter.GetChunk(0);
             data->mem.Write(mem.Data(), mem.Size());
 
             OutputMemoryStream output;

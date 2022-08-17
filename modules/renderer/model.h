@@ -140,6 +140,7 @@ namespace VulkanTest
 		}
 
 	protected:
+		bool Init(ResourceInitData& initData)override;
 		bool Load()override;
 		void Unload() override;
 
@@ -149,6 +150,7 @@ namespace VulkanTest
 
 		bool ParseMeshes(InputMemoryStream& mem);
 
+		FileHeader header;
 		Array<Mesh> meshes;
 	};
 }

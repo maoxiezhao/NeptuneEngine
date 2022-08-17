@@ -16,25 +16,23 @@ namespace Editor
 			return false;
 		}
 
+		ResourceDataWriter resWriter(Material::ResType);
 		InputMemoryStream input(mem);
-		ResourceDataWriter resWriter(path, Material::ResType);
+
+		MaterialInfo materialInfo;
+		input.Read<MaterialInfo>(materialInfo);
+		MaterialHeader header = {};
+		header.materialInfo = materialInfo;
+		resWriter.WriteCustomData(header);
 
 		// Shader chunk
 		auto shaderData = resWriter.GetChunk(MATERIAL_CHUNK_SHADER_SOURCE);
 		if (shaderData)
 		{
-			// Header
-			MaterialInfo materialInfo;
-			input.Read<MaterialInfo>(materialInfo);
-
-			MaterialHeader header = {};
-			header.materialInfo = materialInfo;
-			shaderData->mem.Write(header);
-
-			// TODO Write compiled material shader
-			if (materialInfo.useCustomShader && materialInfo.shaderPath[0] != '/0')
+			if (materialInfo.type == MaterialType::Visual)
 			{
-
+				// Compile generated shader soruce code
+				// TODO
 			}
 		}
 
