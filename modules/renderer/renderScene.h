@@ -70,7 +70,7 @@ namespace VulkanTest
 		U8 stencilRef = 0;
 
 		// Runtime infos
-		ECS::EntityID mesh = ECS::INVALID_ENTITY;
+		ECS::Entity mesh = ECS::INVALID_ENTITY;
 		FMat4x4 worldMat = IDENTITY_MATRIX;
 	};
 
@@ -94,7 +94,7 @@ namespace VulkanTest
 	{
 	public:
 		template<typename T>
-		using EntityMap = std::unordered_map<T, ECS::EntityID>;
+		using EntityMap = std::unordered_map<T, ECS::Entity>;
 
 		static UniquePtr<RenderScene> CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world);
 		static void Reflect(World* world);
@@ -103,11 +103,11 @@ namespace VulkanTest
 		virtual void UpdateRenderData(GPU::CommandList& cmd) = 0;
 		virtual const ShaderSceneCB& GetShaderScene()const = 0;
 
+		virtual PickResult CastRayPick(const Ray& ray, U32 mask = ~0) = 0;
+
 		// Entity
 		virtual ECS::EntityID CreateEntity(const char* name) = 0;
-		virtual void DestroyEntity(ECS::EntityID entity) = 0;
-
-		virtual PickResult CastRayPick(const Ray& ray, U32 mask = ~0) = 0;
+		virtual void DestroyEntity(ECS::Entity entity) = 0;
 
 		// Camera
 		virtual CameraComponent* GetMainCamera() = 0;
@@ -116,19 +116,13 @@ namespace VulkanTest
 		virtual void LoadModel(const char* name, const Path& path) = 0;
 
 		// Mesh
-		virtual ECS::EntityID CreateMesh(const char* name) = 0;
+		virtual ECS::Entity CreateMesh(const char* name) = 0;
 
 		// Material
-		virtual ECS::EntityID CreateMaterial(const char* name) = 0;
+		virtual ECS::Entity CreateMaterial(const char* name) = 0;
 
 		// Object
-		virtual ECS::EntityID CreateObject(const char* name) = 0;
-		virtual void ForEachObjects(std::function<void(ECS::EntityID, ObjectComponent&)> func) = 0;
-
-		template<typename C>
-		C* GetComponent(ECS::EntityID entity)
-		{
-			return GetWorld().GetComponent<C>(entity);
-		}
+		virtual ECS::Entity CreateObject(const char* name) = 0;
+		virtual void ForEachObjects(std::function<void(ECS::Entity, ObjectComponent&)> func) = 0;
 	};
 }

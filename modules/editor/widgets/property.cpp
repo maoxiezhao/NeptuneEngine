@@ -44,7 +44,7 @@ namespace Editor
 			return;
 		}
 
-		ECS::EntityID entity = entities[0];
+		ECS::Entity entity = entities[0];
 		if (ImGui::Begin("Inspector##inspector", &isOpen))
 		{
 			ShowBaseProperties(entity);
@@ -81,31 +81,31 @@ namespace Editor
 		return "PropertyWidget";
 	}
 
-	void PropertyWidget::ShowBaseProperties(ECS::EntityID entity)
+	void PropertyWidget::ShowBaseProperties(ECS::Entity entity)
 	{
-		auto world = worldEditor.GetWorld();
-		const char* tmp = world->GetEntityName(entity);
+		const char* tmp = entity.GetName();
 
 		char name[32];
 		CopyString(name, tmp);
 		ImGui::SetNextItemWidth(-1);
 		if (ImGui::InputTextWithHint("##name", "Name", name, sizeof(name)))
-			world->SetEntityName(entity, name);
+			entity.SetName(name);
 
 		if (!ImGui::TreeNodeEx("General", ImGuiTreeNodeFlags_DefaultOpen))
 			return;
 
+		ECS::EntityID id = entity;
 		ImGuiEx::Label("ID");
-		ImGui::Text("%d", entity);
-		ECS::EntityID parent = world->GetEntityParent(entity);
+		ImGui::Text("%d", id);
+		ECS::EntityID parent = entity.GetParent();
 		if (parent != ECS::INVALID_ENTITY)
 		{
-			const char* tmp = world->GetEntityName(entity);
+			const char* tmp = entity.GetName();
 			ImGuiEx::Label("Parent");
 			ImGui::Text("%s", tmp);
 		}
 
-		TransformComponent* transformComp = world->GetComponent<TransformComponent>(entity);
+		TransformComponent* transformComp = entity.GetMut<TransformComponent>();
 		if (transformComp != nullptr)
 		{
 			auto& transform = transformComp->transform;
@@ -130,7 +130,7 @@ namespace Editor
 		ImGui::TreePop();
 	}
 
-	void PropertyWidget::ShowComponentProperties(ECS::EntityID entity, ECS::EntityID compID)
+	void PropertyWidget::ShowComponentProperties(ECS::Entity entity, ECS::EntityID compID)
 	{
 		auto compMeta = Reflection::GetComponent(compID);
 		if (compMeta == nullptr)

@@ -25,7 +25,7 @@ namespace VulkanTest
         struct CameraComponent* camera = nullptr;
         Frustum frustum;
 
-        Array<ECS::EntityID> objects;
+        Array<ECS::Entity> objects;
 
         void Clear()
         {

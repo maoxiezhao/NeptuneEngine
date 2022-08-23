@@ -48,9 +48,9 @@ namespace Editor::Gizmo
 
 	struct
 	{
-		ECS::EntityID selectedID = ECS::INVALID_ENTITY;
-		ECS::EntityID activeID = ECS::INVALID_ENTITY;
-		ECS::EntityID draggedID = ECS::INVALID_ENTITY;
+		ECS::Entity selectedID = ECS::INVALID_ENTITY;
+		ECS::Entity activeID = ECS::INVALID_ENTITY;
+		ECS::Entity draggedID = ECS::INVALID_ENTITY;
 		Axis axis = Axis::NONE;
 		F32x3 prevPoint = F32x3(0.0f);
 		Transform transform;
@@ -306,7 +306,7 @@ namespace Editor::Gizmo
 		return ret;
 	}
 
-	bool DoTranslate(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config)
+	bool DoTranslate(ECS::Entity entity, Transform& transform, WorldView& view, const Config& config)
 	{
 		const bool noneActive = impl.draggedID == ECS::INVALID_ENTITY;
 		if (noneActive)
@@ -343,7 +343,7 @@ namespace Editor::Gizmo
 		return SquaredLength(ret) > 0.0f;
 	}
 
-	bool DoRotate(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config)
+	bool DoRotate(ECS::Entity entity, Transform& transform, WorldView& view, const Config& config)
 	{
 		const bool noneActive = impl.draggedID == ECS::INVALID_ENTITY;
 		if (noneActive)
@@ -404,7 +404,7 @@ namespace Editor::Gizmo
 		return true;
 	}
 
-	bool DoScale(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config)
+	bool DoScale(ECS::Entity entity, Transform& transform, WorldView& view, const Config& config)
 	{
 		const bool noneActive = impl.draggedID == ECS::INVALID_ENTITY;
 		if (noneActive)
@@ -456,7 +456,7 @@ namespace Editor::Gizmo
 		impl.selectedID = ECS::INVALID_ENTITY;
 	}
 
-	bool Manipulate(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config)
+	bool Manipulate(ECS::Entity entity, Transform& transform, WorldView& view, const Config& config)
 	{
 		if (!config.enable)
 			return false;

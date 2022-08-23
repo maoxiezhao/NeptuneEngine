@@ -12,7 +12,7 @@ namespace VulkanTest
 {
 	struct VULKAN_TEST_API PickResult
 	{
-		ECS::EntityID entity = ECS::INVALID_ENTITY;
+		ECS::Entity entity = ECS::INVALID_ENTITY;
 		F32x3 position = F32x3(0.0f);
 		F32x3 normal = F32x3(0.0f);
 		F32 distance = std::numeric_limits<float>::max();
@@ -70,7 +70,7 @@ namespace VulkanTest
 			U32 indexOffset = 0;
 			U32 indexCount = 0;
 
-			ECS::EntityID materialID = ECS::INVALID_ENTITY;
+			ECS::Entity materialID = ECS::INVALID_ENTITY;
 		};
 		Array<MeshSubset> subsets;
 

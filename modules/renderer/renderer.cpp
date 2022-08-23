@@ -79,7 +79,7 @@ namespace Renderer
 	{
 		U64 sortingKey;
 
-		RenderBatch(ECS::EntityID mesh, ECS::EntityID obj, F32 distance)
+		RenderBatch(ECS::Entity mesh, ECS::Entity obj, F32 distance)
 		{
 			ASSERT(mesh < 0x00FFFFFF);
 			ASSERT(obj < 0x00FFFFFF);
@@ -123,7 +123,7 @@ namespace Renderer
 			batches.clear();
 		}
 
-		void Add(ECS::EntityID mesh, ECS::EntityID obj, F32 distance)
+		void Add(ECS::Entity mesh, ECS::Entity obj, F32 distance)
 		{
 			batches.emplace(mesh, obj, distance);
 		}
@@ -435,7 +435,7 @@ namespace Renderer
 
 		struct InstancedBatch
 		{
-			ECS::EntityID meshID = ECS::INVALID_ENTITY;
+			ECS::Entity meshID = ECS::INVALID_ENTITY;
 			uint32_t instanceCount = 0;
 			uint32_t dataOffset = 0;
 			U8 stencilRef = 0;
@@ -446,7 +446,7 @@ namespace Renderer
 			if (instancedBatch.instanceCount <= 0)
 				return;
 
-			MeshComponent* meshCmp = scene->GetComponent<MeshComponent>(instancedBatch.meshID);
+			const MeshComponent* meshCmp = instancedBatch.meshID.Get<MeshComponent>();
 			if (meshCmp == nullptr ||
 				meshCmp->mesh == nullptr)
 				return;
@@ -460,7 +460,7 @@ namespace Renderer
 				if (subset.indexCount <= 0)
 					continue;
 
-				MaterialComponent* material = scene->GetComponent<MaterialComponent>(subset.materialID);
+				const MaterialComponent* material = subset.materialID.Get<MaterialComponent>();
 				if (!material || !material->material || !material->material->IsReady())
 					continue;
 
@@ -490,10 +490,10 @@ namespace Renderer
 		U32 instanceCount = 0;
 		for (auto& batch : queue.batches)
 		{
-			const ECS::EntityID objID = batch.GetInstanceEntity();
-			const ECS::EntityID meshID = batch.GetMeshEntity();
+			const ECS::Entity objID(scene->GetWorld().GetPtr(), batch.GetInstanceEntity());
+			const ECS::Entity meshID(scene->GetWorld().GetPtr(), batch.GetMeshEntity());
 
-			ObjectComponent* obj = scene->GetComponent<ObjectComponent>(objID);
+			const ObjectComponent* obj = objID.Get<ObjectComponent>();
 			if (meshID != instancedBatch.meshID ||
 				obj->stencilRef != instancedBatch.stencilRef)
 			{
@@ -535,7 +535,7 @@ namespace Renderer
 		queue.Clear();
 		for (auto objectID : vis.objects)
 		{
-			ObjectComponent* obj = scene->GetComponent<ObjectComponent>(objectID);
+			const ObjectComponent* obj = objectID.Get<ObjectComponent>();
 			if (obj == nullptr || obj->mesh == ECS::INVALID_ENTITY)
 				continue;
 

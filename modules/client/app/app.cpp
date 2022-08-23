@@ -30,6 +30,8 @@ App::App()
 
     Platform::Initialize();
     Platform::LogPlatformInfo();
+
+    World::SetupWorld();
 }
 
 App::~App()

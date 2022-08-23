@@ -29,7 +29,7 @@ namespace Editor
 		
 		bool IsActive();
 		void Update();
-		bool Manipulate(ECS::EntityID entity, Transform& transform, WorldView& view, const Config& config);
+		bool Manipulate(ECS::Entity entity, Transform& transform, WorldView& view, const Config& config);
 		void Draw(GPU::CommandList& cmd, CameraComponent& camera, const Config& config);
 	};
 }

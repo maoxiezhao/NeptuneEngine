@@ -279,7 +279,7 @@ namespace Editor
 			const auto& selected = worldEditor.GetSelectedEntities();
 			for (auto entity : selected)
 			{
-				auto objComp = worldEditor.GetWorld()->GetComponent<ObjectComponent>(entity);
+				auto objComp = entity.GetMut<ObjectComponent>();
 				if (objComp != nullptr)
 					objComp->stencilRef = 1;
 			}
@@ -582,7 +582,7 @@ namespace Editor
 
 		const auto& selected = worldEditor.GetSelectedEntities();
 		if (selected.empty()) return;
-		TransformComponent* comp = worldEditor.GetWorld()->GetComponent<TransformComponent>(selected[0]);
+		TransformComponent* comp = selected[0].GetMut<TransformComponent>();
 		if (comp == nullptr) return;
 	
 		Transform transform = comp->transform;
@@ -598,22 +598,13 @@ namespace Editor
 			F32x3 diff = newPivot.translation - oldPivot.translation;
 			for (auto entity : selected)
 			{
-				TransformComponent* comp = worldEditor.GetWorld()->GetComponent<TransformComponent>(entity);
+				TransformComponent* comp = entity.GetMut<TransformComponent>();
 				if (comp != nullptr)
 					comp->transform.Translate(diff);
 			}
 			break;
 		}
-		case Gizmo::Config::Mode::ROTATE:
-		{
-			break;
-		}
-		case Gizmo::Config::Mode::SCALE:
-		{
-			break;
-		}
 		default:
-			ASSERT(false);
 			break;
 		}
 	}

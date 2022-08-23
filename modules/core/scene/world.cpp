@@ -1,109 +1,101 @@
 #include "world.h"
 #include "core\utils\string.h"
+#include "core\jobsystem\jobsystem.h"
+#include "core\memory\memory.h"
 
 namespace VulkanTest
 {
-	ISystem::ISystem(IScene& scene_) :
-		scene(scene_),
-		system(ECS::INVALID_ENTITY)
+	void ECSRunJob(void* ptr, void* stage, U64 pipeline)
 	{
+		ECS::ThreadContext* ctx = (ECS::ThreadContext*)ptr;
+		ECS_ASSERT(ctx != nullptr);
+
+		if (ctx->payload == nullptr)
+			ctx->payload = new(Jobsystem::JobHandle);
+
+		Jobsystem::Run(nullptr, [stage, pipeline](void*) {
+			ECS::RunPipelineThread((ECS::Stage*)stage, pipeline);
+			}, (Jobsystem::JobHandle*)ctx->payload);
 	}
 
-	ISystem::~ISystem()
+	void ECSWaitJob(void* ptr)
 	{
-		if (system != ECS::INVALID_ENTITY)
-			scene.GetWorld().RemoveSystem(system);
+		ECS::ThreadContext* ctx = (ECS::ThreadContext*)ptr;
+		ECS_ASSERT(ctx != nullptr);
+
+		if (ctx->payload != nullptr)
+			Jobsystem::Wait((Jobsystem::JobHandle*)ctx->payload);
 	}
 
-	void ISystem::UpdateSystem()
+	static void* ECSMalloc(size_t size)
 	{
-		if (system != ECS::INVALID_ENTITY)
-			scene.GetWorld().RunSystem(system);
+		if (size == 48)
+			int a = 0;
+		return CJING_MALLOC(size);
+	}
+
+	static void* ECSCalloc(size_t size)
+	{
+		void* ret = CJING_MALLOC(size);
+		memset(ret, 0, size);
+		return ret;
+	}
+
+	static void* ECSRealloc(void* ptr, size_t size)
+	{
+		return CJING_REMALLOC(ptr, size);
+	}
+
+	static void ECSFree(void* ptr)
+	{
+		CJING_FREE(ptr);
+	}
+
+	void GetValidEntityName(World* world, char(&out)[64])
+	{
+		while (world->FindEntity(out) != ECS::INVALID_ENTITYID)
+			CatString(out, "_");
 	}
 
 	World::World(Engine* engine_) :
+		ECS::World(),
 		engine(engine_)
 	{
-		world = ECS::World::Create();
+		I32 count = std::clamp((I32)(Platform::GetCPUsCount() * 0.5f), 1, 12);
+		Logger::Info("Create ecs stage count %d", count);
+		SetThreads(count);
 	}
 
 	World::~World()
 	{
-		world.reset();
 	}
 
-	const ECS::EntityBuilder& World::CreateEntity(const char* name)
+	void World::SetupWorld()
+	{
+		ECS::EcsSystemAPI api = {};
+		api.malloc_ = ECSMalloc;
+		api.calloc_ = ECSCalloc;
+		api.realloc_ = ECSRealloc;
+		api.free_ = ECSFree;
+		api.thread_run_ = ECSRunJob;
+		api.thread_sync_ = ECSWaitJob;
+		ECS::SetSystemAPI(api);
+	}
+
+	ECS::Entity World::CreateEntity(const char* name)
 	{
 		char tmp[64];
 		CopyString(Span(tmp), name);
-		GetValidEntityName(tmp);
-		const auto& builder = world->CreateEntity(tmp);
-		entityCreated.Invoke(builder.entity);
-		return builder;
+		GetValidEntityName(this, tmp);
+		ECS::Entity result = Entity(tmp);
+		entityCreated.Invoke(result);
+		return result;
 	}
 
-	const ECS::EntityBuilder& World::CreatePrefab(const char* name)
-	{
-		return world->CreatePrefab(name);
-	}
-
-	void World::GetValidEntityName(char(&out)[64])
-	{
-		while (world->FindEntityIDByName(out) != ECS::INVALID_ENTITY)
-			CatString(out, "_");
-	}
-
-	ECS::EntityID World::CreateEntityID(const char* name)
-	{
-		ECS::EntityID id = world->CreateEntityID(name);
-		entityCreated.Invoke(id);
-		return id;
-	}
-
-	ECS::EntityID World::FindEntity(const char* name)
-	{
-		return world->FindEntityIDByName(name);
-	}
-
-	ECS::EntityID World::EntityExists(ECS::EntityID entity) const
-	{
-		return world->EntityExists(entity);
-	}
-
-	ECS::EntityID World::GetEntityParent(ECS::EntityID entity)
-	{
-		return world->GetParent(entity);
-	}
-
-	void World::DeleteEntity(ECS::EntityID entity)
+	void World::DeleteEntity(ECS::Entity entity)
 	{
 		entityDestroyed.Invoke(entity);
-		return world->DeleteEntity(entity);
-	}
-
-	void World::SetEntityName(ECS::EntityID entity, const char* name)
-	{
-		world->SetEntityName(entity, name);
-	}
-
-	const char* World::GetEntityName(ECS::EntityID entity)
-	{
-		return world->GetEntityName(entity);
-	}
-
-	bool World::HasComponent(ECS::EntityID entity, ECS::EntityID compID)
-	{
-		return world->HasComponent(entity, compID);
-	}
-
-	void World::RunSystem(ECS::EntityID system)
-	{
-		world->RunSystem(system);
-	}
-
-	void World::RemoveSystem(ECS::EntityID system)
-	{
-		// TODO
+		entity.Destroy();
 	}
 
 	IScene* World::GetScene(const char* name) const

@@ -138,9 +138,10 @@ namespace VulkanTest
         Engine& engine;
         World& world;
         RendererPlugin& rendererPlugin;
-        std::vector<ISystem*> systems;
         CameraComponent mainCamera;
         UniquePtr<CullingSystem> cullingSystem;
+        Array<ECS::System> systems;
+        ECS::Pipeline pipeline;
 
         EntityMap<Model*> modelEntityMap;
         ECS::Query<ObjectComponent> objectQuery;
@@ -176,7 +177,7 @@ namespace VulkanTest
             meshQuery = world.CreateQuery<MeshComponent>().Build();
             materialQuery = world.CreateQuery<MaterialComponent>().Build();
 
-            world.SetComponenetOnRemoved<LoadModelComponent>([&](ECS::EntityID entity, LoadModelComponent& model) {
+            world.SetComponenetOnRemoved<LoadModelComponent>([&](ECS::Entity entity, LoadModelComponent& model) {
                 if (model.model)
                     modelEntityMap.erase(model.model.get());
             });
@@ -201,7 +202,7 @@ namespace VulkanTest
         void Uninit()override
         {
             for (auto system : systems)
-                CJING_SAFE_DELETE(system);
+                system.Destroy();
             systems.clear();
 
             // world.SetComponenetOnRemoved<MeshComponent>(nullptr);
@@ -215,7 +216,17 @@ namespace VulkanTest
             modelEntityMap.clear();
         }
 
-        void AddSystem(ISystem* system)
+        ECS::EntityID CreateEntity(const char* name) override
+        {
+            return world.CreateEntity(name);
+        }
+
+        void DestroyEntity(ECS::Entity entity)override
+        {
+            world.DeleteEntity(entity);
+        }
+
+        void AddSystem(const ECS::System& system)
         {
             systems.push_back(system);
         }
@@ -235,20 +246,10 @@ namespace VulkanTest
             return rendererPlugin;
         }
 
-        ECS::EntityID CreateEntity(const char* name) override
-        {
-            return world.CreateEntity(name).entity;
-        }
-
-        void DestroyEntity(ECS::EntityID entity)override
-        {
-            world.DeleteEntity(entity);
-        }
-
         PickResult CastRayPick(const Ray& ray, U32 mask = ~0)override
         {
             PickResult ret;
-            ForEachObjects([&](ECS::EntityID entity, ObjectComponent& comp) 
+            ForEachObjects([&](ECS::Entity entity, ObjectComponent& comp) 
             {
                 const AABB& aabb = comp.aabb;
                 if (!ray.Intersects(aabb))
@@ -257,7 +258,7 @@ namespace VulkanTest
                 if (comp.mesh == ECS::INVALID_ENTITY)
                     return;
 
-                auto meshComp = GetComponent<MeshComponent>(comp.mesh);
+                auto meshComp = comp.mesh.Get<MeshComponent>();
                 if (meshComp == nullptr || !meshComp->model || !meshComp->model->IsReady())
                     return;
 
@@ -298,12 +299,11 @@ namespace VulkanTest
             cullingSystem->Cull(vis, *this);
         }
 
-        ECS::EntityID CreateObject(const char* name)override
+        ECS::Entity CreateObject(const char* name)override
         {
             return world.CreateEntity(name)
-                .With<TransformComponent>()
-                .With<ObjectComponent>()
-                .entity;
+                .Add<TransformComponent>()
+                .Add<ObjectComponent>();
         }
 
         bool IsSceneValid()const
@@ -314,7 +314,7 @@ namespace VulkanTest
                 materialBuffer.IsValid();
         }
         
-        void ForEachObjects(std::function<void(ECS::EntityID, ObjectComponent&)> func) override
+        void ForEachObjects(std::function<void(ECS::Entity, ObjectComponent&)> func) override
         {
             if (!IsSceneValid())
                 return;
@@ -323,23 +323,21 @@ namespace VulkanTest
                 objectQuery.ForEach(func);
         }
 
-        ECS::EntityID CreateMesh(const char* name) override
+        ECS::Entity CreateMesh(const char* name) override
         {
             return world.CreateEntity(name)
-                .With<MeshComponent>()
-                .entity;
+                .Add<MeshComponent>();
         }
 
-        ECS::EntityID CreateMaterial(const char* name) override
+        ECS::Entity CreateMaterial(const char* name) override
         {
             return world.CreateEntity(name)
-                .With<MaterialComponent>()
-                .entity;
+                .Add<MaterialComponent>();
         }
 
-        void LoadModelResource(ECS::EntityID entity, ResPtr<Model> model)
+        void LoadModelResource(ECS::Entity entity, ResPtr<Model> model)
         {
-            LoadModelComponent* modelCmp = world.GetComponent<LoadModelComponent>(entity);
+            LoadModelComponent* modelCmp = entity.GetMut<LoadModelComponent>();
             if (modelCmp->model == model)
                 return;
 
@@ -359,7 +357,7 @@ namespace VulkanTest
             }
         }
 
-        void AddToModelEntityMap(Model* model, ECS::EntityID entity)
+        void AddToModelEntityMap(Model* model, ECS::Entity entity)
         {
             auto it = modelEntityMap.find(model);
             if (it != modelEntityMap.end()) 
@@ -374,7 +372,7 @@ namespace VulkanTest
             }
         }
 
-        void RemoveFromModelEntityMap(Model* model, ECS::EntityID entity)
+        void RemoveFromModelEntityMap(Model* model, ECS::Entity entity)
         {
             auto it = modelEntityMap.find(model);
             if (it != modelEntityMap.end() && it->second == entity)
@@ -385,16 +383,18 @@ namespace VulkanTest
             }
         }
     
-        void OnModelLoaded(Model* model, ECS::EntityID entity)
+        void OnModelLoaded(Model* model, ECS::Entity entity)
         {
+            // TODO use system to process
+
             ASSERT(model->IsReady());
 
-            LoadModelComponent* modelCmp = world.GetComponent<LoadModelComponent>(entity);
+            const LoadModelComponent* modelCmp = entity.Get<LoadModelComponent>();
             for (int i = 0; i < model->GetMeshCount(); i++)
             {
                 Mesh& mesh = model->GetMesh(i);
                 auto meshEntity = CreateMesh(mesh.name.c_str());
-                MeshComponent* meshCmp = world.GetComponent<MeshComponent>(meshEntity);
+                MeshComponent* meshCmp = meshEntity.GetMut<MeshComponent>();
                 meshCmp->model = modelCmp->model;
                 meshCmp->mesh = &mesh;
 
@@ -405,15 +405,15 @@ namespace VulkanTest
                         char name[64];
                         CopyString(Span(name), Path::GetBaseName(subset.material->GetPath().c_str()));
                         auto materialEntity = CreateMaterial(name);
-                        MaterialComponent* material = world.GetComponent<MaterialComponent>(materialEntity);
+                        MaterialComponent* material = materialEntity.GetMut<MaterialComponent>();
                         material->material = subset.material;
                         
                         subset.materialID = materialEntity;
                     }
                 }
 
-                auto objectEntity = CreateObject(world.GetEntityName(entity));
-                ObjectComponent* obj = world.GetComponent<ObjectComponent>(objectEntity);
+                auto objectEntity = CreateObject(entity.GetName());
+                ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
                 obj->mesh = meshEntity;
             }
 
@@ -421,14 +421,14 @@ namespace VulkanTest
             world.DeleteEntity(entity);
         }
 
-        void OnModelUnloaded(Model* model, ECS::EntityID entity)
+        void OnModelUnloaded(Model* model, ECS::Entity entity)
         {
             world.DeleteEntity(entity);
         }
 
         void LoadModel(const char* name, const Path& path) override
         {
-            ECS::EntityID entity = world.CreateEntity(name).With<LoadModelComponent>().entity;
+            ECS::Entity entity = world.CreateEntity(name).Add<LoadModelComponent>();
             if (path.IsEmpty())
             {
                 LoadModelResource(entity, ResPtr<Model>());
@@ -479,7 +479,7 @@ namespace VulkanTest
             U32 instanceArraySize = 0;
             if (objectQuery.Valid())
             {
-                objectQuery.ForEach([&](ECS::EntityID entity, ObjectComponent& obj) {
+                objectQuery.ForEach([&](ECS::Entity entity, ObjectComponent& obj) {
                     obj.index = instanceArraySize;
                     instanceArraySize++;
                 });
@@ -491,7 +491,7 @@ namespace VulkanTest
             U32 materialArraySize = 0;
             if (materialQuery.Valid())
             {
-                materialQuery.ForEach([&](ECS::EntityID entity, MaterialComponent& mat) {
+                materialQuery.ForEach([&](ECS::Entity entity, MaterialComponent& mat) {
                     mat.materialIndex = materialArraySize;
                     materialArraySize++;
                 });
@@ -503,7 +503,7 @@ namespace VulkanTest
             U32 geometryArraySize = 0;
             if (meshQuery.Valid())
             {
-                meshQuery.ForEach([&](ECS::EntityID entity, MeshComponent& meshComp) {
+                meshQuery.ForEach([&](ECS::Entity entity, MeshComponent& meshComp) {
                     if (meshComp.mesh != nullptr)
                     {
                         meshComp.geometryOffset = geometryArraySize;
@@ -514,9 +514,9 @@ namespace VulkanTest
             geometryBuffer.UpdateBuffer(device, geometryArraySize);
             geometryMapped = geometryBuffer.Mapping(device);
 
-            // Update systems
-            for (auto system : systems)
-                system->UpdateSystem();
+            // Run systems
+            if (pipeline)
+                world.RunPipeline(pipeline);
 
             // Update shader scene
             sceneCB.instancebuffer = instanceBuffer.GetBindlessIndex();
@@ -525,106 +525,104 @@ namespace VulkanTest
         }
     };
 
-    class TransformUpdateSystem : public ISystem
+    struct RenderingSystem {};
+
+    ECS::System TransformUpdateSystem(RenderSceneImpl& scene)
     {
-    public:
-        TransformUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
-        {
-            system = scene.GetWorld().CreateSystem<TransformComponent>()
-                .ForEach([&](ECS::EntityID entity, TransformComponent& transComp) {
-                transComp.transform.UpdateTransform();
-            });
-        }
-    };
+        return scene.GetWorld().CreateSystem<TransformComponent>()
+            .Kind<RenderingSystem>()
+            .MultiThread(true)
+            .ForEach([&](ECS::Entity entity, TransformComponent& transComp) {
+            transComp.transform.UpdateTransform();
+        });
+    }
 
-    class MaterialUpdateSystem : public ISystem
+    ECS::System MeshUpdateSystem(RenderSceneImpl& scene)
     {
-    public:
-        MaterialUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
-        {
-            system = scene.GetWorld().CreateSystem<MaterialComponent>()
-                .ForEach([&](ECS::EntityID entity, MaterialComponent& materialComp) {
+        return scene.GetWorld().CreateSystem<MeshComponent>()
+            .Kind<RenderingSystem>()
+            .MultiThread(true)
+            .ForEach([&](ECS::Entity entity, MeshComponent& meshComp) {
 
-                auto materialMapped = scene.materialMapped;
-                if (!materialMapped || !materialComp.material)
-                    return;
+            auto geometryMapped = scene.geometryMapped;
+            if (!geometryMapped || !meshComp.mesh)
+                return;
 
-                materialComp.material->WriteShaderMaterial(materialMapped + materialComp.materialIndex);
-            });
-        }
-    };
+            Mesh& mesh = *meshComp.mesh;
+            ShaderGeometry geometry;
+            geometry.vbPos = mesh.vbPos.srv->GetIndex();
+            geometry.vbNor = mesh.vbNor.srv->GetIndex();
+            geometry.vbUVs = mesh.vbUVs.srv->GetIndex();
+            geometry.ib = 0;
 
-    class MeshUpdateSystem : public ISystem
+            U32 subsetIndex = 0;
+            for (auto& subset : mesh.subsets)
+            {
+                memcpy(geometryMapped + meshComp.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                subsetIndex++;
+            }
+        });
+    }
+
+    ECS::System MaterialUpdateSystem(RenderSceneImpl& scene)
     {
-    public:
-        MeshUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
-        {
-            system = scene.GetWorld().CreateSystem<MeshComponent>()
-                .ForEach([&](ECS::EntityID entity, MeshComponent& meshComp) {
+        return scene.GetWorld().CreateSystem<MaterialComponent>()
+            .Kind<RenderingSystem>()
+            .MultiThread(true)
+            .ForEach([&](ECS::Entity entity, MaterialComponent& materialComp) {
 
-                auto geometryMapped = scene.geometryMapped;
-                if (!geometryMapped || !meshComp.mesh)
-                    return;
+            auto materialMapped = scene.materialMapped;
+            if (!materialMapped || !materialComp.material)
+                return;
 
-                Mesh& mesh = *meshComp.mesh;
-                ShaderGeometry geometry;
-                geometry.vbPos = mesh.vbPos.srv->GetIndex();
-                geometry.vbNor = mesh.vbNor.srv->GetIndex();
-                geometry.vbUVs = mesh.vbUVs.srv->GetIndex();
-                geometry.ib = 0;
+            materialComp.material->WriteShaderMaterial(materialMapped + materialComp.materialIndex);
+         });
+    }
 
-                U32 subsetIndex = 0;
-                for (auto& subset : mesh.subsets)
-                {
-                    memcpy(geometryMapped + meshComp.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
-                    subsetIndex++;
-                }
-            });
-        }
-    };
-
-    class ObjectUpdateSystem : public ISystem
+    ECS::System ObjectUpdateSystem(RenderSceneImpl& scene)
     {
-    public:
-        ObjectUpdateSystem(RenderSceneImpl& scene) : ISystem(scene)
-        {
-            system = scene.GetWorld().CreateSystem<ObjectComponent>()
-                .ForEach([&](ECS::EntityID entity, ObjectComponent& objComp) {
+        return scene.GetWorld().CreateSystem<const TransformComponent, ObjectComponent>()
+            .Kind<RenderingSystem>()
+            .MultiThread(true)
+            .ForEach([&](ECS::Entity entity, const TransformComponent& transform, ObjectComponent& objComp) {
 
-                auto instanceMapped = scene.instanceMapped;
-                if (!instanceMapped)
-                    return;
+            auto instanceMapped = scene.instanceMapped;
+            if (!instanceMapped)
+                return;
 
-                AABB& aabb = objComp.aabb;
-                aabb = AABB();
+            AABB& aabb = objComp.aabb;
+            aabb = AABB();
 
-                if (objComp.mesh != ECS::INVALID_ENTITY)
-                {
-                    auto transform = scene.GetComponent<TransformComponent>(entity);
-                    auto meshComp = scene.GetComponent<MeshComponent>(objComp.mesh);
-                    ASSERT(meshComp->mesh != nullptr);
-                 
-                    MATRIX mat = LoadFMat4x4(transform->transform.world);
-                    aabb = meshComp->mesh->aabb.Transform(mat);
-                    objComp.center = StoreFMat4x4(meshComp->mesh->aabb.GetCenterAsMatrix() * mat).vec[3].xyz();
-                    
-                    ShaderMeshInstance inst;
-                    inst.init();
-                    inst.transform.Create(transform->transform.world);
-                    objComp.worldMat = transform->transform.world;
+            if (objComp.mesh != ECS::INVALID_ENTITY)
+            {
+                auto meshComp = objComp.mesh.Get<MeshComponent>();
+                ASSERT(meshComp->mesh != nullptr);
 
-                    memcpy(instanceMapped + objComp.index, &inst, sizeof(ShaderMeshInstance));
-                }
-            });
-        }
-    };
+                MATRIX mat = LoadFMat4x4(transform.transform.world);
+                aabb = meshComp->mesh->aabb.Transform(mat);
+                objComp.center = StoreFMat4x4(meshComp->mesh->aabb.GetCenterAsMatrix() * mat).vec[3].xyz();
+
+                ShaderMeshInstance inst;
+                inst.init();
+                inst.transform.Create(transform.transform.world);
+                objComp.worldMat = transform.transform.world;
+
+                memcpy(instanceMapped + objComp.index, &inst, sizeof(ShaderMeshInstance));
+            }
+        });
+    }
 
     void RenderSceneImpl::InitSystems()
     {
-        AddSystem(CJING_NEW(TransformUpdateSystem)(*this));
-        AddSystem(CJING_NEW(MaterialUpdateSystem)(*this));
-        AddSystem(CJING_NEW(MeshUpdateSystem)(*this));
-        AddSystem(CJING_NEW(ObjectUpdateSystem)(*this));
+        AddSystem(TransformUpdateSystem(*this));
+        AddSystem(MeshUpdateSystem(*this));
+        AddSystem(MaterialUpdateSystem(*this));
+        AddSystem(ObjectUpdateSystem(*this));
+
+        pipeline = world.CreatePipeline()
+            .Term(ECS::EcsCompSystem)
+            .Term<RenderingSystem>()
+            .Build();
     }
 
     UniquePtr<RenderScene> RenderScene::CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world)

@@ -25,12 +25,12 @@ namespace Editor
 		world.EntityDestroyed().Unbind<&EntityFolder::OnEntityDestroyed>(this);
 	}
 
-	void EntityFolder::OnEntityCreated(ECS::EntityID e)
+	void EntityFolder::OnEntityCreated(ECS::Entity e)
 	{
 		MoveToFolder(e, selectedFolder);
 	}
 
-	void EntityFolder::OnEntityDestroyed(ECS::EntityID e)
+	void EntityFolder::OnEntityDestroyed(ECS::Entity e)
 	{
 		Folder& parent = GetFolder(entities[e].folder);
 		EntityItem& entity = entities[e];
@@ -48,13 +48,13 @@ namespace Editor
 		entity.prev = ECS::INVALID_ENTITY;
 	}
 
-	ECS::EntityID EntityFolder::GetNextEntity(ECS::EntityID e) const
+	ECS::Entity EntityFolder::GetNextEntity(ECS::Entity e) const
 	{
 		auto it = entities.find(e);
 		return it.isValid() ? it.value().next : ECS::INVALID_ENTITY;
 	}
 
-	void EntityFolder::MoveToFolder(ECS::EntityID e, FolderID folderID)
+	void EntityFolder::MoveToFolder(ECS::Entity e, FolderID folderID)
 	{
 		ASSERT(folderID != INVALID_FOLDER);
 		auto it = entities.find(e);
@@ -77,7 +77,7 @@ namespace Editor
 			entities[item.next].prev = e;
 	}
 
-	void EntityFolder::RemoveFromFolder(ECS::EntityID e, FolderID folderID)
+	void EntityFolder::RemoveFromFolder(ECS::Entity e, FolderID folderID)
 	{
 		ASSERT(folderID != INVALID_FOLDER);
 		auto it = entities.find(e);
@@ -334,10 +334,10 @@ namespace Editor
 		}
 
 		// Show entities
-		ECS::EntityID child = folder.firstEntity;
+		ECS::Entity child = folder.firstEntity;
 		while (child != ECS::INVALID_ENTITY)
 		{
-			if (worldEditor.GetWorld()->GetEntityParent(child) == ECS::INVALID_ENTITY)
+			if (child.GetParent() == ECS::INVALID_ENTITY)
 				ShowHierarchy(child, worldEditor.GetSelectedEntities());
 			child = folders.GetNextEntity(child);
 		}
@@ -348,11 +348,11 @@ namespace Editor
 		ImGui::PopID();
 	}
 
-	void EntityListWidget::ShowHierarchy(ECS::EntityID entity, const Array<ECS::EntityID>& selectedEntities)
+	void EntityListWidget::ShowHierarchy(ECS::Entity entity, const Array<ECS::Entity>& selectedEntities)
 	{
-		Array<ECS::EntityID> children;
+		Array<ECS::Entity> children;
 		World* world = worldEditor.GetWorld();
-		world->EachChildren(entity, [&children](ECS::EntityID child) {
+		world->EachChildren(entity, [&children](ECS::Entity child) {
 			children.push_back(child);
 		});
 
@@ -371,8 +371,7 @@ namespace Editor
 		if (ImGui::IsItemVisible()) 
 		{
 			ImGui::SetCursorPos(cp);
-			const char* name = world->GetEntityName(entity);
-			nodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)entity, flags, "%s", name);
+			nodeOpen = ImGui::TreeNodeEx((void*)(intptr_t)entity, flags, "%s", entity.GetName());
 		}
 		else 
 		{

@@ -11,7 +11,7 @@ namespace VulkanTest
         {
             vis.frustum = vis.camera->frustum;
 
-            scene.ForEachObjects([&](ECS::EntityID entity, ObjectComponent& obj) 
+            scene.ForEachObjects([&](ECS::Entity entity, ObjectComponent& obj) 
             {
                 if (obj.mesh != ECS::INVALID_ENTITY)
                 {

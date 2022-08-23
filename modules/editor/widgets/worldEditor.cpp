@@ -14,7 +14,7 @@ namespace Editor
         Engine& engine;
         World* world = nullptr;
         LocalPtr<EntityFolder> entityFolder;
-        Array<ECS::EntityID> selectedEntities;
+        Array<ECS::Entity> selectedEntities;
 
     public:
         WorldEditorImpl(EditorApp& editor_) :
@@ -69,10 +69,10 @@ namespace Editor
             world = nullptr;
         }
 
-        static void FastRemoveDuplicates(Array<ECS::EntityID>& entities) 
+        static void FastRemoveDuplicates(Array<ECS::Entity>& entities) 
         {
             qsort(entities.begin(), entities.size(), sizeof(entities[0]), [](const void* a, const void* b) {
-                return memcmp(a, b, sizeof(ECS::EntityID));
+                return memcmp(a, b, sizeof(ECS::Entity));
             });
 
             for (I32 i = entities.size() - 2; i >= 0; --i) 
@@ -82,7 +82,7 @@ namespace Editor
             }
         }
 
-        void SelectEntities(Span<const ECS::EntityID> entities, bool toggle)override
+        void SelectEntities(Span<const ECS::Entity> entities, bool toggle)override
         {
             if (toggle)
             {
@@ -110,7 +110,7 @@ namespace Editor
             return *entityFolder;
         }
 
-        const Array<ECS::EntityID>& GetSelectedEntities() const override
+        const Array<ECS::Entity>& GetSelectedEntities() const override
         {
             return selectedEntities;
         }

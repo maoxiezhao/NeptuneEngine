@@ -33,10 +33,10 @@ namespace Editor
         virtual void NewWorld() = 0;
         virtual void DestroyWorld() = 0;
 
-        virtual void SelectEntities(Span<const ECS::EntityID> entities, bool toggle) = 0;
+        virtual void SelectEntities(Span<const ECS::Entity> entities, bool toggle) = 0;
 
         virtual EntityFolder& GetEntityFolder() = 0;
-        virtual const Array<ECS::EntityID>& GetSelectedEntities() const = 0;
+        virtual const Array<ECS::Entity>& GetSelectedEntities() const = 0;
     };
 }
 }

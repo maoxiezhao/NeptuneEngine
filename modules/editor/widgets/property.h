@@ -28,8 +28,8 @@ namespace Editor
         const char* GetName();
 
     private:
-        void ShowBaseProperties(ECS::EntityID entity);
-        void ShowComponentProperties(ECS::EntityID entity, ECS::EntityID compID);
+        void ShowBaseProperties(ECS::Entity entity);
+        void ShowComponentProperties(ECS::Entity entity, ECS::EntityID compID);
 
         EditorApp& editor;
         WorldEditor& worldEditor;

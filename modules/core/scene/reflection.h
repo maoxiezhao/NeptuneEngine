@@ -53,13 +53,13 @@ namespace Reflection
 	template <typename T>
 	struct PropertyMeta : PropertyMetaBase
 	{
-		typedef T(*Getter)(IScene*, ECS::EntityID, U32);
-		typedef void (*Setter)(IScene*, ECS::EntityID, U32, const T&);
+		typedef T(*Getter)(IScene*, ECS::Entity, U32);
+		typedef void (*Setter)(IScene*, ECS::Entity, U32, const T&);
 
-		virtual T Get(IScene* scene, ECS::EntityID entity, U32 idx) const {
+		virtual T Get(IScene* scene, ECS::Entity entity, U32 idx) const {
 			return getter(scene, entity, idx);
 		}
-		virtual void Set(IScene* scene, ECS::EntityID entity, U32 idx, T val) const {
+		virtual void Set(IScene* scene, ECS::Entity entity, U32 idx, T val) const {
 			setter(scene, entity, idx, val);
 		}
 
@@ -76,8 +76,8 @@ namespace Reflection
 		struct ComponentMeta* meta = nullptr;
 	};
 
-	using CreateComponent = ECS::EntityID (*)(IScene*, const char*);
-	using DestroyComponent = void (*)(IScene*, ECS::EntityID);
+	using CreateComponent = ECS::Entity (*)(IScene*, const char*);
+	using DestroyComponent = void (*)(IScene*, ECS::Entity);
 
 	struct ComponentMeta
 	{
@@ -112,8 +112,8 @@ namespace Reflection
 		template<typename C, auto Creator, auto Destroyer>
 		Builder& Component(const char* name)
 		{
-			auto creator = [](IScene* scene, const char* name) { return (scene->*static_cast<ECS::EntityID (IScene::*)(const char*)>(Creator))(name); };
-			auto destroyer = [](IScene* scene, ECS::EntityID e) { (scene->*static_cast<void (IScene::*)(ECS::EntityID)>(Destroyer))(e); };
+			auto creator = [](IScene* scene, const char* name) { return (scene->*static_cast<ECS::Entity (IScene::*)(const char*)>(Creator))(name); };
+			auto destroyer = [](IScene* scene, ECS::Entity e) { (scene->*static_cast<void (IScene::*)(ECS::Entity)>(Destroyer))(e); };
 		
 			ComponentMeta* cmp = CJING_NEW(ComponentMeta)();
 			cmp->name = name;
@@ -143,7 +143,7 @@ namespace Reflection
 			}
 			else 
 			{
-				p->setter = [](IScene* scene, ECS::EntityID e, U32 idx, const T& value) {
+				p->setter = [](IScene* scene, ECS::Entity e, U32 idx, const T& value) {
 					using C = typename ClassOf<decltype(Setter)>::Type;
 					if constexpr (ArgsCount<decltype(Setter)>::value == 2)
 						(static_cast<C*>(scene)->*Setter)(e, value);
@@ -152,7 +152,7 @@ namespace Reflection
 				};
 			}
 
-			p->getter = [](IScene* scene, ECS::EntityID e, U32 idx) -> T 
+			p->getter = [](IScene* scene, ECS::Entity e, U32 idx) -> T 
 			{
 				using C = typename ClassOf<decltype(Getter)>::Type;
 				if constexpr (ArgsCount<decltype(Getter)>::value == 1) {

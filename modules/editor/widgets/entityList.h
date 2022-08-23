@@ -22,28 +22,28 @@ namespace Editor
             FolderID childFolder = INVALID_FOLDER;
             FolderID nextFolder = INVALID_FOLDER;
             FolderID prevFolder = INVALID_FOLDER;
-            ECS::EntityID firstEntity = ECS::INVALID_ENTITY;
+            ECS::Entity firstEntity = ECS::INVALID_ENTITY;
             char name[116];
         };
 
         struct EntityItem
         {
             FolderID folder = INVALID_FOLDER;
-            ECS::EntityID next = ECS::INVALID_ENTITY;
-            ECS::EntityID prev = ECS::INVALID_ENTITY;
+            ECS::Entity next = ECS::INVALID_ENTITY;
+            ECS::Entity prev = ECS::INVALID_ENTITY;
         };
 
         EntityFolder(World& world_);
         ~EntityFolder();
 
-        void MoveToFolder(ECS::EntityID e, FolderID folderID);
-        void RemoveFromFolder(ECS::EntityID e, FolderID folderID);
+        void MoveToFolder(ECS::Entity e, FolderID folderID);
+        void RemoveFromFolder(ECS::Entity e, FolderID folderID);
         FolderID EmplaceFolder(FolderID parent);
         void DestroyFolder(FolderID folderID);
         FolderID GetRoot() const { return 0; }
         Folder& GetFolder(FolderID folderID);
         const Folder& GetFolder(FolderID folderID) const;
-        ECS::EntityID GetNextEntity(ECS::EntityID e) const;
+        ECS::Entity GetNextEntity(ECS::Entity e) const;
         void SelectFolder(FolderID folder) { selectedFolder = folder; }
         FolderID GetSelectedFolder() const { return selectedFolder; }
         Folder& GetRootFolder() {
@@ -51,8 +51,8 @@ namespace Editor
         }
 
     private:
-        void OnEntityCreated(ECS::EntityID e);
-        void OnEntityDestroyed(ECS::EntityID e);
+        void OnEntityCreated(ECS::Entity e);
+        void OnEntityDestroyed(ECS::Entity e);
 
         World& world;
 
@@ -72,7 +72,7 @@ namespace Editor
             }
         };
         FreeList folderPool;
-        HashMap<ECS::EntityID, EntityItem> entities;
+        HashMap<ECS::Entity, EntityItem> entities;
         FolderID selectedFolder;
     };
 
@@ -91,7 +91,7 @@ namespace Editor
 
     private:
         void OnFolderUI(EntityFolder& folders, EntityFolder::FolderID folderID, U32 depth, bool isRoot = false);
-        void ShowHierarchy(ECS::EntityID entity, const Array<ECS::EntityID>& selectedEntities);
+        void ShowHierarchy(ECS::Entity entity, const Array<ECS::Entity>& selectedEntities);
 
     private:
         EditorApp& editor;
