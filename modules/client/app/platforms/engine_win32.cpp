@@ -62,7 +62,8 @@ namespace VulkanTest
 
 			GPU::SystemHandles systemHandles;
 			systemHandles.fileSystem = &GetFileSystem();
-			bool ret = wsi.Initialize(systemHandles, Platform::GetCPUsCount() + 1);
+			I32 wsiThreadCount = std::clamp((I32)(Platform::GetCPUsCount() * 0.5f), 1, 12);
+			bool ret = wsi.Initialize(systemHandles, wsiThreadCount);
 			ASSERT(ret);
 
 			// Init resource manager

@@ -11,4 +11,6 @@ namespace ImGuiEx
 	IMGUI_API bool BeginToolbar(const char* str_id, ImVec2 screen_pos, ImVec2 size);
 	IMGUI_API void EndToolbar();
 	IMGUI_API bool IconButton(const char* icon, const char* tooltip);
+	IMGUI_API void PushReadonly();
+	IMGUI_API void PopReadonly();
 } // namespace ImGuiEx

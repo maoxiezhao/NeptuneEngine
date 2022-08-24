@@ -28,6 +28,7 @@ namespace Reflection
 		enum Type : U32
 		{
 			RESOURCE,
+			COLOR,
 			COUNT
 		};
 
@@ -44,10 +45,17 @@ namespace Reflection
 		ResourceType resType;
 	};
 
+	struct ColorAttribute : IAttribute
+	{
+		Type GetType() const override { return COLOR; }
+	};
+
 	struct PropertyMetaBase
 	{
 		const char* name;
 		Array<IAttribute*> attributes;
+
+		virtual void Visit(struct IPropertyMetaVisitor& visitor) const = 0;
 	};
 
 	template <typename T>
@@ -65,9 +73,24 @@ namespace Reflection
 
 		virtual bool IsReadonly() const { return setter == nullptr; }
 
+		void Visit(struct IPropertyMetaVisitor& visitor) const override;
+
 		Setter setter = nullptr;
 		Getter getter = nullptr;
 	};
+
+	struct IPropertyMetaVisitor
+	{
+		virtual ~IPropertyMetaVisitor() {}
+		virtual void Visit(const PropertyMeta<F32>& prop) = 0;
+		virtual void Visit(const PropertyMeta<F32x3>& prop) = 0;
+	};
+
+	template <typename T>
+	void PropertyMeta<T>::Visit(IPropertyMetaVisitor& visitor) const
+	{
+		visitor.Visit(*this);
+	}
 
 	struct RegisteredComponent 
 	{
@@ -76,13 +99,11 @@ namespace Reflection
 		struct ComponentMeta* meta = nullptr;
 	};
 
-	using CreateComponent = ECS::Entity (*)(IScene*, const char*);
+	using CreateComponent = ECS::Entity (*)(IScene*, ECS::Entity);
 	using DestroyComponent = void (*)(IScene*, ECS::Entity);
 
 	struct ComponentMeta
 	{
-		~ComponentMeta();
-
 		const char* name;
 		const char* icon = "";
 		ECS::EntityID compID;
@@ -90,6 +111,11 @@ namespace Reflection
 		DestroyComponent destroyer;
 
 		Array<PropertyMetaBase*> props;
+
+	public:
+		~ComponentMeta();
+
+		void Visit(IPropertyMetaVisitor& visitor) const;
 	};
 
 	struct SceneMeta
@@ -112,7 +138,7 @@ namespace Reflection
 		template<typename C, auto Creator, auto Destroyer>
 		Builder& Component(const char* name)
 		{
-			auto creator = [](IScene* scene, const char* name) { return (scene->*static_cast<ECS::Entity (IScene::*)(const char*)>(Creator))(name); };
+			auto creator = [](IScene* scene, ECS::Entity e) { return (scene->*static_cast<ECS::Entity (IScene::*)(ECS::Entity)>(Creator))(e); };
 			auto destroyer = [](IScene* scene, ECS::Entity e) { (scene->*static_cast<void (IScene::*)(ECS::Entity)>(Destroyer))(e); };
 		
 			ComponentMeta* cmp = CJING_NEW(ComponentMeta)();
@@ -166,6 +192,33 @@ namespace Reflection
 			AddProp(p);	
 			return *this;
 		}
+
+		template<typename C, auto PropGetter>
+		Builder& VarProp(const char* name)
+		{
+			using T = typename ResultOf<decltype(PropGetter)>::Type;
+			auto* p = CJING_NEW(PropertyMeta<T>)();
+			p->name = name;
+
+			p->setter = [](IScene* scene, ECS::Entity e, U32 idx, const T& value) {
+				C* comp = e.GetMut<C>();
+				ASSERT(comp != nullptr);
+				auto& v = (*comp).*PropGetter;
+				v = value;
+			};
+
+			p->getter = [](IScene* scene, ECS::Entity e, U32 idx) -> T
+			{
+				const C* comp = e.Get<C>();
+				ASSERT(comp != nullptr);
+				auto& v = (*comp).*PropGetter;
+				return static_cast<T>(v);
+			};
+			AddProp(p);
+			return *this;
+		}
+
+		Builder& ColorAttribute();
 
 	private:
 		void RegisterCmp(ComponentMeta* cmp);

@@ -175,6 +175,7 @@ namespace Editor
 		worldEditor(editor_.GetWorldEditor())
 	{
 		memset(folderRenameBuf, 0, sizeof(folderRenameBuf));
+		memset(componentFilter, 0, sizeof(componentFilter));
 	}
 
 	EntityListWidget::~EntityListWidget()
@@ -286,11 +287,31 @@ namespace Editor
 			}
 		}
 
+		auto ShowEntityMenu = [&]() {
+			auto& selectedEntities = worldEditor.GetSelectedEntities();
+			bool entitySelected = !selectedEntities.empty();
+
+			if (ImGui::BeginMenu(ICON_FA_PLUS_SQUARE "CreateEntity"))
+			{
+				ShowCreateEntityGUI(folderID);
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::Selectable(ICON_FA_MINUS_SQUARE "DeleteEntity", false, entitySelected ? 0 : ImGuiSelectableFlags_Disabled))
+			{
+				
+			}	
+		};
+
 		// Folder context menu
 		if (isRoot)
 		{
 			if (!ImGui::IsItemHovered() && ImGui::BeginPopupContextWindow("context"))
 			{
+				ShowEntityMenu();
+
+				ImGui::Separator();
+
 				if (ImGui::Selectable("New folder"))
 				{
 					//EntityFolder::FolderID newFolder = CreateFolder(folderID);
@@ -307,6 +328,10 @@ namespace Editor
 				ImGui::OpenPopup("folderContextMenu");
 			if (ImGui::BeginPopup("folderContextMenu"))
 			{
+				ShowEntityMenu();
+
+				ImGui::Separator();
+
 				if (ImGui::Selectable("New folder"))
 				{
 					//EntityFolder::FolderID newFolder = CreateFolder(folderID);
@@ -403,6 +428,87 @@ namespace Editor
 				ShowHierarchy(child, selectedEntities);
 			ImGui::TreePop();
 		}
+	}
+
+	const char* stristr(const char* haystack, const char* needle)
+	{
+		const char* c = haystack;
+		while (*c)
+		{
+			if (MakeLowercase(*c) == MakeLowercase(needle[0]))
+			{
+				const char* n = needle + 1;
+				const char* c2 = c + 1;
+				while (*n && *c2)
+				{
+					if (MakeLowercase(*n) != MakeLowercase(*c2)) break;
+					++n;
+					++c2;
+				}
+				if (*n == 0) return c;
+			}
+			++c;
+		}
+		return nullptr;
+	}
+
+	static void ShowAddComonentTreeNode(const AddComponentTreeNode* node, const char* filter, WorldEditor& worldEditor)
+	{
+		if (node == nullptr)
+			return;
+
+		// Match filter
+		if (filter[0] != 0)
+		{
+			if (!node->plugin)
+				ShowAddComonentTreeNode(node->child, filter, worldEditor);
+			else if (stristr(node->plugin->GetLabel(), filter))
+				node->plugin->OnGUI(false, true, worldEditor);
+
+			ShowAddComonentTreeNode(node->next, filter, worldEditor);
+			return;
+		}
+
+		if (node->plugin)
+		{
+			node->plugin->OnGUI(true, false, worldEditor);
+			ShowAddComonentTreeNode(node->next, filter, worldEditor);
+			return;
+		}
+
+		int slashPos = ReverseFindChar(node->label, '/');
+		if (slashPos >= 0)
+		{
+			if (ImGui::BeginMenu(node->label + slashPos + 1))
+			{
+				ShowAddComonentTreeNode(node->child, filter, worldEditor);
+				ImGui::EndMenu();
+			}
+		}
+		ShowAddComonentTreeNode(node->next, filter, worldEditor);
+	}
+
+	void EntityListWidget::ShowCreateEntityGUI(EntityFolder::FolderID folderID)
+	{
+		if (ImGui::MenuItem("CreateEmpty"))
+		{
+			auto& folder = worldEditor.GetEntityFolder();
+			folder.SelectFolder(folderID);
+
+			ECS::Entity entity = worldEditor.AddEmptyEntity();
+			worldEditor.SelectEntities(Span(&entity, 1), false);
+		}
+
+		ImGui::Separator();
+
+		const float w = ImGui::CalcTextSize(ICON_FA_TIMES).x + ImGui::GetStyle().ItemSpacing.x * 2;
+		ImGui::SetNextItemWidth(-w);
+		ImGui::InputTextWithHint("##filter", "Filter", componentFilter, sizeof(componentFilter));
+		ImGui::SameLine();
+		if (ImGuiEx::IconButton(ICON_FA_TIMES, "Clear filter")) {
+			componentFilter[0] = '\0';
+		}
+		ShowAddComonentTreeNode(editor.GetAddComponentTreeNodeRoot()->child, componentFilter, worldEditor);
 	}
 
 	const char* EntityListWidget::GetName()

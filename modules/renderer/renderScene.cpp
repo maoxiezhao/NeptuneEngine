@@ -197,6 +197,7 @@ namespace VulkanTest
             InitSystems();
         }
 
+        // Initialize all rendering systems
         void InitSystems();
 
         void Uninit()override
@@ -204,8 +205,6 @@ namespace VulkanTest
             for (auto system : systems)
                 system.Destroy();
             systems.clear();
-
-            // world.SetComponenetOnRemoved<MeshComponent>(nullptr);
 
             for (auto kvp : modelEntityMap)
             {
@@ -216,7 +215,7 @@ namespace VulkanTest
             modelEntityMap.clear();
         }
 
-        ECS::EntityID CreateEntity(const char* name) override
+        ECS::Entity CreateEntity(const char* name) override
         {
             return world.CreateEntity(name);
         }
@@ -289,6 +288,18 @@ namespace VulkanTest
             return ret;
         }
 
+        void CreateComponent(ECS::Entity entity, ECS::EntityID compID) override
+        {
+            auto compMeta = Reflection::GetComponent(compID);
+            if (compMeta == nullptr)
+            {
+                Logger::Error("Unregistered component type %d to create", compID);
+                return;
+            }
+
+            compMeta->creator(this, entity);
+        }
+
         CameraComponent* GetMainCamera()override
         {
             return &mainCamera;
@@ -299,10 +310,12 @@ namespace VulkanTest
             cullingSystem->Cull(vis, *this);
         }
 
-        ECS::Entity CreateObject(const char* name)override
+        ECS::Entity CreateObject(ECS::Entity entity)override
         {
-            return world.CreateEntity(name)
-                .Add<TransformComponent>()
+            if (entity == ECS::INVALID_ENTITY)
+                entity = world.CreateEntity(nullptr);
+
+            return entity.Add<TransformComponent>()
                 .Add<ObjectComponent>();
         }
 
@@ -323,16 +336,53 @@ namespace VulkanTest
                 objectQuery.ForEach(func);
         }
 
-        ECS::Entity CreateMesh(const char* name) override
+        ECS::Entity CreateMesh(ECS::Entity entity) override
         {
-            return world.CreateEntity(name)
-                .Add<MeshComponent>();
+            if (entity == ECS::INVALID_ENTITY)
+                entity = world.CreateEntity(nullptr);
+
+            return entity.Add<MeshComponent>();
         }
 
-        ECS::Entity CreateMaterial(const char* name) override
+        ECS::Entity CreateMaterial(ECS::Entity entity) override
         {
-            return world.CreateEntity(name)
-                .Add<MaterialComponent>();
+            if (entity == ECS::INVALID_ENTITY)
+                entity = world.CreateEntity(nullptr);
+
+            return entity.Add<MaterialComponent>();
+        }
+
+        ECS::Entity CreatePointLight(ECS::Entity entity)override
+        {
+            return CreateLight(entity, LightComponent::LightType::POINT);
+        }
+
+        ECS::Entity CreateLight(
+            ECS::Entity entity,
+            LightComponent::LightType type = LightComponent::LightType::POINT,
+            const F32x3 pos = F32x3(1.0f),
+            const F32x3 color = F32x3(1.0f),
+            F32 intensity = 1.0f,
+            F32 range = 10.0f)override
+        {
+            if (entity == ECS::INVALID_ENTITY)
+                entity = world.CreateEntity(nullptr);
+     
+            entity.Add<TransformComponent>()
+                .Add<LightComponent>();
+
+            TransformComponent* transform = entity.GetMut<TransformComponent>();
+            transform->transform.Translate(pos);
+            transform->transform.UpdateTransform();
+
+            LightComponent* light = entity.GetMut<LightComponent>();
+            light->aabb.CreateFromHalfWidth(pos, F32x3(range));
+            light->intensity = intensity;
+            light->range = range;
+            light->color = color;
+            light->type = type;
+
+            return entity;
         }
 
         void LoadModelResource(ECS::Entity entity, ResPtr<Model> model)
@@ -393,7 +443,7 @@ namespace VulkanTest
             for (int i = 0; i < model->GetMeshCount(); i++)
             {
                 Mesh& mesh = model->GetMesh(i);
-                auto meshEntity = CreateMesh(mesh.name.c_str());
+                auto meshEntity = CreateMesh(CreateEntity(mesh.name.c_str()));
                 MeshComponent* meshCmp = meshEntity.GetMut<MeshComponent>();
                 meshCmp->model = modelCmp->model;
                 meshCmp->mesh = &mesh;
@@ -404,7 +454,7 @@ namespace VulkanTest
                     {
                         char name[64];
                         CopyString(Span(name), Path::GetBaseName(subset.material->GetPath().c_str()));
-                        auto materialEntity = CreateMaterial(name);
+                        auto materialEntity = CreateMaterial(CreateEntity(name));
                         MaterialComponent* material = materialEntity.GetMut<MaterialComponent>();
                         material->material = subset.material;
                         
@@ -412,7 +462,7 @@ namespace VulkanTest
                     }
                 }
 
-                auto objectEntity = CreateObject(entity.GetName());
+                auto objectEntity = CreateObject(CreateEntity(entity.GetName()));
                 ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
                 obj->mesh = meshEntity;
             }

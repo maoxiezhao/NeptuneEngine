@@ -2,6 +2,7 @@
 #include "editorUtils.h"
 #include "core\platform\platform.h"
 #include "core\scene\reflection.h"
+#include "core\utils\string.h"
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
 
@@ -155,6 +156,9 @@ namespace Editor
             // Destroy world
             worldEditor->DestroyWorld();
 
+            // Clear addComponentTree nodes
+            ClearAddComponentTreeNode(addCompTreeNodeRoot.child);
+
             // Clear widgets
             widgets.clear();
 
@@ -167,6 +171,11 @@ namespace Editor
             for (Utils::Action* action : actions)
                 CJING_SAFE_DELETE(action);
             actions.clear();
+
+            // Remove add component plugins
+            for (IAddComponentPlugin* plugin : addCompPlugins)
+                CJING_SAFE_DELETE(plugin);
+            addCompPlugins.clear();
 
             // Remove system widgets
             assetBrowser.Reset();
@@ -329,6 +338,11 @@ namespace Editor
         ImFont* GetBoldFont() override 
         { 
             return boldFont;
+        }
+
+        const AddComponentTreeNode* GetAddComponentTreeNodeRoot()const override
+        {
+            return &addCompTreeNodeRoot;
         }
 
         const char* GetComponentIcon(ECS::EntityID compID) const override
@@ -721,15 +735,124 @@ namespace Editor
                 plugin->Initialize();
         }
 
+        static void ClearAddComponentTreeNode(AddComponentTreeNode* node)
+        {
+            if (node != nullptr)
+            {
+                ClearAddComponentTreeNode(node->child);
+                ClearAddComponentTreeNode(node->next);
+                CJING_DELETE(node);
+            }
+        }
+
+        static void InsertAddComponentTreeNodeImpl(AddComponentTreeNode& parent, AddComponentTreeNode* node)
+        {
+            if (parent.child == nullptr)
+            {
+                parent.child = node;
+                return;
+            }
+
+            if (compareString(parent.child->label, node->label) > 0)
+            {
+                node->next = parent.child;
+                parent.child = node;
+                return;
+            }
+
+            auto child = parent.child;
+            while (child->next && compareString(child->next->label, node->label) < 0)
+                child = child->next;
+
+            node->next = child->next;
+            child->next = node;
+        }
+
+        void InsertAddComponentTreeNode(AddComponentTreeNode& parent, AddComponentTreeNode* node)
+        {
+            // Check children
+            for (auto child = parent.child; child != nullptr; child = child->next)
+            {
+                if (!child->plugin && StartsWith(node->label, child->label))
+                {
+                    InsertAddComponentTreeNode(*child, node);
+                    return;
+                }
+            }
+
+            const char* rest = node->label + StringLength(parent.label);
+            if (parent.label[0] != '\0') 
+                ++rest; // include '/'
+            int slashPos = FindSubstring(rest, "/", 0);
+            if (slashPos < 0)
+            {
+                InsertAddComponentTreeNodeImpl(parent, node);
+                return;
+            }
+        }
+
         void RegisterComponent(const char* icon, const char* label, ECS::EntityID compID)
         {
             componentLabels.insert(compID, label);
             if (icon && icon[0])
                 componentIcons.insert(compID, icon);
+
+            // Create and add AddcomponentPlugin
+            struct Plugin final : IAddComponentPlugin
+            {
+                virtual void OnGUI(bool createEntity, bool fromFilter, WorldEditor& editor) override
+                {
+                    ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
+
+                    const char* name = label;
+                    int slashPos = ReverseFindChar(label, '/');
+                    if (slashPos >= 0)
+                        name = label + slashPos + 1;
+                    name = fromFilter ? label : name;
+
+                    if (ImGui::MenuItem(name))
+                    {
+                        if (createEntity)
+                        {
+                            ECS::Entity entity = editor.AddEmptyEntity();
+                            editor.SelectEntities(Span(&entity, 1), false);
+                        }
+                        const auto& selectedEntities = editor.GetSelectedEntities();
+                        if (selectedEntities.empty())
+                            return;
+
+                        editor.AddComponent(selectedEntities[0], compID);
+                    }
+                }
+
+                const char* GetLabel() const override {
+                    return label;
+                }
+
+                ECS::EntityID compID;
+                char label[64];
+            };
+        
+            Plugin* plugin = CJING_NEW(Plugin);
+            plugin->compID = compID;
+            CopyString(plugin->label, label);
+
+            U32 index = 0;
+            while (index < addCompPlugins.size() && compareString(plugin->GetLabel(), addCompPlugins[index]->GetLabel()) > 0)
+                index++;
+            addCompPlugins.Insert(index, plugin);
+            
+            // Create new addComponentTreeNode
+            auto node = CJING_NEW(AddComponentTreeNode);
+            CopyString(node->label, plugin->GetLabel());
+            node->plugin = plugin;
+            InsertAddComponentTreeNode(addCompTreeNodeRoot, node);
         }
 
         void InitReflection()
         {
+            addCompTreeNodeRoot.label[0] = '\0';
+
             for (const auto& cmp : Reflection::GetComponents())
             {
                 ASSERT(cmp.meta->compID != ECS::INVALID_ENTITY);
@@ -891,6 +1014,8 @@ namespace Editor
         // Reflection
         HashMap<ECS::EntityID, String> componentLabels;
         HashMap<ECS::EntityID, StaticString<5>> componentIcons;
+        AddComponentTreeNode addCompTreeNodeRoot;
+        Array<IAddComponentPlugin*> addCompPlugins;
 
         // Fonts
         ImFont* font;

@@ -11,6 +11,15 @@ namespace Editor
 {
     class EditorApp;
     struct EntityFolder;
+
+    struct IEditorCommand
+    {
+        virtual ~IEditorCommand() {}
+
+        virtual bool Execute() = 0;
+        virtual void Undo() = 0;
+        virtual const char* GetType() = 0;
+    };
    
     struct VULKAN_EDITOR_API WorldView
     {
@@ -32,6 +41,9 @@ namespace Editor
         virtual World* GetWorld() = 0;
         virtual void NewWorld() = 0;
         virtual void DestroyWorld() = 0;
+        virtual void ExecuteCommand(UniquePtr<IEditorCommand>&& command) = 0;
+        virtual ECS::Entity AddEmptyEntity() = 0;
+        virtual void AddComponent(ECS::Entity entity, ECS::EntityID compID) = 0;
 
         virtual void SelectEntities(Span<const ECS::Entity> entities, bool toggle) = 0;
 

@@ -114,6 +114,46 @@ namespace VulkanTest
             return data_[size_ - 1];
         }
 
+        void Insert(U32 index, const T& value) {
+            EmplaceAt(index, value);
+        }
+
+        void Insert(U32 index, T&& value) {
+            EmplaceAt(index, static_cast<T&&>(value));
+        }
+
+        template <typename... Args>
+        T& EmplaceAt(U32 index, Args&&... args)
+        {
+            if constexpr (__is_trivially_copyable(T)) 
+            {
+                if (size_ == capacity_)
+                    Grow();
+                memmove(&data_[index + 1], &data_[index], sizeof(data_[index]) * (size_ - index));
+                new (data_ + index) T(static_cast<Args&&>(args)...);
+            }
+            else
+            {
+                if (size_ == capacity_)
+                {
+                    U32 newCapacity = capacity_ == 0 ? 4 : capacity_ * 2;
+                    T* oldData = data_;
+                    data_ = static_cast<T*>(CJING_MALLOC_ALIGN(newCapacity * sizeof(T), alignof(T)));
+                    MoveData(data_, oldData, index);
+                    MoveData(data_ + index + 1, oldData + index, size_ - index);
+                    CJING_FREE_ALIGN(oldData);
+                    capacity_ = newCapacity;
+                }
+                else
+                {
+                    MoveData(data_ + index + 1, data_ + index, size_ - index);
+                }
+                new (data_ + index) T(static_cast<Args&&>(args)...);
+            }
+            size_++;
+            return data_[index];
+        }
+
         int indexOf(const T& item) const
         {
             for (U32 i = 0; i < size_; ++i) 

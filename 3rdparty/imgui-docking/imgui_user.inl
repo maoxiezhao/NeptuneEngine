@@ -145,4 +145,16 @@ namespace ImGuiEx
 		PopStyleVar();
 		return res;
 	}
+
+	void PushReadonly()
+	{
+		PushItemFlag(ImGuiItemFlags_ReadOnly, true);
+		PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+	}
+
+	void PopReadonly()
+	{
+		PopStyleColor();
+		PopItemFlag();
+	}
 }

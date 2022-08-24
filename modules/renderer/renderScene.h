@@ -74,6 +74,23 @@ namespace VulkanTest
 		FMat4x4 worldMat = IDENTITY_MATRIX;
 	};
 
+	struct LightComponent
+	{
+		enum LightType
+		{
+			DIRECTIONAL,
+			POINT,
+			SPOT,
+			LIGHTTYPE_COUNT,
+		};
+		LightType type = POINT;
+
+		F32x3 color = F32x3(1.0f);
+		F32 intensity = 1.0f;
+		F32 range = 10.0f;
+		AABB aabb;
+	};
+
 	class VULKAN_TEST_API RenderPassPlugin
 	{
 	public:
@@ -105,8 +122,10 @@ namespace VulkanTest
 
 		virtual PickResult CastRayPick(const Ray& ray, U32 mask = ~0) = 0;
 
+		virtual void CreateComponent(ECS::Entity entity, ECS::EntityID compID) = 0;
+
 		// Entity
-		virtual ECS::EntityID CreateEntity(const char* name) = 0;
+		virtual ECS::Entity CreateEntity(const char* name) = 0;
 		virtual void DestroyEntity(ECS::Entity entity) = 0;
 
 		// Camera
@@ -116,13 +135,23 @@ namespace VulkanTest
 		virtual void LoadModel(const char* name, const Path& path) = 0;
 
 		// Mesh
-		virtual ECS::Entity CreateMesh(const char* name) = 0;
+		virtual ECS::Entity CreateMesh(ECS::Entity entity) = 0;
 
 		// Material
-		virtual ECS::Entity CreateMaterial(const char* name) = 0;
+		virtual ECS::Entity CreateMaterial(ECS::Entity entity) = 0;
 
 		// Object
-		virtual ECS::Entity CreateObject(const char* name) = 0;
+		virtual ECS::Entity CreateObject(ECS::Entity entity) = 0;
 		virtual void ForEachObjects(std::function<void(ECS::Entity, ObjectComponent&)> func) = 0;
+
+		// Light
+		virtual ECS::Entity CreatePointLight(ECS::Entity entity) = 0;
+		virtual ECS::Entity CreateLight(
+			ECS::Entity entity,
+			LightComponent::LightType type = LightComponent::LightType::POINT,
+			const F32x3 pos = F32x3(1.0f), 
+			const F32x3 color = F32x3(1.0f), 
+			F32 intensity = 1.0f, 
+			F32 range = 10.0f) = 0;
 	};
 }

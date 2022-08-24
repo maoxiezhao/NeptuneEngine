@@ -8,6 +8,91 @@ namespace VulkanTest
 {
 namespace Editor
 {
+	struct PropertyWidgetVisitor final : public Reflection::IPropertyMetaVisitor
+	{
+		PropertyWidgetVisitor(EditorApp& editor_, IScene* scene_, I32 index_, ECS::Entity entity_, ECS::EntityID compID_) :
+			editor(editor_),
+			scene(scene_),
+			index(index_),
+			entity(entity_),
+			compID(compID_)
+		{
+		}
+
+		struct AttributeInfo
+		{
+			float max = FLT_MAX;
+			float min = -FLT_MAX;
+			bool isColor = false;
+		};
+
+		template <typename T>
+		static AttributeInfo GetAttributeInfo(const Reflection::PropertyMeta<T>& prop)
+		{
+			AttributeInfo info;
+			for (const auto* attr : prop.attributes) {
+				switch (attr->GetType()) {
+				case Reflection::IAttribute::COLOR:
+					info.isColor = true;
+					break;
+				default: break;
+				}
+			}
+			return info;
+		}
+
+		template<typename T>
+		void VisitImpl(const Reflection::PropertyMeta<T>& prop, std::function<void(const AttributeInfo& info)> func)
+		{
+			if (prop.IsReadonly())
+				ImGuiEx::PushReadonly();
+
+			AttributeInfo info = GetAttributeInfo(prop);
+			ImGuiEx::Label(prop.name);
+			ImGui::PushID(prop.name);
+			func(info);
+			ImGui::PopID();
+			if (prop.IsReadonly())
+				ImGuiEx::PopReadonly();
+		}
+
+		void Visit(const Reflection::PropertyMeta<F32>& prop) override
+		{
+			VisitImpl(prop, [&](const AttributeInfo& info) {
+				F32 f = prop.Get(scene, entity, index);
+				if (ImGui::DragFloat("##v", &f, 1, info.min, info.max))
+				{
+					f = std::clamp(f, info.min, info.max);
+					prop.Set(scene, entity, index, f);
+				}
+			});
+		}
+
+		void Visit(const Reflection::PropertyMeta<F32x3>& prop) override
+		{
+			VisitImpl(prop, [&](const AttributeInfo& info) {
+				F32x3 f = prop.Get(scene, entity, index);
+				if (info.isColor)
+				{
+					if (ImGui::ColorEdit3("##v", f.data))
+						prop.Set(scene, entity, index, f);
+				}
+				else
+				{
+					if (ImGui::DragFloat3("##v", f.data, 1, info.min, info.max))
+						prop.Set(scene, entity, index, f);
+				}
+			});
+		}
+
+	private:
+		EditorApp& editor;
+		I32 index;
+		ECS::Entity entity;
+		ECS::EntityID compID;
+		IScene* scene;
+	};
+
 	PropertyWidget::PropertyWidget(EditorApp& editor_) :
 		editor(editor_),
 		worldEditor(editor_.GetWorldEditor())
@@ -49,7 +134,7 @@ namespace Editor
 		{
 			ShowBaseProperties(entity);
 
-			worldEditor.GetWorld()->EachComponent(entity, [&](ECS::EntityID compID) {
+			entity.Each([&](ECS::EntityID compID) {
 				ShowComponentProperties(entity, compID);
 			});
 
@@ -86,7 +171,11 @@ namespace Editor
 		const char* tmp = entity.GetName();
 
 		char name[32];
-		CopyString(name, tmp);
+		if (tmp != nullptr)
+			CopyString(name, tmp);
+		else
+			memset(name, 0, sizeof(name));
+
 		ImGui::SetNextItemWidth(-1);
 		if (ImGui::InputTextWithHint("##name", "Name", name, sizeof(name)))
 			entity.SetName(name);
@@ -105,9 +194,11 @@ namespace Editor
 			ImGui::Text("%s", tmp);
 		}
 
-		TransformComponent* transformComp = entity.GetMut<TransformComponent>();
-		if (transformComp != nullptr)
+		if (entity.Has<TransformComponent>())
 		{
+			TransformComponent* transformComp = entity.GetMut<TransformComponent>();
+			ASSERT(transformComp != nullptr);
+
 			auto& transform = transformComp->transform;
 			ImGuiEx::Label("Position");
 			if (ImGui::DragScalarN("##pos", ImGuiDataType_Float, transform.translation.data, 3, 1.f, 0, 0, "%.3f"))
@@ -124,7 +215,7 @@ namespace Editor
 				transform.scale.y = transform.scale.x;
 				transform.scale.z = transform.scale.x;
 				transform.isDirty = true;
-			}		
+			}
 		}
 
 		ImGui::TreePop();
@@ -163,7 +254,21 @@ namespace Editor
 
 		if (!isOpen)
 			return;
+
+		RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+		if (!scene)
+			return;
 	
+		const auto meta = Reflection::GetComponent(compID);
+		if (meta == nullptr)
+		{
+			ImGui::TreePop();
+			return;
+		}
+
+		PropertyWidgetVisitor visitor(editor, scene , -1, entity, compID);
+		meta->Visit(visitor);
+
 		ImGui::TreePop();
 	}
 }

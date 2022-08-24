@@ -279,9 +279,12 @@ namespace Editor
 			const auto& selected = worldEditor.GetSelectedEntities();
 			for (auto entity : selected)
 			{
-				auto objComp = entity.GetMut<ObjectComponent>();
-				if (objComp != nullptr)
-					objComp->stencilRef = 1;
+				if (entity.Has<ObjectComponent>())
+				{
+					auto objComp = entity.GetMut<ObjectComponent>();
+					if (objComp != nullptr)
+						objComp->stencilRef = 1;
+				}
 			}
 		}
 
@@ -582,6 +585,12 @@ namespace Editor
 
 		const auto& selected = worldEditor.GetSelectedEntities();
 		if (selected.empty()) return;
+		for (const auto& e : selected)
+		{
+			if (!e.Has<TransformComponent>())
+				return;
+		}
+
 		TransformComponent* comp = selected[0].GetMut<TransformComponent>();
 		if (comp == nullptr) return;
 	

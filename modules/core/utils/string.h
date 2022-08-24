@@ -18,7 +18,7 @@ namespace VulkanTest
 	bool CatString(Span<char> dst, const char* source);
 	bool CopyNString(Span<char> dst, const char* source, size_t n);
 	bool CatNString(Span<char> dst, const char* source, size_t n);
-	int  CompareString(const char* lhs, const char* rhs);
+	int  compareString(const char* lhs, const char* rhs);	// CompareString macro confict
 	bool EqualString(const char* lhs, const char* rhs);
 	bool EqualString(Span<const char> lhs, Span<const char> rhs);
 	bool EqualIStrings(const char* lhs, const char* rhs);
@@ -37,6 +37,7 @@ namespace VulkanTest
 	bool ToCString(U64 value, Span<char> output);
 	bool ToCString(F32 value, Span<char> output, int afterPoint);
 	bool ToCString(F64 value, Span<char> output, int afterPoint);
+	char MakeLowercase(char c);
 	bool MakeLowercase(Span<char> dst, const char* src);
 	bool MakeLowercase(Span<char> dst, Span<const char> src);
 

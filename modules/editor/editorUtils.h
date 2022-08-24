@@ -8,16 +8,6 @@ namespace VulkanTest
 {
 namespace Editor::Utils
 {
-	struct EditorCommand
-	{
-		virtual ~EditorCommand() {}
-
-		virtual bool DoCommand() = 0;
-		virtual void UndoCommand() = 0;
-		virtual const char* GetType() = 0;
-		virtual bool Merge(EditorCommand& command) = 0;
-	};
-
 	struct VULKAN_EDITOR_API Action
 	{
 		Action();

@@ -122,7 +122,7 @@ namespace VulkanTest
 		return CopyNString(Span(temp, length), source, n);
 	}
 
-	int CompareString(const char* lhs, const char* rhs)
+	int compareString(const char* lhs, const char* rhs)
 	{
 		return strcmp(lhs, rhs);
 	}
@@ -540,7 +540,7 @@ namespace VulkanTest
 		return true;
 	}
 
-	static char MakeLowercase(char c)
+	char MakeLowercase(char c)
 	{
 		return c >= 'A' && c <= 'Z' ? c - ('A' - 'a') : c;
 	}
@@ -833,12 +833,12 @@ namespace VulkanTest
 
 	bool String::operator<(const String& rhs) const
 	{
-		return CompareString(c_str(), rhs.c_str()) < 0;
+		return compareString(c_str(), rhs.c_str()) < 0;
 	}
 
 	bool String::operator>(const String& rhs) const
 	{
-		return CompareString(c_str(), rhs.c_str()) > 0;
+		return compareString(c_str(), rhs.c_str()) > 0;
 	}
 
 	String& String::append(Span<const char> value)

@@ -11,7 +11,7 @@ namespace VulkanTest
 		ECS_ASSERT(ctx != nullptr);
 
 		if (ctx->payload == nullptr)
-			ctx->payload = new(Jobsystem::JobHandle);
+			ctx->payload = CJING_NEW(Jobsystem::JobHandle);
 
 		Jobsystem::Run(nullptr, [stage, pipeline](void*) {
 			ECS::RunPipelineThread((ECS::Stage*)stage, pipeline);
@@ -24,7 +24,10 @@ namespace VulkanTest
 		ECS_ASSERT(ctx != nullptr);
 
 		if (ctx->payload != nullptr)
+		{
 			Jobsystem::Wait((Jobsystem::JobHandle*)ctx->payload);
+			CJING_SAFE_DELETE(ctx->payload);
+		}
 	}
 
 	static void* ECSMalloc(size_t size)
@@ -84,10 +87,19 @@ namespace VulkanTest
 
 	ECS::Entity World::CreateEntity(const char* name)
 	{
-		char tmp[64];
-		CopyString(Span(tmp), name);
-		GetValidEntityName(this, tmp);
-		ECS::Entity result = Entity(tmp);
+		ECS::Entity result;
+		if (name != nullptr && name[0] != 0)
+		{
+			char tmp[64];
+			CopyString(Span(tmp), name);
+			GetValidEntityName(this, tmp);
+			result = Entity(tmp);
+		}
+		else
+		{
+			result = Entity(nullptr);
+		}
+
 		entityCreated.Invoke(result);
 		return result;
 	}

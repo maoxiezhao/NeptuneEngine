@@ -92,6 +92,7 @@ namespace Editor
     private:
         void OnFolderUI(EntityFolder& folders, EntityFolder::FolderID folderID, U32 depth, bool isRoot = false);
         void ShowHierarchy(ECS::Entity entity, const Array<ECS::Entity>& selectedEntities);
+        void ShowCreateEntityGUI(EntityFolder::FolderID folderID);
 
     private:
         EditorApp& editor;
@@ -99,6 +100,7 @@ namespace Editor
         EntityFolder::FolderID renamingFolder = EntityFolder::INVALID_FOLDER;
         bool folderRenameFocus = false;
         char folderRenameBuf[32];
+        char componentFilter[32];
 
         Array<EntityFolder::FolderID> toCreateFolders;
     };

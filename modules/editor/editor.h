@@ -14,6 +14,22 @@ namespace Editor
 {
     namespace Gizmo { struct Config; }
 
+    struct IAddComponentPlugin
+    {
+        virtual ~IAddComponentPlugin() {}
+        virtual void OnGUI(bool createEntity, bool fromFilter, class WorldEditor& editor) = 0;
+        virtual const char* GetLabel() const = 0;
+    };
+
+    struct AddComponentTreeNode
+    {
+        IAddComponentPlugin* plugin = nullptr;
+        AddComponentTreeNode* child = nullptr;
+        AddComponentTreeNode* next = nullptr;
+
+        char label[64];
+    };
+
     class VULKAN_EDITOR_API EditorApp : public App
     {
     public:
@@ -47,6 +63,7 @@ namespace Editor
         virtual Gizmo::Config& GetGizmoConfig() = 0;
         virtual ImFont* GetBigIconFont() = 0;
         virtual ImFont* GetBoldFont() = 0;
+        virtual const AddComponentTreeNode* GetAddComponentTreeNodeRoot()const = 0;
 
         virtual const char* GetComponentIcon(ECS::EntityID compID) const = 0;
         virtual const char* GetComponentTypeName(ECS::EntityID compID) const = 0;

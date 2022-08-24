@@ -9,5 +9,9 @@ namespace VulkanTest
         Reflection::Builder builder = Reflection::BuildScene(world, "RenderScene");
         builder.Component<ObjectComponent, &RenderScene::CreateObject, &RenderScene::DestroyEntity>("Object");
         builder.Component<MaterialComponent, &RenderScene::CreateMaterial, &RenderScene::DestroyEntity>("Material");
+        builder.Component<LightComponent, &RenderScene::CreatePointLight, &RenderScene::DestroyEntity>("PointLight")
+            .VarProp<LightComponent, &LightComponent::color>("color").ColorAttribute()
+            .VarProp<LightComponent, &LightComponent::intensity>("intensity")
+            .VarProp<LightComponent, &LightComponent::range>("range");
     }
 }

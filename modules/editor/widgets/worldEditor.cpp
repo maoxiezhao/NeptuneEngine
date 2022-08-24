@@ -7,6 +7,84 @@ namespace VulkanTest
 {
 namespace Editor
 {
+    namespace
+    {
+        struct AddEmptyEntityCommand final : public IEditorCommand
+        {
+            AddEmptyEntityCommand(WorldEditor& worldEditor_, ECS::Entity* output_) :
+                worldEditor(worldEditor_),
+                entity(ECS::INVALID_ENTITY),
+                output(output_)
+            {
+            }
+
+            bool Execute() override
+            {
+                ASSERT(entity == ECS::INVALID_ENTITY);
+                entity = worldEditor.GetWorld()->CreateEntity(nullptr);
+
+                if (output)
+                    *output = entity;
+                return true;
+            }
+
+            void Undo() override
+            {
+                ASSERT(entity);
+                worldEditor.GetWorld()->DeleteEntity(entity);
+            }
+
+            const char* GetType() override {
+                return "AddEmtpyEntity";
+            }
+
+        private:
+            WorldEditor& worldEditor;
+            ECS::Entity entity;
+            ECS::Entity* output;
+        };
+
+        struct AddComponentCommand final : public IEditorCommand
+        {
+            AddComponentCommand(WorldEditor& worldEditor_, ECS::Entity entity_, ECS::EntityID compID_) :
+                worldEditor(worldEditor_),
+                entity(ECS::INVALID_ENTITY),
+                compID(compID_)
+            {
+                if (!entity_.Has(compID))
+                    entity = entity_;
+            }
+
+            bool Execute() override
+            {
+                ASSERT(entity != ECS::INVALID_ENTITY);
+                ASSERT(compID != ECS::INVALID_ENTITY);
+                ASSERT(!entity.Has(compID));
+
+                RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+                if (!scene)
+                    return false;
+
+                scene->CreateComponent(entity, compID);
+
+                return entity.Has(compID);
+            }
+
+            void Undo() override
+            {
+            }
+
+            const char* GetType() override {
+                return "AddComponent";
+            }
+
+        private:
+            WorldEditor& worldEditor;
+            ECS::Entity entity;
+            ECS::EntityID compID;
+        };
+    }
+
     class WorldEditorImpl : public WorldEditor
     {
     private:
@@ -69,15 +147,37 @@ namespace Editor
             world = nullptr;
         }
 
-        static void FastRemoveDuplicates(Array<ECS::Entity>& entities) 
+        void ExecuteCommand(UniquePtr<IEditorCommand>&& command) override
+        {
+            if (!command->Execute())
+                Logger::Error("Failed to execute editor command: %s", command->GetType());
+
+            command.Reset();
+        }
+
+        ECS::Entity AddEmptyEntity() override
+        {
+            ECS::Entity entity;
+            UniquePtr<AddEmptyEntityCommand> command = CJING_MAKE_UNIQUE<AddEmptyEntityCommand>(*this, &entity);
+            ExecuteCommand(std::move(command));
+            return entity;
+        }
+
+        void AddComponent(ECS::Entity entity, ECS::EntityID compID) override
+        {
+            UniquePtr<AddComponentCommand> command = CJING_MAKE_UNIQUE<AddComponentCommand>(*this, entity, compID);
+            ExecuteCommand(std::move(command));
+        }
+
+        static void FastRemoveDuplicates(Array<ECS::Entity>& entities)
         {
             qsort(entities.begin(), entities.size(), sizeof(entities[0]), [](const void* a, const void* b) {
                 return memcmp(a, b, sizeof(ECS::Entity));
-            });
+                });
 
-            for (I32 i = entities.size() - 2; i >= 0; --i) 
+            for (I32 i = entities.size() - 2; i >= 0; --i)
             {
-                if (entities[i] == entities[i + 1]) 
+                if (entities[i] == entities[i + 1])
                     entities.swapAndPop(i);
             }
         }

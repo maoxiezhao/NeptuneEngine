@@ -34,7 +34,18 @@ namespace Reflection
 	ComponentMeta::~ComponentMeta()
 	{
 		for (auto prop : props)
+		{
+			for (auto attr : prop->attributes)
+				CJING_SAFE_DELETE(attr);
+
 			CJING_SAFE_DELETE(prop);
+		}
+	}
+
+	void ComponentMeta::Visit(IPropertyMetaVisitor& visitor) const
+	{
+		for (const auto prop : props)
+			prop->Visit(visitor);
 	}
 
 	static Context& GetContext() 
@@ -68,6 +79,13 @@ namespace Reflection
 	Builder::Builder()
 	{
 		scene = CJING_NEW(SceneMeta)();
+	}
+
+	Builder& Builder::ColorAttribute()
+	{
+		auto attr = CJING_NEW(Reflection::ColorAttribute)();
+		lastProp->attributes.push_back(attr);
+		return *this;
 	}
 
 	void Builder::RegisterCmp(ComponentMeta* cmp)
