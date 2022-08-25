@@ -1,9 +1,16 @@
 #pragma once
 
+#include "core\common.h"
 #include "core\resource\binaryResource.h"
+#include "core\profiler\profiler.h"
+
+typedef struct FT_FaceRec_* FT_Face;
+typedef struct FT_LibraryRec_* FT_Library;
 
 namespace VulkanTest
 {
+	class Font;
+
 	class VULKAN_TEST_API FontResource final : public BinaryResource
 	{
 	public:
@@ -22,6 +29,8 @@ namespace VulkanTest
 		FontResource(const Path& path_, ResourceFactory& resFactory_);
 		virtual ~FontResource();
 
+		Font* GetFont(I32 size);
+
 	protected:
 		bool Init(ResourceInitData& initData)override;
 		bool Load()override;
@@ -29,6 +38,9 @@ namespace VulkanTest
 
 	private:
 		FontHeader header;
+		FT_Face* face;
+		Array<Font*> fonts;
+		Mutex mutex;
 	};
 
 	class VULKAN_TEST_API FontResourceFactory final : public BinaryResourceFactory
@@ -37,7 +49,10 @@ namespace VulkanTest
 		FontResourceFactory();
 		virtual ~FontResourceFactory();
 
+		FT_Library GetLibrary();
+
 	protected:
-		 Resource* CreateResource(const Path& path) override;
+		Resource* CreateResource(const Path& path) override;
+
 	};
 }

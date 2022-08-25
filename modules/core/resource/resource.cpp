@@ -48,6 +48,11 @@ namespace VulkanTest
 
 	Resource::~Resource() = default;
 
+	bool Resource::WaitForLoaded(F32 seconds) const
+	{
+		return false;
+	}
+
 	void Resource::Refresh()
 	{
 		if (currentState == State::EMPTY)

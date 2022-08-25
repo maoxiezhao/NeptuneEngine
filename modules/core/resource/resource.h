@@ -49,6 +49,7 @@ namespace VulkanTest
 			return resSize;
 		}
 
+		bool WaitForLoaded(F32 seconds = 30.0f)const;
 		void Refresh();
 		void AddDependency(Resource& depRes);
 		void RemoveDependency(Resource& depRes);
