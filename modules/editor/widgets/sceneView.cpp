@@ -165,6 +165,8 @@ namespace Editor
 		CameraComponent camera;
 		Transform transform;
 
+		EditorIcons editorIcons;
+
 		F32 deltaTime = 0.0f;
 		bool isMouseDown[(int)Platform::MouseButton::COUNT] = {};
 		bool isMouseClick[(int)Platform::MouseButton::COUNT] = {};
@@ -175,7 +177,8 @@ namespace Editor
 		WorldViewImpl(SceneView& view_, EditorApp& editor_) :
 			sceneView(view_),
 			editor(editor_),
-			worldEditor(editor_.GetWorldEditor())
+			worldEditor(editor_.GetWorldEditor()),
+			editorIcons(worldEditor)
 		{
 			camera.up = F32x3(0.0f, 1.0f, 0.0f);
 			camera.eye = F32x3(0.0f, 0.0f, 0.0f);
@@ -242,9 +245,19 @@ namespace Editor
 				if (scene)
 				{
 					Ray ray = Renderer::GetPickRay(mousePos, camera);
-					PickResult pickResult = scene->CastRayPick(ray);
-					if (pickResult.isHit && pickResult.entity != ECS::INVALID_ENTITY)
-						worldEditor.SelectEntities(Span(&pickResult.entity, 1), false);
+					auto iconHit = editorIcons.CastRayPick(ray);
+					if (iconHit.entity != ECS::INVALID_ENTITY)
+					{
+						worldEditor.SelectEntities(Span(&iconHit.entity, 1), false);
+					}
+					else
+					{
+						PickResult pickResult = scene->CastRayPick(ray);
+						if (pickResult.isHit && pickResult.entity != ECS::INVALID_ENTITY)
+						{
+							worldEditor.SelectEntities(Span(&pickResult.entity, 1), false);
+						}
+					}
 				}
 			}
 

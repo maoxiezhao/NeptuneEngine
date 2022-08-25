@@ -48,5 +48,9 @@ solution (sln_name)
             -- vulkan header
             includedirs { "../3rdparty/vulkan/include" }
             includedirs { "../assets/shaders/common" }
+
+            -- freetype
+            libdirs { "../3rdparty/freetype/lib" }
+            links {"freetype"}
         end
     )

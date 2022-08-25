@@ -19,6 +19,14 @@ files
     "**.inl",
 }
 
+-- fretype
+includedirs 
+{ 
+    third_party_location.. "/freetype/include"
+}
+libdirs { third_party_location.. "/freetype/lib" }
+links {"freetype"}
+
 -- Shader interop
 files 
 {

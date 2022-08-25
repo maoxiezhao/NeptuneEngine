@@ -13,6 +13,7 @@
 #include "texture.h"
 #include "textureHelper.h"
 #include "imageUtil.h"
+#include "renderer\render2D\fontResource.h"
 
 namespace VulkanTest
 {
@@ -155,6 +156,7 @@ namespace Renderer
 	LocalPtr<RenderResourceFactory<Texture>> textureFactory;
 	LocalPtr<RenderResourceFactory<Model>> modelFactory;
 	LocalPtr<RenderResourceFactory<Material>> materialFactory;
+	LocalPtr<FontResourceFactory> fontFactory;
 
 	GPU::BlendState stockBlendStates[BSTYPE_COUNT] = {};
 	GPU::RasterizerState stockRasterizerState[RSTYPE_COUNT] = {};
@@ -284,6 +286,7 @@ namespace Renderer
 		textureFactory.Create(); textureFactory->Initialize(Texture::ResType, resManager);
 		modelFactory.Create(); modelFactory->Initialize(Model::ResType, resManager);
 		materialFactory.Create(); materialFactory->Initialize(Material::ResType, resManager);
+		fontFactory.Create(); fontFactory->Initialize(FontResource::ResType, resManager);
 
 		// Load builtin states
 		InitStockStates();
@@ -320,11 +323,13 @@ namespace Renderer
 		modelFactory->Uninitialize();
 		textureFactory->Uninitialize();
 		shaderFactory->Uninitialize();
+		fontFactory->Uninitialize();
 
 		materialFactory.Destroy();
 		modelFactory.Destroy();
 		textureFactory.Destroy();
 		shaderFactory.Destroy();
+		fontFactory.Destroy();
 
 		rendererPlugin = nullptr;
 		Logger::Info("Render uninitialized");

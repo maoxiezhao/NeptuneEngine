@@ -4,6 +4,7 @@
 #include "editor\editorUtils.h"
 #include "editor\editorPlugin.h"
 #include "editor\widgets\worldEditor.h"
+#include "editor\widgets\editorIcons.h"
 #include "renderer\renderer.h"
 #include "renderer\renderGraph.h"
 #include "renderer\renderPath3D.h"
