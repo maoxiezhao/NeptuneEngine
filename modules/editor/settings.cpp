@@ -7,31 +7,14 @@
 
 namespace VulkanTest
 {
-namespace LuaUtils
-{
-	template<>
-	struct LuaTypeNormalMapping<ImVec2>
-	{
-		static ImVec2 Get(lua_State* l, int index)
-		{
-			F32x2 ret = LuaType<F32x2>::Get(l, index);
-			return ImVec2(ret.x, ret.y);
-		}
-
-		static ImVec2 Opt(lua_State* l, int index, const ImVec2& defValue)
-		{
-			return LuaType<F32x2>::Check(l, index) ? Get(l, index) : defValue;
-		}
-	};
-}
-
 namespace Editor
 {
 	// TODO: use ScriptConfig to replace hands-write codes
 	static const char SETTINGS_PATH[] = "editor.ini";
 
 	Settings::Settings(EditorApp& app_) :
-		app(app_)
+		app(app_),
+		editorStyle(app_)
 	{
 		window.x = window.y = 0;
 		window.w = window.h = -1;
@@ -55,56 +38,6 @@ namespace Editor
 		value = LuaUtils::Opt<T>(l, -1, defaultValue);
 		lua_pop(l, 1);
 		return value;
-	}
-
-	void LoadEditorStyle(lua_State* l)
-	{
-		lua_getglobal(l, "style");
-		if (lua_type(l, -1) != LUA_TTABLE)
-		{
-			lua_pop(l, 1);
-			return;
-		}
-
-		auto& style = ImGui::GetStyle();
-#define LOAD_FLOAT(name) style.name = LuaUtils::OptField<F32>(l, #name, style.name);
-#define LOAD_BOOL(name) style.name = LuaUtils::OptField<bool>(l, #name, style.name);
-#define LOAD_VEC2(name) style.name = LuaUtils::OptField<ImVec2>(l, #name, style.name);
-
-		LOAD_VEC2(FramePadding);
-		LOAD_FLOAT(FrameRounding);
-		LOAD_FLOAT(FrameBorderSize);
-		LOAD_VEC2(ItemSpacing);
-		LOAD_VEC2(ItemInnerSpacing);
-		LOAD_VEC2(TouchExtraPadding);
-
-#undef LOAD_FLOAT
-#undef LOAD_BOOL
-#undef LOAD_VEC2
-		lua_pop(l, 1);
-	}
-
-	void SaveEditorStyle(File& file)
-	{
-		auto& style = ImGui::GetStyle();
-		file << "style = {";
-
-#define SAVE_FLOAT(name) do { file << "\t" #name " = " << style.name << ",\n"; } while(false)
-#define SAVE_BOOL(name) do { file << "\t" #name " = " << (style.name ? "true" : "false") << ",\n"; } while(false)
-#define SAVE_VEC2(name) do { file << "\t" #name " = {" << style.name.x << ", " << style.name.y << "},\n"; } while(false)
-
-		SAVE_VEC2(FramePadding);
-		SAVE_FLOAT(FrameRounding);
-		SAVE_FLOAT(FrameBorderSize);
-		SAVE_VEC2(ItemSpacing);
-		SAVE_VEC2(ItemInnerSpacing);
-		SAVE_VEC2(TouchExtraPadding);
-
-#undef SAVE_BOOL
-#undef SAVE_FLOAT
-#undef SAVE_VEC2
-
-		file << "}\n";
 	}
 
 	bool Settings::Load()
@@ -156,7 +89,7 @@ namespace Editor
 		fontSize = GetFromGlobal<I32>(l, "font_size", 13);
 
 		// Load editor style
-		LoadEditorStyle(l);
+		editorStyle.Load(l);
 
 		// Load imgui settings
 		lua_getglobal(l, "imgui");
@@ -242,7 +175,7 @@ namespace Editor
 		WriteCustom(luaState, *file);
 
 		// Editor styles
-		SaveEditorStyle(*file);
+		editorStyle.Save(*file);
 
 		// Imgui state
 		file->WriteString("imgui = [[");
@@ -283,6 +216,7 @@ namespace Editor
 				if (ImGui::BeginTabItem("Style"))
 				{
 					ImGui::InputInt("Font size (needs restart)", &fontSize);
+					editorStyle.OnGUI();
 					ImGui::EndTabItem();
 				}
 				ImGui::EndTabBar();

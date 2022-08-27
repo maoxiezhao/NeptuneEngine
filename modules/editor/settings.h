@@ -2,6 +2,7 @@
 
 #include "editor\common.h"
 #include "core\scripts\luaUtils.h"
+#include "editorStyle.h"
 
 namespace VulkanTest
 {
@@ -46,8 +47,8 @@ namespace Editor
 		void SetValue(const char* name, bool value) const;
 		void SetValue(const char* name, float value) const;
 		void SetValue(const char* name, int value) const;
-		float GetValue(const char* name, float default_value) const;
-		int GetValue(const char* name, int default_value) const;
+		F32  GetValue(const char* name, float default_value) const;
+		int  GetValue(const char* name, int default_value) const;
 		bool GetValue(const char* name, bool default_value) const;
 
 		bool isOpen = false;
@@ -56,6 +57,7 @@ namespace Editor
 		EditorApp& app;
 		lua_State* luaState;
 		Array<IPlugin*> plugins;
+		EditorStyle editorStyle;
 	};
 }
 } 

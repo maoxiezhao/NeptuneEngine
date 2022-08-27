@@ -43,8 +43,10 @@ namespace Editor
         virtual void DestroyWorld() = 0;
         virtual void ExecuteCommand(UniquePtr<IEditorCommand>&& command) = 0;
         virtual ECS::Entity AddEmptyEntity() = 0;
+        virtual ECS::Entity DeleteEntity(ECS::Entity entity) = 0;
         virtual void AddComponent(ECS::Entity entity, ECS::EntityID compID) = 0;
 
+        virtual void ClearSelectEntities() = 0;
         virtual void SelectEntities(Span<const ECS::Entity> entities, bool toggle) = 0;
 
         virtual EntityFolder& GetEntityFolder() = 0;

@@ -16,6 +16,7 @@ namespace Editor
 		auto world = worldEditor.GetWorld();
 		world->SetComponenetOnAdded<LightComponent>([&](ECS::Entity entity, LightComponent& model) { AddIcons(entity, IconType::PointLight); });
 		world->SetComponenetOnRemoved<LightComponent>([&](ECS::Entity entity, LightComponent& model) { RemoveIcon(entity); });
+		world->EntityDestroyed().Bind<&EditorIcons::RemoveIcon>(this);
 	}
 
 	EditorIcons::~EditorIcons()
@@ -37,7 +38,9 @@ namespace Editor
 
 	void EditorIcons::RemoveIcon(ECS::Entity entity)
 	{
-		icons.erase(entity);
+		auto it = icons.find(entity);
+		if (it.isValid())
+			icons.erase(it);
 	}
 
 	void EditorIcons::AddIcons(ECS::Entity entity, IconType type)

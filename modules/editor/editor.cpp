@@ -5,14 +5,14 @@
 #include "core\utils\string.h"
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
-
-#include "plugins\renderer.h"
 #include "renderer\imguiRenderer.h"
 #include "renderer\model.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
 #include "renderer\render2D\fontResource.h"
 #include "renderer\render2D\font.h"
+
+#include "plugins\renderer.h"
 
 #include "widgets\assetBrowser.h"
 #include "widgets\assetCompiler.h"
@@ -22,6 +22,7 @@
 #include "widgets\entityList.h"
 #include "widgets\renderGraph.h"
 #include "widgets\gizmo.h"
+#include "widgets\profiler.h"
 
 #include "imgui-docking\imgui.h"
 
@@ -107,6 +108,7 @@ namespace Editor
             renderGraphWidget = RenderGraphWidget::Create(*this);
             propertyWidget = CJING_MAKE_UNIQUE<PropertyWidget>(*this);
             entityListWidget = CJING_MAKE_UNIQUE<EntityListWidget>(*this);
+            profilerWidget = CJING_MAKE_UNIQUE<ProfilerWidget>(*this);
             logWidget = CJING_MAKE_UNIQUE<LogWidget>();
 
             // Create imgui context
@@ -133,6 +135,7 @@ namespace Editor
 
             AddWidget(*assetBrowser);
             AddWidget(*entityListWidget);
+            AddWidget(*profilerWidget);
             AddWidget(*renderGraphWidget);
             AddWidget(*propertyWidget);
             AddWidget(*logWidget);
@@ -184,6 +187,7 @@ namespace Editor
             assetCompiler.Reset();
             worldEditor.Reset();
             entityListWidget.Reset();
+            profilerWidget.Reset();
             renderGraphWidget.Reset();
             propertyWidget.Reset();
             logWidget.Reset();
@@ -608,6 +612,7 @@ namespace Editor
 
                 assetCompiler->OnGUI();
                 settings.OnGUI();
+                OnAboundGUI();
 
                 if (showDemoWindow)
                     ImGui::ShowDemoWindow(&showDemoWindow);
@@ -621,6 +626,7 @@ namespace Editor
             if (ImGui::BeginMainMenuBar())
             {
                 OnFileMenu();
+                OnEditMenu();
                 OnEntityMenu();
                 OnViewMenu();
                 OnHelpMenu();
@@ -652,9 +658,17 @@ namespace Editor
             ImGui::EndMenu();
         }
 
+        void OnEditMenu()
+        {
+            if (!ImGui::BeginMenu("Edit")) return;
+            ImGui::EndMenu();
+        }
+
         void OnEntityMenu()
         {
             if (!ImGui::BeginMenu("Entity")) return;
+            auto folderID = worldEditor->GetEntityFolder().GetSelectedFolder();
+            entityListWidget->ShowCreateEntityGUI(folderID);
             ImGui::EndMenu();
         }
 
@@ -664,6 +678,7 @@ namespace Editor
             ImGui::MenuItem(ICON_FA_IMAGES "Asset browser", nullptr, &assetBrowser->isOpen);
             ImGui::MenuItem(ICON_FA_COMMENT_ALT "Log", nullptr, &logWidget->isOpen);
             ImGui::MenuItem(ICON_FA_STREAM "EntityList", nullptr, &entityListWidget->isOpen);
+            ImGui::MenuItem(ICON_FA_CHART_AREA "Profiler", nullptr, &profilerWidget->isOpen);
             ImGui::MenuItem(ICON_FA_STREAM "EditorSetting", nullptr, &settings.isOpen);
             ImGui::EndMenu();
         }
@@ -672,9 +687,49 @@ namespace Editor
         void OnHelpMenu()
         {
             if (!ImGui::BeginMenu("Help")) return;
-            ImGui::MenuItem("About", nullptr, &showAbout);
-
+            ImGui::MenuItem(ICON_FA_USER "About", nullptr, &showAbout);
             ImGui::EndMenu();
+        }
+
+        void OnAboundGUI()
+        {
+            if (showAbout == false)
+                return;
+
+            if (ImGui::Begin(ICON_FA_USER "About", &showAbout))
+            {
+                ImGuiEx::Rect(72, 72, 0xffffFFFF);
+                ImGui::SameLine();
+        
+                ImGui::BeginGroup();
+                {
+                    ImGui::PushFont(boldFont);
+                    ImGui::Text("VulkanTest (Temporary name)");
+                    ImGui::PopFont();
+                    ImGui::Text("Version:");
+                    ImGui::SameLine();
+                    ImGui::Text(CJING_VERSION_TEXT);
+                    ImGui::Text("Copyright (c) 2021-2022 ZYYYYY. All rights reserved.");
+                    ImGui::Text("License MIT.");
+
+                    ImGui::EndGroup();
+                }
+
+                ImGui::Separator();
+
+                ImGui::Text("Used third party software:");
+                ImGui::NewLine();
+                ImGui::Text("freetype");
+                ImGui::Text("glfw");
+                ImGui::Text("imgui");
+                ImGui::Text("lua");
+                ImGui::Text("lz4");
+                ImGui::Text("stb libs");
+                ImGui::Text("spriv reflect");
+                ImGui::Text("xxhash");
+
+            }
+            ImGui::End();
         }
 
         void OnActionMenuItem(const char* name)
@@ -1012,6 +1067,7 @@ namespace Editor
         UniquePtr<PropertyWidget> propertyWidget;
         UniquePtr<EntityListWidget> entityListWidget;
         UniquePtr<RenderGraphWidget> renderGraphWidget;
+        UniquePtr<ProfilerWidget> profilerWidget;
 
         // Reflection
         HashMap<ECS::EntityID, String> componentLabels;

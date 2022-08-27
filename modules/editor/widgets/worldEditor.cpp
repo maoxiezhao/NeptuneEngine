@@ -44,6 +44,35 @@ namespace Editor
             ECS::Entity* output;
         };
 
+        struct DeleteEntityCommand final : public IEditorCommand
+        {
+            DeleteEntityCommand(WorldEditor& worldEditor_, ECS::Entity entity_) :
+                worldEditor(worldEditor_),
+                entity(entity_)
+            {
+            }
+
+            bool Execute() override
+            {
+                ASSERT(entity != ECS::INVALID_ENTITY);
+                worldEditor.GetWorld()->DeleteEntity(entity);
+                return true;
+            }
+
+            void Undo() override
+            {
+                ASSERT(false);
+            }
+
+            const char* GetType() override {
+                return "DeleteEntity";
+            }
+
+        private:
+            WorldEditor& worldEditor;
+            ECS::Entity entity;
+        };
+
         struct AddComponentCommand final : public IEditorCommand
         {
             AddComponentCommand(WorldEditor& worldEditor_, ECS::Entity entity_, ECS::EntityID compID_) :
@@ -163,6 +192,13 @@ namespace Editor
             return entity;
         }
 
+        ECS::Entity DeleteEntity(ECS::Entity entity) override
+        {
+            UniquePtr<DeleteEntityCommand> command = CJING_MAKE_UNIQUE<DeleteEntityCommand>(*this, entity);
+            ExecuteCommand(std::move(command));
+            return entity;
+        }
+
         void AddComponent(ECS::Entity entity, ECS::EntityID compID) override
         {
             UniquePtr<AddComponentCommand> command = CJING_MAKE_UNIQUE<AddComponentCommand>(*this, entity, compID);
@@ -180,6 +216,11 @@ namespace Editor
                 if (entities[i] == entities[i + 1])
                     entities.swapAndPop(i);
             }
+        }
+
+        void ClearSelectEntities() override
+        {
+            selectedEntities.clear();
         }
 
         void SelectEntities(Span<const ECS::Entity> entities, bool toggle)override

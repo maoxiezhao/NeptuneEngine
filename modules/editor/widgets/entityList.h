@@ -88,11 +88,11 @@ namespace Editor
 
         EntityFolder::FolderID CreateFolder(EntityFolder::FolderID folderID);
         void RenameEntityFolder(EntityFolder::FolderID folderID, const char* name);
+        void ShowCreateEntityGUI(EntityFolder::FolderID folderID);
 
     private:
         void OnFolderUI(EntityFolder& folders, EntityFolder::FolderID folderID, U32 depth, bool isRoot = false);
         void ShowHierarchy(ECS::Entity entity, const Array<ECS::Entity>& selectedEntities);
-        void ShowCreateEntityGUI(EntityFolder::FolderID folderID);
 
     private:
         EditorApp& editor;

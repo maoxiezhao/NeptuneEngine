@@ -1,5 +1,6 @@
 #pragma once
 
+#include "version.h"
 #include "utils\log.h"
 #include "math\math.hpp"
 

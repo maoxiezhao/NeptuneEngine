@@ -50,6 +50,7 @@ namespace Editor
 		HashMap<ECS::Entity, Icon> icons;
 		Color4 selectedColor;
 		F32 timer = 0.0f;
+		Mutex mutex;
 	};
 
 }

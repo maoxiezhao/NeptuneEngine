@@ -277,6 +277,20 @@ namespace Editor
 				nodeOpen = ImGui::TreeNodeEx((void*)&folder, flags, "%s%s", ICON_FA_FOLDER, folder.name);
 			}
 
+			// Mosue drag enttiy to folder
+			if (ImGui::BeginDragDropTarget())
+			{
+				auto* payload = ImGui::AcceptDragDropPayload("entity");
+				if (payload != nullptr)
+				{
+					ECS::Entity droppedEntity = *(ECS::Entity*)payload->Data;
+					folders.MoveToFolder(droppedEntity, folderID);
+					droppedEntity.ChildOf(ECS::INVALID_ENTITY);
+				}
+				ImGui::EndDragDropTarget();
+			}
+
+			// Mouse select folder
 			if (ImGui::IsMouseClicked(0) && ImGui::IsItemHovered())
 				folders.SelectFolder(folderID);
 
@@ -299,7 +313,8 @@ namespace Editor
 
 			if (ImGui::Selectable(ICON_FA_MINUS_SQUARE "DeleteEntity", false, entitySelected ? 0 : ImGuiSelectableFlags_Disabled))
 			{
-				
+				worldEditor.DeleteEntity(selectedEntities[0]);
+				worldEditor.ClearSelectEntities();
 			}	
 		};
 

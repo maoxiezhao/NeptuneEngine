@@ -21,6 +21,7 @@ namespace VulkanTest
 	{
 		GPU::DeviceVulkan* device = Renderer::GetDevice();
 		info = GPU::ImageCreateInfo::ImmutableImage2D(w, h, format);
+		info.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;	// TODO check is necessary
 
 		if (data != nullptr)
 		{

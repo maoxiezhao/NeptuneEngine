@@ -40,7 +40,7 @@ bool VulkanContext::Initialize(std::vector<const char*> instanceExt_, std::vecto
 
     if (instanceProcAddr == nullptr || !loadInited)
     {
-        Logger::Warning("Use default volkInitialize.");
+        // Logger::Warning("Use default volkInitialize.");
         VkResult res = volkInitialize();
         if (res != VK_SUCCESS)
         {
