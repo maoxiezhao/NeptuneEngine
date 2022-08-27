@@ -1,5 +1,6 @@
 #include "string.h"
 #include "core\memory\memory.h"
+#include "core\platform\platform.h"
 #include "math\hash.h"
 
 #include <string>
@@ -594,6 +595,32 @@ namespace VulkanTest
 	U64 HashFunc(U64 Input, const String& Data)
 	{
 		return FNV1aHash(Input, Data.data(), Data.size());
+	}
+
+	String WStringToString(const WString& wstr)
+	{
+#ifdef CJING3D_PLATFORM_WIN32
+		if (wstr.empty()) return String();
+		int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+		String strTo(size_needed, 0);
+		WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+		return strTo;
+#else
+		ASSERT(false);
+#endif
+	}
+
+	WString StringToWString(const String& str)
+	{
+#ifdef CJING3D_PLATFORM_WIN32
+		if (str.empty()) return std::wstring();
+		int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+		std::wstring wstrTo(size_needed, 0);
+		MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+		return wstrTo;
+#else
+		ASSERT(false);
+#endif
 	}
 
 #if (CJING_MEMORY_ALLOCATOR == CJING_MEMORY_ALLOCATOR_DEFAULT)

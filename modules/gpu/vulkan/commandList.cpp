@@ -599,6 +599,51 @@ void* CommandList::UpdateBuffer(const Buffer& buffer, VkDeviceSize offset, VkDev
     return data.data;
 }
 
+void* CommandList::UpdateImage(const Image& image, const VkOffset3D& offset, const VkExtent3D& extent, U32 rowLength, U32 imageHeight, const VkImageSubresourceLayers& subresource)
+{
+    const auto& createInfo = image.GetCreateInfo();
+    uint32_t width = image.GetWidth();
+    uint32_t height = image.GetHeight();
+    uint32_t depth = image.GetDepth();
+
+    if (!rowLength)
+        rowLength = width;
+
+    if (!imageHeight)
+        imageHeight = height;
+
+    TextureFormatLayout layout;
+    layout.SetTexture2D(image.GetFormat(), rowLength, imageHeight);
+    VkDeviceSize size = layout.GetRequiredSize();
+    auto data = stagingBlock.Allocate(size);
+    if (data.data == nullptr)
+    {
+        device.RequestStagingBufferBlock(stagingBlock, size);
+        data = stagingBlock.Allocate(size);
+    }
+    
+    CopyToImage(image, *data.buffer, data.offset, offset, extent, rowLength, imageHeight, subresource);
+    return data.data;
+}
+
+void* CommandList::UpdateImage(const Image& image, U32 rowLenght, U32 imageHeight)
+{
+    const VkImageSubresourceLayers subresource = {
+        formatToAspectMask(image.GetFormat()), 0, 0, 1,
+    };
+    return UpdateImage(image, { 0, 0, 0 }, { image.GetWidth(), image.GetHeight(), image.GetDepth() }, rowLenght, imageHeight, subresource);
+}
+
+void CommandList::CopyToImage(const Image& image, const Buffer& buffer, VkDeviceSize bufferOffset, const VkOffset3D& offset, const VkExtent3D& extent, unsigned rowLength, unsigned sliceHeight, const VkImageSubresourceLayers& subresource)
+{
+    const VkBufferImageCopy region = {
+        bufferOffset,
+        rowLength, sliceHeight,
+        subresource, offset, extent,
+    };
+    vkCmdCopyBufferToImage(cmd, buffer.GetBuffer(), image.GetImage(), image.GetImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), 1, &region);
+}
+
 void CommandList::CopyToImage(const Image& image, const Buffer& buffer, U32 numBlits, const VkBufferImageCopy* blits)
 {
     vkCmdCopyBufferToImage(cmd, buffer.GetBuffer(), image.GetImage(), image.GetImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), numBlits, blits);
@@ -767,6 +812,15 @@ void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
     if (FlushRenderState())
     {
         vkCmdDraw(cmd, vertexCount, 1, vertexOffset, 0);
+    }
+}
+
+void CommandList::DrawInstanced(U32 vertexCount, U32 instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation)
+{
+    ASSERT(!isCompute);
+    if (FlushRenderState())
+    {
+        vkCmdDraw(cmd, vertexCount, instanceCount, startVertexLocation, startInstanceLocation);
     }
 }
 

@@ -34,6 +34,7 @@ namespace VulkanTest
 
 		void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd);
 		void BindCommonResources(GPU::CommandList& cmd);
+		void BindBindlessSet(GPU::CommandList& cmd);
 
 		Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera);
 		GPU::DeviceVulkan* GetDevice();

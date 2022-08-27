@@ -341,6 +341,9 @@ namespace VulkanTest
 
 	using WString = std::wstring;
 	using StringView = std::string_view;
+
+	String  WStringToString(const WString& wstr);
+	WString StringToWString(const String& str);
 #endif
 }
 

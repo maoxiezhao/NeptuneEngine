@@ -154,6 +154,15 @@ public:
         return imageInfo.height;
     }
 
+    uint32_t GetDepth()const {
+        return imageInfo.depth;
+    }
+
+    VkFormat GetFormat() const
+    {
+        return imageInfo.format;
+    }
+
     const ImageCreateInfo& GetCreateInfo()const
     {
         return imageInfo;

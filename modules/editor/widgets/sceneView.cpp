@@ -5,6 +5,7 @@
 #include "renderer\renderScene.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
+#include "renderer\render2D\render2D.h"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -35,9 +36,10 @@ namespace Editor
 
 	static const Color4 selectionOutlineColor = Color4(F32x4(1.0f, 0.6f, 0.0f, 1.0f));
 
-	EditorRenderer::EditorRenderer(EditorApp& editor_) :
+	EditorRenderer::EditorRenderer(EditorApp& editor_, SceneView& sceneView_) :
 		RenderPath3D(),
-		editor(editor_)
+		editor(editor_),
+		sceneView(sceneView_)
 	{
 	}
 
@@ -140,6 +142,11 @@ namespace Editor
 				cmd.EndEvent();
 			}
 
+			// Render icons
+			auto editorIcons = sceneView.GetEditorIcons();
+			if (editorIcons)
+				editorIcons->RenderIcons(cmd, *camera);
+
 			// Show gizmo
 			cmd.BeginEvent("Gizmo");
 			Gizmo::Config& config = editor.GetGizmoConfig();
@@ -164,7 +171,6 @@ namespace Editor
 		WorldEditor& worldEditor;
 		CameraComponent camera;
 		Transform transform;
-
 		EditorIcons editorIcons;
 
 		F32 deltaTime = 0.0f;
@@ -178,7 +184,7 @@ namespace Editor
 			sceneView(view_),
 			editor(editor_),
 			worldEditor(editor_.GetWorldEditor()),
-			editorIcons(worldEditor)
+			editorIcons(editor_)
 		{
 			camera.up = F32x3(0.0f, 1.0f, 0.0f);
 			camera.eye = F32x3(0.0f, 0.0f, 0.0f);
@@ -283,6 +289,7 @@ namespace Editor
 			deltaTime = delta;
 			transform.UpdateTransform();
 			camera.UpdateTransform(transform);
+			editorIcons.Update(delta);
 
 			// Clear highlight state
 			RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
@@ -352,7 +359,7 @@ namespace Editor
 	{
 		worldView = CJING_NEW(WorldViewImpl)(*this, app);
 
-		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>(app);
+		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>(app, *this);
 		editorRenderer->SetWSI(&app.GetEngine().GetWSI());
 		editorRenderer->DisableSwapchain();
 
@@ -472,6 +479,11 @@ namespace Editor
 	const char* SceneView::GetName()
 	{
 		return "SceneView";
+	}
+
+	EditorIcons* SceneView::GetEditorIcons()
+	{
+		return &worldView->editorIcons;
 	}
 
 	void SceneView::OnToolbarGUI()

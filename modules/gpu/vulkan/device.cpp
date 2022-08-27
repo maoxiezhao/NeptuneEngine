@@ -1602,12 +1602,16 @@ void DeviceVulkan::NextFrameContext()
 
     // begin frame resources
     CurrentFrameResource().Begin();
+
+    isRendering = true;
 }
 
 void DeviceVulkan::EndFrameContext()
 {
     DRAIN_FRAME_LOCK();
     EndFrameContextNolock();
+
+    isRendering = false;
 }
 
 void DeviceVulkan::EndFrameContextNolock()

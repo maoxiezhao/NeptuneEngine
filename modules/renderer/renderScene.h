@@ -33,6 +33,7 @@ namespace VulkanTest
 		FMat4x4 view;
 		FMat4x4 projection;
 		FMat4x4 viewProjection;
+		FMat3x3 rotationMat;
 
 		Frustum frustum;
 
@@ -41,6 +42,10 @@ namespace VulkanTest
 
 		MATRIX GetViewProjection() const {
 			return LoadFMat4x4(viewProjection);
+		}
+
+		MATRIX GetRotationMat()const {
+			return LoadFMat3x3(rotationMat);
 		}
 	};
 

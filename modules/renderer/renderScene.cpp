@@ -27,9 +27,18 @@ namespace VulkanTest
     void CameraComponent::UpdateTransform(const Transform& transform)
     {
         MATRIX mat = LoadFMat4x4(transform.world);
-        eye = StoreF32x3(Vector3Transform(VectorSet(0, 0, 0, 1), mat));
-        at = StoreF32x3(Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 0, 1, 0), mat)));
-        up = StoreF32x3(Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 1, 0, 0), mat)));
+
+        VECTOR Eye = Vector3Transform(VectorSet(0, 0, 0, 1), mat);
+        VECTOR At = Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 0, 1, 0), mat));
+        VECTOR Up = Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 1, 0, 0), mat));
+
+        MATRIX _V = MatrixLookToLH(Eye, At, Up);
+        view = StoreFMat4x4(_V);
+        rotationMat = StoreFMat3x3(MatrixInverse(_V));
+
+        eye = StoreF32x3(Eye);
+        at = StoreF32x3(At);
+        up = StoreF32x3(Up);
     }
 
     template<typename T>

@@ -11,6 +11,8 @@
 #include "renderer\model.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
+#include "renderer\render2D\fontResource.h"
+#include "renderer\render2D\font.h"
 
 #include "widgets\assetBrowser.h"
 #include "widgets\assetCompiler.h"

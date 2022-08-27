@@ -4,6 +4,7 @@
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\sceneView.h"
 #include "renderer\model.h"
+#include "renderer\render2D\fontResource.h"
 #include "gpu\vulkan\typeToString.h"
 #include "imgui-docking\imgui.h"
 
@@ -16,6 +17,55 @@ namespace VulkanTest
 {
 namespace Editor
 {
+	/////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Font editor plugin
+	struct FontPlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
+	{
+	private:
+		EditorApp& app;
+
+	public:
+		FontPlugin(EditorApp& app_) :
+			app(app_)
+		{
+			app_.GetAssetCompiler().RegisterExtension("ttf", FontResource::ResType);
+		}
+
+		bool Compile(const Path& path)override
+		{
+			FileSystem& fs = app.GetEngine().GetFileSystem();
+			OutputMemoryStream mem;
+			if (!fs.LoadContext(path.c_str(), mem))
+			{
+				Logger::Error("failed to read file:%s", path.c_str());
+				return false;
+			}
+
+			ResourceDataWriter writer(FontResource::ResType);
+
+			// Write header
+			FontResource::FontHeader header = {};
+			writer.WriteCustomData(header);
+
+			// Write data
+			DataChunk* shaderChunk = writer.GetChunk(0);
+			shaderChunk->mem.Link(mem.Data(), mem.Size());
+
+			return app.GetAssetCompiler().WriteCompiled(path.c_str(), writer.data);
+		}
+
+		std::vector<const char*> GetSupportExtensions()
+		{
+			return { "ttf" };
+		}
+
+		void OnGui(Span<class Resource*> resource)override{}
+
+		ResourceType GetResourceType() const override {
+			return FontResource::ResType;
+		}
+	};
+
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Texture editor plugin
 	struct TexturePlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
@@ -338,6 +388,7 @@ namespace Editor
 		SceneView sceneView;
 		RenderInterfaceImpl renderInterface;
 
+		FontPlugin fontPlugin;
 		TexturePlugin texturePlugin;
 		ModelPlugin modelPlugin;
 		MaterialPlugin materialPlugin;
@@ -347,6 +398,7 @@ namespace Editor
 		RenderPlugin(EditorApp& app_) :
 			app(app_),
 			renderInterface(app_),
+			fontPlugin(app_),
 			texturePlugin(app_),
 			modelPlugin(app_),
 			materialPlugin(app_),
@@ -361,12 +413,14 @@ namespace Editor
 			assetBrowser.RemovePlugin(shaderPlugin);
 			assetBrowser.RemovePlugin(texturePlugin);
 			assetBrowser.RemovePlugin(materialPlugin);
+			assetBrowser.RemovePlugin(fontPlugin);
 
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
 			assetCompiler.RemovePlugin(modelPlugin);
 			assetCompiler.RemovePlugin(materialPlugin);
 			assetCompiler.RemovePlugin(shaderPlugin);
 			assetCompiler.RemovePlugin(texturePlugin);
+			assetCompiler.RemovePlugin(fontPlugin);
 
 			app.RemoveWidget(sceneView);
 			app.SetRenderInterace(nullptr);
@@ -379,6 +433,7 @@ namespace Editor
 
 			// Add plugins for asset compiler
 			AssetCompiler& assetCompiler = app.GetAssetCompiler();
+			assetCompiler.AddPlugin(fontPlugin);
 			assetCompiler.AddPlugin(texturePlugin);
 			assetCompiler.AddPlugin(modelPlugin);
 			assetCompiler.AddPlugin(materialPlugin);
@@ -386,6 +441,7 @@ namespace Editor
 
 			// Add plugins for asset browser
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
+			assetBrowser.AddPlugin(fontPlugin);
 			assetBrowser.AddPlugin(texturePlugin);
 			assetBrowser.AddPlugin(shaderPlugin);
 			assetBrowser.AddPlugin(materialPlugin);

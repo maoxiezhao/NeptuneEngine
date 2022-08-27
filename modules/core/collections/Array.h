@@ -238,6 +238,21 @@ namespace VulkanTest
             size_ = 0;
         }
 
+        Array<T> copy() const 
+        {
+            Array<T> res;
+            if (size_ == 0) 
+                return res;
+
+            res.data_ = static_cast<T*>(CJING_MALLOC_ALIGN(size_ * sizeof(T), alignof(T)));
+            res.capacity_ = size_;
+            res.size_ = size_;
+            for (U32 i = 0; i < size_; ++i) {
+                new (res.data_ + i) T(data_[i]);
+            }
+            return res;
+        }
+
         void resize(U32 size)
         {
             if (size > capacity_)

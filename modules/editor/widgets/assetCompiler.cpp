@@ -580,19 +580,6 @@ namespace Editor
             return plugin->Compile(path);
         }
 
-        bool CopyCompile(const Path& path)override
-        {
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            OutputMemoryStream mem;
-            if (!fs.LoadContext(path.c_str(), mem))
-            {
-                Logger::Error("failed to read file:%s", path.c_str());
-                return false;
-            }
-
-            return WriteCompiled(path.c_str(), Span(mem.Data(), mem.Size()));
-        }
-
         bool WriteCompiled(const char* path, const ResourceInitData& initData)override
         {
             OutputMemoryStream output;

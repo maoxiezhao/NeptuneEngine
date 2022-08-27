@@ -1,0 +1,36 @@
+#include "common/global.hlsli"
+#include "common/shaderInterop_font.h"
+
+struct FontVertex
+{
+	float2 pos;
+	float2 uv;
+};
+
+struct VertexToPixel
+{
+    float4 pos : SV_POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+META_VS(true)
+VertexToPixel VS(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
+{
+    uint vID = instanceID * 4 + vertexID;
+    FontVertex fontVertex = bindless_buffers[font.bufferIndex].Load<FontVertex>(font.bufferOffset + vID * sizeof(FontVertex));
+
+    VertexToPixel Out;
+    Out.pos = mul(font.transform, float4(asfloat(fontVertex.pos), 0, 1));
+    Out.uv = fontVertex.uv;
+    return Out;
+}
+
+META_PS(true)
+float4 PS(VertexToPixel input) : SV_TARGET
+{
+    float value = bindless_textures[font.textureIndex].SampleLevel(samLinearClamp, input.uv, 0).r;
+    float4 color = unpack_rgba(font.color);
+    color.rgb = DEGAMMA(color.rgb);
+    color.a *= value;
+	return color;
+}

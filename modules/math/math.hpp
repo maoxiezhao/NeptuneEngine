@@ -49,17 +49,32 @@ namespace VulkanTest
 		return value1 + (value2 - value1) * amount;
 	}
 
-	constexpr float Clamp(float val, float min, float max)
+	constexpr F32x2 Lerp(const F32x2& a, const F32x2& b, float i)
+	{
+		return F32x2(Lerp(a.x, b.x, i), Lerp(a.y, b.y, i));
+	}
+
+	constexpr F32x3 Lerp(const F32x3& a, const F32x3& b, float i)
+	{
+		return F32x3(Lerp(a.x, b.x, i), Lerp(a.y, b.y, i), Lerp(a.z, b.z, i));
+	}
+
+	constexpr F32x4 Lerp(const F32x4& a, const F32x4& b, float i)
+	{
+		return F32x4(Lerp(a.x, b.x, i), Lerp(a.y, b.y, i), Lerp(a.z, b.z, i), Lerp(a.w, b.w, i));
+	}
+
+	constexpr F32 Clamp(F32 val, F32 min, F32 max)
 	{
 		return std::min(max, std::max(min, val));
 	}
 
-	inline float GetAngle(const F32x3& a, const F32x3& b, const F32x3& axis)
+	inline F32 GetAngle(const F32x3& a, const F32x3& b, const F32x3& axis)
 	{
 		VECTOR A = LoadF32x3(a);
 		VECTOR B = LoadF32x3(b);
 		F32 dp = Clamp(VectorGetX(Vector3Dot(A, B)), -1, 1);
-		float angle = std::acos(dp);
+		F32 angle = std::acos(dp);
 		if (VectorGetX(Vector3Dot(Vector3Cross(A, B), LoadF32x3(axis))) < 0)	// Check side
 			angle = XM_2PI - angle;
 		return angle;
@@ -105,9 +120,9 @@ namespace VulkanTest
 			FXMVECTOR V0,
 			GXMVECTOR V1,
 			HXMVECTOR V2,
-			float& Dist,
-			float TMin = 0,
-			float TMax = std::numeric_limits<float>::max()
+			F32& Dist,
+			F32 TMin = 0,
+			F32 TMax = std::numeric_limits<F32>::max()
 		)
 	{
 		const XMVECTOR g_RayEpsilon = XMVectorSet(1e-20f, 1e-20f, 1e-20f, 1e-20f);

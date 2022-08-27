@@ -199,6 +199,9 @@ public:
         memcpy(mem, data, size);
     }
     void* UpdateBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize size);
+    void* UpdateImage(const Image& image, const VkOffset3D& offset, const VkExtent3D& extent, U32 rowLength, U32 imageHeight, const VkImageSubresourceLayers& subresource);
+    void* UpdateImage(const Image& image, U32 rowLenght = 0, U32 imageHeight = 0);
+    void CopyToImage(const Image& image, const Buffer& buffer, VkDeviceSize bufferOffset, const VkOffset3D& offset, const VkExtent3D& extent, unsigned rowLength, unsigned sliceHeight, const VkImageSubresourceLayers& subresource);
     void CopyToImage(const Image& image, const Buffer& buffer, U32 numBlits, const VkBufferImageCopy* blits);
     void CopyBuffer(const Buffer& dst, const Buffer& src);
     void CopyBuffer(const Buffer& dst, VkDeviceSize dstOffset, const Buffer& src, VkDeviceSize srcOffset, VkDeviceSize size);
@@ -219,6 +222,7 @@ public:
     void NextSubpass(VkSubpassContents contents);
 
     void Draw(U32 vertexCount, U32 vertexOffset = 0);
+    void DrawInstanced(U32 vertexCount, U32 instanceCount, uint32_t startVertexLocation, uint32_t startInstanceLocation);
     void DrawIndexed(U32 indexCount, U32 firstIndex = 0, U32 vertexOffset = 0);
     void DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 startIndexLocation, U32 baseVertexLocation, U32 startInstanceLocation);
 

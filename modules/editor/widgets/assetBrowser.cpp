@@ -4,6 +4,7 @@
 #include "editor\widgets\codeEditor.h"
 #include "core\platform\platform.h"
 #include "renderer\texture.h"
+#include "renderer\render2D\fontResource.h"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -523,6 +524,8 @@ namespace Editor
                 return CopyThumbnailTile("editor/textures/tile_material.tga", tilePath.c_str());
             else if (resType == Model::ResType)
                 return CopyThumbnailTile("editor/textures/tile_model.tga", tilePath.c_str());
+            else if (resType == FontResource::ResType)
+                return CopyThumbnailTile("editor/textures/tile_font.tga", tilePath.c_str());       
 
             return false;
         }

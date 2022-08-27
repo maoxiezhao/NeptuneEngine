@@ -426,6 +426,7 @@ public:
     VkFormat GetDefaultDepthFormat() const;
     constexpr U64 GetFrameCount() const { return FRAMECOUNT; }
     VkInstance GetInstance() { return instance; }
+    bool IsRendering()const { return isRendering; }
 
     BindlessDescriptorHeap* GetBindlessDescriptorHeap(BindlessReosurceType type);
 
@@ -443,6 +444,7 @@ private:
     friend class CommandList;
 
     U64 FRAMECOUNT = 0;
+    bool isRendering = false;
 
     void AddFrameCounter();
     void DecrementFrameCounter();

@@ -50,7 +50,7 @@ namespace VulkanTest
 
 	bool Resource::WaitForLoaded(F32 seconds) const
 	{
-		return false;
+		return true;
 	}
 
 	void Resource::Refresh()

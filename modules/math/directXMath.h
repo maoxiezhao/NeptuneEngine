@@ -349,6 +349,14 @@ namespace VulkanTest
 		return XMPlaneIntersectLine(P, LinePoint1, LinePoint2);
 	}
 
+	inline XMVECTOR XM_CALLCONV Vector3LinePointDistance(
+		FXMVECTOR LinePoint1,
+		FXMVECTOR LinePoint2,
+		FXMVECTOR Point)
+	{
+		return XMVector3LinePointDistance(LinePoint1, LinePoint2, Point);
+	}
+
 	////////////////////////////////////////////////////////////////////////////
 	// Load
 	////////////////////////////////////////////////////////////////////////////

@@ -27,7 +27,7 @@ namespace VulkanTest
 	};
 #pragma pack()
 
-	class VULKAN_TEST_API Texture final : public BinaryResource
+	class VULKAN_TEST_API Texture : public BinaryResource
 	{
 	public:
 		DECLARE_RESOURCE(Texture);
@@ -64,9 +64,10 @@ namespace VulkanTest
 		bool Load()override;
 		void Unload() override;
 
-	private:
+	protected:
 		bool LoadTextureTGA(const TextureHeader& header, const U8* imgData, U64 size);
 		bool LoadTextureInternal(const TextureHeader& header, const U8* imgData, U64 size);
+		void UpdateTexture(const InputMemoryStream& data);
 
 		TextureHeader header;
 		GPU::ImagePtr handle;

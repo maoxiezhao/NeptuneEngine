@@ -20,9 +20,10 @@ namespace VulkanTest
 		ResourceFactory();
 		virtual ~ResourceFactory();
 
-		void Initialize(ResourceType type, ResourceManager& resManager_);
-		void Uninitialize();
-		void Update(F32 dt);
+		virtual void Initialize(ResourceType type, ResourceManager& resManager_);
+		virtual void Uninitialize();
+		virtual void Update(F32 dt);
+
 		void Reload(const Path& path);
 		void Reload(Resource* res);
 		void RemoveUnreferenced();

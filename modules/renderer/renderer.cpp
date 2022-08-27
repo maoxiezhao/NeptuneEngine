@@ -14,6 +14,8 @@
 #include "textureHelper.h"
 #include "imageUtil.h"
 #include "renderer\render2D\fontResource.h"
+#include "renderer\render2D\render2D.h"
+#include "renderer\render2D\fontManager.h"
 
 namespace VulkanTest
 {
@@ -306,6 +308,9 @@ namespace Renderer
 
 		// Initialize texture helper
 		TextureHelper::Initialize(&resManager);
+
+		// Initialize render2D
+		Render2D::Initialize(&resManager);
 	}
 
 	void Renderer::Uninitialize()
@@ -314,8 +319,16 @@ namespace Renderer
 		for (int i = 0; i < ARRAYSIZE(shaders); i++)
 			shaders[i].reset();
 
+		// Uninitialize render2D
+		Render2D::Uninitialize();
+
+		// Uninitialize image util
 		ImageUtil::Uninitialize();
+
+		// Uninitialize texture helper
 		TextureHelper::Uninitialize();
+		
+		// Release frame buffer
 		frameBuffer.reset();
 
 		// Uninitialize resource factories
@@ -402,6 +415,12 @@ namespace Renderer
 
 	void BindCommonResources(GPU::CommandList& cmd)
 	{
+		BindBindlessSet(cmd);
+		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
+	}
+
+	void BindBindlessSet(GPU::CommandList& cmd)
+	{
 		auto BindCommonBindless = [&](GPU::BindlessReosurceType type, U32 set) {
 			auto heap = cmd.GetDevice().GetBindlessDescriptorHeap(type);
 			if (heap != nullptr)
@@ -409,8 +428,6 @@ namespace Renderer
 		};
 		BindCommonBindless(GPU::BindlessReosurceType::StorageBuffer, 1);
 		BindCommonBindless(GPU::BindlessReosurceType::SampledImage, 2);
-
-		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
 	}
 
 	Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera)

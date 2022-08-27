@@ -55,4 +55,15 @@ float3 RemoveSRGBCurveFast( float3 x )
 #define DEGAMMA(x)		(RemoveSRGBCurveFast(x))
 #define GAMMA(x)		(ApplySRGBCurveFast(x))
 
+inline float4 unpack_rgba(in uint value)
+{
+	float4 retVal;
+	retVal.x = (float)((value >> 0u) & 0xFF) / 255.0;
+	retVal.y = (float)((value >> 8u) & 0xFF) / 255.0;
+	retVal.z = (float)((value >> 16u) & 0xFF) / 255.0;
+	retVal.w = (float)((value >> 24u) & 0xFF) / 255.0;
+	return retVal;
+}
+
+
 #endif

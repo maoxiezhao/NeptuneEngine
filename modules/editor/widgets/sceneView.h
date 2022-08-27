@@ -8,17 +8,19 @@
 #include "renderer\renderer.h"
 #include "renderer\renderGraph.h"
 #include "renderer\renderPath3D.h"
+#include "renderer\render2D\font.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
     class EditorApp;
+    class SceneView;
 
     class VULKAN_EDITOR_API EditorRenderer : public RenderPath3D
     {
     public:
-        EditorRenderer(EditorApp& editor_);
+        EditorRenderer(EditorApp& editor_, SceneView& sceneView_);
 
         void SetViewportSize(U32 w, U32 h) {
             viewportSize = U32x2(w, h);
@@ -41,6 +43,7 @@ namespace Editor
     private:
         U32x2 viewportSize = U32x2(0);
         EditorApp& editor;
+        SceneView& sceneView;
         F32 outlineTimer = 0.0f;
     };
 
@@ -60,6 +63,8 @@ namespace Editor
         EditorRenderer& GetRenderer() {
             return *editorRenderer;
         }
+
+        struct EditorIcons* GetEditorIcons();
 
     private:
         void OnToolbarGUI();

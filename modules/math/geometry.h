@@ -4,6 +4,97 @@
 
 namespace VulkanTest
 {
+	struct Rectangle
+	{
+	public:
+		F32x2 pos;
+		F32x2 size;
+
+		static Rectangle Empty;
+
+	public:
+		Rectangle()
+		{
+		}
+
+		Rectangle(F32 x, F32 y, F32 width, F32 height)
+			: pos(x, y)
+			, size(width, height)
+		{
+		}
+
+		Rectangle(const F32x2& pos_, const F32x2& size_)
+			: pos(pos_)
+			, size(size_)
+		{
+		}
+
+		F32 GetWidth() const
+		{
+			return size.x;
+		}
+
+		F32 GetHeight() const
+		{
+			return size.y;
+		}
+
+		F32 GetY() const
+		{
+			return pos.y;
+		}
+
+		F32 GetTop() const
+		{
+			return pos.y;
+		}
+
+		F32 GetBottom() const
+		{
+			return pos.y + size.y;
+		}
+
+		F32 GetX() const
+		{
+			return pos.x;
+		}
+
+		F32 GetLeft() const
+		{
+			return pos.x;
+		}
+
+		F32 GetRight() const
+		{
+			return pos.x + size.x;
+		}
+
+		F32x2 GetUpperLeft() const
+		{
+			return pos;
+		}
+
+		F32x2 GetUpperRight() const
+		{
+			return F32x2(pos.x + size.x, pos.y);
+		}
+
+		F32x2 GetBottomRight() const
+		{
+			return F32x2(pos.x + size.x, pos.y +size.y);
+		}
+
+		F32x2 GetBottomLeft() const
+		{
+			return F32x2(pos.x, pos.y + size.y);
+		}
+
+		F32x2 GetCenter() const
+		{
+			return F32x2(pos.x + size.x * 0.5f, pos.y + size.y * 0.5f);
+		}
+	};
+
 	struct Ray
 	{
 		F32x3 origin;

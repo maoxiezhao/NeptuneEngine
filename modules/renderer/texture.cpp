@@ -22,10 +22,16 @@ namespace VulkanTest
 		GPU::DeviceVulkan* device = Renderer::GetDevice();
 		info = GPU::ImageCreateInfo::ImmutableImage2D(w, h, format);
 
-		auto formatInfo = GPU::GetFormatInfo(format);
-		GPU::SubresourceData resData = {};
-		resData.data = data;
-		handle = device->CreateImage(info, &resData);
+		if (data != nullptr)
+		{
+			GPU::SubresourceData resData = {};
+			resData.data = data;
+			handle = device->CreateImage(info, &resData);
+		}
+		else
+		{
+			handle = device->CreateImage(info, nullptr);
+		}
 
 		bool isReady = bool(handle);
 		OnCreated(isReady ? Resource::State::READY : Resource::State::FAILURE);
@@ -290,5 +296,31 @@ namespace VulkanTest
 			this->info = info;
 
 		return bool(handle);
+	}
+
+	void Texture::UpdateTexture(const InputMemoryStream& data)
+	{
+		PROFILE_FUNCTION();
+
+		if (!handle)
+			return;
+
+		auto device = Renderer::GetDevice();
+		ASSERT(device != nullptr);
+		auto cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+		cmd->ImageBarrier(*handle, 
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+		U8* mem = static_cast<U8*>(cmd->UpdateImage(*handle));
+		memcpy(mem, data.GetBuffer(), data.Size());
+
+		cmd->ImageBarrier(*handle,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+		device->Submit(cmd);
 	}
 }
