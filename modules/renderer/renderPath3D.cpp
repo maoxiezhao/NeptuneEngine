@@ -69,9 +69,14 @@ namespace VulkanTest
 
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Depth prepass
+		AttachmentInfo rtAttachmentPrimitive = rtAttachmentInfo;
+		rtAttachmentPrimitive.format = VK_FORMAT_R32_UINT;
+
 		auto& preDepthPass = renderGraph.AddRenderPass("PreDepth", RenderGraphQueueFlag::Graphics);
+		preDepthPass.WriteColor("rtPrimitiveID", rtAttachmentPrimitive, "rtPrimitiveID");
 		preDepthPass.WriteDepthStencil(SetDepthStencil("depth"), depth);
 		preDepthPass.SetClearDepthStencilCallback(DefaultClearDepthFunc);
+		preDepthPass.SetClearColorCallback(DefaultClearColorFunc);
 		preDepthPass.SetBuildCallback([&](GPU::CommandList& cmd) {
 
 			GPU::Viewport viewport;

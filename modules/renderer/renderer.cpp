@@ -254,6 +254,7 @@ namespace Renderer
 		depthStencilStates[DSTYPE_DEFAULT] = dsd;
 
 		dsd.depthEnable = true;
+		dsd.stencilEnable = false;
 		dsd.depthWriteMask = GPU::DEPTH_WRITE_MASK_ZERO;
 		dsd.depthFunc = VK_COMPARE_OP_EQUAL;
 		depthStencilStates[DSTYPE_READEQUAL] = dsd;

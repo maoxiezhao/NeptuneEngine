@@ -303,7 +303,7 @@ namespace Editor
 				{
 					auto objComp = entity.GetMut<ObjectComponent>();
 					if (objComp != nullptr)
-						objComp->stencilRef = 1;
+						objComp->stencilRef = 0x01;
 				}
 			}
 		}

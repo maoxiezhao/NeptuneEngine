@@ -237,70 +237,67 @@ namespace Editor
 		const EntityFolder::Folder& folder = folders.GetFolder(folderID);
 		ImGui::PushID(&folder);
 
-		if (!isRoot)
+		// Setup tree node flags
+		ImGuiTreeNodeFlags flags = isRoot ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+		flags |= ImGuiTreeNodeFlags_OpenOnArrow;
+		if (folders.GetSelectedFolder() == folderID) flags |= ImGuiTreeNodeFlags_Selected;
+
+		bool nodeOpen = false;
+		if (renamingFolder == folderID)
 		{
-			// Setup tree node flags
-			ImGuiTreeNodeFlags flags = depth == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0;
-			flags |= ImGuiTreeNodeFlags_OpenOnArrow;
-			if (folders.GetSelectedFolder() == folderID) flags |= ImGuiTreeNodeFlags_Selected;
-
-			bool nodeOpen = false;
-			if (renamingFolder == folderID)
+			nodeOpen = ImGui::TreeNodeEx((void*)&folder, flags, "%s", isRoot ? "" : ICON_FA_FOLDER);
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(-1);
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0, 0 });
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
+			ImGui::PushStyleColor(ImGuiCol_FrameBg, 0);
+			if (folderRenameFocus) 
 			{
-				nodeOpen = ImGui::TreeNodeEx((void*)&folder, flags, "%s", ICON_FA_FOLDER);
-				ImGui::SameLine();
-				ImGui::SetNextItemWidth(-1);
-				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0, 0 });
-				ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
-				ImGui::PushStyleColor(ImGuiCol_FrameBg, 0);
-				if (folderRenameFocus) 
-				{
-					ImGui::SetKeyboardFocusHere();
-					folderRenameFocus = false;
-				}
-
-				if (ImGui::InputText("##renamed_val", folderRenameBuf, sizeof(folderRenameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
-				{
-					RenameEntityFolder(renamingFolder, folderRenameBuf);
-					memset(folderRenameBuf, 0, sizeof(folderRenameBuf));
-				}
-			
-				if (ImGui::IsItemDeactivated())
-					renamingFolder = EntityFolder::INVALID_FOLDER;
-		
+				ImGui::SetKeyboardFocusHere();
 				folderRenameFocus = false;
-				ImGui::PopStyleVar(2);
-				ImGui::PopStyleColor();
-			}
-			else
-			{
-				nodeOpen = ImGui::TreeNodeEx((void*)&folder, flags, "%s%s", ICON_FA_FOLDER, folder.name);
 			}
 
-			// Mosue drag enttiy to folder
-			if (ImGui::BeginDragDropTarget())
+			if (ImGui::InputText("##renamed_val", folderRenameBuf, sizeof(folderRenameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
 			{
-				auto* payload = ImGui::AcceptDragDropPayload("entity");
-				if (payload != nullptr)
-				{
-					ECS::Entity droppedEntity = *(ECS::Entity*)payload->Data;
-					folders.MoveToFolder(droppedEntity, folderID);
-					droppedEntity.ChildOf(ECS::INVALID_ENTITY);
-				}
-				ImGui::EndDragDropTarget();
+				RenameEntityFolder(renamingFolder, folderRenameBuf);
+				memset(folderRenameBuf, 0, sizeof(folderRenameBuf));
 			}
-
-			// Mouse select folder
-			if (ImGui::IsMouseClicked(0) && ImGui::IsItemHovered())
-				folders.SelectFolder(folderID);
-
-			if (!nodeOpen)
-			{
-				ImGui::PopID();
-				return;
-			}
+			
+			if (ImGui::IsItemDeactivated())
+				renamingFolder = EntityFolder::INVALID_FOLDER;
+		
+			folderRenameFocus = false;
+			ImGui::PopStyleVar(2);
+			ImGui::PopStyleColor();
+		}
+		else
+		{
+			nodeOpen = ImGui::TreeNodeEx((void*)&folder, flags, "%s%s", isRoot ? "" : ICON_FA_FOLDER, folder.name);
 		}
 
+		// Mosue drag enttiy to folder
+		if (ImGui::BeginDragDropTarget())
+		{
+			auto* payload = ImGui::AcceptDragDropPayload("entity");
+			if (payload != nullptr)
+			{
+				ECS::Entity droppedEntity = *(ECS::Entity*)payload->Data;
+				droppedEntity.RemoveParent();
+				folders.MoveToFolder(droppedEntity, folderID);
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		// Mouse select folder
+		if (ImGui::IsMouseClicked(0) && ImGui::IsItemHovered())
+			folders.SelectFolder(folderID);
+
+		if (!nodeOpen)
+		{
+			ImGui::PopID();
+			return;
+		}
+		
 		auto ShowEntityMenu = [&]() {
 			auto& selectedEntities = worldEditor.GetSelectedEntities();
 			bool entitySelected = !selectedEntities.empty();
@@ -318,50 +315,45 @@ namespace Editor
 			}	
 		};
 
-		// Folder context menu
-		if (isRoot)
+		if (isRoot && !ImGui::IsItemHovered() && ImGui::BeginPopupContextWindow("context"))
 		{
-			if (!ImGui::IsItemHovered() && ImGui::BeginPopupContextWindow("context"))
+			ShowEntityMenu();
+
+			ImGui::Separator();
+
+			if (ImGui::Selectable("New folder"))
 			{
-				ShowEntityMenu();
-
-				ImGui::Separator();
-
-				if (ImGui::Selectable("New folder"))
-				{
-					//EntityFolder::FolderID newFolder = CreateFolder(folderID);
-					//renamingFolder = newFolder;
-					//folderRenameFocus = true;
-					toCreateFolders.push_back(folderID);
-				}
-				ImGui::EndPopup();
+				//EntityFolder::FolderID newFolder = CreateFolder(folderID);
+				//renamingFolder = newFolder;
+				//folderRenameFocus = true;
+				toCreateFolders.push_back(folderID);
 			}
+			ImGui::EndPopup();
 		}
-		else
+
+		// Folder context menu
+		if (ImGui::IsMouseReleased(1) && ImGui::IsItemHovered())
+			ImGui::OpenPopup("folderContextMenu");
+		if (ImGui::BeginPopup("folderContextMenu"))
 		{
-			if (ImGui::IsMouseReleased(1) && ImGui::IsItemHovered())
-				ImGui::OpenPopup("folderContextMenu");
-			if (ImGui::BeginPopup("folderContextMenu"))
+			ShowEntityMenu();
+
+			ImGui::Separator();
+
+			if (ImGui::Selectable("New folder"))
 			{
-				ShowEntityMenu();
-
-				ImGui::Separator();
-
-				if (ImGui::Selectable("New folder"))
-				{
-					//EntityFolder::FolderID newFolder = CreateFolder(folderID);
-					//renamingFolder = newFolder;
-					//folderRenameFocus = true;
-					toCreateFolders.push_back(folderID);
-				}
-
-				if (depth > 0 && ImGui::Selectable("Rename")) 
-				{
-					renamingFolder = folderID;
-					folderRenameFocus = true;
-				}
-				ImGui::EndPopup();
+				//EntityFolder::FolderID newFolder = CreateFolder(folderID);
+				//renamingFolder = newFolder;
+				//folderRenameFocus = true;
+				toCreateFolders.push_back(folderID);
 			}
+
+			if (!isRoot && depth > 0 && ImGui::Selectable("Rename")) 
+			{
+				renamingFolder = folderID;
+				folderRenameFocus = true;
+			}
+			ImGui::EndPopup();
 		}
 
 		// Show folder children
@@ -382,9 +374,7 @@ namespace Editor
 			child = folders.GetNextEntity(child);
 		}
 
-		if (!isRoot)
-			ImGui::TreePop();
-
+		ImGui::TreePop();
 		ImGui::PopID();
 	}
 
@@ -430,7 +420,13 @@ namespace Editor
 
 		if (ImGui::IsItemVisible())
 		{
-			if (!ImGui::BeginDragDropSource())
+			if (ImGui::BeginDragDropSource())
+			{
+				// Drag source entity
+				ImGui::SetDragDropPayload("entity", &entity, sizeof(entity));
+				ImGui::EndDragDropSource();
+			}
+			else
 			{
 				if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
 					worldEditor.SelectEntities(Span(&entity, 1), ImGui::GetIO().KeyCtrl);
