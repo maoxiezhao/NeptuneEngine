@@ -4,6 +4,7 @@
 #include "platform\platform.h"
 #include "platform\atomic.h"
 #include "core\profiler\profiler.h"
+#include "core\utils\string.h"
 
 #include <intrin.h>
 #include <thread>
@@ -104,7 +105,7 @@ namespace VulkanTest
 		U64 affinityMask;
 		U32 priority;
 		bool isRunning = false;
-		const char* name = nullptr;
+		String name;
 		ConditionVariable cv;
 	};
 
@@ -117,7 +118,7 @@ namespace VulkanTest
 
 #ifdef DEBUG
 		// set thread debug name if in debug mode
-		if (::IsDebuggerPresent() && !impl->name)
+		if (::IsDebuggerPresent() && !impl->name.empty())
 		{
 #pragma pack(push, 8)
 			typedef struct tagTHREADNAME_INFO
@@ -131,7 +132,7 @@ namespace VulkanTest
 			THREADNAME_INFO info;
 			memset(&info, 0, sizeof(info));
 			info.dwType = 0x1000;
-			info.szName = impl->name;
+			info.szName = impl->name.c_str();
 			info.dwThreadID = (DWORD)-1;
 			info.dwFlags = 0;
 
@@ -139,7 +140,7 @@ namespace VulkanTest
 			::RaiseException(MS_VC_EXCEPTION, 0, sizeof(info) / sizeof(ULONG), (const ULONG_PTR*)&info);
 		}
 #endif
-		Profiler::SetThreadName(impl->name);
+		Profiler::SetThreadName(impl->name.c_str());
 		int ret = impl->owner->Task();
 		impl->isRunning = false;
 		return ret;
@@ -150,7 +151,6 @@ namespace VulkanTest
 		impl = CJING_NEW(ThreadImpl);
 		impl->priority = ::GetThreadPriority(::GetCurrentThread());
 		impl->owner = this;
-		impl->name = nullptr;
 		impl->isRunning = false;
 	}
 

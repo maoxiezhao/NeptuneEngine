@@ -4,6 +4,7 @@
 #include "core\platform\platform.h"
 #include "core\platform\sync.h"
 #include "core\platform\atomic.h"
+#include "core\profiler\profiler.h"
 
 #pragma warning( push )
 #pragma warning (disable : 6385)
@@ -134,8 +135,9 @@ namespace Jobsystem
         gManager->workers.reserve(numWorkers);
         for (U32 i = 0; i < numWorkers; i++)
         {
+            StaticString<32> worldName;
             WorkerThread* worker = CJING_NEW(WorkerThread)(*gManager, i);
-            if (worker->Create("Worker"))
+            if (worker->Create(worldName.Sprintf("Worker_%d", i).c_str()))
             {
                 gManager->workers.push_back(worker);
                 worker->SetAffinity((U64)1u << i);
@@ -364,6 +366,7 @@ namespace Jobsystem
                     break;
                 }
 
+                // PROFILE_BLOCK("Sleeping");
                 worker->Sleep(gManager->jobQueueLock);
             }
 
@@ -385,6 +388,8 @@ namespace Jobsystem
             }
             else if (job.task != nullptr)
             {
+                //I32 index = Profiler::BeginBlock("Job");
+
                 // Do target job
                 currentFiber->currentJob = job;
                 job.task(job.data);
@@ -394,6 +399,7 @@ namespace Jobsystem
                     Trigger(job.onFinishedHandle);
 
                 worker = GetWorker();
+                //Profiler::EndBlock(index);
             }
         }
 

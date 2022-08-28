@@ -88,6 +88,7 @@ namespace Editor
 
         void Update(F32 dt) override
         { 
+            PROFILE_FUNCTION();
             for (auto kvp : plugins) 
                 kvp->Update();
         }

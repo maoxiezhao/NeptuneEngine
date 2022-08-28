@@ -64,6 +64,7 @@ namespace Editor
         virtual ImFont* GetBigIconFont() = 0;
         virtual ImFont* GetBoldFont() = 0;
         virtual const AddComponentTreeNode* GetAddComponentTreeNodeRoot()const = 0;
+        virtual class ProfilerTools& GetProfilerTools() = 0;
 
         virtual const char* GetComponentIcon(ECS::EntityID compID) const = 0;
         virtual const char* GetComponentTypeName(ECS::EntityID compID) const = 0;

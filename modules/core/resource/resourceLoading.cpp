@@ -1,6 +1,7 @@
 #include "resourceLoading.h"
 #include "core\collections\concurrentqueue.hpp"
 #include "core\platform\platform.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {
@@ -63,6 +64,7 @@ namespace VulkanTest
 
 	I32 ContentLoadingThread::Task()
 	{
+		Profiler::SetThreadName("ContentLoading");
 		ContentLoadingTask* task = nullptr;
 		ThisThread = this;
 		while (HasFinishedSet())

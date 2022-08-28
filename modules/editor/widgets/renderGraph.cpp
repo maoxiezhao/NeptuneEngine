@@ -148,6 +148,9 @@ namespace Editor
 
 		void Update(F32 dt)override
 		{
+			if (sceneView == nullptr)
+				return;
+
 			RenderGraph& renderGraph = sceneView->GetRenderer().GetRenderGraph();
 			if (renderGraph.IsBaked())
 				OnRenderGraphBaked();

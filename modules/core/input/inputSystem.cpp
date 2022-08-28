@@ -1,5 +1,6 @@
 #include "inputSystem.h"
 #include "core\engine.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {
@@ -16,6 +17,7 @@ namespace VulkanTest
 
 		void Update(F32 dt) override
 		{
+			PROFILE_FUNCTION();
 		}
 
 	private:

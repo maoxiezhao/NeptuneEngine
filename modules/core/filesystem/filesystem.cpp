@@ -66,7 +66,7 @@ namespace VulkanTest
 		Array<AsyncLoadJob> finishedJobs;
 		Mutex mutex;
 		Semaphore semaphore;
-		AsyncLoadTask* task;
+		// AsyncLoadTask* task;
 
 	public:
 		DefaultFileSystemBackend(const char* basePath) :
@@ -74,15 +74,15 @@ namespace VulkanTest
 		{
 			SetBasePath(basePath);
 
-			task = CJING_NEW(AsyncLoadTask)(*this);
-			task->Create("AsyncFileIO");
+			//task = CJING_NEW(AsyncLoadTask)(*this);
+			//task->Create("AsyncFileIO");
 		}
 
 		virtual ~DefaultFileSystemBackend()
 		{
-			task->Stop();
-			task->Destroy();
-			CJING_SAFE_DELETE(task);
+			//task->Stop();
+			//task->Destroy();
+			//CJING_SAFE_DELETE(task);
 		}
 
 		void SetBasePath(const char* basePath_)override

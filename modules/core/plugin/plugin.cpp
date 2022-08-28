@@ -1,5 +1,6 @@
 #include "plugin.h"
 #include "core\engine.h"
+#include "core\profiler\profiler.h"
 #include "utils\string.h"
 
 namespace VulkanTest
@@ -52,6 +53,8 @@ namespace VulkanTest
 		
 		void UpdatePlugins(F32 deltaTime) override
 		{
+			PROFILE_FUNCTION();
+
 			for (auto plugin : plugins) {
 				plugin->Update(deltaTime);
 			}

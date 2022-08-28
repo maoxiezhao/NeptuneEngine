@@ -5,6 +5,7 @@
 #include "core\utils\string.h"
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
+#include "editor\profiler\profilerTools.h"
 #include "renderer\imguiRenderer.h"
 #include "renderer\model.h"
 #include "renderer\imageUtil.h"
@@ -35,7 +36,8 @@ namespace Editor
     {
     public:
         EditorAppImpl() :
-            settings(*this)
+            settings(*this),
+            profilerTools(*this)
         {
             memset(imguiKeyMap, 0, sizeof(imguiKeyMap));
             imguiKeyMap[(int)Platform::Keycode::CTRL] = ImGuiKey_ModCtrl;
@@ -83,6 +85,8 @@ namespace Editor
 
         void Initialize() override
         {
+            Profiler::Enable(true);
+
             // Init platform
             bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
             ASSERT(ret);
@@ -106,9 +110,9 @@ namespace Editor
             worldEditor = WorldEditor::Create(*this);
             assetBrowser = AssetBrowser::Create(*this);
             renderGraphWidget = RenderGraphWidget::Create(*this);
-            propertyWidget = CJING_MAKE_UNIQUE<PropertyWidget>(*this);
             entityListWidget = CJING_MAKE_UNIQUE<EntityListWidget>(*this);
-            profilerWidget = CJING_MAKE_UNIQUE<ProfilerWidget>(*this);
+            propertyWidget = CJING_MAKE_UNIQUE<PropertyWidget>(*this);
+            profilerWidget = ProfilerWidget::Create(*this);
             logWidget = CJING_MAKE_UNIQUE<LogWidget>();
 
             // Create imgui context
@@ -311,17 +315,17 @@ namespace Editor
             }
         }
 
-        AssetCompiler& GetAssetCompiler()
+        AssetCompiler& GetAssetCompiler() override
         {
             return *assetCompiler;
         }
 
-        AssetBrowser& GetAssetBrowser()
+        AssetBrowser& GetAssetBrowser() override
         {
             return *assetBrowser;
         }
 
-        EntityListWidget& GetEntityList()
+        EntityListWidget& GetEntityList() override
         {
             return *entityListWidget;
         }
@@ -351,6 +355,11 @@ namespace Editor
             return &addCompTreeNodeRoot;
         }
 
+        ProfilerTools& GetProfilerTools() override
+        {
+            return profilerTools;
+        }
+
         const char* GetComponentIcon(ECS::EntityID compID) const override
         {
             auto it = componentIcons.find(compID);
@@ -378,13 +387,6 @@ namespace Editor
 
             engine->Update(*worldEditor->GetWorld(), deltaTime);
 
-            fpsFrame++;
-            if (fpsTimer.GetTimeSinceTick() > 1.0f)
-            {
-                fps = fpsFrame / fpsTimer.Tick();
-                fpsFrame = 0;
-            }
-
             // Update editor widgets
             for (auto widget : widgets)
                 widget->Update(deltaTime);
@@ -399,6 +401,12 @@ namespace Editor
             windowEvents.clear();
         }
 
+        void FrameEnd() override
+        {
+            // Update profiler
+             profilerTools.Update();
+        }
+
         struct ShaderGeometry
         {
             I32 vbPos;
@@ -409,6 +417,8 @@ namespace Editor
 
         void Render() override
         {
+            PROFILE_BLOCK("Render");
+
             auto& wsi = GetWSI();
 #if 1
             for (auto widget : widgets)
@@ -436,6 +446,14 @@ namespace Editor
             wsi.EndFrame();
 #endif
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
+
+            // Calculate FPS
+            fpsFrames++;
+            if (fpsTimer.GetTimeSinceTick() > 1.0f)
+            {
+                fps = fpsFrames / fpsTimer.Tick();
+                fpsFrames = 0;
+            }
         }
 
     public:
@@ -1037,9 +1055,6 @@ namespace Editor
     private:
         Array<EditorPlugin*> plugins;
         Array<EditorWidget*> widgets;
-        F32 fps = 0.0f;
-        U32 fpsFrame = 0;
-        Timer fpsTimer;
         Array<Utils::Action*> actions;
         Settings settings;
         Gizmo::Config gizmoConfig;
@@ -1074,6 +1089,9 @@ namespace Editor
         HashMap<ECS::EntityID, StaticString<5>> componentIcons;
         AddComponentTreeNode addCompTreeNodeRoot;
         Array<IAddComponentPlugin*> addCompPlugins;
+        
+        // Profiler
+        ProfilerTools profilerTools;
 
         // Fonts
         ImFont* font;

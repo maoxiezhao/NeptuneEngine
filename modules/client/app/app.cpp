@@ -108,12 +108,21 @@ void App::Uninitialize()
 
 void App::Render()
 {
-    PROFILE_BLOCK("Renderer");
+    PROFILE_FUNCTION();
+
     GetWSI().BeginFrame();
     if (GetActivePath()) {
         GetActivePath()->Render();
     }
     GetWSI().EndFrame();
+
+    // Calculate FPS
+    fpsFrames++;
+    if (fpsTimer.GetTimeSinceTick() > 1.0f)
+    {
+        fps = fpsFrames / fpsTimer.Tick();
+        fpsFrames = 0;
+    }
 }
 
 void App::ComputeSmoothTimeDelta()
@@ -160,6 +169,10 @@ void App::FixedUpdate()
     if (GetActivePath()) {
         GetActivePath()->FixedUpdate();
     }
+}
+
+void App::FrameEnd()
+{
 }
 
 bool App::Poll()
@@ -213,7 +226,7 @@ void App::OnIdle()
     LateUpate();
 
     // FixedUpdate engine
-    Profiler::BeginBlock("FixedUpdate");
+    I32 blockID = Profiler::BeginBlock("FixedUpdate");
     {
         if (frameskip)
         {
@@ -232,12 +245,15 @@ void App::OnIdle()
             FixedUpdate();
         }
     }
-    Profiler::EndBlock();
+    Profiler::EndBlock(blockID);
 
     // Render frame
     Render();
 
     GetWSI().EndFrame();
     Profiler::EndFrame();
+
+    // End frame
+    FrameEnd();
 }
 }

@@ -3,6 +3,7 @@
 #include "culling.h"
 #include "gpu\vulkan\wsi.h"
 #include "core\scene\reflection.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {
@@ -530,6 +531,8 @@ namespace VulkanTest
 
         void Update(float dt, bool paused)override
         {
+            PROFILE_FUNCTION();
+
             GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
 
             // Update scene buffers

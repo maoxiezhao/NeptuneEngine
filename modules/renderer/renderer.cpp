@@ -392,6 +392,8 @@ namespace Renderer
 	void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd)
 	{
 		ASSERT(visible.scene);
+		PROFILE_FUNCTION();
+		
 		cmd.BeginEvent("UpdateRenderData");
 
 		// Update frame constbuffer

@@ -58,6 +58,14 @@ public:
 		return smoothTimeDelta;
 	}
 
+	F32 GetFPS()const {
+		return fps;
+	}
+
+	I32 GetFPSFrames()const {
+		return fpsFrames;
+	}
+
 protected:	
 	bool Poll();
 	void OnIdle();
@@ -66,8 +74,7 @@ protected:
 	virtual void Uninitialize();
 	virtual void OnEvent(const Platform::WindowEvent& ent);
 
-	void RequestShutdown()
-	{
+	void RequestShutdown() {
 		requestedShutdown = true;
 	}
 
@@ -75,11 +82,14 @@ protected:
 	virtual void LateUpate();
 	virtual void FixedUpdate();
 	virtual void Render();
+	virtual void FrameEnd();
 
 	void ComputeSmoothTimeDelta();
 
 	void ActivePath(RenderPath* renderPath_);
-	inline RenderPath* GetActivePath() { return renderPath; }
+	inline RenderPath* GetActivePath() { 
+		return renderPath; 
+	}
 
 protected:
 	std::unique_ptr<WSIPlatform> platform;
@@ -91,6 +101,10 @@ protected:
 	F32 lastTimeDeltas[11] = {};
 	U32 lastTimeFrames = 0;
 	F32 smoothTimeDelta = 0.0f;
+
+	F32 fps = 0.0f;
+	U32 fpsFrames = 0;
+	Timer fpsTimer;
 
 	bool frameskip = true;
 	bool framerateLock = false;

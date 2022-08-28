@@ -161,7 +161,6 @@ namespace VulkanTest
 		void FixedUpdate(World& world) override
 		{
 			pluginManager->FixedUpdatePlugins();
-
 			EngineService::OnFixedUpdate();
 		}
 

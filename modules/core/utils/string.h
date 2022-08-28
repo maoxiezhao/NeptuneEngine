@@ -161,7 +161,7 @@ namespace VulkanTest
 		}
 
 		void operator=(const char* str) {
-			CatString(data, str);
+			CopyString(data, str);
 		}
 
 		bool operator<(const char* str) const {

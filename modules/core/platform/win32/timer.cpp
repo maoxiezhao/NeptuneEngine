@@ -54,6 +54,13 @@ namespace VulkanTest
 		return tick.QuadPart;
 	}
 
+	F64 Timer::GetTimeSeconds()
+	{
+		LARGE_INTEGER tick;
+		QueryPerformanceCounter(&tick);
+		return (F64)(tick.QuadPart) / (F64)GetFrequency();
+	}
+
 	U64 Timer::GetFrequency()
 	{
 		static U64 freq = []() {

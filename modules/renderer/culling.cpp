@@ -1,6 +1,7 @@
 #include "culling.h"
 #include "renderer.h"
 #include "renderScene.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {   
@@ -9,6 +10,8 @@ namespace VulkanTest
     public:
         void Cull(Visibility& vis, RenderScene& scene) override
         {
+            PROFILE_FUNCTION();
+
             vis.frustum = vis.camera->frustum;
 
             scene.ForEachObjects([&](ECS::Entity entity, ObjectComponent& obj) 
