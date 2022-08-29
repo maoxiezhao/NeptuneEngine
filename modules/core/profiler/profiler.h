@@ -13,6 +13,7 @@ namespace VulkanTest
 		enum class BlockType : U8
 		{
 			CPU_BLOCK,
+			FIBER,
 			COUNT
 		};
 
@@ -171,6 +172,7 @@ namespace VulkanTest
 			Platform::ThreadID threadID = 0;
 			I32 depth = 0;
 			BlockBuffer entBuffer;
+			std::vector<I32> blockStack;
 
 			Block* BeginBlock();
 			void EndBlock(I32 index);
@@ -180,26 +182,23 @@ namespace VulkanTest
 		void SetThreadName(const char* name);
 		void BeginFrame();
 		void EndFrame();
-		I32  BeginBlock(const char* name);
-		void EndBlock(I32 index);
+		void BeginBlock(const char* name);
+		void EndBlock();
 		void Enable(bool enabled);
+		void BeginFiberWait();
+		void EndFiberWait();
 		std::vector<Thread*>& GetThreads();
 
 		struct Scope
 		{
 		public:
-			explicit Scope(const char* name) 
-			{ 
-				index = BeginBlock(name); 
+			explicit Scope(const char* name) { 
+				BeginBlock(name); 
 			}
 
-			~Scope() 
-			{ 
-				EndBlock(index);
+			~Scope() { 
+				EndBlock();
 			}
-
-		private:
-			I32 index;
 		};
 	}
 

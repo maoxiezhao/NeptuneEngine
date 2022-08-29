@@ -174,27 +174,55 @@ namespace Profiler
 	{
 	}
 
-	I32 BeginBlock(const char* name)
+	void BeginBlock(const char* name)
 	{
 		if (!gImpl.enabled)
-			return -1;
+			return;
 
 		Thread* thread = gImpl.GetThreadLocalContext();
 		Block* block = thread->BeginBlock();
 		block->name = name;
 		block->type = BlockType::CPU_BLOCK;
 
+		thread->blockStack.push_back(block->id);
 		CurrentThread = thread;
-		return block->id;
 	}
 
-	void EndBlock(I32 index)
+	void EndBlock()
+	{
+		if (!gImpl.enabled ||
+			CurrentThread == nullptr || 
+			CurrentThread->blockStack.empty())
+			return;
+
+		I32 index = CurrentThread->blockStack.back();
+		CurrentThread->blockStack.pop_back();
+		CurrentThread->EndBlock(index);
+	}
+
+	void BeginFiberWait()
+	{
+		if (!gImpl.enabled)
+			return;
+
+		Thread* thread = gImpl.GetThreadLocalContext();
+		Block* block = thread->BeginBlock();
+		block->name = "WaitJob";
+		block->type = BlockType::FIBER;
+
+		thread->blockStack.push_back(block->id);
+		CurrentThread = thread;
+	}
+
+	void EndFiberWait()
 	{
 		if (!gImpl.enabled ||
 			CurrentThread == nullptr ||
-			index < 0)
+			CurrentThread->blockStack.empty())
 			return;
 
+		I32 index = CurrentThread->blockStack.back();
+		CurrentThread->blockStack.pop_back();
 		CurrentThread->EndBlock(index);
 	}
 

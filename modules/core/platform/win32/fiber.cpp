@@ -1,5 +1,6 @@
 #include "core\platform\fiber.h"
 #include "core\platform\platform.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {
@@ -26,6 +27,7 @@ void SwitchTo(Handle from, Handle to)
 {
     ASSERT(from != Fiber::INVALID_HANDLE);
     ASSERT(to != Fiber::INVALID_HANDLE);
+    Profiler::EndBlock();
     ::SwitchToFiber(to);
 }
 

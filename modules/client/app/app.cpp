@@ -226,7 +226,7 @@ void App::OnIdle()
     LateUpate();
 
     // FixedUpdate engine
-    I32 blockID = Profiler::BeginBlock("FixedUpdate");
+    Profiler::BeginBlock("FixedUpdate");
     {
         if (frameskip)
         {
@@ -245,7 +245,7 @@ void App::OnIdle()
             FixedUpdate();
         }
     }
-    Profiler::EndBlock(blockID);
+    Profiler::EndBlock();
 
     // Render frame
     Render();

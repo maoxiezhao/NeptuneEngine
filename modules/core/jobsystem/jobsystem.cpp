@@ -258,6 +258,8 @@ namespace Jobsystem
         waitor.next = handle->waitor;
         handle->waitor = &waitor;
             
+
+        Profiler::BeginFiberWait();
         // Get free fiber
         WorkerFiber* newFiber = gManager->freeFibers.back();
         gManager->freeFibers.pop_back();
@@ -268,6 +270,8 @@ namespace Jobsystem
         Fiber::SwitchTo(thisFiber->handle, newFiber->handle);
         GetWorker()->currentFiber = thisFiber;
         gManager->sync.Unlock();
+
+        Profiler::EndFiberWait();
     }
 
     bool Trigger(JobHandle* jobHandle)
@@ -388,7 +392,7 @@ namespace Jobsystem
             }
             else if (job.task != nullptr)
             {
-                //I32 index = Profiler::BeginBlock("Job");
+                Profiler::BeginBlock("Job");
 
                 // Do target job
                 currentFiber->currentJob = job;
@@ -399,7 +403,7 @@ namespace Jobsystem
                     Trigger(job.onFinishedHandle);
 
                 worker = GetWorker();
-                //Profiler::EndBlock(index);
+                Profiler::EndBlock();
             }
         }
 

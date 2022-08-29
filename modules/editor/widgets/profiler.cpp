@@ -19,10 +19,15 @@ namespace Editor
 	{
 		static const I32 MaxSamples = 60;
 
+		bool showLastUpdateBlocks = false;
+		bool showMainThreadOnly = false;
+
 		virtual ~ProfilerMode() {}
 		virtual void Update(ProfilerData& tools) = 0;
-		virtual void OnGUI() = 0;
+		virtual void OnGUI(bool isPaused) = 0;
 		virtual void Clear() = 0;
+		virtual void PrevFrame() {}
+		virtual void NextFrame() {}
 	};
 
 	// Draws simple chart.
@@ -31,6 +36,9 @@ namespace Editor
 	private:
 		String name;
 		SamplesBuffer<F32, ProfilerMode::MaxSamples> samples;
+		int selectedSampleIndex = -1;
+
+		const F32 HEIGHT = 60.0f;
 
 	public:
 		SingleChart(const char* name_) :
@@ -47,12 +55,22 @@ namespace Editor
 			return samples.Get(index);
 		}
 
+		I32 GetSelectedSampleIndex()const {
+			return selectedSampleIndex;
+		}
+
+		void SetSelectedSampleIndex(I32 index) {
+			selectedSampleIndex = index;
+		}
+
 		void OnGUI()
 		{
 			if (samples.Count() <= 0)
 				return;
 
 			ImGui::Text(name.c_str());
+
+			// Calculate min value and max value
 			F32* datas = samples.Data();
 			F32 minValue = datas[samples.Count() - 1];
 			F32 maxValue = datas[samples.Count() - 1];
@@ -61,10 +79,37 @@ namespace Editor
 				minValue = std::min(minValue, datas[i]);
 				maxValue = std::max(maxValue, datas[i]);
 			}
-			minValue *= 0.8f;
-			maxValue *= 1.1f;
+			minValue *= 0.95f;
+			maxValue *= 1.05f;
 
-			ImGui::PlotLines("", samples.Data(), samples.Count(), 0,0, minValue, maxValue, ImVec2(600.0f, 60.0f));
+			// Draw selected line
+			F32 WIDTH = ImGui::GetContentRegionAvail().x;
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			ImVec2 screenPos = ImGui::GetCursorScreenPos();
+			F32 framePaddingX = ImGui::GetStyle().FramePadding.x;
+			F32 innerWidth = (WIDTH - 2 * framePaddingX);
+			ImVec2 innerPos = ImVec2(screenPos.x + framePaddingX, screenPos.x + WIDTH - framePaddingX);
+
+			// Draw frame histogram
+			ImGui::PlotHistogram("", samples.Data(), samples.Count(), 0, 0, minValue, maxValue, ImVec2(WIDTH, HEIGHT));
+
+			if (selectedSampleIndex != -1)
+			{
+				F32 offset = innerWidth / samples.Count() * 0.5f;
+				float selectedX = innerWidth * ((F32)selectedSampleIndex / (F32)samples.Count()) + offset;
+				const ImVec2 ra(innerPos.x + selectedX, screenPos.y);
+				const ImVec2 rb(innerPos.x + selectedX, screenPos.y + HEIGHT);
+				dl->AddLine(ra, rb, 0xFFFFffff);
+			}
+
+			if (ImGui::IsMouseHoveringRect(ImVec2(innerPos.x, screenPos.y), ImVec2(innerPos.y, ImGui::GetCursorScreenPos().y)))
+			{
+				if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+				{
+					const F32 x = std::max(0.0f, ImGui::GetMousePos().x - innerPos.x);
+					selectedSampleIndex = (I32)(x / innerWidth * samples.Count());
+				}
+			}
 		}
 
 		void Clear()
@@ -94,7 +139,7 @@ namespace Editor
 			updateTimesChart.AddSample(data.mainStats.updateTimes);
 		}
 
-		void OnGUI() override
+		void OnGUI(bool isPaused) override
 		{
 			if (!ImGui::BeginTabItem("Overall"))
 				return;
@@ -181,10 +226,10 @@ namespace Editor
 		SingleChart updateTimesChart;
 		SamplesBuffer<std::vector<ProfilerTools::ThreadStats>, ProfilerMode::MaxSamples> blocks;
 		Array<CPUBlockNode> blockNodes;
-		bool showLastUpdateBlocks = false;
 		F64 timelineRange = 0.008f;
 		I32 blockIndex = 0;
 		U32 selectedFrame = 0;
+		BlockRange currentRange;
 		const U32 colors[6] = {
 			0xFF44355B,
 			0xFF51325C,
@@ -196,7 +241,7 @@ namespace Editor
 
 	public:
 		CPUProfiler() :
-			updateTimesChart("Update")
+			updateTimesChart("Frames")
 		{
 		}
 
@@ -204,6 +249,8 @@ namespace Editor
 		{
 			updateTimesChart.AddSample(data.mainStats.updateTimes);
 			blocks.Add(data.cpuThreads);
+
+			OnSelectedFrameChagned(0, false);
 		}
 		
 		void OnTableGUI(BlockRange range)
@@ -221,6 +268,9 @@ namespace Editor
 			for (const auto& thread : blockData)
 			{
 				if (thread.blocks.empty())
+					continue;
+
+				if (showMainThreadOnly && thread.name != "AsyncMainThread")
 					continue;
 
 				for (const auto& block : thread.blocks)
@@ -306,8 +356,8 @@ namespace Editor
 			};
 
 			auto pos = FindStringChar(block.name, ':', 0);
-			const char* name = pos >= 0 ? block.name + pos + 2 : block.name;
-			DrawBlock(block.startTime, block.endTime, name, colors[blockIndex++ % ARRAYSIZE(colors)]);
+			const String name = pos >= 0 ? block.name + pos + 2 : block.name;
+			DrawBlock(block.startTime, block.endTime, name.c_str(), colors[blockIndex++ % ARRAYSIZE(colors)]);
 
 			int childrenDepth = block.depth + 1;
 			if (childrenDepth <= maxDepth)
@@ -324,24 +374,40 @@ namespace Editor
 			}		
 		}
 
+		void OnSelectedFrameChagned(I32 frame, bool isPaused)
+		{
+			if (isPaused && frame == selectedFrame)
+				return;
+
+			selectedFrame = frame;
+			currentRange = GetBlockRange();
+
+			// Init viewStart
+			viewStart = currentRange.startTime;
+			auto blockData = blocks.Get(selectedFrame);
+			if (!blockData.empty())
+			{
+				F64 startTime = FLT_MAX;
+				for (const auto& thread : blockData)
+				{
+					if (!thread.blocks.empty())
+						startTime = std::min(startTime, thread.blocks[0].startTime);
+				}
+
+				if (startTime < FLT_MAX)
+					viewStart = std::max(startTime, viewStart);
+			}
+
+		}
+
 		void OnTimelineGUI(BlockRange range)
 		{
 			if (blocks.Count() == 0)
 				return;
 
-			F64 totalTime = updateTimesChart.GetSample(0);
+			F64 totalTime = updateTimesChart.GetSample(selectedFrame);
 			auto blockData = blocks.Get(selectedFrame);
 			if (blockData.empty())
-				return;
-
-			F64 startTime = FLT_MAX;
-			for (const auto& thread : blockData)
-			{
-				if (!thread.blocks.empty())
-					startTime = std::min(startTime, thread.blocks[0].startTime);
-			}
-
-			if (startTime >= FLT_MAX)
 				return;
 
 			ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -351,13 +417,14 @@ namespace Editor
 			fromX = ImGui::GetCursorScreenPos().x;
 			fromY = ImGui::GetCursorScreenPos().y;
 			toX = fromX + ImGui::GetContentRegionAvail().x;
-	
 			blockIndex = 0;
-			viewStart = std::max(startTime, range.startTime);
 
 			for (const auto& thread : blockData)
 			{
 				if (thread.blocks.empty())
+					continue;
+
+				if (showMainThreadOnly && thread.name != "AsyncMainThread")
 					continue;
 
 				if (!ImGui::TreeNodeEx(thread.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen, "%s", thread.name.c_str()))
@@ -382,6 +449,8 @@ namespace Editor
 					
 					if (block.depth == 0)
 						OnTimelineBlockGUI(block, baseY, lineHeight, index, maxDepth, thread.blocks, dl);
+
+					index++;
 				}
 
 				ImGui::Dummy(ImVec2(toX - fromX, (maxDepth + 1) * lineHeight));
@@ -390,11 +459,9 @@ namespace Editor
 
 			if (ImGui::IsMouseHoveringRect(ImVec2(fromX, fromY), ImVec2(toX, ImGui::GetCursorScreenPos().y))) 
 			{
-				//if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-				//	m_end -= i64((ImGui::GetIO().MouseDelta.x / (to_x - from_x)) * m_range);
-				//}
-				//const u64 cursor = u64(((ImGui::GetMousePos().x - from_x) / (to_x - from_x)) * m_range) + view_start;
-				//u64 cursor_to_end = m_end - cursor;
+				if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) 
+					viewStart -= F64((ImGui::GetIO().MouseDelta.x / (toX - fromX)) * timelineRange);
+
 				if (ImGui::GetIO().KeyCtrl) 
 				{
 					U32 range = (U32)(timelineRange * 10000);
@@ -408,7 +475,6 @@ namespace Editor
 						range <<= 1;
 						timelineRange = range / 10000.0;
 					}
-					// m_end = cursor_to_end + cursor;
 				}
 			}
 		}
@@ -444,7 +510,7 @@ namespace Editor
 			return range;
 		}
 
-		void OnGUI() override
+		void OnGUI(bool isPaused) override
 		{
 			if (!ImGui::BeginTabItem("CPU"))
 				return;
@@ -456,16 +522,21 @@ namespace Editor
 				return;
 			}
 
-			// Get target block range
-			BlockRange range = GetBlockRange();
+			if (isPaused == true)
+			{
+				I32 selectedIndex = updateTimesChart.GetSelectedSampleIndex();
+				if (selectedIndex != -1)
+					OnSelectedFrameChagned(selectedIndex, true);
+			}
 
 			// Show timeline
 			ImGui::Separator();
-			OnTimelineGUI(range);
+			OnTimelineGUI(currentRange);
+			ImGui::NewLine();
 
 			// Show table frame infos
 			ImGui::Separator();	
-			OnTableGUI(range);
+			OnTableGUI(currentRange);
 
 			ImGui::EndTabItem();
 		}
@@ -475,6 +546,20 @@ namespace Editor
 			updateTimesChart.Clear();
 			blockNodes.clear();
 			blocks.Clear();
+		}
+
+		void PrevFrame() override
+		{
+			I32 selectedIndex = updateTimesChart.GetSelectedSampleIndex();
+			selectedIndex = std::max(selectedIndex - 1, 0);
+			updateTimesChart.SetSelectedSampleIndex(selectedIndex);	
+		}
+
+		void NextFrame() override
+		{
+			I32 selectedIndex = updateTimesChart.GetSelectedSampleIndex();
+			selectedIndex = std::min(selectedIndex + 1, MaxSamples);
+			updateTimesChart.SetSelectedSampleIndex(selectedIndex);
 		}
 	};
 
@@ -488,7 +573,7 @@ namespace Editor
 		{
 		}
 
-		void OnGUI() override
+		void OnGUI(bool isPaused) override
 		{
 			if (!ImGui::BeginTabItem("GPU"))
 				return;
@@ -508,6 +593,8 @@ namespace Editor
 		ProfilerTools& profilerTools;
 		ProfilerData profilerData;
 		Array<ProfilerMode*> profilerModes;
+		bool showMainThreadOnly = false;
+		bool lastUpdateOnly = true;
 
 	public:
 		ProfilerWidgetImpl(EditorApp& editor_) :
@@ -551,7 +638,10 @@ namespace Editor
 			if (!isOpen) 
 				return;
 
-			if (ImGui::Begin(ICON_FA_CHART_AREA "Profiler##profiler", &isOpen))
+			ImGuiWindowFlags flags = 
+				ImGuiWindowFlags_NoCollapse |
+				ImGuiWindowFlags_NoMove;;
+			if (ImGui::Begin(ICON_FA_CHART_AREA "Profiler##profiler", &isOpen, flags))
 			{
 				// Start/Pause collect profile data
 				if (ImGui::Button(isPaused ? ICON_FA_PLAY : ICON_FA_PAUSE))
@@ -578,7 +668,8 @@ namespace Editor
 				// Previous frame
 				if (ImGui::Button(ICON_FA_ARROW_LEFT))
 				{
-
+					for (auto mode : profilerModes)
+						mode->PrevFrame();
 				}
 
 				ImGui::SameLine();
@@ -586,7 +677,8 @@ namespace Editor
 				// Next frame
 				if (ImGui::Button(ICON_FA_ARROW_RIGHT))
 				{
-
+					for (auto mode : profilerModes)
+						mode->NextFrame();
 				}
 
 				ImGui::SameLine();
@@ -594,20 +686,23 @@ namespace Editor
 				ImGui::SameLine();
 
 				// Show profiler advanced
-				if (ImGui::Button(ICON_FA_COGS)) 
+				if (ImGui::Checkbox("MainThreadOnly", &showMainThreadOnly))
 				{
-					ImGui::OpenPopup("profiler_advanced");
+					for (auto mode : profilerModes)
+						mode->showMainThreadOnly = showMainThreadOnly;
 				}
-				if (ImGui::BeginPopup("profiler_advanced"))
+				ImGui::SameLine();
+				if (ImGui::Checkbox("LastUpdateOnly", &lastUpdateOnly))
 				{
-					ImGui::EndPopup();
+					for (auto mode : profilerModes)
+						mode->showLastUpdateBlocks = lastUpdateOnly;
 				}
 
 				// Show profiler tabs
 				if (ImGui::BeginTabBar("tabs"))
 				{
 					for (auto& mode : profilerModes)
-						mode->OnGUI();
+						mode->OnGUI(isPaused);
 					
 					ImGui::EndTabBar();
 				}

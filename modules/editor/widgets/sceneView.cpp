@@ -443,8 +443,8 @@ namespace Editor
 				{
 					const ImVec2 mousePos = ImGui::GetMousePos();
 					const ImVec2 dropPos = ImVec2(
-						(mousePos.x - mouseScreenPos.y) / size.x,
-						(mousePos.x - mouseScreenPos.y) / size.y );
+						(mousePos.x - mouseScreenPos.x) / size.x,
+						(mousePos.y - mouseScreenPos.y) / size.y );
 					HandleDrop((const char*)payload->Data, dropPos.x, dropPos.y);
 				}
 				ImGui::EndDragDropTarget();

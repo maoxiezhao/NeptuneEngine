@@ -1609,12 +1609,21 @@ namespace VulkanTest
         {
             auto& passIndex = physicalPass.passes[i];
             auto& pass = *renderPasses[passIndex];
+  
+            // Profiler begin
+            if (physicalPass.passes.size() > 1)
+                Profiler::BeginBlock(pass.GetName().c_str());
+
             cmd.BeginEvent(pass.GetName().c_str());
             pass.BuildRenderPass(cmd);
             cmd.EndEvent();
 
             if (i < (physicalPass.passes.size() - 1))
                 cmd.NextSubpass(VK_SUBPASS_CONTENTS_INLINE);
+
+            // Profiler end
+            if (physicalPass.passes.size() > 1)
+                Profiler::EndBlock();
         }
 
         // End render pass
@@ -1656,6 +1665,7 @@ namespace VulkanTest
             if (state == nullptr)
                 return;
 
+            PROFILE_BLOCK(state->name);
             GPU::CommandListPtr cmd = device.RequestCommandList(state->queueType);
             state->cmd = cmd;
 
@@ -1850,6 +1860,7 @@ namespace VulkanTest
         // Sequential submit all states
         ASSERT(submitHandle.counter == 0);
         Jobsystem::Run(nullptr, [this](void* data)->void {
+            PROFILE_BLOCK("Submit states");
             for (auto& state : submissionStates)
             {
                 if (state.active == false)
