@@ -601,6 +601,8 @@ namespace Editor
 			editor(editor_),
 			profilerTools(editor_.GetProfilerTools())
 		{
+			isOpen = false;
+
 			profilerModes.push_back(CJING_NEW(OverallProfiler));
 			profilerModes.push_back(CJING_NEW(CPUProfiler));
 			profilerModes.push_back(CJING_NEW(GPUProfiler));
