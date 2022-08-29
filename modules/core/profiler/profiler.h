@@ -176,6 +176,8 @@ namespace VulkanTest
 
 			Block* BeginBlock();
 			void EndBlock(I32 index);
+			Block* BeginFiberWait();
+			void EndFiberWait(I32 index);
 			void GetBlocks(std::vector<Block>& blocks);
 		};
 
@@ -185,9 +187,18 @@ namespace VulkanTest
 		void BeginBlock(const char* name);
 		void EndBlock();
 		void Enable(bool enabled);
-		void BeginFiberWait();
-		void EndFiberWait();
 		std::vector<Thread*>& GetThreads();
+
+		struct FiberSwitchData 
+		{
+			I32 id;
+			I32 blocks[16];
+			U32 count;
+			Thread* thread = nullptr;
+		};
+		FiberSwitchData BeginFiberWait();
+		void EndFiberWait(const FiberSwitchData& switchData);
+		void BeforeFiberSwitch();
 
 		struct Scope
 		{

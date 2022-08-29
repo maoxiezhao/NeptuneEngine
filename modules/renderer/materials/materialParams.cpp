@@ -58,7 +58,7 @@ namespace VulkanTest
 	{
 		mem.Write((I32)params.size());
 
-		for (I32 i = 0; i < params.size(); i++)
+		for (U32 i = 0; i < params.size(); i++)
 		{
 			auto& param = params[i];
 			mem.Write((U8)param.type);
@@ -108,7 +108,7 @@ namespace VulkanTest
 	{
 		mem.Write((I32)params.size());
 
-		for (I32 i = 0; i < params.size(); i++)
+		for (U32 i = 0; i < params.size(); i++)
 		{
 			auto& param = params[i];
 			mem.Write((U8)param.type);
@@ -179,7 +179,7 @@ namespace VulkanTest
 	I32 MaterialParams::Find(const String& name)
 	{
 		I32 ret = -1;
-		for (I32 i = 0; i < params.size(); i++)
+		for (I32 i = 0; i < (I32)params.size(); i++)
 		{
 			if (params[i].name == name)
 			{

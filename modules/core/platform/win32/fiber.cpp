@@ -27,7 +27,7 @@ void SwitchTo(Handle from, Handle to)
 {
     ASSERT(from != Fiber::INVALID_HANDLE);
     ASSERT(to != Fiber::INVALID_HANDLE);
-    Profiler::EndBlock();
+    Profiler::BeforeFiberSwitch();
     ::SwitchToFiber(to);
 }
 

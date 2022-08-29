@@ -32,13 +32,13 @@ namespace VulkanTest
 
 	static void* ECSMalloc(size_t size)
 	{
-		if (size == 48)
-			int a = 0;
 		return CJING_MALLOC(size);
 	}
 
 	static void* ECSCalloc(size_t size)
 	{
+		if (size == 96)
+			int a = 0;
 		void* ret = CJING_MALLOC(size);
 		memset(ret, 0, size);
 		return ret;

@@ -257,9 +257,9 @@ namespace Jobsystem
         waitor.fiber = thisFiber;
         waitor.next = handle->waitor;
         handle->waitor = &waitor;
-            
+        
+        auto switchData = Profiler::BeginFiberWait();
 
-        Profiler::BeginFiberWait();
         // Get free fiber
         WorkerFiber* newFiber = gManager->freeFibers.back();
         gManager->freeFibers.pop_back();
@@ -271,7 +271,7 @@ namespace Jobsystem
         GetWorker()->currentFiber = thisFiber;
         gManager->sync.Unlock();
 
-        Profiler::EndFiberWait();
+        Profiler::EndFiberWait(switchData);
     }
 
     bool Trigger(JobHandle* jobHandle)

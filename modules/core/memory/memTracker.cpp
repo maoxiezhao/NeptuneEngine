@@ -31,6 +31,7 @@ namespace VulkanTest
 			os << (allocNode.filename ? allocNode.filename : "(unknown)");
 			os << "(" << allocNode.line << ")";
 			os << ": alloc size:" << allocNode.size;
+			os << " address:" << (void*)ptr;
 			os << std::endl;
 			Logger::Info(os.str().c_str());
 
@@ -112,7 +113,13 @@ namespace VulkanTest
 			os << (allocNode.filename ? allocNode.filename : "(unknown)");
 			os << "(" << allocNode.line << ")";
 			os << ": alloc size:" << allocNode.size;
+			os << " address:" << (void*)kvp.first;
 			os << std::endl;
+
+			if (allocNode.size == 96)
+			{
+				int a = 0;
+			}
 		}
 
 		std::cout << os.str().c_str() << std::endl;

@@ -5,23 +5,73 @@
 
 namespace VulkanTest
 {   
+    struct CullingTag {};
+
     class CullingSystemImpl : public CullingSystem
     {
+    private:
+        ECS::Pipeline pipeline;
+        ECS::System cullingObjects;
+        Visibility* visibility = nullptr;
+
     public:
-        void Cull(Visibility& vis, RenderScene& scene) override
+        CullingSystemImpl()
         {
-            PROFILE_FUNCTION();
+        }
 
-            vis.frustum = vis.camera->frustum;
+        ~CullingSystemImpl()
+        {
+        }
 
-            scene.ForEachObjects([&](ECS::Entity entity, ObjectComponent& obj) 
-            {
+        bool Initialize(RenderScene& scene) override
+        {
+            auto& world = scene.GetWorld();
+            // Culling objects
+            cullingObjects = world.CreateSystem<const ObjectComponent>()
+                .Kind<CullingTag>()
+                .MultiThread(true)
+                .ForEach([&](ECS::Entity entity, const ObjectComponent& obj) {
+
+                ASSERT(visibility != nullptr);
+
                 if (obj.mesh != ECS::INVALID_ENTITY)
                 {
-                    if (vis.frustum.CheckBoxFast(obj.aabb))
-                        vis.objects.push_back(entity);
+                    if (visibility->frustum.CheckBoxFast(obj.aabb))
+                    {
+                        I32 index = AtomicIncrement(&visibility->objectCount);
+                        visibility->objects[index - 1] = entity;
+                    }
                 }
-            });
+                    });
+
+            pipeline = world.CreatePipeline()
+                .Term(ECS::EcsCompSystem)
+                .Term<CullingTag>()
+                .Build();
+            return true;
+        }
+
+        void Uninitialize() override
+        {
+            cullingObjects.Destroy();
+            pipeline.Destroy();
+        }
+
+        void Cull(Visibility& vis, RenderScene& scene) override
+        {
+            PROFILE_BLOCK("Culling");
+            visibility = &vis;
+            visibility->frustum = vis.camera->frustum;
+
+            auto& world = scene.GetWorld();
+            I32 objCount = world.Count<ObjectComponent>();
+            visibility->objects.resize(objCount);
+
+            if (pipeline != ECS::INVALID_ENTITY)
+                scene.GetWorld().RunPipeline(pipeline);
+
+            // Finalize visibility
+            vis.objects.resize(AtomicRead(&vis.objectCount));
         }
     };
 

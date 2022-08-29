@@ -158,5 +158,6 @@ namespace VulkanTest
 			const F32x3 color = F32x3(1.0f), 
 			F32 intensity = 1.0f, 
 			F32 range = 10.0f) = 0;
+		virtual void ForEachLights(std::function<void(ECS::Entity, LightComponent&)> func) = 0;
 	};
 }

@@ -57,7 +57,6 @@ namespace Profiler
 		if (lastEndedRoot.IsEnd())
 			return;
 
-
 		// Find the last non-root event in last root event
 		Iterator lastEvent = lastEndedRoot;
 		const double lastRootEventEndTime = lastEndedRoot.Block().endTime;
@@ -99,13 +98,11 @@ namespace Profiler
 		const F64 time = Timer::GetTimeSeconds();
 		const I32 index = entBuffer.Add();
 		Block* block = entBuffer.Get(index);
+		memset(block, 0, sizeof(Block));
 		block->id = index;
 		block->startTime = time;
 		block->endTime = 0;
 		block->depth = depth++;
-
-		if (depth == 0)
-			int a = 0;
 		return block;
 	}
 
@@ -115,6 +112,26 @@ namespace Profiler
 		Block* block = entBuffer.Get(index);
 		block->endTime = time;
 		depth--;
+	}
+
+	Block* Thread::BeginFiberWait()
+	{
+		const F64 time = Timer::GetTimeSeconds();
+		const I32 index = entBuffer.Add();
+		Block* block = entBuffer.Get(index);
+		memset(block, 0, sizeof(Block));
+		block->id = index;
+		block->startTime = time;
+		block->endTime = 0;
+		block->depth = depth - 1;
+		return block;
+	}
+
+	void Thread::EndFiberWait(I32 index)
+	{
+		const F64 time = Timer::GetTimeSeconds();
+		Block* block = entBuffer.Get(index);
+		block->endTime = time;
 	}
 
 	void Thread::GetBlocks(std::vector<Block>& blocks)
@@ -172,6 +189,8 @@ namespace Profiler
 
 	void EndFrame()
 	{
+		for (auto thread : gImpl.contexts)
+			ASSERT(thread->blockStack.size() < 256);
 	}
 
 	void BeginBlock(const char* name)
@@ -200,30 +219,69 @@ namespace Profiler
 		CurrentThread->EndBlock(index);
 	}
 
-	void BeginFiberWait()
+	FiberSwitchData BeginFiberWait()
 	{
 		if (!gImpl.enabled)
-			return;
+			return FiberSwitchData();
 
 		Thread* thread = gImpl.GetThreadLocalContext();
-		Block* block = thread->BeginBlock();
+		Block* block = thread->BeginFiberWait();
 		block->name = "WaitJob";
 		block->type = BlockType::FIBER;
 
-		thread->blockStack.push_back(block->id);
+		FiberSwitchData switchData;
+		switchData.id = block->id;
+		switchData.count = thread->blockStack.size();
+		switchData.thread = thread;
+		ASSERT(switchData.count < (U32)ARRAYSIZE(switchData.blocks));
+		memcpy(switchData.blocks, thread->blockStack.data(), std::min(switchData.count, (U32)ARRAYSIZE(switchData.blocks)) * sizeof(I32));
+		
 		CurrentThread = thread;
+		return switchData;
 	}
 
-	void EndFiberWait()
+	void ContinueBlock(I32 index, Thread* prevThread)
 	{
-		if (!gImpl.enabled ||
-			CurrentThread == nullptr ||
-			CurrentThread->blockStack.empty())
+		ASSERT(CurrentThread != nullptr);
+		ASSERT(prevThread != nullptr);
+
+		Block* prevBlock = prevThread->entBuffer.Get(index);
+		ASSERT(prevBlock != nullptr);
+
+		Block* continueBlock = CurrentThread->BeginBlock();
+		continueBlock->type = prevBlock->type;
+		continueBlock->name = prevBlock->name;
+		CurrentThread->blockStack.push_back(continueBlock->id);
+	}
+
+	void EndFiberWait(const FiberSwitchData& switchData)
+	{
+		// Notice:
+		// If the job waiting before dose not set the target worker
+		// there will be a rand worker to continue the job, the thread will be changed
+
+		if (!gImpl.enabled || switchData.thread == nullptr || CurrentThread == nullptr)
 			return;
 
-		I32 index = CurrentThread->blockStack.back();
-		CurrentThread->blockStack.pop_back();
-		CurrentThread->EndBlock(index);
+		switchData.thread->EndFiberWait(switchData.id);
+
+		for (I32 i = 0; i < switchData.count; i++)
+		{
+			if (i < ARRAYSIZE(switchData.blocks))
+				ContinueBlock(switchData.blocks[i], switchData.thread);
+			else
+				ContinueBlock(-1, switchData.thread);
+		}
+	}
+
+	void BeforeFiberSwitch()
+	{
+		Thread* thread = gImpl.GetThreadLocalContext();
+		while (!thread->blockStack.empty())
+		{
+			thread->EndBlock(thread->blockStack.back());
+			thread->blockStack.pop_back();
+		}
 	}
 
 	void Enable(bool enabled)

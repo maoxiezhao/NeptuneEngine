@@ -50,7 +50,7 @@ namespace VulkanTest
 		vbPos.offset = output.Size();
 		vbPos.size = vertexPos.size() * sizeof(F32x3);
 		output.Write(vertexPos.data(), vbPos.size, alignment);
-		for (size_t i = 0; i < vertexPos.size(); i++)
+		for (U32 i = 0; i < vertexPos.size(); i++)
 		{
 			const F32x3& pos = vertexPos[i];
 			_min = Min(_min, pos);

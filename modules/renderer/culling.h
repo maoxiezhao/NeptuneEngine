@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\memory\memory.h"
 #include "core\scene\world.h"
+#include "core\platform\atomic.h"
 #include "math\geometry.h"
 #include "renderScene.h"
 
@@ -26,10 +27,16 @@ namespace VulkanTest
         Frustum frustum;
 
         Array<ECS::Entity> objects;
+        Array<ECS::Entity> lights;
+
+        volatile I32 objectCount;
 
         void Clear()
         {
             objects.clear();
+            lights.clear();
+
+            AtomicExchange(&objectCount, 0);
         }
     };
 
@@ -41,6 +48,8 @@ namespace VulkanTest
 
         static UniquePtr<CullingSystem> Create();
 
+        virtual bool Initialize(RenderScene& scene) = 0;
+        virtual void Uninitialize() = 0;
         virtual void Cull(Visibility& vis, RenderScene& scene) = 0;
     };
 }

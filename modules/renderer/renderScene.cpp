@@ -157,6 +157,7 @@ namespace VulkanTest
         ECS::Query<ObjectComponent> objectQuery;
         ECS::Query<MeshComponent> meshQuery;
         ECS::Query<MaterialComponent> materialQuery;
+        ECS::Query<LightComponent> lightQuery;
 
         // Runtime rendering infos
         RenderSceneBuffer<ShaderMeshInstance> instanceBuffer;
@@ -186,6 +187,7 @@ namespace VulkanTest
             objectQuery = world.CreateQuery<ObjectComponent>().Build();
             meshQuery = world.CreateQuery<MeshComponent>().Build();
             materialQuery = world.CreateQuery<MaterialComponent>().Build();
+            lightQuery = world.CreateQuery<LightComponent>().Build();
 
             world.SetComponenetOnRemoved<LoadModelComponent>([&](ECS::Entity entity, LoadModelComponent& model) {
                 if (model.model)
@@ -204,6 +206,12 @@ namespace VulkanTest
 
         void Init()override
         {
+            if (!cullingSystem->Initialize(*this))
+            {
+                Logger::Error("Faied to initialize culling system.");
+                return;
+            }
+
             InitSystems();
         }
 
@@ -215,6 +223,7 @@ namespace VulkanTest
             for (auto system : systems)
                 system.Destroy();
             systems.clear();
+            pipeline.Destroy();
 
             for (auto kvp : modelEntityMap)
             {
@@ -223,6 +232,8 @@ namespace VulkanTest
                 model->OnUnloadedCallback.Unbind<&RenderSceneImpl::OnModelUnloadedCallback>(this);
             }
             modelEntityMap.clear();
+
+            cullingSystem->Uninitialize();
         }
 
         ECS::Entity CreateEntity(const char* name) override
@@ -393,6 +404,15 @@ namespace VulkanTest
             light->type = type;
 
             return entity;
+        }
+
+        void ForEachLights(std::function<void(ECS::Entity, LightComponent&)> func) override
+        {
+            if (!IsSceneValid())
+                return;
+
+            if (lightQuery.Valid())
+                lightQuery.ForEach(func);
         }
 
         void LoadModelResource(ECS::Entity entity, ResPtr<Model> model)

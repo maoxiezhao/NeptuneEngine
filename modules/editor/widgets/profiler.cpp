@@ -227,7 +227,6 @@ namespace Editor
 		SamplesBuffer<std::vector<ProfilerTools::ThreadStats>, ProfilerMode::MaxSamples> blocks;
 		Array<CPUBlockNode> blockNodes;
 		F64 timelineRange = 0.008f;
-		I32 blockIndex = 0;
 		U32 selectedFrame = 0;
 		BlockRange currentRange;
 		const U32 colors[6] = {
@@ -357,7 +356,19 @@ namespace Editor
 
 			auto pos = FindStringChar(block.name, ':', 0);
 			const String name = pos >= 0 ? block.name + pos + 2 : block.name;
-			DrawBlock(block.startTime, block.endTime, name.c_str(), colors[blockIndex++ % ARRAYSIZE(colors)]);
+			U32 color;
+			if (block.type == Profiler::BlockType::FIBER)
+			{
+				static const U32 WaitBlockColor = 0xff0000ff;
+				color = WaitBlockColor;
+			}
+			else
+			{
+				U32 hash = (U32)StringID(name.c_str()).GetHashValue();
+				color = colors[hash % ARRAYSIZE(colors)];
+			}
+
+			DrawBlock(block.startTime, block.endTime, name.c_str(), color);
 
 			int childrenDepth = block.depth + 1;
 			if (childrenDepth <= maxDepth)
@@ -417,7 +428,6 @@ namespace Editor
 			fromX = ImGui::GetCursorScreenPos().x;
 			fromY = ImGui::GetCursorScreenPos().y;
 			toX = fromX + ImGui::GetContentRegionAvail().x;
-			blockIndex = 0;
 
 			for (const auto& thread : blockData)
 			{
@@ -558,7 +568,7 @@ namespace Editor
 		void NextFrame() override
 		{
 			I32 selectedIndex = updateTimesChart.GetSelectedSampleIndex();
-			selectedIndex = std::min(selectedIndex + 1, MaxSamples);
+			selectedIndex = std::min(selectedIndex + 1, MaxSamples - 1);
 			updateTimesChart.SetSelectedSampleIndex(selectedIndex);
 		}
 	};

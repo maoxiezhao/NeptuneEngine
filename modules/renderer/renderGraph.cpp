@@ -1880,7 +1880,7 @@ namespace VulkanTest
                 Logger::Print("Pass %s submit", state->name);
 #endif
             }
-        }, &submitHandle);
+        }, &submitHandle, (U8)submissionStates.size());
 
         // Flush swapchain
         if (swapchainPhysicalIndex == RenderResource::Unused)
