@@ -46,6 +46,7 @@ namespace VulkanTest
 		FontHeader header;
 		FT_Face face;
 		Array<Font*> fonts;
+		OutputMemoryStream fontData;
 		Mutex mutex;
 	};
 }

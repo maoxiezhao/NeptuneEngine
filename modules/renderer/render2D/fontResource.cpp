@@ -68,8 +68,10 @@ namespace VulkanTest
 		if (dataChunk == nullptr || !dataChunk->IsLoaded())
 			return false;
 
+		fontData.Write(dataChunk->Data(), dataChunk->Size());
+
 		FontResourceFactory* factory = static_cast<FontResourceFactory*>(&GetResourceFactory());
-		const FT_Error error = FT_New_Memory_Face(factory->GetLibrary(), dataChunk->Data(), static_cast<FT_Long>(dataChunk->Size()), 0, &face);
+		const FT_Error error = FT_New_Memory_Face(factory->GetLibrary(), fontData.Data(), static_cast<FT_Long>(fontData.Size()), 0, &face);
 		if (error)
 		{
 			face = nullptr;
@@ -93,5 +95,7 @@ namespace VulkanTest
 			FT_Done_Face(face);
 			face = nullptr;
 		}
+
+		fontData.Free();
 	}
 }

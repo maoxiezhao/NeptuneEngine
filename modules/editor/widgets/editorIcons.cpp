@@ -82,6 +82,8 @@ namespace Editor
 	const F32 scaling = 0.0025f;
 	void EditorIcons::RenderIcons(GPU::CommandList& cmd, CameraComponent& camera)
 	{
+		cmd.BeginEvent("RenderIcons");
+
 		const auto& selectedEntities = worldEditor.GetSelectedEntities();
 
 		camera.UpdateCamera();
@@ -126,6 +128,8 @@ namespace Editor
 			if (iconString != nullptr)
 				Render2D::DrawText(iconFont, iconString, params, cmd);
 		}
+
+		cmd.EndEvent();
 	}
 }
 }
