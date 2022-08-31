@@ -1,8 +1,12 @@
-#include "common/objectHF.hlsli"
 
 // OBJECTSHADER_LAYOUT:
 // OBJECTSHADER_LAYOUT_COMMON	1	//	- layout for common passes
 // OBJECTSHADER_LAYOUT_PREPASS	2	//	- layout for prepass
+
+// TEST LAYOUT:
+// #define OBJECTSHADER_LAYOUT 1
+
+#include "common/objectHF.hlsli"
 
 // Vertex Shader function for Main Pass
 META_VS(true)
@@ -30,6 +34,10 @@ PixelInput VS(VertexInput input)
     Out.nor = surface.normal;
 #endif
 
+#ifdef OBJECTSHADER_USE_TANGENT
+    Out.tan = surface.tangent;
+#endif
+
 #ifdef OBJECTSHADER_USE_POSITION3D
     Out.pos3D = surface.position.xyz;
 #endif
@@ -46,6 +54,26 @@ META_PS(true)
 META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 1)
 float4 PS(PixelInput input) : SV_Target
 {
+    Surface surface;
+    surface.Init();
+    
+#ifdef OBJECTSHADER_USE_NORMAL
+    surface.N = normalize(input.nor);
+#endif
+
+#ifdef OBJECTSHADER_USE_POSITION3D
+    surface.P = input.pos3D;
+    surface.V = GetCamera().position - input.pos3D;
+    surface.V /= length(surface.V);
+#endif
+
+#ifdef OBJECTSHADER_USE_TANGENT
+    surface.T = input.tan;
+    surface.T.xyz = normalize(input.tan.xyz);
+    float3 binormal = normalize(cross(surface.T.xyz, surface.N) * surface.T.w);
+    float3x3 TBN = float3x3(surface.T.xyz, binormal, surface.N);
+#endif
+
     float4 color = 1;
 
 #ifdef OBJECTSHADER_USE_UVSETS

@@ -5,7 +5,7 @@
 #include "core\platform\platform.h"
 #include "core\platform\atomic.h"
 #include "core\filesystem\filesystem.h"
-#include "core\utils\stream.h"
+#include "core\serialization\stream.h"
 
 namespace VulkanTest
 {

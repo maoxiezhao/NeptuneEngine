@@ -4,7 +4,7 @@
 #include "renderer\renderer.h"
 #include "core\jobsystem\jobsystem.h"
 #include "core\filesystem\filesystem.h"
-#include "core\utils\stream.h"
+#include "core\serialization\stream.h"
 
 #include "glfw\include\GLFW\glfw3.h"
 #include "imgui-docking\imgui.h"

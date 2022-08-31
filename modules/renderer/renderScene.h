@@ -89,6 +89,10 @@ namespace VulkanTest
 			LIGHTTYPE_COUNT,
 		};
 		LightType type = POINT;
+		F32x3 position;
+		F32x4 rotation;
+		F32x3 scale;
+		F32x3 direction;
 
 		F32x3 color = F32x3(1.0f);
 		F32 intensity = 1.0f;

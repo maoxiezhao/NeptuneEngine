@@ -296,6 +296,11 @@ namespace VulkanTest
 		allocated = true;
 	}
 
+	void OutputMemoryStream::Allocate(U64 newSize)
+	{
+		Reserve(size + newSize);
+	}
+
 	void OutputMemoryStream::Clear()
 	{
 		size = 0;

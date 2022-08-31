@@ -10,6 +10,8 @@ namespace VulkanTest
         virtual bool Read(void* buffer, U64 size) = 0;
         virtual const void* GetBuffer() const = 0;
         virtual U64 Size() const = 0;
+		virtual U64 GetPos()const = 0;
+		virtual void SetPos(U64 pos_) = 0;
 
 		template <typename T> 
 		void Read(T& value) {
@@ -68,6 +70,7 @@ namespace VulkanTest
 		void Skip(U64 size_);
 		void Resize(U64 newSize);
 		void Reserve(U64 newSize);
+		void Allocate(U64 newSize);
 		void Clear();
 		void Free();
 		void Link(const U8* buffer, U64 size_);
@@ -114,10 +117,12 @@ namespace VulkanTest
 		U64 Size() const override {
 			return size;
 		}
-		U64 GetPos()const {
+
+		U64 GetPos()const override {
 			return pos;
 		}
-		void SetPos(U64 pos_) {
+
+		void SetPos(U64 pos_) override {
 			pos = pos_;
 		}
 

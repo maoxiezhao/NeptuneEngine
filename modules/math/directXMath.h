@@ -278,6 +278,17 @@ namespace VulkanTest
 		return XMMatrixScaling(ScaleX, ScaleY, ScaleZ);
 	}
 
+	inline bool XM_CALLCONV MatrixDecompose
+	(
+		XMVECTOR* outScale,
+		XMVECTOR* outRotQuat,
+		XMVECTOR* outTrans,
+		FXMMATRIX M
+	)
+	{
+		return XMMatrixDecompose(outScale, outRotQuat, outTrans, M);
+	}
+
 	inline MATRIX XM_CALLCONV MatrixTranslation
 	(
 		float OffsetX,

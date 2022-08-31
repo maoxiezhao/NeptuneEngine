@@ -229,6 +229,7 @@ public:
     void Dispatch(U32 groupsX, U32 groupsY, U32 groupsZ);
     void DispatchIndirect(const Buffer& buffer, U32 offset);
 
+    void BufferBarrier(const Buffer& buffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess);
     void BufferBarrier(const Buffer& buffer, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
     void ImageBarrier(const Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);
     void Barrier(VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess);

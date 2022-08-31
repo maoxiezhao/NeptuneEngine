@@ -67,6 +67,12 @@ namespace VulkanTest
 			output.Write(vertexNor.data(), vbNor.size, alignment);
 		}
 
+		// VertexBuffer tangent
+		if (!vertexTangents.empty())
+		{
+
+		}
+
 		// VertexBuffer uvs
 		if (!vertexUV.empty())
 		{
@@ -234,6 +240,7 @@ namespace VulkanTest
 		// ---- Count
 		// ---- Vertex
 		// ---- Normals
+		// ---- tagents
 		// ---- Texcoords
 
 		I32 meshCount = 0;

@@ -7,7 +7,7 @@
 #include "core\utils\string.h"
 #include "core\utils\path.h"
 #include "core\utils\delegate.h"
-#include "core\utils\stream.h"
+#include "core\serialization\stream.h"
 
 namespace VulkanTest
 {

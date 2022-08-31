@@ -12,6 +12,7 @@ namespace VulkanTest
     private:
         ECS::Pipeline pipeline;
         ECS::System cullingObjects;
+        ECS::System cullingLights;
         Visibility* visibility = nullptr;
 
     public:
@@ -42,7 +43,22 @@ namespace VulkanTest
                         visibility->objects[index - 1] = entity;
                     }
                 }
-                    });
+            });
+
+            // Culling lights
+            cullingLights = world.CreateSystem<const LightComponent>()
+                .Kind<CullingTag>()
+                .MultiThread(true)
+                .ForEach([&](ECS::Entity entity, const LightComponent& light) {
+
+                ASSERT(visibility != nullptr);
+
+                if (visibility->frustum.CheckBoxFast(light.aabb))
+                {
+                    I32 index = AtomicIncrement(&visibility->lightCount);
+                    visibility->lights[index - 1] = entity;
+                }
+            });
 
             pipeline = world.CreatePipeline()
                 .Term(ECS::EcsCompSystem)
@@ -54,6 +70,7 @@ namespace VulkanTest
         void Uninitialize() override
         {
             cullingObjects.Destroy();
+            cullingLights.Destroy();
             pipeline.Destroy();
         }
 
@@ -67,11 +84,15 @@ namespace VulkanTest
             I32 objCount = world.Count<ObjectComponent>();
             visibility->objects.resize(objCount);
 
+            I32 lightCount = world.Count<LightComponent>();
+            visibility->lights.resize(lightCount);
+
             if (pipeline != ECS::INVALID_ENTITY)
                 scene.GetWorld().RunPipeline(pipeline);
 
             // Finalize visibility
             vis.objects.resize(AtomicRead(&vis.objectCount));
+            vis.lights.resize(AtomicRead(&vis.lightCount));
         }
     };
 

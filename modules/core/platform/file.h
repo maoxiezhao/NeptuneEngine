@@ -3,7 +3,7 @@
 #include "core\common.h"
 #include "core\memory\memory.h"
 #include "core\utils\string.h"
-#include "core\utils\stream.h"
+#include "core\serialization\stream.h"
 
 namespace VulkanTest
 {
@@ -46,6 +46,7 @@ namespace VulkanTest
 	public:
 		virtual ~File() {}
 		virtual bool   Read(void* buffer, size_t bytes) = 0;
+		virtual bool   Read(void* buffer, size_t bytes, size_t& readed) = 0;
 		virtual bool   Write(const void* buffer, U64 size) = 0;
 		virtual bool   Seek(size_t offset) = 0;
 		virtual size_t Tell() const = 0;
@@ -104,6 +105,12 @@ namespace VulkanTest
 			return false;
 		}
 
+		bool Read(void* buffer, size_t bytes, size_t& readed) override
+		{
+			readed = std::min(size - pos, bytes);
+			return Read(buffer, bytes);
+		}
+
 		bool Write(const void* buffer, size_t bytes)override
 		{
 			if (FLAG_ANY(flags, FileFlags::WRITE))
@@ -157,6 +164,7 @@ namespace VulkanTest
 		~MappedFile();
 
 		bool Read(void* buffer, size_t bytes)override;
+		bool Read(void* buffer, size_t bytes, size_t& readed) override;
 		bool Write(const void* buffer, size_t bytes)override;
 		bool Seek(size_t offset)override;
 		size_t Tell() const override;

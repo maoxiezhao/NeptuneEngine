@@ -30,6 +30,7 @@ namespace VulkanTest
         Array<ECS::Entity> lights;
 
         volatile I32 objectCount;
+        volatile I32 lightCount;
 
         void Clear()
         {
@@ -37,6 +38,7 @@ namespace VulkanTest
             lights.clear();
 
             AtomicExchange(&objectCount, 0);
+            AtomicExchange(&lightCount, 0);
         }
     };
 

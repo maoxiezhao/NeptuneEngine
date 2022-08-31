@@ -3,6 +3,8 @@
 #include "resource.h"
 #include "resourceHeader.h"
 #include "core\platform\timer.h"
+#include "core\serialization\fileReadStream.h"
+#include "core\utils\threadLocal.h"
 
 namespace VulkanTest
 {
@@ -33,6 +35,7 @@ namespace VulkanTest
 		bool LoadChunk(DataChunk* chunk);
 		bool ShouldDispose()const;
 		bool Reload();
+		U64 Size();
 
 		bool IsLoaded() const {
 			return isLoaded;
@@ -40,10 +43,6 @@ namespace VulkanTest
 
 		const Path& GetPath()const {
 			return path;
-		}
-
-		U64 Size()const {
-			return stream ? stream->Size() : 0;
 		}
 
 		void LockChunks() {
@@ -123,14 +122,14 @@ namespace VulkanTest
 #endif
 
 	private:
-		OutputMemoryStream* LoadContent();
+		FileReadStream* LoadContent();
 		void CloseContent();
 
 		Path path;
 		ResourceManager& resManager;
 		ResourceEntry entry;
 		Array<DataChunk*> chunks;
-		OutputMemoryStream* stream;
+		ThreadLocalObject<FileReadStream> file;
 		bool isLoaded = false;
 		Mutex mutex;
 		volatile I64 chunksLock;

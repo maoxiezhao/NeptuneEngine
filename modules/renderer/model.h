@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\resource\binaryResource.h"
-#include "core\utils\stream.h"
+#include "core\serialization\stream.h"
 #include "core\collections\array.h"
 #include "core\scene\world.h"
 #include "renderer\materials\material.h"
@@ -61,6 +61,7 @@ namespace VulkanTest
 
 		Array<F32x3> vertexPos;
 		Array<F32x3> vertexNor;
+		Array<F32x4> vertexTangents;
 		Array<F32x2> vertexUV;
 		Array<U32> indices;
 
@@ -103,6 +104,7 @@ namespace VulkanTest
 		BufferView ib;
 		BufferView vbPos;
 		BufferView vbNor;
+		BufferView vbTan;
 		BufferView vbUVs;
 
 		bool CreateRenderData();

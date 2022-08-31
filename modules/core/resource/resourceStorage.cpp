@@ -23,7 +23,6 @@ namespace VulkanTest
 		path(path_),
 		resManager(resManager_),
 		chunksLock(0),
-		stream(nullptr),
 		refCount(0),
 		lastRefLoseTime(0.0f)
 	{
@@ -45,8 +44,8 @@ namespace VulkanTest
 		if (IsLoaded())
 			return true;
 
-		OutputMemoryStream* stream = LoadContent();
-		if (stream == nullptr)
+		FileReadStream* inputMem = LoadContent();
+		if (inputMem == nullptr)
 			return false;
 
 		// Resource format
@@ -56,17 +55,10 @@ namespace VulkanTest
 		// Chunk locations
 		// resource header (count == entries count)
 		// Chunk datas
-		
-		InputMemoryStream inputMem(*stream);
-		if (inputMem.Size() < sizeof(ResourceStorageHeader))
-		{
-			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
-			return false;
-		}
 
 		// ResourceStorageHeader
 		ResourceStorageHeader resHeader;
-		inputMem.Read(resHeader);
+		inputMem->Read(resHeader);
 		if (resHeader.magic != ResourceStorageHeader::MAGIC)
 		{
 			Logger::Warning("Invalid compiled resource %s", GetPath().c_str());
@@ -84,7 +76,7 @@ namespace VulkanTest
 		for (U32 i = 0; i < resHeader.assetsCount; i++)
 		{
 			ResourceEntry entry;
-			inputMem.Read(entry);
+			inputMem->Read(entry);
 			this->entry = entry;
 		}
 
@@ -92,7 +84,7 @@ namespace VulkanTest
 		for (U32 i = 0; i < resHeader.chunksCount; i++)
 		{
 			DataChunk::Location location;
-			inputMem.Read(location);
+			inputMem->Read(location);
 			if (location.Size == 0)
 			{
 				Logger::Warning("Empty chunk %s", GetPath().c_str());
@@ -101,7 +93,7 @@ namespace VulkanTest
 
 			auto chunk = CJING_NEW(DataChunk);
 			chunk->location = location;
-			inputMem.Read(chunk->compressed);
+			inputMem->Read(chunk->compressed);
 			chunks.push_back(chunk);
 		}
 
@@ -152,12 +144,11 @@ namespace VulkanTest
 	{
 		ASSERT(isLoaded);
 
-		OutputMemoryStream* stream = LoadContent();
-		if (stream == nullptr)
+		FileReadStream* input = LoadContent();
+		if (input == nullptr)
 			return false;
 
-		InputMemoryStream input(*stream);
-		input.SetPos(entry.address);
+		input->SetPos(entry.address);
 
 		// ReasourceHeader
 		// ----------------------------------
@@ -167,10 +158,10 @@ namespace VulkanTest
 		// Custom data
 
 		// Guid
-		input.Read(initData.header.guid);
+		input->Read(initData.header.guid);
 
 		// Type
-		U64 hash = input.Read<U64>();
+		U64 hash = input->Read<U64>();
 		initData.header.type = ResourceType(hash);
 		if (initData.header.type == ResourceType::INVALID_TYPE)
 		{
@@ -180,7 +171,7 @@ namespace VulkanTest
 
 		// Chunk mapping
 		ChunkMapping chunkMapping;
-		input.Read(chunkMapping);
+		input->Read(chunkMapping);
 		for (int i = 0; i < MAX_RESOURCE_DATA_CHUNKS; i++)
 		{
 			I32 chunkIndex = chunkMapping.chunkIndex[i];
@@ -193,11 +184,11 @@ namespace VulkanTest
 		}
 
 		// Custom data
-		I32 size = input.Read<I32>();
+		I32 size = input->Read<I32>();
 		if (size > 0)
 		{
 			initData.customData.Resize(size);
-			input.Read(initData.customData.Data(), size);
+			input->Read(initData.customData.Data(), size);
 		}
 
 		return true;
@@ -217,38 +208,40 @@ namespace VulkanTest
 			return false;
 		}
 
-		OutputMemoryStream* stream = LoadContent();
-		if (stream == nullptr)
+		FileReadStream* input = LoadContent();
+		if (input == nullptr)
 			return false;
 
 		StorageLock lock(this);
-		InputMemoryStream input(*stream);
-		input.SetPos(chunk->location.Address);
+		input->SetPos(chunk->location.Address);
 
 		auto size = chunk->location.Size;
 		if (chunk->compressed)
 		{
 			size -= sizeof(I32);
 			I32 originalSize;
-			input.Read(originalSize);
+			input->Read(originalSize);
 
 			OutputMemoryStream tmp;
-			tmp.Resize(originalSize);
+			tmp.Resize(size);
+			input->Read(tmp.Data(), size);
+
+			chunk->mem.Allocate((U64)originalSize);
 			I32 decompressedSize = Compressor::Decompress(
-				(const char*)input.GetBuffer() + input.GetPos(),
 				(char*)tmp.Data(),
+				(char*)chunk->mem.Data() + chunk->mem.Size(),
 				I32(size),
-				I32(tmp.Size()));
+				I32(originalSize));
 
 			if (decompressedSize != originalSize)
 				return false;
 
-			chunk->mem.Write(tmp.Data(), tmp.Size());
+			chunk->mem.Resize(decompressedSize);
 		}
 		else
 		{
 			chunk->mem.Resize(size);
-			input.Read(chunk->mem.Data(), size);
+			input->Read(chunk->mem.Data(), size);
 		}
 
 		chunk->RegisterUsage();
@@ -275,6 +268,12 @@ namespace VulkanTest
 		bool ret = Load();
 		OnReloaded.Invoke(this, ret);
 		return ret;
+	}
+
+	U64 ResourceStorage::Size()
+	{
+		auto stream = LoadContent();
+		return stream->Size();
 	}
 
 	I32 ResourceStorage::GetReference() const
@@ -405,15 +404,15 @@ namespace VulkanTest
 	}
 #endif
 
-	OutputMemoryStream* ResourceStorage::LoadContent()
+	FileReadStream* ResourceStorage::LoadContent()
 	{
+		FileReadStream*& stream = file.Get();
 		if (stream == nullptr)
 		{
-			stream = CJING_NEW(OutputMemoryStream);
-
 			StaticString<MAX_PATH_LENGTH> fullResPath;
 			if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
 			{
+				// Resource tiles load directly
 				fullResPath = GetPath().c_str();
 			}
 			else
@@ -422,12 +421,14 @@ namespace VulkanTest
 				fullResPath = StaticString<MAX_PATH_LENGTH>(".export/resources/", pathHash, ".res");
 			}
 
-			if (!resManager.GetFileSystem()->LoadContext(fullResPath.c_str(), *stream))
+			auto file_ = resManager.GetFileSystem()->OpenFile(fullResPath.c_str(), FileFlags::DEFAULT_READ);
+			if (!file_ || !file_->IsValid())
 			{
 				Logger::Error("Cannot open compiled resource content %s", GetPath().c_str());
-				CJING_SAFE_DELETE(stream);
 				return nullptr;
 			}
+
+			stream = CJING_NEW(FileReadStream)(std::move(file_));
 		}
 		return stream;
 	}
@@ -439,6 +440,6 @@ namespace VulkanTest
 			Platform::Sleep(10);
 
 		ASSERT(chunksLock == 0);
-		CJING_SAFE_DELETE(stream);
+		file.DeleteAll();
 	}
 }

@@ -285,4 +285,24 @@ namespace VulkanTest
 		return chunk;
 	}
 
+	void BinaryResource::GetChunkData(I32 index, OutputMemoryStream& data)const
+	{
+		if (!HasChunkLoaded(index))
+			return;
+
+		DataChunk* chunk = GetChunk(index);
+		data.Link(chunk->Data(), chunk->Size());
+	}
+
+	Task* BinaryResource::RequestChunkData(I32 index)
+	{
+		DataChunk* chunk = GetChunk(index);
+		if (chunk != nullptr && chunk->IsLoaded())
+		{
+			chunk->RegisterUsage();
+			return nullptr;
+		}
+
+		return CJING_NEW(LoadChunkDataTask)(this, GET_CHUNK_FLAG(index));
+	}
 }

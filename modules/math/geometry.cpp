@@ -16,6 +16,12 @@ namespace VulkanTest
 		);
 	}
 
+	void AABB::FromHalfWidth(const F32x3& center, const F32x3& halfwidth)
+	{
+		min = F32x3(center.x - halfwidth.x, center.y - halfwidth.y, center.z - halfwidth.z);
+		max = F32x3(center.x + halfwidth.x, center.y + halfwidth.y, center.z + halfwidth.z);
+	}
+
 	void AABB::Merge(const AABB& rhs)
 	{
 		AddPoint(rhs.min);

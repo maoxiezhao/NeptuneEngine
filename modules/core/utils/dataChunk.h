@@ -1,6 +1,6 @@
 #pragma once
 
-#include "stream.h"
+#include "core\serialization\stream.h"
 
 namespace VulkanTest
 {

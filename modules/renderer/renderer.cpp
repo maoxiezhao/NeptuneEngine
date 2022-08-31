@@ -17,6 +17,8 @@
 #include "renderer\render2D\render2D.h"
 #include "renderer\render2D\fontManager.h"
 
+#include "math\vMath_impl.hpp"
+
 namespace VulkanTest
 {
 
@@ -165,6 +167,8 @@ namespace Renderer
 	GPU::DepthStencilState depthStencilStates[DSTYPE_COUNT] = {};
 	ResPtr<Shader> shaders[SHADERTYPE_COUNT] = {};
 	GPU::BufferPtr frameBuffer;
+	GPU::BufferPtr shaderLightBuffer;
+	GPU::BindlessDescriptorPtr shaderLightBufferBindless;
 	bool isObjectPipelineStatesInited = false;
 
 	RendererPlugin* rendererPlugin = nullptr;
@@ -279,17 +283,37 @@ namespace Renderer
 		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResourcePtr<Shader>(Path("shaders/blurGaussian.shd"));
 	}
 
-	void Renderer::Initialize(Engine& engine)
+	void InitializeFactories(Engine& engine)
 	{
-		Logger::Info("Render initialized");
-
-		// Initialize resource factories
 		ResourceManager& resManager = engine.GetResourceManager();
 		shaderFactory.Create(); shaderFactory->Initialize(Shader::ResType, resManager);
 		textureFactory.Create(); textureFactory->Initialize(Texture::ResType, resManager);
 		modelFactory.Create(); modelFactory->Initialize(Model::ResType, resManager);
 		materialFactory.Create(); materialFactory->Initialize(Material::ResType, resManager);
 		fontFactory.Create(); fontFactory->Initialize(FontResource::ResType, resManager);
+	}
+
+	void UninitializeFactories()
+	{
+		materialFactory->Uninitialize();
+		modelFactory->Uninitialize();
+		textureFactory->Uninitialize();
+		shaderFactory->Uninitialize();
+		fontFactory->Uninitialize();
+
+		materialFactory.Destroy();
+		modelFactory.Destroy();
+		textureFactory.Destroy();
+		shaderFactory.Destroy();
+		fontFactory.Destroy();
+	}
+
+	void Renderer::Initialize(Engine& engine)
+	{
+		Logger::Info("Render initialized");
+
+		// Initialize resource factories
+		InitializeFactories(engine);
 
 		// Load builtin states
 		InitStockStates();
@@ -304,6 +328,16 @@ namespace Renderer
 		frameBuffer = device->CreateBuffer(info, nullptr);
 		device->SetName(*frameBuffer, "FrameBuffer");
 
+		// Create shader lights buffer
+		GPU::BufferCreateInfo lightBufferInfo = {};
+		lightBufferInfo.domain = GPU::BufferDomain::Device;
+		lightBufferInfo.size = sizeof(ShaderLight) * SHADER_ENTITY_COUNT;
+		lightBufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		shaderLightBuffer = device->CreateBuffer(lightBufferInfo, nullptr);
+		device->SetName(*shaderLightBuffer, "ShaderLightBuffer");
+		shaderLightBufferBindless = device->CreateBindlessStroageBuffer(*shaderLightBuffer, 0, shaderLightBuffer->GetCreateInfo().size);
+
+		ResourceManager& resManager = engine.GetResourceManager();
 		// Initialize image util
 		ImageUtil::Initialize(resManager);
 
@@ -332,18 +366,12 @@ namespace Renderer
 		// Release frame buffer
 		frameBuffer.reset();
 
-		// Uninitialize resource factories
-		materialFactory->Uninitialize();
-		modelFactory->Uninitialize();
-		textureFactory->Uninitialize();
-		shaderFactory->Uninitialize();
-		fontFactory->Uninitialize();
+		// Release shader light buffer
+		shaderLightBuffer.reset();
+		shaderLightBufferBindless.reset();
 
-		materialFactory.Destroy();
-		modelFactory.Destroy();
-		textureFactory.Destroy();
-		shaderFactory.Destroy();
-		fontFactory.Destroy();
+		// Uninitialize resource factories
+		UninitializeFactories();
 
 		rendererPlugin = nullptr;
 		Logger::Info("Render uninitialized");
@@ -387,6 +415,9 @@ namespace Renderer
 	{
 		ASSERT(visible.scene);
 		frameCB.scene = visible.scene->GetShaderScene();
+		frameCB.lightOffset = 0;
+		frameCB.lightCount = (uint)visible.lights.size();
+		frameCB.bufferShaderLightsIndex = shaderLightBufferBindless->GetIndex();
 	}
 
 	void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd)
@@ -398,13 +429,63 @@ namespace Renderer
 
 		// Update frame constbuffer
 		cmd.UpdateBuffer(frameBuffer.get(), &frameCB, sizeof(frameCB));
-		cmd.BufferBarrier(*frameBuffer,
-			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-			VK_ACCESS_UNIFORM_READ_BIT);
+		cmd.BufferBarrier(*frameBuffer, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT);
 
+		// Update shader scene
 		visible.scene->UpdateRenderData(cmd);
+
+		// Update shader lights
+		auto allocation = cmd.AllocateStorageBuffer(sizeof(ShaderLight) * SHADER_ENTITY_COUNT);
+		ASSERT(allocation.data != nullptr);
+		ShaderLight* shaderLights = (ShaderLight*)allocation.data;
+
+		U32 lightCount = 0;
+		for (auto lightEntity : visible.lights)
+		{
+			if (lightEntity == ECS::INVALID_ENTITY)
+				continue;
+
+			const LightComponent* light = lightEntity.Get<LightComponent>();
+			if (light == nullptr)
+				continue;
+
+			ShaderLight shaderLight = {};
+			shaderLight.SetType((uint)light->type);
+			shaderLight.position = light->position;
+			shaderLight.SetRange(light->range);
+
+			F32x4 color = F32x4(light->color * light->intensity, 1.0f);
+			shaderLight.SetColor(color);
+
+			switch (light->type)
+			{
+			case LightComponent::DIRECTIONAL:
+				shaderLight.SetDirection(light->direction);
+				break;
+			case LightComponent::POINT:
+				break;
+			case LightComponent::SPOT:
+				break;
+			default:
+				ASSERT(false);
+				break;
+			}
+
+			memcpy(shaderLights + lightCount, &shaderLight, sizeof(ShaderLight));
+			lightCount++;
+		}
+
+		if (lightCount > 0)
+		{
+			cmd.CopyBuffer(
+				*shaderLightBuffer,
+				0,
+				*allocation.buffer,
+				allocation.offset,
+				lightCount * sizeof(ShaderLight)
+			);
+			cmd.BufferBarrier(*shaderLightBuffer, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+		}
 
 		cmd.EndEvent();
 	}
@@ -413,6 +494,7 @@ namespace Renderer
 	{
 		CameraCB cb;
 		cb.viewProjection = camera.viewProjection;
+		cb.position = camera.eye;
 		cmd.BindConstant(cb, 0, CBSLOT_RENDERER_CAMERA);
 	}
 

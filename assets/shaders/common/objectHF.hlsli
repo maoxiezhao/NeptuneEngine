@@ -2,7 +2,7 @@
 #define SHADER_OBJECT_HF
 
 #include "global.hlsli"
-#include "surface.hlsli"
+#include "surfaceHF.hlsli"
 
 // Use these to define the expected layout for the shader:
 // #define OBJECTSHADER_LAYOUT to set layout
@@ -17,6 +17,7 @@
 #define OBJECTSHADER_USE_COLOR
 #define OBJECTSHADER_USE_UVSETS
 #define OBJECTSHADER_USE_NORMAL
+#define OBJECTSHADER_USE_TANGENT
 #define OBJECTSHADER_USE_POSITION3D
 #define OBJECTSHADER_USE_INSTANCEINDEX
 #endif
@@ -48,6 +49,15 @@ struct VertexInput
     float3 GetNormal()
     {
         return bindless_buffers[GetMesh().vbNor].Load<float3>(vertexID * sizeof(float3));
+    }
+
+    float4 GetTangent()
+    {
+		[branch]
+		if (GetMesh().vbTan < 0)
+			return 0;
+
+        return bindless_buffers[GetMesh().vbTan].Load<float4>(vertexID * sizeof(float4));
     }
 
     float2 GetUVSets()
@@ -85,13 +95,19 @@ struct VertexSurface
     float4 position;
     float2 uv;
     float3 normal;
+    float4 tangent;
 	float4 color;
 
     inline void Create(in VertexInput input)
     {
         position = input.GetPosition();
         uv = input.GetUVSets();
-        normal = input.GetNormal();
+        
+        float3x3 transforInvTranspose = (float3x3)input.GetInstance().transformInvTranspose.GetMatrix();
+        normal = normalize(mul(transforInvTranspose, input.GetNormal()));
+        tangent = input.GetTangent();   
+        tangent.xyz = normalize(mul(transforInvTranspose, tangent.xyz));
+        
 		color = float4(1.0f, 1.0f, 1.0f, 1.0f);
         position = mul(input.GetInstance().transform.GetMatrix(), position);
     }
@@ -117,9 +133,16 @@ struct PixelInput
 	float3 nor : NORMAL;
 #endif
 
+#ifdef OBJECTSHADER_USE_TANGENT
+    float4 tan : TANGENT;
+#endif
+
 #ifdef OBJECTSHADER_USE_INSTANCEINDEX
 	uint instanceIndex : INSTANCEINDEX;
 #endif
 };
+
+
+
 
 #endif

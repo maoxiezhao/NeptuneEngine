@@ -862,6 +862,11 @@ void CommandList::DispatchIndirect(const Buffer& buffer, U32 offset)
     }
 }
 
+void CommandList::BufferBarrier(const Buffer& buffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess)
+{
+    return BufferBarrier(buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, srcAccess, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, dstAccess);
+}
+
 void CommandList::BufferBarrier(const Buffer& buffer, VkPipelineStageFlags srcStage, VkAccessFlags srcAccess, VkPipelineStageFlags dstStage, VkAccessFlags dstAccess)
 {
     ASSERT(!frameBuffer);

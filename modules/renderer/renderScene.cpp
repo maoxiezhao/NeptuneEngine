@@ -684,12 +684,51 @@ namespace VulkanTest
                 aabb = meshComp->mesh->aabb.Transform(mat);
                 objComp.center = StoreFMat4x4(meshComp->mesh->aabb.GetCenterAsMatrix() * mat).vec[3].xyz();
 
+                // Setup shader mesh instance
                 ShaderMeshInstance inst;
                 inst.init();
                 inst.transform.Create(transform.transform.world);
+
+                // Inverse transpose world mat
+                MATRIX worldMatInvTranspose = MatrixTranspose(MatrixInverse(mat));
+                inst.transformInvTranspose.Create(StoreFMat4x4(worldMatInvTranspose));
+
                 objComp.worldMat = transform.transform.world;
 
                 memcpy(instanceMapped + objComp.index, &inst, sizeof(ShaderMeshInstance));
+            }
+        });
+    }
+
+    ECS::System LightUpdateSystem(RenderSceneImpl& scene)
+    {
+        return scene.GetWorld().CreateSystem<const TransformComponent, LightComponent>()
+            .Kind<RenderingSystem>()
+            .MultiThread(true)
+            .ForEach([&](ECS::Entity entity, const TransformComponent& transform, LightComponent& light) {
+
+            MATRIX worldMat = transform.transform.GetMatrix();
+            VECTOR S, R, T;
+            XMMatrixDecompose(&S, &R, &T, worldMat);
+
+            light.position = StoreF32x3(T);
+            light.rotation = StoreF32x4(R);
+            light.scale = StoreF32x3(S);
+            light.direction = StoreF32x3(Vector3TransformNormal(VectorSet(0, 1, 0, 0), worldMat));  // Up is Positive direction
+          
+            switch (light.type)
+            {
+            case LightComponent::DIRECTIONAL:
+                light.aabb.FromHalfWidth(F32x3(0.0f), F32x3(FLT_MAX));
+                break;
+            case LightComponent::POINT:
+                light.aabb.FromHalfWidth(light.position, F32x3(light.range));
+                break;
+            case LightComponent::SPOT:
+                light.aabb.FromHalfWidth(light.position, F32x3(light.range));
+                break;
+            default:
+                break;
             }
         });
     }
@@ -700,6 +739,7 @@ namespace VulkanTest
         AddSystem(MeshUpdateSystem(*this));
         AddSystem(MaterialUpdateSystem(*this));
         AddSystem(ObjectUpdateSystem(*this));
+        AddSystem(LightUpdateSystem(*this));
 
         pipeline = world.CreatePipeline()
             .Term(ECS::EcsCompSystem)

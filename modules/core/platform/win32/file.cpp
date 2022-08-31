@@ -61,6 +61,13 @@ namespace VulkanTest
 		return success && bytes == readed;
 	}
 
+	bool MappedFile::Read(void* buffer, size_t bytes, size_t& readed)
+	{
+		U8* readBuffer = static_cast<U8*>(buffer);
+		BOOL success = ::ReadFile(handle, readBuffer, (DWORD)bytes, (LPDWORD)&readed, nullptr);
+		return success;
+	}
+
 	bool MappedFile::Write(const void* buffer, size_t bytes)
 	{
 		size_t written = 0;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\common.h"
-#include "core\utils\stream.h"
+#include "core\serialization\stream.h"
 
 namespace VulkanTest
 {

@@ -25,6 +25,8 @@ namespace VulkanTest
 		bool Initialize(ResourceInitData& initData);
 
 		DataChunk* GetChunk(I32 index = 0)const;
+		void GetChunkData(I32 index, OutputMemoryStream& data)const;
+		Task* RequestChunkData(I32 index);
 
 		bool HasChunkLoaded(I32 index) const
 		{

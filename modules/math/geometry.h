@@ -131,6 +131,7 @@ namespace VulkanTest
 		static AABB CreateFromHalfWidth(const F32x3& center, const F32x3& halfwidth);
 		static AABB Merge(const AABB& a, const AABB& b);
 
+		void FromHalfWidth(const F32x3& center, const F32x3& halfwidth);
 		void Merge(const AABB& rhs);
 		void AddPoint(const F32x3& point);
 		AABB Transform(const MATRIX& mat) const;
