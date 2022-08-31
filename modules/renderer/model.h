@@ -4,6 +4,7 @@
 #include "core\serialization\stream.h"
 #include "core\collections\array.h"
 #include "core\scene\world.h"
+#include "core\streaming\streaming.h"
 #include "renderer\materials\material.h"
 #include "gpu\vulkan\device.h"
 #include "math\geometry.h"

@@ -7,18 +7,21 @@
 
 namespace VulkanTest
 {
+	class Engine;
+
 	class EngineService
 	{
 	public:
-		// TODO use Array
-		typedef std::vector<EngineService*> ServicesArray;
+		typedef std::vector<EngineService*> ServicesArray; 	// TODO use Array
 		static ServicesArray& GetServices();
 		static void Sort();
 
 		virtual ~EngineService();
 
+		virtual bool Init(Engine& engine);
+		static void OnInit(Engine& engine);
+
 #define DECLARE_ENGINE_SERVICE(result, name) virtual result name(); static void On##name();
-		DECLARE_ENGINE_SERVICE(bool, Init);
 		DECLARE_ENGINE_SERVICE(void, FixedUpdate);
 		DECLARE_ENGINE_SERVICE(void, Update);
 		DECLARE_ENGINE_SERVICE(void, LateUpdate);
@@ -59,6 +62,7 @@ namespace VulkanTest
 		virtual class FileSystem& GetFileSystem() = 0;
 		virtual class ResourceManager& GetResourceManager() = 0;
 		virtual class PluginManager& GetPluginManager() = 0;
+		virtual class TaskGraph& GetTaskGraph() = 0;
 		virtual class WSI& GetWSI() = 0;
 		virtual lua_State* GetLuaState() = 0;
 	};

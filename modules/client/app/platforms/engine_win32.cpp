@@ -6,6 +6,7 @@
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resourceManager.h"
 #include "core\profiler\profiler.h"
+#include "core\jobsystem\taskGraph.h"
 #include "app\app.h"
 #include "renderer\renderer.h"
 
@@ -20,6 +21,7 @@ namespace VulkanTest
 		UniquePtr<PluginManager> pluginManager;
 		UniquePtr<FileSystem> fileSystem;
 		UniquePtr<ResourceManager> resourceManager;
+		UniquePtr<TaskGraph> taskGraph;
 		WSIPlatform* platform;
 		WSI wsi;
 		bool isGameRunning = false;
@@ -39,8 +41,11 @@ namespace VulkanTest
 			platform = &app.GetPlatform();
 			SetupUnhandledExceptionHandler();
 
-			// Init services
-			EngineService::OnInit();
+			// Init task graph
+			taskGraph = CJING_MAKE_UNIQUE<TaskGraph>();
+
+			// Init engine services
+			EngineService::OnInit(*this);
 
 			// Init lua system
 			luaState = luaL_newstate();
@@ -59,7 +64,6 @@ namespace VulkanTest
 
 			// Init wsi
 			wsi.SetPlatform(&app.GetPlatform());
-
 			GPU::SystemHandles systemHandles;
 			systemHandles.fileSystem = &GetFileSystem();
 			I32 wsiThreadCount = std::clamp((I32)(Platform::GetCPUsCount() * 0.5f), 1, 12);
@@ -93,6 +97,7 @@ namespace VulkanTest
 			platform = nullptr;
 
 			EngineService::OnUninit();
+			taskGraph.Reset();
 
 			Logger::Info("Game engine released.");
 		}
@@ -179,6 +184,9 @@ namespace VulkanTest
 			// Update resource manager
 			resourceManager->Update(dt);
 
+			// Update task graph
+			taskGraph->Execute();
+
 			// Update engine servies
 			EngineService::OnUpdate();
 		}
@@ -217,6 +225,11 @@ namespace VulkanTest
 		PluginManager& GetPluginManager() override
 		{
 			return *pluginManager.Get();
+		}
+
+		TaskGraph& GetTaskGraph() override
+		{
+			return *taskGraph.Get();
 		}
 
 		WSI& GetWSI() override

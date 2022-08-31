@@ -44,7 +44,7 @@ namespace VulkanTest
 		{
 		}
 
-		bool Init() override
+		bool Init(Engine& engine) override
 		{
 			ASSERT(Library == nullptr);
 

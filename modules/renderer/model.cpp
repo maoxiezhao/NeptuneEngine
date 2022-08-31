@@ -175,6 +175,8 @@ namespace VulkanTest
 			return false;
 		}
 
+		// TEST: TEMP!!!!
+		Streaming::RequestStreamingUpdate();
 		return true;
 	}
 

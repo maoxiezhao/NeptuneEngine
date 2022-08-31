@@ -40,12 +40,12 @@ namespace VulkanTest
 		GetServices().push_back(this);
 	}
 
-    bool EngineService::Init()
+    bool EngineService::Init(Engine& engine)
     {
         return false;
     }
 
-    void EngineService::OnInit()
+    void EngineService::OnInit(Engine& engine)
     {
         // Sort services first
         Sort();
@@ -57,7 +57,7 @@ namespace VulkanTest
             const auto service = services[i];
             Logger::Info("Initialize %s...", service->name);
             service->initialized = true;
-            if (!service->Init())
+            if (!service->Init(engine))
             {
                 Logger::Error("Failed to initialize %s.", service->name);
                 return;

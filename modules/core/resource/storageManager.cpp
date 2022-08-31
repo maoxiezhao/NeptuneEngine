@@ -16,7 +16,7 @@ namespace VulkanTest
 			EngineService("StorageServiceImpl", -999)
 		{}
 
-		bool Init() override
+		bool Init(Engine& engine) override
 		{
 			initialized = true;
 			return true;

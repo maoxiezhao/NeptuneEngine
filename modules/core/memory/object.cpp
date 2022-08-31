@@ -26,7 +26,7 @@ namespace VulkanTest
 			lastUpdate(0.0f)
 		{}
 
-		bool Init() override
+		bool Init(Engine& engine) override
 		{
 			lastUpdate = timer.GetTimeSinceStart();
 			initialized = true;
