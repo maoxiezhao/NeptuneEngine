@@ -3,7 +3,7 @@
 #include "editor\widgets\assetCompiler.h"
 #include "editor\plugins\material\materialGenerator.h"
 #include "core\filesystem\filesystem.h"
-#include "renderer\model.h"
+#include "renderer\models\model.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "loader\tiny_obj_loader.h"

@@ -1,16 +1,13 @@
 #pragma once
 
+#include "rendererCommon.h"
 #include "enums.h"
 #include "renderGraph.h"
 #include "gpu\vulkan\device.h"
 #include "core\plugin\plugin.h"
-#include "core\profiler\profiler.h"
-#include "core\collections\array.h"
 #include "renderScene.h"
 #include "culling.h"
 #include "shader.h"
-#include "math\math.hpp"
-#include "math\color.h"
 
 namespace VulkanTest
 {

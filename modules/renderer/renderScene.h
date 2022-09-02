@@ -1,14 +1,10 @@
 #pragma once
 
-#include "core\common.h"
-#include "core\scene\world.h"
-#include "core\collections\array.h"
-#include "math\geometry.h"
-#include "math\math.hpp"
+#include "rendererCommon.h"
 #include "renderGraph.h"
 #include "shaderInterop_renderer.h"
 #include "enums.h"
-#include "model.h"
+#include "models\model.h"
 
 namespace VulkanTest
 {

@@ -1,13 +1,6 @@
 #pragma once
 
-#include "core\resource\binaryResource.h"
-#include "core\serialization\stream.h"
-#include "core\collections\array.h"
-#include "core\scene\world.h"
-#include "core\streaming\streaming.h"
-#include "renderer\materials\material.h"
-#include "gpu\vulkan\device.h"
-#include "math\geometry.h"
+#include "renderer\rendererCommon.h"
 
 namespace VulkanTest
 {
@@ -112,48 +105,5 @@ namespace VulkanTest
 
 		PickResult CastRayPick(const VECTOR& rayOrigin, const VECTOR& rayDirection, F32 tmin, F32 tmax);
 
-	};
-
-	class VULKAN_TEST_API Model final : public BinaryResource
-	{
-	public:
-		DECLARE_RESOURCE(Model);
-
-#pragma pack(1)
-		struct FileHeader
-		{
-			U32 magic;
-			U32 version;
-		};
-#pragma pack()
-		static const U32 FILE_MAGIC;
-		static const U32 FILE_VERSION;
-
-		Model(const Path& path_, ResourceFactory& resFactory_);
-		virtual ~Model();
-	
-		Mesh& GetMesh(U32 index) { 
-			return meshes[index];
-		}
-		const Mesh& GetMesh(U32 index) const { 
-			return meshes[index]; 
-		}
-		I32 GetMeshCount() const { 
-			return meshes.size();
-		}
-
-	protected:
-		bool Init(ResourceInitData& initData)override;
-		bool Load()override;
-		void Unload() override;
-
-	private:
-		Model(const Model&) = delete;
-		void operator=(const Model&) = delete;
-
-		bool ParseMeshes(InputMemoryStream& mem);
-
-		FileHeader header;
-		Array<Mesh> meshes;
 	};
 }

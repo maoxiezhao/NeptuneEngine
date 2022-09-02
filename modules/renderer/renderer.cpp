@@ -8,7 +8,7 @@
 #include "core\resource\binaryResource.h"
 #include "renderScene.h"
 #include "renderPath3D.h"
-#include "model.h"
+#include "models\model.h"
 #include "materials\material.h"
 #include "texture.h"
 #include "textureHelper.h"
