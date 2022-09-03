@@ -1,6 +1,7 @@
 #include "stream.h"
 #include "string.h"
 #include "core\memory\memory.h"
+#include "math\geometry.h"
 
 namespace VulkanTest
 {
@@ -95,6 +96,13 @@ namespace VulkanTest
 		ret.resize(length);
 		Read(ret.data(), length * sizeof(char));
 		return ret;
+	}
+
+	void InputMemoryStream::ReadAABB(AABB* aabb)
+	{
+		F32x3 min = Read<F32x3>();
+		F32x3 max = Read<F32x3>();
+		*aabb = AABB(min, max);
 	}
 
 	IOutputStream& IOutputStream::operator<<(F64 data)
@@ -229,6 +237,12 @@ namespace VulkanTest
 	{
 		Write((U16)string.size());
 		Write(string.data(), string.size());
+	}
+
+	void OutputMemoryStream::WriteAABB(const AABB& aabb)
+	{
+		Write(aabb.min);
+		Write(aabb.max);
 	}
 
 	bool OutputMemoryStream::Write(const void* buffer, U64 size_)

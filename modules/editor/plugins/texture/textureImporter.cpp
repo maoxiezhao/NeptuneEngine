@@ -1,4 +1,5 @@
 #include "textureImporter.h"
+#include "editor\plugins\createResource.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetCompiler.h"
 #include "core\filesystem\filesystem.h"

@@ -61,10 +61,10 @@ namespace VulkanTest
 	};
 	StorageServiceImpl StorageServiceImplInstance;
 
-	ResourceStorageRef StorageManager::GetStorage(const Path& path, ResourceManager& resManager)
+	ResourceStorageRef StorageManager::GetStorage(const Path& path, ResourceManager& resManager, bool doLoad)
 	{
 		auto& impl = StorageServiceImplInstance;
-		ScopedMutex lock(impl.mutex);
+		impl.mutex.Lock();
 		ResourceStorage* ret = nullptr;
 		auto it = impl.storageMap.find(path.GetHashValue());
 		if (!it.isValid())
@@ -77,6 +77,24 @@ namespace VulkanTest
 		{
 			ret = it.value();
 		}
+		impl.mutex.Unlock();
+
+		if (doLoad)
+		{
+			ret->LockChunks();
+			const bool loadRet = ret->Load();
+			ret->UnlockChunks();
+			if (loadRet == false)
+			{
+				Logger::Error("Failed to load storage %s", path.c_str());
+
+				ScopedMutex lock(impl.mutex);
+				impl.storageMap.erase(path.GetHashValue());
+				CJING_DELETE(ret);
+				return nullptr;
+			}
+		}
+
 		return ResourceStorageRef(ret);
 	}
 }

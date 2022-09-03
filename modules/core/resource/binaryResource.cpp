@@ -114,6 +114,7 @@ namespace VulkanTest
 		Resource* res = GetResource(path);
 		if (res == nullptr)
 		{
+			ScopedMutex lock(resLock);
 			res = static_cast<BinaryResource*>(CreateResource(path));
 			if (res == nullptr)
 			{
@@ -121,7 +122,8 @@ namespace VulkanTest
 				return nullptr;
 			}
 		
-			auto storage = GetResourceManager().GetStorage(path);
+			auto storagePath = res->GetStoragePath();
+			auto storage = GetResourceManager().GetStorage(storagePath);
 			if (!static_cast<BinaryResource*>(res)->SetStorage(storage))
 			{
 				Logger::Warning("Cannot initialize resource %s", path.c_str());
@@ -129,7 +131,6 @@ namespace VulkanTest
 				return nullptr;
 			}
 
-			ScopedMutex lock(resLock);
 			resources[path.GetHashValue()] = res;
 		}
 

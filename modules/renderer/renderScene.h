@@ -59,20 +59,24 @@ namespace VulkanTest
 	struct MeshComponent
 	{
 		ResPtr<Model> model;
-		Mesh* mesh = nullptr;
+		AABB aabb;
+		I32 meshIndex = 0;
 		U32 geometryOffset = 0;
+		Array<ECS::Entity> materials;
 	};
 
 	struct ObjectComponent
 	{
-		F32x3 center = F32x3(0, 0, 0);
 		AABB aabb;
 		U32 index = 0;
 		U8 stencilRef = 0;
 
 		// Runtime infos
-		ECS::Entity mesh = ECS::INVALID_ENTITY;
 		FMat4x4 worldMat = IDENTITY_MATRIX;
+		F32x3 center = F32x3(0, 0, 0);
+		F32 radius = 0.0f;
+		I32 lodIndex = 0;
+		ECS::Entity mesh = ECS::INVALID_ENTITY;
 	};
 
 	struct LightComponent

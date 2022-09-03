@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "createResource.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
@@ -182,11 +183,10 @@ namespace Editor
 				OBJImporter::ImportConfig cfg = {};
 				cfg.scale = meta.scale;
 
-				if (!objImporter.Import(path.c_str()))
+				if (!objImporter.ImportModel(path.c_str()))
 					return false;
 
 				objImporter.WriteModel(path.c_str(), cfg);
-				objImporter.WriteMaterials(path.c_str(), cfg);
 				return true;
 			}
 			else

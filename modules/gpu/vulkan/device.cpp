@@ -1546,6 +1546,9 @@ DeviceAllocationOwnerPtr DeviceVulkan::AllocateMemmory(const MemoryAllocateInfo&
 
 BindlessDescriptorPtr DeviceVulkan::CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize range)
 {
+    if (range <= 0)
+        return BindlessDescriptorPtr();
+
     auto heap = GetBindlessDescriptorHeap(BindlessReosurceType::StorageBuffer);
     if (heap == nullptr || !heap->IsInitialized())
         return BindlessDescriptorPtr();

@@ -37,7 +37,6 @@ namespace Editor
 
 	bool MaterialGenerator::GenerateSimple(OutputMemoryStream& outmem, MaterialInfo& materialInfo)
 	{
-		outmem.Write(materialInfo);
 		MaterialParams::Save(outmem, params);
 		return true;
 	}

@@ -1,4 +1,5 @@
 #include "materialImporter.h"
+#include "editor\plugins\createResource.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetCompiler.h"
 
@@ -8,39 +9,39 @@ namespace Editor
 {
 	bool MaterialImporter::Import(EditorApp& app, const Path& path)
 	{
-		FileSystem& fs = app.GetEngine().GetFileSystem();
-		OutputMemoryStream mem;
-		if (!fs.LoadContext(path.c_str(), mem))
+		auto& resMangaer = app.GetEngine().GetResourceManager();
+		auto srcStorage = StorageManager::GetStorage(path, resMangaer, true);
+		if (!srcStorage)
 		{
 			Logger::Error("failed to read file:%s", path.c_str());
 			return false;
 		}
 
-		ResourceDataWriter resWriter(Material::ResType);
-		InputMemoryStream input(mem);
+		ResourceInitData initData;
+		if (!srcStorage->LoadResourceHeader(initData))
+			return false;
 
-		MaterialInfo materialInfo;
-		input.Read<MaterialInfo>(materialInfo);
-		MaterialHeader header = {};
-		header.materialInfo = materialInfo;
-		resWriter.WriteCustomData(header);
+		auto srcDataChunk = initData.header.chunks[0];
+		if (!srcStorage->LoadChunk(srcDataChunk))
+			return false;
+
+		ResourceDataWriter resWriter(Material::ResType);
+		MaterialHeader header;
+		memcpy(&header.materialInfo, initData.customData.Data(), sizeof(MaterialInfo));
+		resWriter.data.customData.Write(header);
 
 		// Shader chunk
 		auto shaderData = resWriter.GetChunk(MATERIAL_CHUNK_SHADER_SOURCE);
 		if (shaderData)
 		{
-			if (materialInfo.type == MaterialType::Visual)
-			{
-				// Compile generated shader soruce code
-				// TODO
-			}
+			// TODO Compile generated shader soruce code
 		}
 
 		// Param chunk
 		auto paramsData = resWriter.GetChunk(MATERIAL_CHUNK_PARAMS);
 		if (paramsData)
 		{
-			paramsData->mem.Write((const U8*)input.GetBuffer() + input.GetPos(), input.Size() - sizeof(MaterialInfo));
+			paramsData->mem.Link(srcDataChunk->Data(), srcDataChunk->Size());
 		}
 
 		return app.GetAssetCompiler().WriteCompiled(path.c_str(), resWriter.data);

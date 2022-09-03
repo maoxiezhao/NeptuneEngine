@@ -12,6 +12,7 @@ namespace Editor
 	class MaterialImporter
 	{
 	public:		
+		// Create a compiled resource from a importing material
 		static bool Import(EditorApp& app, const Path& path);
 	};
 }

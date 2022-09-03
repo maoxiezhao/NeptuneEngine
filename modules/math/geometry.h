@@ -137,6 +137,7 @@ namespace VulkanTest
 		AABB Transform(const MATRIX& mat) const;
 		F32x3 GetCenter() const;
 		F32x3 GetHalfWidth() const;
+		F32 GetRadius()const;
 		MATRIX GetCenterAsMatrix() const;
 
 		constexpr bool IsValid() const

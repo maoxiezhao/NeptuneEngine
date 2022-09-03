@@ -5,6 +5,8 @@
 
 namespace VulkanTest
 {
+	struct AABB;
+
     struct VULKAN_TEST_API IInputStream 
     {
         virtual bool Read(void* buffer, U64 size) = 0;
@@ -65,6 +67,7 @@ namespace VulkanTest
 		}
 		void WriteString(const char* string);
 		void WriteStringWithLength(const String& string);
+		void WriteAABB(const AABB& aabb);
 		bool Write(const void* buffer, U64 size_)override;
 		bool Write(const void* buffer, U64 size_, U64 alignment);
 		void Skip(U64 size_);
@@ -109,6 +112,7 @@ namespace VulkanTest
 		bool Read(void* buffer_, U64 size_) override;
 		const char* ReadString();
 		String ReadStringWithLength();
+		void ReadAABB(AABB* aabb);
 
 		const void* GetBuffer() const override {
 			return data;

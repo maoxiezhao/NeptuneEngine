@@ -10,6 +10,6 @@ namespace VulkanTest
 	class VULKAN_TEST_API StorageManager
 	{
 	public:
-		static ResourceStorageRef GetStorage(const Path& path, ResourceManager& resManager);
+		static ResourceStorageRef GetStorage(const Path& path, ResourceManager& resManager, bool doLoad = false);
 	};
 }

@@ -101,6 +101,11 @@ namespace VulkanTest
 		return XMVectorSubtract(V1, V2);
 	}
 
+	inline VECTOR XM_CALLCONV VectorMultiply(VECTOR V1, VECTOR V2)
+	{
+		return XMVectorMultiply(V1, V2);
+	}
+
 	inline XMVECTOR XM_CALLCONV Vector3Dot
 	(
 		FXMVECTOR V1,

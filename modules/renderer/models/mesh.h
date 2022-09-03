@@ -4,6 +4,8 @@
 
 namespace VulkanTest
 {
+	class Model;
+
 	struct VULKAN_TEST_API PickResult
 	{
 		ECS::Entity entity = ECS::INVALID_ENTITY;
@@ -42,15 +44,17 @@ namespace VulkanTest
 			COUNT
 		};
 
-		Mesh(const GPU::InputLayout& inputLayout_,
-			U8 stride_,
-			const char* name_,
-			const AttributeSemantic* semantics_);
+		void Init(const char* name_, Model* model_, I32 lodIndex_, I32 index_, const AABB& aabb_);
+		bool Load();
+		void Unload();
 
-		GPU::InputLayout inputLayout;
+		bool IsReady()const;
+
+	public:
 		String name;
-		U8 stride;
-		Mesh::AttributeSemantic semantics[GPU::InputLayout::MAX_ATTRIBUTES];
+		Model* model = nullptr;
+		I32 index = 0;
+		I32 lodIndex = 0;
 		AABB aabb;
 
 		Array<F32x3> vertexPos;
@@ -61,11 +65,9 @@ namespace VulkanTest
 
 		struct MeshSubset
 		{
-			ResPtr<Material> material;
+			I32 materialIndex = -1;
 			U32 indexOffset = 0;
 			U32 indexCount = 0;
-
-			ECS::Entity materialID = ECS::INVALID_ENTITY;
 		};
 		Array<MeshSubset> subsets;
 
@@ -83,8 +85,9 @@ namespace VulkanTest
 			return lodIndices[lod];
 		}
 
+	public:
 		GPU::BufferPtr generalBuffer;
-		
+
 		struct BufferView
 		{
 			U64 offset = ~0ull;
@@ -94,6 +97,13 @@ namespace VulkanTest
 			constexpr bool IsValid() const {
 				return offset != ~0ull;
 			}
+
+			void Reset()
+			{
+				offset = ~0ull;
+				size = 0ull;
+				srv.reset();
+			}
 		};
 		BufferView ib;
 		BufferView vbPos;
@@ -101,9 +111,6 @@ namespace VulkanTest
 		BufferView vbTan;
 		BufferView vbUVs;
 
-		bool CreateRenderData();
-
 		PickResult CastRayPick(const VECTOR& rayOrigin, const VECTOR& rayDirection, F32 tmin, F32 tmax);
-
 	};
 }

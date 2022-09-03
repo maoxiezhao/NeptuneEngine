@@ -3,6 +3,7 @@
 #include "editorPlugin.h"
 #include "renderer\texture.h"
 #include "loader\tiny_obj_loader.h"
+#include "math\geometry.h"
 
 namespace VulkanTest
 {
@@ -17,6 +18,8 @@ namespace Editor
 		struct ImportConfig
 		{
 			F32 scale;
+			U32 autoLodCount = 1;
+			bool autoLODs = false;
 		};
 
 		struct ImportMesh
@@ -25,11 +28,12 @@ namespace Editor
 			
 			std::string name;
 			U32 lod = 0;
+			AABB aabb;
 			bool import = true;
 
 			struct MeshSubset
 			{
-				const tinyobj::material_t* material = nullptr;
+				I32 materialIndex = -1;
 				U32 indexOffset = 0;
 				U32 indexCount = 0;
 				U32 uniqueIndexOffset = 0;
@@ -42,6 +46,7 @@ namespace Editor
 			Array<F32x4> vertexTangents;
 			Array<F32x2> vertexUvset_0;
 			Array<U32> indices;
+			bool hasUV = false;
 		};
 
 		struct ImportTexture
@@ -55,32 +60,28 @@ namespace Editor
 
 		struct ImportMaterial
 		{
+			Guid guid;
 			const tinyobj::material_t* material = nullptr;		
 			ImportTexture textures[Texture::TextureType::COUNT];
 			bool import = true;
 		};
 
-		bool Import(const char* filename);
-		void WriteModel(const char* filepath, const ImportConfig& cfg);
-		void WriteMaterials(const char* filepath, const ImportConfig& cfg);
+		struct ImportLOD
+		{
+			Array<ImportMesh*> meshes;
+			I32 lodIndex = 0;
+		};
+
+		bool ImportModel(const char* filename);
+		bool WriteModel(const char* filepath, const ImportConfig& cfg);
 
 	private:
 		void PostprocessMeshes(const ImportConfig& cfg);
 		void GetImportMeshName(const ImportMesh& mesh, char(&out)[256]);
-		void WriteMesh(const char* src, const ImportMesh& mesh);
-		void WriteMeshes(const char* src, I32 meshIdx, const ImportConfig& cfg);
-		void WriteGeometry(const ImportConfig& cfg);
+		void WriteMesh(OutputMemoryStream& outmem, const ImportMesh& mesh);
 		bool AreIndices16Bit(const ImportMesh& mesh) const;
-		I32 GetAttributeCount(const ImportMesh& mesh)const;
-
-		template <typename T> 
-		void Write(const T& obj) {
-			outMem->Write(&obj, sizeof(obj)); 
-		}
-		void Write(const void* ptr, size_t size) { 
-			outMem->Write(ptr, size);
-		}
-		void WriteString(const char* str);
+		I32  GetAttributeCount(const ImportMesh& mesh)const;
+		bool WriteMaterials(const char* filepath, const ImportConfig& cfg);
 
 	private:
 		EditorApp& editor;
@@ -90,8 +91,8 @@ namespace Editor
 		std::vector<tinyobj::material_t> objMaterials;
 
 		Array<ImportMesh> meshes;
+		Array<ImportLOD> lods;
 		Array<ImportMaterial> materials;
-		OutputMemoryStream* outMem = nullptr;
 	};
 }
 }

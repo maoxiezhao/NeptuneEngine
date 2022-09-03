@@ -102,7 +102,7 @@ namespace VulkanTest
 		I32 maxResidency = res->GetMaxResidency();
 		I32 curResidency = res->GetCurrentResidency();
 		I32 targetResidency = streamingHandler->CalculateResidency(res);
-		ASSERT(targetResidency >= 0 && targetResidency < maxResidency);
+		ASSERT(targetResidency >= 0 && targetResidency <= maxResidency);
 
 		res->TargetResidency = targetResidency;
 

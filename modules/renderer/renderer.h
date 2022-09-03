@@ -8,6 +8,7 @@
 #include "renderScene.h"
 #include "culling.h"
 #include "shader.h"
+#include "models\mesh.h"
 
 namespace VulkanTest
 {
@@ -52,6 +53,8 @@ namespace VulkanTest
 		};
 
 		void DrawScene(GPU::CommandList& cmd, const Visibility& vis, RENDERPASS pass);
+
+		I32 ComputeModelLOD(const Model* model, F32x3 eye, F32x3 pos, F32 radius);
 
 		// TODO
 		void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment);

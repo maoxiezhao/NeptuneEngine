@@ -48,6 +48,22 @@ namespace VulkanTest
 
 	Resource::~Resource() = default;
 
+	Path Resource::GetStoragePath() const
+	{
+		StaticString<MAX_PATH_LENGTH> fullResPath;
+		if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
+		{
+			// Resource tiles load directly
+			fullResPath = GetPath().c_str();
+		}
+		else
+		{
+			const U64 pathHash = path.GetHashValue();
+			fullResPath = StaticString<MAX_PATH_LENGTH>(".export/resources/", pathHash, ".res");
+		}
+		return Path(fullResPath.c_str());
+	}
+
 	bool Resource::WaitForLoaded(F32 seconds) const
 	{
 		return true;
@@ -109,8 +125,11 @@ namespace VulkanTest
 		desiredState = State::EMPTY;
 
 		// Unload real resource content
-		if (IsReady())
+		if (IsLoaded())
+		{
 			Unload();
+			isLoaded = false;
+		}
 
 		// Refresh current state
 		resSize = 0;
@@ -180,8 +199,11 @@ namespace VulkanTest
 		desiredState = State::EMPTY;
 
 		// Unload real resource content
-		if (IsReady())
+		if (IsLoaded())
+		{
 			Unload();
+			isLoaded = false;
+		}
 
 		// Refresh current state
 		resSize = 0;
@@ -257,8 +279,9 @@ namespace VulkanTest
 
 		// Refresh resoruce state
 		ASSERT(currentState != State::READY);
-
 		auto state = task->GetState();
+		isLoaded = state == Task::State::Finished;
+
 		if (state == Task::State::Finished)
 		{
 			emptyDepCount--;

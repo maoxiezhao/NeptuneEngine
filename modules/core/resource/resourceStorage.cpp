@@ -409,19 +409,7 @@ namespace VulkanTest
 		FileReadStream*& stream = file.Get();
 		if (stream == nullptr)
 		{
-			StaticString<MAX_PATH_LENGTH> fullResPath;
-			if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
-			{
-				// Resource tiles load directly
-				fullResPath = GetPath().c_str();
-			}
-			else
-			{
-				const U64 pathHash = path.GetHashValue();
-				fullResPath = StaticString<MAX_PATH_LENGTH>(".export/resources/", pathHash, ".res");
-			}
-
-			auto file_ = resManager.GetFileSystem()->OpenFile(fullResPath.c_str(), FileFlags::DEFAULT_READ);
+			auto file_ = resManager.GetFileSystem()->OpenFile(path.c_str(), FileFlags::DEFAULT_READ);
 			if (!file_ || !file_->IsValid())
 			{
 				Logger::Error("Cannot open compiled resource content %s", GetPath().c_str());

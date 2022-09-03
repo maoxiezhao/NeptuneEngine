@@ -288,7 +288,8 @@ namespace VulkanTest
                 const VECTOR rayOriginLocal = Vector3Transform(LoadF32x3(ray.origin), objectMatInverse);
                 const XMVECTOR rayDirectionLocal = XMVector3Normalize(XMVector3TransformNormal(LoadF32x3(ray.direction), objectMatInverse));
 
-                PickResult hit = meshComp->mesh->CastRayPick(rayOriginLocal, rayDirectionLocal, ray.tMin, ray.tMax);
+                auto mesh = meshComp->model->GetMesh(0, meshComp->meshIndex);
+                PickResult hit = mesh->CastRayPick(rayOriginLocal, rayDirectionLocal, ray.tMin, ray.tMax);
                 if (hit.isHit)
                 {
                     // Calculate the distance in world space
@@ -465,33 +466,38 @@ namespace VulkanTest
     
         void OnModelLoaded(Model* model, ECS::Entity entity)
         {
-            // TODO use system to process
-
-            ASSERT(model->IsReady());
+            ASSERT(model->IsLoaded());
 
             const LoadModelComponent* modelCmp = entity.Get<LoadModelComponent>();
-            for (int i = 0; i < model->GetMeshCount(); i++)
+
+            // Materials
+            Array<ECS::Entity> materialEntities;
+            const auto& materials = model->GetMaterials();
+            for (const auto& material : materials)
             {
-                Mesh& mesh = model->GetMesh(i);
+                char name[64];
+                CopyString(Span(name), Path::GetBaseName(material.material->GetPath().c_str()));
+                auto materialEntity = CreateMaterial(CreateEntity(name));
+                MaterialComponent* materialComp = materialEntity.GetMut<MaterialComponent>();
+                materialComp->material = material.material;
+
+                materialEntities.push_back(materialEntity);
+            }
+
+            auto& meshes = model->GetModelLOD(0)->GetMeshes();
+            for (int meshIndex = 0; meshIndex < meshes.size(); meshIndex++)
+            {
+                auto& mesh = meshes[meshIndex];
+
+                // Meshes
                 auto meshEntity = CreateMesh(CreateEntity(mesh.name.c_str()));
                 MeshComponent* meshCmp = meshEntity.GetMut<MeshComponent>();
                 meshCmp->model = modelCmp->model;
-                meshCmp->mesh = &mesh;
+                meshCmp->meshIndex = meshIndex;
+                meshCmp->aabb = mesh.aabb;
+                meshCmp->materials = materialEntities.copy();
 
-                for (auto& subset : mesh.subsets)
-                {
-                    if (subset.material)
-                    {
-                        char name[64];
-                        CopyString(Span(name), Path::GetBaseName(subset.material->GetPath().c_str()));
-                        auto materialEntity = CreateMaterial(CreateEntity(name));
-                        MaterialComponent* material = materialEntity.GetMut<MaterialComponent>();
-                        material->material = subset.material;
-                        
-                        subset.materialID = materialEntity;
-                    }
-                }
-
+                // ObjectComponent
                 auto objectEntity = CreateObject(CreateEntity(entity.GetName()));
                 ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
                 obj->mesh = meshEntity;
@@ -552,10 +558,7 @@ namespace VulkanTest
         void Update(float dt, bool paused)override
         {
             PROFILE_FUNCTION();
-
             GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
-
-            // Update scene buffers
 
             // Update instance buffer
             U32 instanceArraySize = 0;
@@ -585,11 +588,16 @@ namespace VulkanTest
             U32 geometryArraySize = 0;
             if (meshQuery.Valid())
             {
-                meshQuery.ForEach([&](ECS::Entity entity, MeshComponent& meshComp) {
-                    if (meshComp.mesh != nullptr)
+                meshQuery.ForEach([&](ECS::Entity entity, MeshComponent& meshComp) 
+                {
+                    if (!meshComp.model || !meshComp.model->IsReady())
+                        return;
+
+                    auto meshLOD0 = meshComp.model->GetMesh(0, meshComp.meshIndex);
+                    if (meshLOD0 != nullptr)
                     {
                         meshComp.geometryOffset = geometryArraySize;
-                        geometryArraySize += meshComp.mesh->subsets.size();
+                        geometryArraySize += meshLOD0->subsets.size();
                     }
                 });
             }
@@ -626,23 +634,7 @@ namespace VulkanTest
             .MultiThread(true)
             .ForEach([&](ECS::Entity entity, MeshComponent& meshComp) {
 
-            auto geometryMapped = scene.geometryMapped;
-            if (!geometryMapped || !meshComp.mesh)
-                return;
-
-            Mesh& mesh = *meshComp.mesh;
-            ShaderGeometry geometry;
-            geometry.vbPos = mesh.vbPos.srv->GetIndex();
-            geometry.vbNor = mesh.vbNor.srv->GetIndex();
-            geometry.vbUVs = mesh.vbUVs.srv->GetIndex();
-            geometry.ib = 0;
-
-            U32 subsetIndex = 0;
-            for (auto& subset : mesh.subsets)
-            {
-                memcpy(geometryMapped + meshComp.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
-                subsetIndex++;
-            }
+            
         });
     }
 
@@ -672,17 +664,20 @@ namespace VulkanTest
             if (!instanceMapped)
                 return;
 
+            const MeshComponent* meshComp = nullptr;
             AABB& aabb = objComp.aabb;
             aabb = AABB();
-
             if (objComp.mesh != ECS::INVALID_ENTITY)
             {
-                auto meshComp = objComp.mesh.Get<MeshComponent>();
-                ASSERT(meshComp->mesh != nullptr);
+                meshComp = objComp.mesh.Get<MeshComponent>();
+                if (meshComp == nullptr)
+                    return;
 
                 MATRIX mat = LoadFMat4x4(transform.transform.world);
-                aabb = meshComp->mesh->aabb.Transform(mat);
-                objComp.center = StoreFMat4x4(meshComp->mesh->aabb.GetCenterAsMatrix() * mat).vec[3].xyz();
+                aabb = meshComp->aabb.Transform(mat);
+
+                FMat4x4 meshMatrix = StoreFMat4x4(aabb.GetCenterAsMatrix() * mat);
+                objComp.center = meshMatrix.vec[3].xyz();
 
                 // Setup shader mesh instance
                 ShaderMeshInstance inst;
@@ -692,10 +687,44 @@ namespace VulkanTest
                 // Inverse transpose world mat
                 MATRIX worldMatInvTranspose = MatrixTranspose(MatrixInverse(mat));
                 inst.transformInvTranspose.Create(StoreFMat4x4(worldMatInvTranspose));
-
-                objComp.worldMat = transform.transform.world;
-
                 memcpy(instanceMapped + objComp.index, &inst, sizeof(ShaderMeshInstance));
+            }
+
+            // objComp.center = aabb.GetCenter();
+            objComp.radius = aabb.GetRadius();
+            objComp.worldMat = transform.transform.world;
+
+            // Calculate LOD
+            if (meshComp != nullptr)
+            {
+                CameraComponent* camera = scene.GetMainCamera();
+                objComp.lodIndex = meshComp->model->CalculateModelLOD(camera->eye, objComp.center, objComp.radius);
+
+                auto geometryMapped = scene.geometryMapped;
+                if (!geometryMapped || objComp.lodIndex < 0)
+                    return;
+
+                Mesh* mesh = meshComp->model->GetMesh(objComp.lodIndex, meshComp->meshIndex);
+                if (mesh == nullptr)
+                    return;
+
+                ShaderGeometry geometry;
+                geometry.vbPos = mesh->vbPos.srv->GetIndex();
+                geometry.vbNor = mesh->vbNor.srv->GetIndex();
+                geometry.vbUVs = mesh->vbUVs.srv->GetIndex();
+                geometry.vbTan = mesh->vbTan.srv->GetIndex();
+                geometry.ib = 0;
+
+                U32 subsetIndex = 0;
+                for (auto& subset : mesh->subsets)
+                {
+                    memcpy(geometryMapped + meshComp->geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                    subsetIndex++;
+                }
+            }
+            else
+            {
+                objComp.lodIndex = 0;
             }
         });
     }
@@ -736,7 +765,7 @@ namespace VulkanTest
     void RenderSceneImpl::InitSystems()
     {
         AddSystem(TransformUpdateSystem(*this));
-        AddSystem(MeshUpdateSystem(*this));
+        // AddSystem(MeshUpdateSystem(*this));
         AddSystem(MaterialUpdateSystem(*this));
         AddSystem(ObjectUpdateSystem(*this));
         AddSystem(LightUpdateSystem(*this));

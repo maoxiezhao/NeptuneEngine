@@ -546,6 +546,7 @@ namespace Renderer
 			uint32_t instanceCount = 0;
 			uint32_t dataOffset = 0;
 			U8 stencilRef = 0;
+			I32 lodIndex = 0;
 		} instancedBatch = {};
 
 		auto FlushBatch = [&]()
@@ -554,20 +555,20 @@ namespace Renderer
 				return;
 
 			const MeshComponent* meshCmp = instancedBatch.meshID.Get<MeshComponent>();
-			if (meshCmp == nullptr ||
-				meshCmp->mesh == nullptr)
+			if (meshCmp == nullptr)
 				return;
 
-			Mesh& mesh = *meshCmp->mesh;
+			Mesh& mesh = *meshCmp->model->GetMesh(instancedBatch.lodIndex, meshCmp->meshIndex);
 			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, VK_INDEX_TYPE_UINT32);
 
 			for (U32 subsetIndex = 0; subsetIndex < mesh.subsets.size(); subsetIndex++)
 			{
 				auto& subset = mesh.subsets[subsetIndex];
-				if (subset.indexCount <= 0)
+				if (subset.indexCount <= 0 || subset.materialIndex < 0)
 					continue;
 
-				const MaterialComponent* material = subset.materialID.Get<MaterialComponent>();
+				const ECS::Entity materialEntity = meshCmp->materials[subset.materialIndex];
+				const MaterialComponent* material = materialEntity.Get<MaterialComponent>();
 				if (!material || !material->material || !material->material->IsReady())
 					continue;
 
@@ -602,7 +603,8 @@ namespace Renderer
 
 			const ObjectComponent* obj = objID.Get<ObjectComponent>();
 			if (meshID != instancedBatch.meshID ||
-				obj->stencilRef != instancedBatch.stencilRef)
+				obj->stencilRef != instancedBatch.stencilRef ||
+				obj->lodIndex != instancedBatch.lodIndex)
 			{
 				FlushBatch();
 
@@ -610,6 +612,7 @@ namespace Renderer
 				instancedBatch.meshID = meshID;
 				instancedBatch.dataOffset = allocation.offset + instanceCount * sizeof(ShaderMeshInstancePointer);
 				instancedBatch.stencilRef = obj->stencilRef;
+				instancedBatch.lodIndex = obj->lodIndex;
 			}
 
 			ShaderMeshInstancePointer data;
@@ -657,6 +660,25 @@ namespace Renderer
 		}
 
 		cmd.EndEvent();
+	}
+
+	I32 ComputeModelLOD(const Model* model, F32x3 eye, F32x3 pos, F32 radius)
+	{
+		F32 distSq = DistanceSquared(eye, pos);
+		const float radiussq = radius * radius;
+		if (distSq < radiussq)
+			return 0;
+
+		if (model->GetLODsCount() <= 1)
+			return 0;
+
+		for (int i = model->GetLODsCount() - 1; i >= 0; i--)
+		{
+			const auto& lod = model->GetModelLOD(i);
+			if (lod->screenSize >= distSq)
+				return i;
+		}
+		return 0;
 	}
 
 	void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment)

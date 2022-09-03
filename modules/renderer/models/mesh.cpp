@@ -6,24 +6,21 @@
 
 namespace VulkanTest
 {
-	Mesh::Mesh(const GPU::InputLayout& inputLayout_, U8 stride_, const char* name_, const AttributeSemantic* semantics_):
-		inputLayout(inputLayout_),
-		stride(stride_),
-		name(name_)
+	void Mesh::Init(const char* name_, Model* model_, I32 lodIndex_, I32 index_, const AABB& aabb_)
 	{
-		if (semantics_)
-		{
-			for (U32 i = 0; i < inputLayout.attributeCount; i++)
-				semantics[i] = semantics_[i];
-		}
+		name = name_;
+		model = model_;
+		lodIndex = lodIndex_;
+		index = index_;
+		aabb = aabb_;
 	}
 
-	bool Mesh::CreateRenderData()
+	bool Mesh::Load()
 	{
 		GPU::DeviceVulkan* device = Renderer::GetDevice();
 		GPU::BufferCreateInfo bufferInfo = {};
 		bufferInfo.domain = GPU::BufferDomain::Device;
-		bufferInfo.usage = 
+		bufferInfo.usage =
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
@@ -46,7 +43,7 @@ namespace VulkanTest
 
 		F32x3 _min = F32x3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
 		F32x3 _max = F32x3(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
-	
+
 		// VertexBuffer position
 		vbPos.offset = output.Size();
 		vbPos.size = vertexPos.size() * sizeof(F32x3);
@@ -57,8 +54,6 @@ namespace VulkanTest
 			_min = Min(_min, pos);
 			_max = Max(_max, pos);
 		}
-
-		aabb = AABB(_min, _max);
 
 		// VertexBuffer normal
 		if (!vertexNor.empty())
@@ -71,7 +66,9 @@ namespace VulkanTest
 		// VertexBuffer tangent
 		if (!vertexTangents.empty())
 		{
-
+			vbTan.offset = output.Size();
+			vbTan.size = vertexTangents.size() * sizeof(F32x3);
+			output.Write(vertexTangents.data(), vbTan.size, alignment);
 		}
 
 		// VertexBuffer uvs
@@ -93,8 +90,23 @@ namespace VulkanTest
 		vbPos.srv = device->CreateBindlessStroageBuffer(*buffer, vbPos.offset, vbPos.size);
 		vbNor.srv = device->CreateBindlessStroageBuffer(*buffer, vbNor.offset, vbNor.size);
 		vbUVs.srv = device->CreateBindlessStroageBuffer(*buffer, vbUVs.offset, vbUVs.size);
+		vbTan.srv = device->CreateBindlessStroageBuffer(*buffer, vbTan.offset, vbTan.size);
 
 		return true;
+	}
+
+	void Mesh::Unload()
+	{
+		generalBuffer.reset();
+		vbPos.Reset();
+		vbNor.Reset();
+		vbUVs.Reset();
+		vbTan.Reset();
+	}
+
+	bool Mesh::IsReady()const
+	{
+		return (bool)generalBuffer;
 	}
 
 	PickResult Mesh::CastRayPick(const VECTOR& rayOrigin, const VECTOR& rayDirection, F32 tmin, F32 tmax)

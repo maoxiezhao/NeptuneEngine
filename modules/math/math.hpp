@@ -25,8 +25,15 @@ namespace VulkanTest
 
 	inline F32 Distance(const VECTOR& v1, const VECTOR& v2)
 	{
-		VECTOR vectorSub = XMVectorSubtract(v1, v2);
+		VECTOR vectorSub = VectorSubtract(v1, v2);
 		VECTOR length = Vector3Length(vectorSub);
+		return StoreF32(length);
+	}
+
+	inline F32 DistanceSquared(const VECTOR& v1, const VECTOR& v2)
+	{
+		VECTOR vectorSub = VectorSubtract(v1, v2);
+		VECTOR length = Vector3LengthSq(vectorSub);
 		return StoreF32(length);
 	}
 
@@ -42,6 +49,13 @@ namespace VulkanTest
 		VECTOR vector1 = LoadF32x3(v1);
 		VECTOR vector2 = LoadF32x3(v2);
 		return Distance(vector1, vector2);
+	}
+
+	inline F32 DistanceSquared(const F32x3& v1, const F32x3& v2)
+	{
+		VECTOR vector1 = LoadF32x3(v1);
+		VECTOR vector2 = LoadF32x3(v2);
+		return DistanceSquared(vector1, vector2);
 	}
 
 	constexpr F32 Lerp(F32 value1, F32 value2, F32 amount)
@@ -76,7 +90,7 @@ namespace VulkanTest
 		F32 dp = Clamp(VectorGetX(Vector3Dot(A, B)), -1, 1);
 		F32 angle = std::acos(dp);
 		if (VectorGetX(Vector3Dot(Vector3Cross(A, B), LoadF32x3(axis))) < 0)	// Check side
-			angle = XM_2PI - angle;
+			angle = MATH_2PI - angle;
 		return angle;
 	}
 

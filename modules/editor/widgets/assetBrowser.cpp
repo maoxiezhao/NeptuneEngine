@@ -1,6 +1,7 @@
 #include "assetBrowser.h"
 #include "assetCompiler.h"
 #include "editor\editor.h"
+#include "editor\plugins\createResource.h"
 #include "editor\widgets\codeEditor.h"
 #include "core\platform\platform.h"
 #include "renderer\texture.h"

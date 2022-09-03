@@ -1,5 +1,5 @@
 #include "resourceLoading.h"
-#include "core\collections\concurrentqueue.hpp"
+#include "core\jobsystem\taskQueue.h"
 #include "core\platform\platform.h"
 #include "core\profiler\profiler.h"
 
@@ -7,29 +7,6 @@ namespace VulkanTest
 {
 	namespace
 	{
-		template<typename T>
-		class ConcurrentTaskQueue : public ConcurrentQueue<T*>
-		{
-		public:
-			FORCE_INLINE void Add(T* item)
-			{
-				ConcurrentQueue<T*>::enqueue(item);
-			}
-
-			void CancelAll()
-			{
-				T* tasks[16];
-				std::size_t count;
-				while ((count = ConcurrentQueue<T*>::try_dequeue_bulk(tasks, ARRAYSIZE(tasks))) != 0)
-				{
-					for (std::size_t i = 0; i != count; i++)
-					{
-						tasks[i]->Cancel();
-					}
-				}
-			}
-		};
-
 		thread_local ContentLoadingThread* ThisThread = nullptr;
 		struct ContentLoadingImpl
 		{

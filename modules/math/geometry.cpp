@@ -82,6 +82,12 @@ namespace VulkanTest
 		return F32x3(abs(max.x - center.x), abs(max.y - center.y), abs(max.z - center.z));
 	}
 
+	F32 AABB::GetRadius()const
+	{
+		F32x3 width = GetHalfWidth();
+		return std::max(std::max(width.x, width.y), width.z);
+	}
+
 	MATRIX AABB::GetCenterAsMatrix() const
 	{
 		F32x3 ext = GetHalfWidth();

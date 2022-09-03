@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\resource\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
+#include "core\utils\guid.h"
 #include "resourceHeader.h"
 
 namespace VulkanTest
@@ -41,9 +42,15 @@ namespace VulkanTest
 			return currentState == State::READY;
 		}
 
+		Guid GetGUID()const {
+			return guid;
+		}
+
 		const Path& GetPath()const {
 			return path;
 		}
+
+		Path GetStoragePath()const;
 
 		U64 Size() const { 
 			return resSize;
@@ -90,6 +97,10 @@ namespace VulkanTest
 
 		bool IsReloading()const {
 			return isReloading;
+		}
+
+		bool IsLoaded()const {
+			return isLoaded;
 		}
 
 		// Called by ObjectService
@@ -139,6 +150,7 @@ namespace VulkanTest
 
 		bool isStateDirty = false;
 		bool isReloading = false;
+		bool isLoaded = false;
 
 	private:
 		friend struct ResourceDeleter;
@@ -148,6 +160,7 @@ namespace VulkanTest
 		
 		void OnStateChanged(State oldState, State newState, Resource& res);
 
+		Guid guid;
 		Path path;
 		bool hooked = false;
 		bool ownedBySelf = false;

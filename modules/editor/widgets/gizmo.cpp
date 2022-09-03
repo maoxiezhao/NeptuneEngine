@@ -265,7 +265,7 @@ namespace Editor::Gizmo
 		else if (axis == Axis::Z)
 		{
 			VECTOR axis = VectorSet(0, 0, 1, 0);
-			VECTOR wrong = Vector3Cross(cameraUp, axis);
+			VECTOR wrong = Vector3Cross(cameraAt, axis);
 			planeNormal = Vector3Cross(wrong, axis);
 		}
 		else if (axis == Axis::XY)
