@@ -7,41 +7,6 @@
 
 namespace VulkanTest
 {
-    void CameraComponent::UpdateCamera()
-    {
-        projection = StoreFMat4x4(MatrixPerspectiveFovLH(fov, width / height, farZ, nearZ)); // reverse zbuffer!
-
-        VECTOR _Eye = LoadF32x3(eye);
-        VECTOR _At  = LoadF32x3(at);
-        VECTOR _Up  = LoadF32x3(up);
-
-        MATRIX _V = MatrixLookToLH(_Eye, _At, _Up);
-        MATRIX _P = LoadFMat4x4(projection);
-        MATRIX _VP = MatrixMultiply(_V, _P);
-
-        view = StoreFMat4x4(_V);
-        viewProjection = StoreFMat4x4(_VP);
-
-        frustum.Compute(LoadFMat4x4(viewProjection));
-    }
-
-    void CameraComponent::UpdateTransform(const Transform& transform)
-    {
-        MATRIX mat = LoadFMat4x4(transform.world);
-
-        VECTOR Eye = Vector3Transform(VectorSet(0, 0, 0, 1), mat);
-        VECTOR At = Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 0, 1, 0), mat));
-        VECTOR Up = Vector3Normalize(Vector3TransformNormal(XMVectorSet(0, 1, 0, 0), mat));
-
-        MATRIX _V = MatrixLookToLH(Eye, At, Up);
-        view = StoreFMat4x4(_V);
-        rotationMat = StoreFMat3x3(MatrixInverse(_V));
-
-        eye = StoreF32x3(Eye);
-        at = StoreF32x3(At);
-        up = StoreF32x3(Up);
-    }
-
     template<typename T>
     struct RenderSceneBuffer
     {
@@ -288,7 +253,7 @@ namespace VulkanTest
                 const VECTOR rayOriginLocal = Vector3Transform(LoadF32x3(ray.origin), objectMatInverse);
                 const XMVECTOR rayDirectionLocal = XMVector3Normalize(XMVector3TransformNormal(LoadF32x3(ray.direction), objectMatInverse));
 
-                auto mesh = meshComp->model->GetMesh(0, meshComp->meshIndex);
+                auto mesh = meshComp->meshes[0];
                 PickResult hit = mesh->CastRayPick(rayOriginLocal, rayDirectionLocal, ray.tMin, ray.tMax);
                 if (hit.isHit)
                 {
@@ -466,8 +431,7 @@ namespace VulkanTest
     
         void OnModelLoaded(Model* model, ECS::Entity entity)
         {
-            ASSERT(model->IsLoaded());
-
+            ASSERT(model->IsLoaded());     
             const LoadModelComponent* modelCmp = entity.Get<LoadModelComponent>();
 
             // Materials
@@ -484,25 +448,47 @@ namespace VulkanTest
                 materialEntities.push_back(materialEntity);
             }
 
-            auto& meshes = model->GetModelLOD(0)->GetMeshes();
-            for (int meshIndex = 0; meshIndex < meshes.size(); meshIndex++)
+            I32 lodsCount = model->GetLODsCount();
+            Array<MeshComponent*> lodMeshes;
+            for (I32 lodIndex = 0; lodIndex < lodsCount; lodIndex++)
+                lodMeshes.push_back(nullptr);
+
+            for (I32 lodIndex = 0; lodIndex < lodsCount; lodIndex++)
             {
-                auto& mesh = meshes[meshIndex];
+                auto& meshes = model->GetModelLOD(lodIndex)->GetMeshes();
+                for (int meshIndex = 0; meshIndex < meshes.size(); meshIndex++)
+                {
+                    auto& mesh = meshes[meshIndex];
+                    MeshComponent* meshCmp = lodMeshes[lodIndex];
+                    if (meshCmp == nullptr)
+                    {
+                        auto meshEntity = CreateMesh(CreateEntity(mesh.name.c_str()));
+                        meshCmp = meshEntity.GetMut<MeshComponent>();
+                        lodMeshes[lodIndex] = meshCmp;
 
-                // Meshes
-                auto meshEntity = CreateMesh(CreateEntity(mesh.name.c_str()));
-                MeshComponent* meshCmp = meshEntity.GetMut<MeshComponent>();
-                meshCmp->model = modelCmp->model;
-                meshCmp->meshIndex = meshIndex;
-                meshCmp->aabb = mesh.aabb;
-                meshCmp->materials = materialEntities.copy();
+                        meshCmp->model = modelCmp->model;
+                        meshCmp->aabb = mesh.aabb;
+                        meshCmp->subsetsPerLod = mesh.subsets.size();
+                        meshCmp->lodsCount = lodsCount;
 
-                // ObjectComponent
-                auto objectEntity = CreateObject(CreateEntity(entity.GetName()));
-                ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
-                obj->mesh = meshEntity;
+                        // ObjectComponent
+                        String name = entity.GetName();
+                        auto objectEntity = CreateObject(CreateEntity(name + "_obj"));
+                        ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
+                        obj->mesh = meshEntity;
+                    }
+ 
+                    meshCmp->meshes[lodIndex] = &mesh;
+    
+                    for (auto& subset : mesh.subsets)
+                    {
+                        if (subset.materialIndex >= 0)
+                            subset.material = materialEntities[subset.materialIndex];
+                    }
+                }
             }
 
+            // Remove model loading entity
             RemoveFromModelEntityMap(model, entity);
             world.DeleteEntity(entity);
         }
@@ -565,7 +551,7 @@ namespace VulkanTest
             if (objectQuery.Valid())
             {
                 objectQuery.ForEach([&](ECS::Entity entity, ObjectComponent& obj) {
-                    obj.index = instanceArraySize;
+                    obj.objectIndex = instanceArraySize;
                     instanceArraySize++;
                 });
             }
@@ -593,12 +579,8 @@ namespace VulkanTest
                     if (!meshComp.model || !meshComp.model->IsReady())
                         return;
 
-                    auto meshLOD0 = meshComp.model->GetMesh(0, meshComp.meshIndex);
-                    if (meshLOD0 != nullptr)
-                    {
-                        meshComp.geometryOffset = geometryArraySize;
-                        geometryArraySize += meshLOD0->subsets.size();
-                    }
+                    meshComp.geometryOffset = geometryArraySize;
+                    geometryArraySize += meshComp.lodsCount * meshComp.subsetsPerLod;
                 });
             }
             geometryBuffer.UpdateBuffer(device, geometryArraySize);
@@ -634,7 +616,35 @@ namespace VulkanTest
             .MultiThread(true)
             .ForEach([&](ECS::Entity entity, MeshComponent& meshComp) {
 
-            
+            auto geometryMapped = scene.geometryMapped;
+            if (!geometryMapped)
+                return;
+
+            if (!meshComp.model || !meshComp.model->IsReady())
+                return;
+
+            auto lodsCount = meshComp.model->GetLODsCount();
+            for (int lodIndex = 0; lodIndex < lodsCount; lodIndex++)
+            {
+                Mesh* mesh = meshComp.meshes[lodIndex];
+                if (mesh != nullptr)
+                {
+                    ShaderGeometry geometry;
+                    geometry.vbPos = mesh->vbPos.srv->GetIndex();
+                    geometry.vbNor = mesh->vbNor.srv->GetIndex();
+                    geometry.vbUVs = mesh->vbUVs.srv->GetIndex();
+                    geometry.vbTan = mesh->vbTan.srv->GetIndex();
+                    geometry.ib = 0;
+
+                    U32 lodOffset = meshComp.subsetsPerLod * lodIndex;
+                    U32 subsetIndex = 0;
+                    for (auto& subset : mesh->subsets)
+                    {
+                        memcpy(geometryMapped + meshComp.geometryOffset + lodOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                        subsetIndex++;
+                    }
+                }
+            }   
         });
     }
 
@@ -687,7 +697,7 @@ namespace VulkanTest
                 // Inverse transpose world mat
                 MATRIX worldMatInvTranspose = MatrixTranspose(MatrixInverse(mat));
                 inst.transformInvTranspose.Create(StoreFMat4x4(worldMatInvTranspose));
-                memcpy(instanceMapped + objComp.index, &inst, sizeof(ShaderMeshInstance));
+                memcpy(instanceMapped + objComp.objectIndex, &inst, sizeof(ShaderMeshInstance));
             }
 
             // objComp.center = aabb.GetCenter();
@@ -699,28 +709,6 @@ namespace VulkanTest
             {
                 CameraComponent* camera = scene.GetMainCamera();
                 objComp.lodIndex = meshComp->model->CalculateModelLOD(camera->eye, objComp.center, objComp.radius);
-
-                auto geometryMapped = scene.geometryMapped;
-                if (!geometryMapped || objComp.lodIndex < 0)
-                    return;
-
-                Mesh* mesh = meshComp->model->GetMesh(objComp.lodIndex, meshComp->meshIndex);
-                if (mesh == nullptr)
-                    return;
-
-                ShaderGeometry geometry;
-                geometry.vbPos = mesh->vbPos.srv->GetIndex();
-                geometry.vbNor = mesh->vbNor.srv->GetIndex();
-                geometry.vbUVs = mesh->vbUVs.srv->GetIndex();
-                geometry.vbTan = mesh->vbTan.srv->GetIndex();
-                geometry.ib = 0;
-
-                U32 subsetIndex = 0;
-                for (auto& subset : mesh->subsets)
-                {
-                    memcpy(geometryMapped + meshComp->geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
-                    subsetIndex++;
-                }
             }
             else
             {
@@ -765,7 +753,7 @@ namespace VulkanTest
     void RenderSceneImpl::InitSystems()
     {
         AddSystem(TransformUpdateSystem(*this));
-        // AddSystem(MeshUpdateSystem(*this));
+        AddSystem(MeshUpdateSystem(*this));
         AddSystem(MaterialUpdateSystem(*this));
         AddSystem(ObjectUpdateSystem(*this));
         AddSystem(LightUpdateSystem(*this));

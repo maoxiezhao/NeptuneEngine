@@ -558,17 +558,17 @@ namespace Renderer
 			if (meshCmp == nullptr)
 				return;
 
-			Mesh& mesh = *meshCmp->model->GetMesh(instancedBatch.lodIndex, meshCmp->meshIndex);
+			Mesh& mesh = *meshCmp->meshes[instancedBatch.lodIndex];
 			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, VK_INDEX_TYPE_UINT32);
 
+			U32 lodOffset = meshCmp->subsetsPerLod * instancedBatch.lodIndex;
 			for (U32 subsetIndex = 0; subsetIndex < mesh.subsets.size(); subsetIndex++)
 			{
 				auto& subset = mesh.subsets[subsetIndex];
-				if (subset.indexCount <= 0 || subset.materialIndex < 0)
+				if (subset.indexCount <= 0 || subset.material == ECS::INVALID_ENTITY)
 					continue;
 
-				const ECS::Entity materialEntity = meshCmp->materials[subset.materialIndex];
-				const MaterialComponent* material = materialEntity.Get<MaterialComponent>();
+				const MaterialComponent* material = subset.material.Get<MaterialComponent>();
 				if (!material || !material->material || !material->material->IsReady())
 					continue;
 
@@ -584,7 +584,7 @@ namespace Renderer
 
 				// PushConstants
 				ObjectPushConstants push;
-				push.geometryIndex = meshCmp->geometryOffset + subsetIndex;
+				push.geometryIndex = meshCmp->geometryOffset + lodOffset + subsetIndex;
 				push.materialIndex = material != nullptr ? material->materialIndex : 0;
 				push.instance = allocation.bindless ? allocation.bindless->GetIndex() : -1;	// Pointer to ShaderInstancePointers
 				push.instanceOffset = (U32)instancedBatch.dataOffset;
@@ -616,7 +616,7 @@ namespace Renderer
 			}
 
 			ShaderMeshInstancePointer data;
-			data.instanceIndex = obj->index;
+			data.instanceIndex = obj->objectIndex;
 			memcpy((ShaderMeshInstancePointer*)allocation.data + instanceCount, &data, sizeof(ShaderMeshInstancePointer));
 
 			instancedBatch.instanceCount++;

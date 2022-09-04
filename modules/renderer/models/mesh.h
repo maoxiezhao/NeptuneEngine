@@ -68,6 +68,7 @@ namespace VulkanTest
 			I32 materialIndex = -1;
 			U32 indexOffset = 0;
 			U32 indexCount = 0;
+			ECS::Entity material = ECS::INVALID_ENTITY;
 		};
 		Array<MeshSubset> subsets;
 

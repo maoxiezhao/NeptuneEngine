@@ -146,7 +146,7 @@ namespace VulkanTest
 		if (tgaHeader.dataType != 10 && tgaHeader.dataType != 2)
 		{
 			int w, h, cmp;
-			stbi_uc* stbData = stbi_load_from_memory(static_cast<const stbi_uc*>(imgData) + 7, size - 7, &w, &h, &cmp, 4);
+			stbi_uc* stbData = stbi_load_from_memory(static_cast<const stbi_uc*>(imgData) + 7, (I32)size - 7, &w, &h, &cmp, 4);
 			if (!stbData)
 			{
 				Logger::Warning("Unsupported texture format %s", GetPath().c_str());

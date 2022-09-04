@@ -274,7 +274,7 @@ namespace VulkanTest
 		else
 		{
 			I32 lodIndex = HighestResidentLODIndex();
-			for (; lodIndex < (modelLods.size() - residency); lodIndex++)
+			for (; lodIndex < ((I32)modelLods.size() - residency); lodIndex++)
 				modelLods[lodIndex].Unload();
 			loadedLODs = residency;
 		}

@@ -65,6 +65,7 @@ namespace VulkanTest
 
 		texData.resize(width * height * bytesPerPixel);
 		memset(texData.data(), 0, texData.size());
+		isLoaded = true;
 	}
 
 	FontAltasTexture::Slot* FontAltasTexture::AddCharacter(U32 w, U32 h, const Array<U8>& data)
