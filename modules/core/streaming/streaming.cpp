@@ -1,7 +1,7 @@
 #include "streaming.h"
 #include "streamingHandler.h"
 #include "core\engine.h"
-#include "core\jobsystem\taskGraph.h"
+#include "core\threading\taskGraph.h"
 #include "core\profiler\profiler.h"
 #include "core\platform\timer.h"
 
@@ -128,7 +128,7 @@ namespace VulkanTest
 			I32 resourcesUpdates = std::min(MaxResourcesPerUpdate, resourcesCount);
 
 			const auto now = Timer::GetRawTimestamp();
-			I32 checkCount = resourcesCount;
+			U32 checkCount = resourcesCount;
 			while (resourcesUpdates > 0 && checkCount-- > 0)
 			{
 				lastUpdateIndex++;

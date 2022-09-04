@@ -3,7 +3,7 @@
 #include "core\resource\resourceManager.h"
 #include "core\streaming\streamingHandler.h"
 #include "renderer\renderer.h"
-#include "core\jobsystem\threadPoolTask.h"
+#include "core\threading\threadPoolTask.h"
 
 namespace VulkanTest
 {

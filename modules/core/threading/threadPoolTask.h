@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\common.h"
-#include "core\jobsystem\task.h"
+#include "core\threading\task.h"
 
 namespace VulkanTest
 {

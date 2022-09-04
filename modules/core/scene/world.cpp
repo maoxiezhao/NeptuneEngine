@@ -1,6 +1,6 @@
 #include "world.h"
 #include "core\utils\string.h"
-#include "core\jobsystem\jobsystem.h"
+#include "core\threading\jobsystem.h"
 #include "core\memory\memory.h"
 
 namespace VulkanTest

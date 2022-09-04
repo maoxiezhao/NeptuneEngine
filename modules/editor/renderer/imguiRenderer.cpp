@@ -2,7 +2,7 @@
 #include "editor\editor.h"
 #include "renderer\renderPath3D.h"
 #include "renderer\renderer.h"
-#include "core\jobsystem\jobsystem.h"
+#include "core\threading\jobsystem.h"
 #include "core\filesystem\filesystem.h"
 #include "core\serialization\stream.h"
 

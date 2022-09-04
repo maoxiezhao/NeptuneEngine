@@ -2,7 +2,7 @@
 #include "renderGraph.h"
 #include "gpu\vulkan\typeToString.h"
 #include "core\memory\memory.h"
-#include "core\jobsystem\jobsystem.h"
+#include "core\threading\jobsystem.h"
 
 #include <stdexcept>
 #include <stack>

@@ -6,7 +6,7 @@
 #include "core\filesystem\filesystem.h"
 #include "core\resource\resourceManager.h"
 #include "core\profiler\profiler.h"
-#include "core\jobsystem\taskGraph.h"
+#include "core\threading\taskGraph.h"
 #include "app\app.h"
 #include "renderer\renderer.h"
 

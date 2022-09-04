@@ -3,7 +3,7 @@
 #include "core\common.h"
 #include "core\platform\sync.h"
 #include "core\platform\atomic.h"
-#include "core\jobsystem\task.h"
+#include "core\threading\task.h"
 
 namespace VulkanTest
 {

@@ -3,7 +3,7 @@
 #include "core\profiler\profiler.h"
 #include "core\events\event.h"
 #include "core\platform\platform.h"
-#include "core\jobsystem\jobsystem.h"
+#include "core\threading\jobsystem.h"
 #include "renderer\renderer.h"
 
 namespace VulkanTest

@@ -1,6 +1,6 @@
 #include "threadPoolTask.h"
 #include "core\engine.h"
-#include "core\jobsystem\taskQueue.h"
+#include "core\threading\taskQueue.h"
 #include "core\platform\platform.h"
 #include "core\platform\atomic.h"
 #include "core\profiler\profiler.h"
