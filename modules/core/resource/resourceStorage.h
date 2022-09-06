@@ -25,7 +25,7 @@ namespace VulkanTest
 			I32 chunkIndex[MAX_RESOURCE_DATA_CHUNKS];
 		};
 
-		ResourceStorage(const Path& path_, ResourceManager& resManager_);
+		ResourceStorage(const Path& path_, bool isCompiled_, ResourceManager& resManager_);
 		virtual ~ResourceStorage();
 
 		bool Load();
@@ -36,6 +36,7 @@ namespace VulkanTest
 		bool ShouldDispose()const;
 		bool Reload();
 		U64 Size();
+		void CloseContent();
 
 		bool IsLoaded() const {
 			return isLoaded;
@@ -57,10 +58,15 @@ namespace VulkanTest
 			AtomicIncrement(&refCount);
 		}
 
-		void RemoveReference() {
+		void RemoveReference() 
+		{
 			AtomicDecrement(&refCount);
 			if (AtomicRead(&refCount) == 0)
 				lastRefLoseTime = (F32)Timer::GetRawTimestamp() / (F32)Timer::GetFrequency();
+		}
+
+		ResourceEntry GetResourceEntry() {
+			return entry;
 		}
 
 		I32 GetReference() const;
@@ -120,16 +126,17 @@ namespace VulkanTest
 
 		DelegateList<void(ResourceStorage*, bool)> OnReloaded; 
 #endif
+		static Path GetContentPath(const Path& path, bool isCompiled);
 
 	private:
 		FileReadStream* LoadContent();
-		void CloseContent();
 
 		Path path;
 		ResourceManager& resManager;
 		ResourceEntry entry;
 		Array<DataChunk*> chunks;
 		ThreadLocalObject<FileReadStream> file;
+		bool isCompiled = true;
 		bool isLoaded = false;
 		Mutex mutex;
 		volatile I64 chunksLock;

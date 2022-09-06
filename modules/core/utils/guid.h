@@ -66,12 +66,14 @@ namespace VulkanTest {
             Platform::CreateGuid(&result);
             return result;
         }
+
+        static Guid Empty;
 	};
 
     template<>
     struct HashMapHashFunc<Guid>
     {
-        static U32 get(const Guid& key)
+        static U32 Get(const Guid& key)
         {
             return (U32)key.GetHash();
         }

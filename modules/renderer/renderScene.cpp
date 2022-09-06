@@ -507,7 +507,7 @@ namespace VulkanTest
             }
             else
             {
-                ResPtr<Model> model = engine.GetResourceManager().LoadResourcePtr<Model>(path);
+                ResPtr<Model> model = engine.GetResourceManager().LoadResource<Model>(path);
                 LoadModelResource(entity, std::move(model));
             }
         }
@@ -656,7 +656,7 @@ namespace VulkanTest
             .ForEach([&](ECS::Entity entity, MaterialComponent& materialComp) {
 
             auto materialMapped = scene.materialMapped;
-            if (!materialMapped || !materialComp.material)
+            if (!materialMapped || !materialComp.material->IsReady())
                 return;
 
             materialComp.material->WriteShaderMaterial(materialMapped + materialComp.materialIndex);

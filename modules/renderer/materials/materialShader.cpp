@@ -63,13 +63,7 @@ namespace VulkanTest
 		if (info_.type == MaterialType::Visual)
 		{
 			// Load generated shader from the chunk memory
-			if (mem.Size() <= 0)
-				return false;
-
-			shader = ResPtr<Shader>(CJING_NEW(Shader)(Path(name.c_str()), *factory));
-			shader->SetOwnedBySelf(true);
-			if (!shader->Create(mem.Size(), (const U8*)mem.GetBuffer()))
-				return false;
+			ASSERT(false);
 		}
 		else if (info_.type == MaterialType::Shader)
 		{
@@ -77,7 +71,7 @@ namespace VulkanTest
 			if (info_.shaderPath[0] == 0)
 				return false;
 
-			shader = resManager.LoadResourcePtr<Shader>(Path(info.shaderPath));
+			shader = resManager.LoadResource<Shader>(Path(info.shaderPath));
 			if (!shader)
 				return false;
 		}

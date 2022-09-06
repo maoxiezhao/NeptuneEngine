@@ -29,12 +29,17 @@ namespace VulkanTest
 			return CJING_FREE(ptr);
 		}
 
+		Mutex mutex;
+		Array<FontAltasTexture*> fontAtlases;
 		FT_Library Library;
 		FT_MemoryRec_ FreeTypeMemory;
 	}
 
 	class FontManagerServiceImpl : public EngineService
 	{
+	public:
+
+
 	public:
 		FontManagerServiceImpl() :
 			EngineService("FontManagerServiceImpl", -700)
@@ -72,8 +77,20 @@ namespace VulkanTest
 			return true;
 		}
 
+		void Update() override
+		{
+			FontManager::Flush();
+		}
+
 		void Uninit() override
 		{
+			for (auto altas : fontAtlases)
+			{
+				if (altas)
+					altas->Destroy();
+			}
+			fontAtlases.clear();
+
 			if (Library)
 			{
 				const FT_Error error = FT_Done_Library(Library);
@@ -88,48 +105,23 @@ namespace VulkanTest
 	};
 	FontManagerServiceImpl FontManagerServiceImplInstance;
 
-	FontResourceFactory::FontResourceFactory()
-	{
-	}
-
-	FontResourceFactory::~FontResourceFactory()
-	{
-	}
-
-	void FontResourceFactory::Update(F32 dt)
-	{
-		ResourceFactory::Update(dt);
-		Flush();
-	}
-
-	void FontResourceFactory::Uninitialize()
-	{
-		for (auto altas : fontAtlases)
-		{
-			if (altas)
-				altas->Destroy();
-		}
-		fontAtlases.clear();
-		BinaryResourceFactory::Uninitialize();
-	}
-
-	void FontResourceFactory::Flush()
+	void FontManager::Flush()
 	{
 		for (auto altas : fontAtlases)
 			altas->Flush();
 	}
 
-	FT_Library FontResourceFactory::GetLibrary()
+	FT_Library FontManager::GetLibrary()
 	{
 		return Library;
 	}
 
-	FontAltasTexture* FontResourceFactory::GetAtlas(I32 index)
+	FontAltasTexture* FontManager::GetAtlas(I32 index)
 	{
 		return index >= 0 && index < (I32)fontAtlases.size() ? fontAtlases[index] : nullptr;
 	}
 
-	bool FontResourceFactory::CreateCharacterInfo(Font* font, I32 c, FontCharacterInfo& info)
+	bool FontManager::CreateCharacterInfo(Font* font, I32 c, FontCharacterInfo& info)
 	{
 		ScopedMutex lock(mutex);
 
@@ -229,8 +221,9 @@ namespace VulkanTest
 			FontAltasTexture* altas = CJING_NEW(FontAltasTexture)(
 				VK_FORMAT_R8_UNORM, 
 				FontAltasTexture::PadWithZero,  
-				altasIndex, 
-				*this);
+				altasIndex,
+				fontRes->GetResourceManager()
+			);
 			altas->Init(512, 512);
 			fontAtlases.push_back(altas);
 
@@ -251,10 +244,5 @@ namespace VulkanTest
 		info.uvSize.y = (F32)(packSlot->h - 2 * padding);
 
 		return true;
-	}
-
-	Resource* FontResourceFactory::CreateResource(const Path& path)
-	{
-		return CJING_NEW(FontResource)(path, *this);
 	}
 }

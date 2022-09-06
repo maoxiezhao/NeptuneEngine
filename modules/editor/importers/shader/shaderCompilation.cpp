@@ -1,8 +1,7 @@
 #include "shaderCompilation.h"
 #include "editor\editor.h"
-#include "editor\widgets\assetCompiler.h"
-#include "core\filesystem\filesystem.h"
 #include "core\utils\helper.h"
+#include "editor\importers\resourceImportingManager.h"
 
 #ifdef CJING3D_RENDERER_VULKAN
 #include "shaderCompiler_Vulkan.h"
@@ -123,6 +122,10 @@ namespace Editor
         if (options.path.IsEmpty() || options.outMem == nullptr)
             return false;
 
+        auto storage = StorageManager::TryGetStorage(options.path, false);
+        if (storage)
+            int a = 0;
+
         FileSystem& fs = editor.GetEngine().GetFileSystem();
         OutputMemoryStream mem;
         if (!fs.LoadContext(options.path.c_str(), mem))
@@ -153,6 +156,27 @@ namespace Editor
         }
 
         return true;
+    }
+
+    bool ShaderCompilation::Write(EditorApp& editor, Guid guid, const Path& path, OutputMemoryStream& mem)
+    {
+        return ResourceImportingManager::Create(editor, [&](CreateResourceContext& ctx)->CreateResult {
+            IMPORT_SETUP(Shader);
+            
+            // Write header
+            Shader::FileHeader header;
+            header.magic = Shader::FILE_MAGIC;
+            header.version = Shader::FILE_VERSION;
+            ctx.WriteCustomData(header);
+
+            // Write source code
+            auto dataChunk = ctx.AllocateChunk(0);
+            if (dataChunk == nullptr)
+                return CreateResult::AllocateFailed;
+            dataChunk->mem.Link(mem.Data(), mem.Size());
+
+            return CreateResult::Ok;
+        }, guid, path);
     }
 }
 }

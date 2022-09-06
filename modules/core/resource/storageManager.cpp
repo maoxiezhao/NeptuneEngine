@@ -27,7 +27,7 @@ namespace VulkanTest
 			ScopedMutex lock(mutex);
 
 			// Process storages
-			// Relase resource storage if it should dispose (no reference and no lock)
+			// Release resource storage if it should dispose (no reference and no lock)
 			for (auto it = storageMap.begin(); it != storageMap.end(); ++it)
 			{
 				if (it.value()->ShouldDispose())
@@ -61,16 +61,27 @@ namespace VulkanTest
 	};
 	StorageServiceImpl StorageServiceImplInstance;
 
-	ResourceStorageRef StorageManager::GetStorage(const Path& path, ResourceManager& resManager, bool doLoad)
+	ResourceStorageRef StorageManager::TryGetStorage(const Path& path, bool isCompiled)
+	{
+		auto& impl = StorageServiceImplInstance;
+		ScopedMutex lock(impl.mutex);
+		ResourceStorage* storage = nullptr;
+		Path contentPath = ResourceStorage::GetContentPath(path, isCompiled);
+		impl.storageMap.tryGet(contentPath.GetHashValue(), storage);
+		return storage;
+	}
+
+	ResourceStorageRef StorageManager::GetStorage(const Path& path, ResourceManager& resManager, bool doLoad, bool isCompiled)
 	{
 		auto& impl = StorageServiceImplInstance;
 		impl.mutex.Lock();
+		Path contentPath = ResourceStorage::GetContentPath(path, isCompiled);
 		ResourceStorage* ret = nullptr;
-		auto it = impl.storageMap.find(path.GetHashValue());
+		auto it = impl.storageMap.find(contentPath.GetHashValue());
 		if (!it.isValid())
 		{
-			auto newStorage = CJING_NEW(ResourceStorage)(path, resManager);
-			impl.storageMap.insert(path.GetHashValue(), newStorage);
+			auto newStorage = CJING_NEW(ResourceStorage)(path, isCompiled, resManager);
+			impl.storageMap.insert(contentPath.GetHashValue(), newStorage);
 			ret = newStorage;
 		}
 		else
@@ -89,7 +100,7 @@ namespace VulkanTest
 				Logger::Error("Failed to load storage %s", path.c_str());
 
 				ScopedMutex lock(impl.mutex);
-				impl.storageMap.erase(path.GetHashValue());
+				impl.storageMap.erase(contentPath.GetHashValue());
 				CJING_DELETE(ret);
 				return nullptr;
 			}

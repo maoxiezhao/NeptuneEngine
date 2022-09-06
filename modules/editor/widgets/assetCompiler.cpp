@@ -23,13 +23,14 @@ namespace Editor
 
     constexpr U32 MAX_PROCESS_COMPILED_JOB_COUNT = 16;
 
-    #define EXPORT_RESOURCE_LIST ".export/resources/_list.list"
-    #define EXPORT_RESOURCE_LIST_TEMP ".export/resources/_list.list_temp"
-    #define EXPORT_RESOURCE_VERSION ".export/resources/_version.vs"
+    #define EXPORT_RESOURCE_LIST ".export/editor/_reslist.list"
+    #define EXPORT_RESOURCE_LIST_TEMP ".export/editor/_reslist.list_temp"
+    #define EXPORT_RESOURCE_VERSION ".export/editor/_version.vs"
 
     struct CompileJob
     {
         U32 generation;
+        Guid guid;
         Path path;
         bool succeed;
     };
@@ -109,7 +110,7 @@ namespace Editor
 
             // Check the export director
             const char* basePath = fs.GetBasePath();
-            StaticString<MAX_PATH_LENGTH> path(basePath, ".export/resources");
+            StaticString<MAX_PATH_LENGTH> path(basePath, ".export/editor");
             if (!Platform::DirExists(path.c_str()))
             {
                 if (!Platform::MakeDir(path.c_str()))
@@ -214,7 +215,8 @@ namespace Editor
          
             for (Resource* res : onInitLoad)
             {
-                PushToCompileQueue(res->GetPath());
+                ASSERT(res->GetGUID() != Guid::Empty);
+                PushToCompileQueue(res->GetPath(), res->GetGUID());
                 res->RemoveReference();
             }
             onInitLoad.clear();
@@ -234,6 +236,7 @@ namespace Editor
             if (!fs.FileExists(EXPORT_RESOURCE_LIST))
                 return;
 
+            auto& resManager = editor.GetEngine().GetResourceManager();
             OutputMemoryStream mem;
             if (fs.LoadContext(EXPORT_RESOURCE_LIST, mem))
             {
@@ -250,7 +253,7 @@ namespace Editor
                         return;
 
                     resMutex.Lock();
-                    LuaUtils::ForEachArrayItem<Path>(l, -1, "resource list expected", [this, &fs](const Path& p) {
+                    LuaUtils::ForEachArrayItem<Path>(l, -1, "resource list expected", [this, &fs, &resManager](const Path& p) {
                         ResourceType resType = GetResourceType(p.c_str());
                         if (resType != ResourceType::INVALID_TYPE)
                         {
@@ -265,7 +268,7 @@ namespace Editor
                             else
                             {
                                 // Remove the export file if the original dose not exist
-                                MaxPathString exportPath(".export/Resources/", p.GetHashValue(), ".res");
+                                resManager.DeleteResource(p);
                             }
                         }
                     });
@@ -343,7 +346,7 @@ namespace Editor
                     }
 
                     if (res->IsReady() || res->IsFailure())
-                        res->GetResourceFactory().Reload(res);
+                        res->GetResourceManager().ReloadResource(res->GetPath());
                     else if (res->IsHooked())
                         lookHook.ContinueLoad(*res);
                 }
@@ -400,6 +403,7 @@ namespace Editor
                                 return false;
                             return true;
                         });
+                        editor.GetEngine().GetResourceManager().DeleteResource(targetPath);
                         onListChanged.Invoke(targetPath);
                     }
                 }
@@ -452,6 +456,7 @@ namespace Editor
                                 return false;
                             return true;
                         });
+                        editor.GetEngine().GetResourceManager().DeleteResource(targetPath);
                         onListChanged.Invoke(targetPath);
                     }
                 }
@@ -560,16 +565,10 @@ namespace Editor
         {
             Resource* ret = nullptr;
             ResourceManager& resManager = editor.GetEngine().GetResourceManager();
-            for (auto kvp : resManager.GetAllFactories())
-            {
-                ret = kvp.second->GetResource(path);
-                if (ret != nullptr)
-                    return ret;
-            }
-            return ret;
+            return resManager.GetResource(path);
         }
 
-        bool Compile(const Path& path)override
+        bool Compile(const Path& path, Guid guid)override
         {
             IPlugin* plugin = GetPlugin(path);
             if (plugin == nullptr)
@@ -577,46 +576,7 @@ namespace Editor
                 Logger::Error("Unknown resouce type:%s", path.c_str());
                 return false;
             }
-            return plugin->Compile(path);
-        }
-
-        bool WriteCompiled(const char* path, const ResourceInitData& initData)override
-        {
-            OutputMemoryStream output;
-            if (!ResourceStorage::Save(output, initData))
-            {
-                Logger::Error("Failed to save resource storage.");
-                return false;
-            }
-            
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            Path filePath(path);
-            MaxPathString exportPath(".export/Resources/", filePath.GetHashValue(), ".res");
-            auto file = fs.OpenFile(exportPath.c_str(), FileFlags::DEFAULT_WRITE);
-            if (!file)
-            {
-                Logger::Error("Failed to create export asset %s", path);
-                return false;
-            }
-
-            file->Write(output.Data(), output.Size());
-            file->Close();
-            return true;
-        }
-
-        bool WriteCompiled(const char* path, Span<const U8> data)override
-        {
-            if (data.length() <= 0)
-                return false;
-
-            DataChunk dataChunk;
-            dataChunk.mem.Link(data.data(), data.length());
-
-            ResourceInitData initData = {};
-            initData.header.type = GetResourceType(path);
-            initData.header.chunks[0] = &dataChunk;
-    
-            return WriteCompiled(path, initData);
+            return plugin->Compile(path, guid);
         }
 
         ResourceType GetResourceType(const char* path) const override
@@ -732,7 +692,7 @@ namespace Editor
             return it.isValid() ? it.value() : nullptr;
         }
 
-        void PushToCompileQueue(const Path& path)
+        void PushToCompileQueue(const Path& path, const Guid& guid = Guid::Empty)
         {
             ScopedMutex lock(toCompileMutex);
             auto it = resGenerations.find(path.GetHashValue());
@@ -744,6 +704,7 @@ namespace Editor
             CompileJob job;
             job.generation = it.value();
             job.path = path;
+            job.guid = guid;
 
             toCompileJobs.push_back(job);
             batchCompileCount++;
@@ -781,23 +742,23 @@ namespace Editor
         ResourceManager::LoadHook::Action OnBeforeLoad(Resource& res)
         {
             FileSystem& fs = editor.GetEngine().GetFileSystem();
-            const char* filePath = res.GetPath().c_str();
-            if (!fs.FileExists(filePath))
+            const char* resPath = res.GetPath().c_str();
+            if (!fs.FileExists(resPath))
                 return ResourceManager::LoadHook::Action::IMMEDIATE;
 
-            if (StartsWith(filePath, ".export/resources/"))
+            if (StartsWith(resPath, ".export/resources/"))
                 return ResourceManager::LoadHook::Action::IMMEDIATE;
 
-            if (StartsWith(filePath, ".export/resources_tiles/"))
+            if (StartsWith(resPath, ".export/resources_tiles/"))
                 return ResourceManager::LoadHook::Action::IMMEDIATE;
          
             const U64 hash = res.GetPath().GetHashValue();
             const StaticString<MAX_PATH> dstPath(".export/resources/", hash, ".res");
-            const StaticString<MAX_PATH> metaPath(filePath, ".meta");
+            const StaticString<MAX_PATH> metaPath(resPath, ".meta");
 
             // It is a new resource or expired
             if (!fs.FileExists(dstPath) || 
-                fs.GetLastModTime(dstPath) < fs.GetLastModTime(filePath) ||
+                fs.GetLastModTime(dstPath) < fs.GetLastModTime(resPath) ||
                 fs.GetLastModTime(dstPath) < fs.GetLastModTime(metaPath))
             {
                 if (GetPlugin(res.GetPath()) == nullptr)
@@ -812,7 +773,8 @@ namespace Editor
                 }
 
                 // Pending this resource and wait for compiling
-                PushToCompileQueue(res.GetPath());
+                ASSERT(res.GetGUID() != Guid::Empty);
+                PushToCompileQueue(res.GetPath(), res.GetGUID());
                 return ResourceManager::LoadHook::Action::DEFERRED;
             }
 
@@ -933,7 +895,7 @@ namespace Editor
             if (!job.path.IsEmpty())
             {
                 PROFILE_BLOCK("Compile asset");
-                if (!impl.Compile(job.path))
+                if (!impl.Compile(job.path, job.guid))
                 {
                     Logger::Error("Failed to compile resource:%s", job.path.c_str());
                     job.succeed = false;

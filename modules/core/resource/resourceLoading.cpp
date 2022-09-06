@@ -5,24 +5,21 @@
 
 namespace VulkanTest
 {
-	namespace
+	namespace ContentLoadingManagerImpl
 	{
 		thread_local ContentLoadingThread* ThisThread = nullptr;
-		struct ContentLoadingImpl
-		{
-			Mutex mutex;
-			ConditionVariable cv;
-			ConcurrentTaskQueue<ContentLoadingTask> taskQueue;
-			Array<ContentLoadingThread*> threads;
-			ContentLoadingThread* MainThread = nullptr;
-		};
-		ContentLoadingImpl gImpl;
+		Mutex mutex;
+		ConditionVariable cv;
+		ConcurrentTaskQueue<ContentLoadingTask> taskQueue;
+		std::vector<ContentLoadingThread*> threads;
+		ContentLoadingThread* MainThread = nullptr;
 	}
+	using namespace ContentLoadingManagerImpl;
 
 	void ContentLoadingTask::Enqueue()
 	{
-		gImpl.taskQueue.Add(this);
-		gImpl.cv.Wakeup();
+		taskQueue.Add(this);
+		cv.Wakeup();
 	}
 
 	ContentLoadingThread::ContentLoadingThread() :
@@ -46,19 +43,25 @@ namespace VulkanTest
 		ThisThread = this;
 		while (HasFinishedSet())
 		{
-			if (gImpl.taskQueue.try_dequeue(task))
+			if (taskQueue.try_dequeue(task))
 			{
-				task->Execute();
+				Run(task);
 			}
 			else
 			{
-				gImpl.mutex.Lock();
-				gImpl.cv.Sleep(gImpl.mutex);
-				gImpl.mutex.Unlock();
+				mutex.Lock();
+				cv.Sleep(mutex);
+				mutex.Unlock();
 			}
 		}
 		ThisThread = nullptr;
 		return 0;
+	}
+
+	void ContentLoadingThread::Run(ContentLoadingTask* task)
+	{
+		ASSERT(task != nullptr);
+		task->Execute();
 	}
 
 	void ContentLoadingManager::Initialize()
@@ -66,11 +69,11 @@ namespace VulkanTest
 		I32 count = std::clamp((I32)(Platform::GetCPUsCount() * 0.2f), 1, 12);
 		Logger::Info("Create content loading threads %d", count);
 
-		gImpl.MainThread = CJING_NEW(ContentLoadingThread);
-		ThisThread = gImpl.MainThread;
+		MainThread = CJING_NEW(ContentLoadingThread);
+		ThisThread = MainThread;
 
 		StaticString<32> name;
-		gImpl.threads.reserve(count);
+		threads.reserve(count);
 		for (I32 i = 0; i < count; i++)
 		{
 			ContentLoadingThread* thread = CJING_NEW(ContentLoadingThread);
@@ -79,34 +82,39 @@ namespace VulkanTest
 				CJING_SAFE_DELETE(thread);
 				return;
 			}
-			gImpl.threads.push_back(thread);
+			threads.push_back(thread);
 		}
 	}
 
 	void ContentLoadingManager::Uninitialize()
 	{
 		// All loading threads notify exit
-		for (auto thread : gImpl.threads)
+		for (auto thread : threads)
 			thread->NotifyFinish();
 
-		gImpl.cv.WakupAll();
+		cv.WakupAll();
 
-		for (auto thread : gImpl.threads)
+		for (auto thread : threads)
 			thread->Join();
 
-		for (auto thread : gImpl.threads)
+		for (auto thread : threads)
 		{
 			thread->Destroy();
 			CJING_SAFE_DELETE(thread);
 		}
 
-		gImpl.threads.clear();
+		threads.clear();
 
-		CJING_SAFE_DELETE(gImpl.MainThread);
-		gImpl.MainThread = nullptr;
+		CJING_SAFE_DELETE(MainThread);
+		MainThread = nullptr;
 		ThisThread = nullptr;
 
 		// Cancel all loading tasks
-		gImpl.taskQueue.CancelAll();
+		taskQueue.CancelAll();
+	}
+
+	ContentLoadingThread* ContentLoadingManager::GetCurrentLoadThread()
+	{
+		return ThisThread;
 	}
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "version.h"
+#include "platform\defines.h"
 #include "utils\log.h"
 #include "math\math.hpp"
 
@@ -43,6 +44,17 @@
 
 #ifndef PLATFORM_THREADS_LIMIT
 #define PLATFORM_THREADS_LIMIT 64
+#endif
+
+// Pointer as integer and pointer size
+#ifdef PLATFORM_64BITS
+typedef VulkanTest::U64 uintptr;
+typedef VulkanTest::I64 intptr;
+#define POINTER_SIZE 8
+#else
+typedef VulkanTest::U32 uintptr;
+typedef VulkanTest::I32 intptr;
+#define POINTER_SIZE 4
 #endif
 
 #ifdef DEBUG

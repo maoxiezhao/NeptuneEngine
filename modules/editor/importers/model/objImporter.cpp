@@ -1,9 +1,8 @@
 #include "objImporter.h"
 #include "modelTool.h"
 #include "editor\editor.h"
-#include "editor\widgets\assetCompiler.h"
-#include "editor\plugins\material\createMaterial.h"
-#include "core\filesystem\filesystem.h"
+#include "editor\importers\material\createMaterial.h"
+#include "editor\importers\resourceImportingManager.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "loader\tiny_obj_loader.h"
@@ -298,27 +297,12 @@ namespace Editor
 	{
 		// Mesh format:
 		// ----------------------------------
-		// SubsetCount
-		// Subset1
-		// Subset2
-		//   MatPath
-		//   indexOffset
-		//   indexCount
 		// AttrCount
 		// Attr1 (Semantic, Type, Count)
 		// Attr2 (Semantic, Type, Count)
 		// Indiecs
 		// VertexDatas
-
-		// Mesh subsets		
-		outmem.Write(mesh.subsets.size());
-		for (const auto& subset : mesh.subsets)
-		{
-			outmem.Write(subset.materialIndex);
-			outmem.Write(subset.uniqueIndexOffset);
-			outmem.Write(subset.uniqueIndexCount);
-		}
-
+		
 		// Attributes (pos, normal, texcoord)
 		U32 attrCount = GetAttributeCount(mesh);
 		outmem.Write(attrCount);
@@ -379,7 +363,7 @@ namespace Editor
 		return 4; // Pos & Normals & Tagents & UV
 	}
 
-	bool OBJImporter::WriteModel(const char* filepath, const ImportConfig& cfg)
+	bool OBJImporter::WriteModel(Guid guid, const char* filepath, const ImportConfig& cfg)
 	{
 		PROFILE_FUNCTION();
 		if (meshes.empty())
@@ -394,67 +378,78 @@ namespace Editor
 		if (!WriteMaterials(filepath, cfg))
 			return false;
 
-		// Write compiled model
-		ResourceDataWriter writer(Model::ResType);
+		return ResourceImportingManager::Create(editor, [&](CreateResourceContext& ctx)->CreateResult {
+			IMPORT_SETUP(Model);
+			
+			// Model header
+			Model::FileHeader header;
+			header.magic = Model::FILE_MAGIC;
+			header.version = Model::FILE_VERSION;
+			ctx.WriteCustomData(header);
 
-		// Model header
-		Model::FileHeader header;
-		header.magic = Model::FILE_MAGIC;
-		header.version = Model::FILE_VERSION;
-		writer.WriteCustomData(header);
+			// Write base model data in chunk 0
+			auto dataChunk = ctx.AllocateChunk(0);
+			auto outMem = &dataChunk->mem;
 
-		// Write base model data in chunk 0
-		auto dataChunk = writer.GetChunk(0);
-		auto outMem = &dataChunk->mem;
-
-		// Write mateirals
-		outMem->Write((I32)materials.size());
-		for (const auto& material : materials)
-		{
-			StaticString<MAX_PATH_LENGTH + 128> matPath(pathInfo.dir, material.material->name.c_str(), ".mat");
-			const I32 len = StringLength(matPath.c_str());
-			outMem->Write(len);
-			outMem->Write(matPath.c_str(), len);
-		
-			// TODO Use GUID to replace Path
-		}
-
-		// Write lods
-		I32 lodsCount = lods.size();
-		outMem->Write((U8)lodsCount);
-		for (int i = 0; i < lodsCount; i++)
-		{
-			auto& lod = lods[i];
-			I32 meshCount = lod.meshes.size();
-			outMem->Write((U16)meshCount);
-
-			for (I32 meshIndex = 0; meshIndex < meshCount; meshIndex++)
+			// Write mateirals
+			outMem->Write((I32)materials.size());
+			for (const auto& material : materials)
 			{
-				const auto& mesh = *lod.meshes[meshIndex];
+				// Mateiral guid
+				outMem->Write(material.guid);
 
-				// Mesh name
-				char name[256];
-				GetImportMeshName(mesh, name);
-				I32 nameLen = (I32)StringLength(name);
-				outMem->Write(nameLen);
-				outMem->Write(name, nameLen);
-
-				// AABB
-				outMem->WriteAABB(mesh.aabb);
+				// Mateiral name
+				I32 length = material.material->name.length();
+				outMem->Write(length);
+				outMem->Write(material.material->name.c_str(), length);
 			}
-		}
 
-		// Write lod chunk datas
-		for (int i = 0; i < lods.size(); i++)
-		{
-			auto lodDataChunk = writer.GetChunk(MODEL_LOD_TO_CHUNK_INDEX(i));
-			auto lodMem = &lodDataChunk->mem;
-			for (auto& mesh : lods[i].meshes)
-				WriteMesh(*lodMem, *mesh);
-		}
+			// Write lods
+			I32 lodsCount = lods.size();
+			outMem->Write((U8)lodsCount);
+			for (int i = 0; i < lodsCount; i++)
+			{
+				auto& lod = lods[i];
+				I32 meshCount = lod.meshes.size();
+				outMem->Write((U16)meshCount);
 
-		// Write compiled data
-		return editor.GetAssetCompiler().WriteCompiled(filepath, writer.data);
+				for (I32 meshIndex = 0; meshIndex < meshCount; meshIndex++)
+				{
+					const auto& mesh = *lod.meshes[meshIndex];
+
+					// Mesh name
+					char name[256];
+					GetImportMeshName(mesh, name);
+					I32 nameLen = (I32)StringLength(name);
+					outMem->Write(nameLen);
+					outMem->Write(name, nameLen);
+
+					// AABB
+					outMem->WriteAABB(mesh.aabb);
+
+					// Subsets
+					outMem->Write(mesh.subsets.size());
+					for (const auto& subset : mesh.subsets)
+					{
+						outMem->Write(subset.materialIndex);
+						outMem->Write(subset.uniqueIndexOffset);
+						outMem->Write(subset.uniqueIndexCount);
+					}
+				}
+			}
+
+			// Write lod chunk datas
+			for (int i = 0; i < lods.size(); i++)
+			{
+				auto lodDataChunk = ctx.AllocateChunk(MODEL_LOD_TO_CHUNK_INDEX(i));
+				auto lodMem = &lodDataChunk->mem;
+				for (auto& mesh : lods[i].meshes)
+					WriteMesh(*lodMem, *mesh);
+			}
+
+			return CreateResult::Ok;
+
+		}, guid, Path(filepath));
 	}
 
 	bool OBJImporter::WriteMaterials(const char* filepath, const ImportConfig& cfg)
@@ -464,7 +459,7 @@ namespace Editor
 		FileSystem& fs = editor.GetEngine().GetFileSystem();
 		const PathInfo pathInfo(filepath);
 
-		for (const auto& material : materials)
+		for (auto& material : materials)
 		{
 			if (!material.import)
 				continue;
@@ -492,7 +487,13 @@ namespace Editor
 
 			const auto& matName = material.material->name;
 			StaticString<MAX_PATH_LENGTH> matPath(pathInfo.dir, matName, ".mat");
-			if (!CreateMaterial::Create(editor, material.guid, Path(matPath), options))
+			if (!ResourceImportingManager::Create(
+				editor, 
+				ResourceImportingManager::CreateMaterialTag,
+				material.guid,
+				Path(matPath), 
+				&options,
+				false))
 			{
 				Logger::Warning("Faield to create a material %s from model %s", matPath.c_str(), filepath);
 				return false;

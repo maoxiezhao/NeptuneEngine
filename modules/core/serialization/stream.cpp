@@ -113,6 +113,31 @@ namespace VulkanTest
 		return *this;
 	}
 
+	void IOutputStream::WriteString(const char* string)
+	{
+		if (string)
+		{
+			const I32 size = StringLength(string) + 1;
+			Write(string, size);
+		}
+		else
+		{
+			Write((char)0);
+		}
+	}
+
+	void IOutputStream::WriteStringWithLength(const String& string)
+	{
+		Write((U16)string.size());
+		Write(string.data(), string.size());
+	}
+
+	void IOutputStream::WriteAABB(const AABB& aabb)
+	{
+		Write(aabb.min);
+		Write(aabb.max);
+	}
+
 	OutputMemoryStream::OutputMemoryStream() :
 		data(nullptr),
 		size(0),
@@ -218,31 +243,6 @@ namespace VulkanTest
 		rhs.capacity = 0;
 		rhs.size = 0;
 		rhs.allocated = false;
-	}
-
-	void OutputMemoryStream::WriteString(const char* string)
-	{
-		if (string) 
-		{
-			const I32 size = StringLength(string) + 1;
-			Write(string, size);
-		}
-		else 
-		{
-			Write((char)0);
-		}
-	}
-
-	void OutputMemoryStream::WriteStringWithLength(const String& string)
-	{
-		Write((U16)string.size());
-		Write(string.data(), string.size());
-	}
-
-	void OutputMemoryStream::WriteAABB(const AABB& aabb)
-	{
-		Write(aabb.min);
-		Write(aabb.max);
 	}
 
 	bool OutputMemoryStream::Write(const void* buffer, U64 size_)

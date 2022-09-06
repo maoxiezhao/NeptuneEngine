@@ -62,8 +62,7 @@ namespace VulkanTest
 		}
 
 		// Create new character info
-		FontResourceFactory* factory = static_cast<FontResourceFactory*>(&res->GetResourceFactory());
-		factory->CreateCharacterInfo(this, c, info);
+		FontManager::CreateCharacterInfo(this, c, info);
 		characterInfos.insert(c, info);
 	}
 

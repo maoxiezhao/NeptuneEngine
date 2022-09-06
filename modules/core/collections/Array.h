@@ -177,6 +177,7 @@ namespace VulkanTest
             }
         }
 
+        // Keep items order
         void eraseAt(U32 index)
         {
             ASSERT(index < size_);
@@ -271,6 +272,7 @@ namespace VulkanTest
             
             if constexpr (__is_trivially_copyable(T))
             {
+                size_t newSize = newCapacity * sizeof(T);
                 data_ = static_cast<T*>(CJING_REMALLOC_ALIGN(data_, newCapacity * sizeof(T), alignof(T)));
             }
             else

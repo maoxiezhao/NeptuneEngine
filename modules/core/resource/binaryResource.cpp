@@ -104,79 +104,59 @@ namespace VulkanTest
 		AssetChunksFlag chunkFlag;
 	};
 
-	Resource* BinaryResourceFactory::LoadResource(const Path& path)
+	Resource* BinaryResourceFactory::NewResource(const ResourceInfo& info)
 	{
-		ASSERT(resManager != nullptr);
-
-		if (path.IsEmpty())
+		auto storage = GetResourceManager().GetStorage(info.path);
+		if (!storage)
+		{
+			Logger::Warning("Missing resource storage %s", info.path.c_str());
 			return nullptr;
+		}
 
-		Resource* res = GetResource(path);
+		BinaryResource* res = static_cast<BinaryResource*>(CreateResource(info));
 		if (res == nullptr)
 		{
-			ScopedMutex lock(resLock);
-			res = static_cast<BinaryResource*>(CreateResource(path));
-			if (res == nullptr)
-			{
-				Logger::Warning("Invalid binary resource %s", path.c_str());
-				return nullptr;
-			}
-		
-			auto storagePath = res->GetStoragePath();
-			auto storage = GetResourceManager().GetStorage(storagePath);
-			if (!static_cast<BinaryResource*>(res)->SetStorage(storage))
-			{
-				Logger::Warning("Cannot initialize resource %s", path.c_str());
-				DestroyResource(res);
-				return nullptr;
-			}
-
-			resources[path.GetHashValue()] = res;
+			Logger::Warning("Faield to create resource %s", info.path.c_str());
+			return nullptr;
 		}
 
-		return ResourceFactory::LoadResource(res);
+		ResourceHeader header;
+		header.guid = info.guid;
+		header.type = info.type;
+		if (!res->Initialize(header, storage))
+		{
+			Logger::Warning("Cannot initialize resource %s", info.path.c_str());
+			CJING_DELETE(res);
+			return nullptr;
+		}
+
+		return res;
 	}
 
-	void BinaryResourceFactory::ContinuleLoadResource(Resource* res)
+	Resource* BinaryResourceFactory::CreateTemporaryResource(const ResourceInfo& info)
 	{
-		BinaryResource* binaryRes = static_cast<BinaryResource*>(res);
-		ASSERT(binaryRes);
+		BinaryResource* res = static_cast<BinaryResource*>(CreateResource(info));
+		if (res == nullptr)
+		{
+			Logger::Warning("Faield to create resource %s", info.path.c_str());
+			return nullptr;
+		}
 
-		binaryRes->RemoveReference();
-		binaryRes->SetHooked(false);
-		binaryRes->desiredState = Resource::State::EMPTY;
-		if (binaryRes->IsReloading())
+		ResourceInitData initData;
+		initData.header.guid = info.guid;
+		initData.header.type = info.type;
+		if (!res->Init(initData))
 		{
-			binaryRes->storage->Reload();
+			Logger::Warning("Cannot initialize temporary resource %s", info.path.c_str());
+			CJING_DELETE(res);
+			return nullptr;
 		}
-		else
-		{
-			binaryRes->DoLoad();
-		}
+
+		return res;
 	}
 
-	void BinaryResourceFactory::ReloadResource(Resource* res)
-	{
-		ASSERT(res != nullptr);
-
-		BinaryResource* binaryRes = static_cast<BinaryResource*>(res);
-		// Load resource
-		if (resManager->OnBeforeLoad(*binaryRes) == ResourceManager::LoadHook::Action::DEFERRED)
-		{
-			ASSERT(binaryRes->IsHooked() == false);
-			binaryRes->SetIsReloading(true);
-			binaryRes->SetHooked(true);
-			binaryRes->AddReference(); // Hook
-			binaryRes->desiredState = Resource::State::READY;
-		}
-		else
-		{
-			binaryRes->storage->Reload();
-		}
-	}
-
-	BinaryResource::BinaryResource(const Path& path_, ResourceFactory& resFactory_) :
-		Resource(path_, resFactory_),
+	BinaryResource::BinaryResource(const ResourceInfo& info, ResourceManager& resManager_) :
+		Resource(info, resManager_),
 		header(),
 		storage(nullptr),
 		storageRef(nullptr)
@@ -261,7 +241,7 @@ namespace VulkanTest
 		Reload();
 	}
 
-	bool BinaryResource::SetStorage(const ResourceStorageRef& storage_)
+	bool BinaryResource::Initialize(ResourceHeader header_, const ResourceStorageRef& storage_)
 	{
 		ASSERT(!storage && IsEmpty());
 		if (storage_ == storageRef)
@@ -269,6 +249,7 @@ namespace VulkanTest
 
 		storageRef = storage_;
 		storage = storageRef.Get();
+		header = header_;
 
 #ifdef CJING3D_EDITOR
 		if (storage)

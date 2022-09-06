@@ -36,6 +36,12 @@ namespace VulkanTest
         bool IsQueued() const { return GetState() == State::Queued; }
         bool IsRunning() const { return GetState() == State::Running; }
         bool IsFinished() const { return GetState() == State::Finished; }
+		bool IsEnded() const
+		{
+			auto state = GetState();
+			return state == State::Failed || state == State::Canceled || state == State::Finished;
+		}
+
 		bool CancelRequested()const { return AtomicRead((I64*)&cancelFlag) != 0; }
 
 		virtual void Enqueue() = 0;

@@ -19,12 +19,13 @@ namespace VulkanTest
 
 	ResourceStorage::StorageLock ResourceStorage::StorageLock::Invalid(nullptr);
 
-	ResourceStorage::ResourceStorage(const Path& path_, ResourceManager& resManager_) :
+	ResourceStorage::ResourceStorage(const Path& path_, bool isCompiled_, ResourceManager& resManager_) :
 		path(path_),
 		resManager(resManager_),
 		chunksLock(0),
 		refCount(0),
-		lastRefLoseTime(0.0f)
+		lastRefLoseTime(0.0f),
+		isCompiled(isCompiled_)
 	{
 	}
 
@@ -409,10 +410,14 @@ namespace VulkanTest
 		FileReadStream*& stream = file.Get();
 		if (stream == nullptr)
 		{
-			auto file_ = resManager.GetFileSystem()->OpenFile(path.c_str(), FileFlags::DEFAULT_READ);
+			if (AtomicRead(&chunksLock) != 0)
+				int a = 0;
+
+			Path contentPath = GetContentPath(path, isCompiled);
+			auto file_ = resManager.GetFileSystem()->OpenFile(contentPath.c_str(), FileFlags::DEFAULT_READ);
 			if (!file_ || !file_->IsValid())
 			{
-				Logger::Error("Cannot open compiled resource content %s", GetPath().c_str());
+				Logger::Error("Cannot open compiled resource content %s", contentPath.c_str());
 				return nullptr;
 			}
 
@@ -427,7 +432,35 @@ namespace VulkanTest
 		while (AtomicRead(&chunksLock) != 0 && waitTime-- > 0)
 			Platform::Sleep(10);
 
+		if (AtomicRead(&chunksLock) != 0)
+		{
+			// Storage can be locked by some streaming tasks
+			auto entry = GetResourceEntry();
+			auto res = resManager.GetResource(entry.guid);
+			if (res != nullptr)
+				res->CancelStreaming();
+		}
+
 		ASSERT(chunksLock == 0);
 		file.DeleteAll();
+	}
+
+	Path ResourceStorage::GetContentPath(const Path& path, bool isCompiled)
+	{
+		if (!isCompiled)
+			return path;
+
+		StaticString<MAX_PATH_LENGTH> fullResPath;
+		if (StartsWith(path.c_str(), ".export/resources_tiles/"))
+		{
+			// Resource tiles load directly
+			fullResPath = path.c_str();
+		}
+		else
+		{
+			const U64 pathHash = path.GetHashValue();
+			fullResPath = StaticString<MAX_PATH_LENGTH>(".export/resources/", pathHash, ".res");
+		}
+		return Path(fullResPath.c_str());
 	}
 }

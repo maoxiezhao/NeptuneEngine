@@ -30,7 +30,7 @@ namespace Editor
             bool compress = false;
         };
 
-        bool Import(EditorApp& editor_, const char* filename, const ImportConfig& options);
+        bool Import(EditorApp& editor_, Guid guid, const char* filename, const ImportConfig& options);
     }
 }
 }

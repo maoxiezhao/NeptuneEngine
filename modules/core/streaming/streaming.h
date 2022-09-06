@@ -24,8 +24,9 @@ namespace VulkanTest
 		// Check current resource should be update
 		virtual bool ShouldUpdate()const = 0;
 
-		// Create streaming task
+		// Streaming task
 		virtual Task* CreateStreamingTask(I32 residency) = 0;
+		virtual void CancelStreamingTask() = 0;
 
 		// Requests the streaming update
 		void RequestStreamingUpdate();

@@ -107,28 +107,6 @@ namespace VulkanTest
 		{
 			auto& mesh = meshes[i];
 
-			// Read mesh subsets
-			I32 subsetCount = 0;
-			input.Read(subsetCount);
-			if (subsetCount <= 0)
-				return false;
-			mesh.subsets.resize(subsetCount);
-
-			for (int j = 0; j < subsetCount; j++)
-			{
-				Mesh::MeshSubset& subset = mesh.subsets[j];
-
-				// Material slot index
-				I32 materialIndex;
-				input.Read(materialIndex);
-				if (materialIndex < 0 || materialIndex >= (I32)model->materialSlots.size())
-					return false;
-				subset.materialIndex = materialIndex;
-
-				input.Read(subset.indexOffset);
-				input.Read(subset.indexCount);
-			}
-
 			// Read attributes
 			U32 attrCount;
 			input.Read(attrCount);
@@ -222,8 +200,8 @@ namespace VulkanTest
 		meshes.clear();
 	}
 
-	Model::Model(const Path& path_, ResourceFactory& resFactory_) :
-		BinaryResource(path_, resFactory_),
+	Model::Model(const ResourceInfo& info, ResourceManager& resManager) :
+		BinaryResource(info, resManager),
 		StreamableResource(StreamingHandlers::Instance()->Model()),
 		header()
 	{
@@ -280,6 +258,15 @@ namespace VulkanTest
 		}
 
 		return task;
+	}
+
+	void Model::CancelStreamingTask()
+	{
+		if (streamTask != nullptr)
+		{
+			streamTask->Cancel();
+			streamTask = nullptr;
+		}
 	}
 
 	bool Model::IsReady() const
@@ -347,19 +334,26 @@ namespace VulkanTest
 		auto& resManager = GetResourceManager();
 		for (I32 i = 0; i < materialCount; i++)
 		{
-			I32 matPathSize;
-			input.Read(matPathSize);
-			char matPath[MAX_PATH_LENGTH];
-			matPath[matPathSize] = 0;
-			input.Read(matPath, matPathSize);
+			// Mateiral guid
+			Guid matGuid;
+			input.Read(matGuid);
 
-			auto material = resManager.LoadResourcePtr<Material>(Path(matPath));
+			// Material name;
+			I32 nameLenght;
+			input.Read(nameLenght);
+			char matName[MAX_PATH_LENGTH];
+			matName[nameLenght] = 0;
+			input.Read(matName, nameLenght);
+
+			auto material = resManager.LoadResource<Material>(matGuid);
 			if (!material)
 			{
-				Logger::Error("Faield to load material of model %s", matPath);
+				Logger::Error("Faield to load material of model %s", matName);
 				return false;
 			}
 			AddDependency(*material);
+
+			materialSlots[i].name = matName;
 			materialSlots[i].material = std::move(material);
 		}
 
@@ -397,6 +391,29 @@ namespace VulkanTest
 
 				// Initialize mesh
 				lod.meshes[meshIndex].Init(meshName, this, lodIndex, meshIndex, aabb);
+
+				// Read mesh subsets
+				auto& mesh = lod.meshes[meshIndex];
+				I32 subsetCount = 0;
+				input.Read(subsetCount);
+				if (subsetCount <= 0)
+					return false;
+				mesh.subsets.resize(subsetCount);
+
+				for (int j = 0; j < subsetCount; j++)
+				{
+					Mesh::MeshSubset& subset = mesh.subsets[j];
+
+					// Material slot index
+					I32 materialIndex;
+					input.Read(materialIndex);
+					if (materialIndex < 0 || materialIndex >= (I32)materialSlots.size())
+						Logger::Warning("Invalid material index in lod %d from model %s", lodIndex, GetPath().c_str());
+					subset.materialIndex = materialIndex;
+
+					input.Read(subset.indexOffset);
+					input.Read(subset.indexCount);
+				}
 			}
 		}
 		
@@ -427,6 +444,11 @@ namespace VulkanTest
 		modelLods.clear();
 
 		loadedLODs = 0;
+	}
+
+	void Model::CancelStreaming()
+	{
+		CancelStreamingTask();
 	}
 
 	void Model::GetLODData(I32 lodIndex, OutputMemoryStream& data) const

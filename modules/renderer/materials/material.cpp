@@ -5,8 +5,8 @@ namespace VulkanTest
 {
 	DEFINE_RESOURCE(Material);
 
-	Material::Material(const Path& path_, ResourceFactory& resFactory_) :
-		BinaryResource(path_, resFactory_)
+	Material::Material(const ResourceInfo& info, ResourceManager& resManager) :
+		BinaryResource(info, resManager)
 	{
 	}
 

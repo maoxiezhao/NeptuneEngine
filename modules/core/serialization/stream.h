@@ -7,6 +7,8 @@ namespace VulkanTest
 {
 	struct AABB;
 
+	#define FILESTREAM_BUFFER_SIZE 4096
+
     struct VULKAN_TEST_API IInputStream 
     {
         virtual bool Read(void* buffer, U64 size) = 0;
@@ -25,6 +27,10 @@ namespace VulkanTest
     struct VULKAN_TEST_API IOutputStream
     {
         virtual bool Write(const void* buffer, U64 size) = 0;
+
+		void WriteString(const char* string);
+		void WriteStringWithLength(const String& string);
+		void WriteAABB(const AABB& aabb);
 
 		template <typename T> 
 		bool Write(const T& value)
@@ -65,9 +71,7 @@ namespace VulkanTest
 		{
 			return Write(&value, sizeof(T));
 		}
-		void WriteString(const char* string);
-		void WriteStringWithLength(const String& string);
-		void WriteAABB(const AABB& aabb);
+
 		bool Write(const void* buffer, U64 size_)override;
 		bool Write(const void* buffer, U64 size_, U64 alignment);
 		void Skip(U64 size_);

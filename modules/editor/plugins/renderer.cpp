@@ -1,5 +1,5 @@
 #include "renderer.h"
-#include "createResource.h"
+#include "importers\resourceCreator.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
@@ -9,10 +9,11 @@
 #include "gpu\vulkan\typeToString.h"
 #include "imgui-docking\imgui.h"
 
-#include "editor\plugins\model\objImporter.h"
-#include "editor\plugins\shader\shaderCompilation.h"
-#include "editor\plugins\texture\textureImporter.h"
-#include "editor\plugins\material\materialPlugin.h"
+#include "editor\importers\resourceImportingManager.h"
+#include "editor\importers\model\objImporter.h"
+#include "editor\importers\shader\shaderCompilation.h"
+#include "editor\importers\texture\textureImporter.h"
+#include "editor\importers\material\materialPlugin.h"
 
 namespace VulkanTest
 {
@@ -32,7 +33,7 @@ namespace Editor
 			app_.GetAssetCompiler().RegisterExtension("ttf", FontResource::ResType);
 		}
 
-		bool Compile(const Path& path)override
+		bool Compile(const Path& path, Guid guid)override
 		{
 			FileSystem& fs = app.GetEngine().GetFileSystem();
 			OutputMemoryStream mem;
@@ -42,17 +43,19 @@ namespace Editor
 				return false;
 			}
 
-			ResourceDataWriter writer(FontResource::ResType);
+			return ResourceImportingManager::Create(app, [&](CreateResourceContext& ctx)->CreateResult {
+				IMPORT_SETUP(FontResource);
 
-			// Write header
-			FontResource::FontHeader header = {};
-			writer.WriteCustomData(header);
+				// Write header
+				FontResource::FontHeader header = {};
+				ctx.WriteCustomData(header);
 
-			// Write data
-			DataChunk* shaderChunk = writer.GetChunk(0);
-			shaderChunk->mem.Link(mem.Data(), mem.Size());
+				// Write data
+				DataChunk* shaderChunk = ctx.AllocateChunk(0);
+				shaderChunk->mem.Link(mem.Data(), mem.Size());
 
-			return app.GetAssetCompiler().WriteCompiled(path.c_str(), writer.data);
+				return CreateResult::Ok;
+			}, guid, path);
 		}
 
 		std::vector<const char*> GetSupportExtensions()
@@ -91,13 +94,13 @@ namespace Editor
 			app_.GetAssetCompiler().RegisterExtension("tga", Texture::ResType);
 		}
 
-		bool Compile(const Path& path)override
+		bool Compile(const Path& path, Guid guid)override
 		{
 			TextureMeta meta = GetMeta(path);
 			TextureImporter::ImportConfig config;
 			config.compress = meta.compress;
 			config.generateMipmaps = meta.generateMipmaps;
-			if (!TextureImporter::Import(app, path.c_str(), config))
+			if (!TextureImporter::Import(app, guid, path.c_str(), config))
 				return false;
 
 			return true;
@@ -156,7 +159,6 @@ namespace Editor
 	{
 	private:
 		EditorApp& app;
-		OBJImporter objImporter;
 
 		struct Meta
 		{
@@ -165,13 +167,12 @@ namespace Editor
 
 	public:
 		ModelPlugin(EditorApp& app_) : 
-			app(app_),
-			objImporter(app_)
+			app(app_)
 		{
 			app_.GetAssetCompiler().RegisterExtension("obj", Model::ResType);
 		}
 
-		bool Compile(const Path& path)override
+		bool Compile(const Path& path, Guid guid)override
 		{
 			char ext[5] = {};
 			CopyString(Span(ext), Path::GetExtension(path.ToSpan()));
@@ -183,10 +184,11 @@ namespace Editor
 				OBJImporter::ImportConfig cfg = {};
 				cfg.scale = meta.scale;
 
+				OBJImporter objImporter(app);
 				if (!objImporter.ImportModel(path.c_str()))
 					return false;
 
-				objImporter.WriteModel(path.c_str(), cfg);
+				objImporter.WriteModel(guid, path.c_str(), cfg);
 				return true;
 			}
 			else
@@ -228,7 +230,7 @@ namespace Editor
 			app_.GetAssetCompiler().RegisterExtension("shd", Shader::ResType);
 		}
 
-		bool Compile(const Path& path)override
+		bool Compile(const Path& path, Guid guid)override
 		{
 			char ext[5] = {};
 			CopyString(Span(ext), Path::GetExtension(path.ToSpan()));
@@ -239,13 +241,11 @@ namespace Editor
 				OutputMemoryStream outMem;
 				outMem.Reserve(32 * 1024);
 
-				ResourceDataWriter shaderWriter(Shader::ResType);
-				DataChunk* shaderChunk = shaderWriter.GetChunk(0);
-
+				OutputMemoryStream mem;
 				CompilationOptions options = {};
 				options.Macros.clear();
 				options.path = path;
-				options.outMem = &shaderChunk->mem;
+				options.outMem = &mem;
 				if (!ShaderCompilation::Compile(app, options))
 					return false;
 
@@ -267,13 +267,7 @@ namespace Editor
 				metaData += "\n}";
 				app.GetAssetCompiler().UpdateMeta(path, metaData.c_str());
 
-				// Write header
-				Shader::FileHeader header;
-				header.magic = Shader::FILE_MAGIC;
-				header.version = Shader::FILE_VERSION;
-				shaderWriter.WriteCustomData(header);
-
-				return app.GetAssetCompiler().WriteCompiled(path.c_str(), shaderWriter.data);
+				return ShaderCompilation::Write(app, guid, path, mem);
 			}
 			else
 			{
@@ -342,22 +336,29 @@ namespace Editor
 	private:
 		EditorApp& app;
 		HashMap<void*, ResPtr<Texture>> textures;
+		HashMap<U64, Texture*> pathMapping;
 
 	public:
 		RenderInterfaceImpl(EditorApp& app_) : app(app_) {}
 
 		virtual void* LoadTexture(const Path& path) override
 		{
+			auto it = pathMapping.find(path.GetHashValue());
+			if (it.isValid())
+				return it.value()->GetImage();
+
 			auto& resManager = app.GetEngine().GetResourceManager();
-			ResPtr<Texture> texture = resManager.LoadResourcePtr<Texture>(path);
+			ResPtr<Texture> texture = resManager.LoadResource<Texture>(path);
+			texture->WaitForLoaded();
 			textures.insert(texture->GetImage(), texture);
+			pathMapping.insert(texture->GetPath().GetHashValue(), texture.get());
 			return texture->GetImage();
 		}
 		
 		virtual void* CreateTexture(const char* name, const void* pixels, int w, int h) override
 		{
 			auto& resManager = app.GetEngine().GetResourceManager();
-			Texture* texture = CJING_NEW(Texture)(Path(name), *resManager.GetFactory(Texture::ResType));
+			Texture* texture = CJING_NEW(Texture)(ResourceInfo::Temporary(Texture::ResType), resManager);
 			if (!texture->Create(w, h, VK_FORMAT_R8G8B8A8_UNORM, pixels))
 			{
 				Logger::Error("Failed to create the texture.");
@@ -377,6 +378,7 @@ namespace Editor
 
 			auto texture = it.value();
 			textures.erase(it);
+			pathMapping.erase(texture->GetPath().GetHashValue());
 			texture->Destroy();
 		}
 	};

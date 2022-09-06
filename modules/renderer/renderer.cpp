@@ -150,9 +150,9 @@ namespace Renderer
 	struct RenderResourceFactory : public BinaryResourceFactory
 	{
 	protected:
-		virtual Resource* CreateResource(const Path& path) override
+		virtual Resource* CreateResource(const ResourceInfo& info) override
 		{
-			return CJING_NEW(T)(path, *this);
+			return CJING_NEW(T)(info, GetResourceManager());
 		}
 	};
 
@@ -160,7 +160,7 @@ namespace Renderer
 	LocalPtr<RenderResourceFactory<Texture>> textureFactory;
 	LocalPtr<RenderResourceFactory<Model>> modelFactory;
 	LocalPtr<RenderResourceFactory<Material>> materialFactory;
-	LocalPtr<FontResourceFactory> fontFactory;
+	LocalPtr<RenderResourceFactory<FontResource>> fontFactory;
 
 	GPU::BlendState stockBlendStates[BSTYPE_COUNT] = {};
 	GPU::RasterizerState stockRasterizerState[RSTYPE_COUNT] = {};
@@ -277,10 +277,10 @@ namespace Renderer
 	void LoadShaders()
 	{
 		auto& resManager = rendererPlugin->GetEngine().GetResourceManager();
-		shaders[SHADERTYPE_OBJECT] = resManager.LoadResourcePtr<Shader>(Path("shaders/object.shd"));
-		shaders[SHADERTYPE_VERTEXCOLOR] = resManager.LoadResourcePtr<Shader>(Path("shaders/vertexColor.shd"));
-		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = resManager.LoadResourcePtr<Shader>(Path("shaders/outline.shd"));
-		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResourcePtr<Shader>(Path("shaders/blurGaussian.shd"));
+		shaders[SHADERTYPE_OBJECT] = resManager.LoadResource<Shader>(Path("shaders/object.shd"));
+		shaders[SHADERTYPE_VERTEXCOLOR] = resManager.LoadResource<Shader>(Path("shaders/vertexColor.shd"));
+		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = resManager.LoadResource<Shader>(Path("shaders/outline.shd"));
+		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResource<Shader>(Path("shaders/blurGaussian.shd"));
 	}
 
 	void InitializeFactories(Engine& engine)

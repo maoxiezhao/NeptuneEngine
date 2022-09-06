@@ -1,8 +1,10 @@
 #include "resource.h"
 #include "resourceManager.h"
+#include "core\engine.h"
 #include "core\utils\string.h"
 #include "core\compress\compressor.h"
 #include "core\profiler\profiler.h"
+#include "core\threading\taskQueue.h"
 
 namespace VulkanTest
 {
@@ -29,9 +31,9 @@ namespace VulkanTest
 
 		void OnEnd() override
 		{ 
-			// Loading task finished, refresh resource state
+			// Loading task end, refresh resource state
 			if (resource)
-				resource->OnLoadedFromTask(this);
+				resource->OnLoadEndFromTask(this);
 
 			ContentLoadingTask::OnEnd();
 		}
@@ -48,25 +50,109 @@ namespace VulkanTest
 
 	Resource::~Resource() = default;
 
-	Path Resource::GetStoragePath() const
+	namespace ContentLoadingManagerImpl
 	{
-		StaticString<MAX_PATH_LENGTH> fullResPath;
-		if (StartsWith(GetPath().c_str(), ".export/resources_tiles/"))
+		extern ConcurrentTaskQueue<ContentLoadingTask> taskQueue;
+	}
+
+	bool Resource::WaitForLoaded(F32 seconds) 
+	{
+		// WaitForLoaded cannot be just a simple active-wait loop.
+		// Because WaitForLoaded may be called on the loadingThread, active-wait loop
+		// will cause the loadingThread sleep.But we don't have too many loading threads
+		// Ex. Res1::Load()
+		//         ResChild1:WaitForLoaded()
+		//         ResChild2:WaitForLoaded()
+		// 
+		// In order to solve the above situation, 
+		// WaitForLoaded could detect if is called from the Loading Thead and manually load dependent asset
+
+		// Return true if resource has been already loaded
+		if (IsLoaded())
 		{
-			// Resource tiles load directly
-			fullResPath = GetPath().c_str();
+			if (IsInMainThread())
+				GetResourceManager().TryCallOnResourceLoaded(this);
+			return true;
+		}
+
+		Platform::Barrier();
+		const auto loadingTask_ = loadingTask;
+		if (loadingTask_ == nullptr)
+		{
+			Logger::Warning("Failed to waitForLoaded %s. No loadind task.", GetPath().c_str());
+			return false;
+		}
+
+		PROFILE_FUNCTION();
+		auto loadingThread = ContentLoadingManager::GetCurrentLoadThread();
+		if (loadingThread == nullptr)
+		{
+			// Is not called from contentloadingThread, just wait it
+			loadingTask_->Wait(seconds);
 		}
 		else
 		{
-			const U64 pathHash = path.GetHashValue();
-			fullResPath = StaticString<MAX_PATH_LENGTH>(".export/resources/", pathHash, ".res");
-		}
-		return Path(fullResPath.c_str());
-	}
+			Task* task = loadingTask;
+			Array<ContentLoadingTask*> localQueue;
+			while (!Engine::ShouldExit())
+			{
+				// Try to execute content tasks
+				while (task->IsQueued() && !Engine::ShouldExit())
+				{
+					// Dequeue task from the loading queue
+					ContentLoadingTask* tmp;
+					if (ContentLoadingManagerImpl::taskQueue.try_dequeue(tmp))
+					{
+						if (tmp == task)
+						{
+							// Put back queued tasks
+							if (localQueue.size() != 0)
+							{
+								ContentLoadingManagerImpl::taskQueue.enqueue_bulk(localQueue.data(), localQueue.size());
+								localQueue.clear();
+							}
 
-	bool Resource::WaitForLoaded(F32 seconds) const
-	{
-		return true;
+							// Run it manually
+							loadingThread->Run(tmp);
+						}
+						else
+						{
+							// Pending all other loading tasks
+							localQueue.push_back(tmp);
+						}
+					}
+					else
+					{
+						break;
+					}
+				}
+
+				// Put back queued tasks
+				if (localQueue.size() != 0)
+				{
+					ContentLoadingManagerImpl::taskQueue.enqueue_bulk(localQueue.data(), localQueue.size());
+					localQueue.clear();
+				}
+
+				// Check if task is ended
+				if (task->IsEnded())
+				{
+					if (!task->IsFinished())
+						break;
+
+					// If was fine then wait for the next task
+					task = task->GetNextTask();
+					if (!task)
+						break;
+				}
+			}
+		}
+
+
+		if (IsInMainThread() && IsLoaded())
+			GetResourceManager().TryCallOnResourceLoaded(this);
+
+		return isLoaded;
 	}
 
 	void Resource::Refresh()
@@ -110,6 +196,12 @@ namespace VulkanTest
 		CheckState();
 	}
 
+	void Resource::SetIsTemporary()
+	{
+		isTemporary = true;
+		isLoaded = true;
+	}
+
 	I32 Resource::GetReference() const
 	{
 		return (I32)AtomicRead(const_cast<I64 volatile*>(&refCount));
@@ -117,58 +209,63 @@ namespace VulkanTest
 
 	void Resource::OnDelete()
 	{
-		// Send event
-		OnUnLoaded();
+		ASSERT(IsInMainThread());
 
-		mutex.Lock();
+		const bool wasMarkedToDelete = toDelete != 0;
 
-		desiredState = State::EMPTY;
+		// Fire unload event in main thread
+		OnUnLoadedMainThread();
+
+		// Remove it from resources pool
+		GetResourceManager().OnResourceUnload(this);
 
 		// Unload real resource content
+		mutex.Lock();
+		desiredState = State::EMPTY;
 		if (IsLoaded())
 		{
 			Unload();
 			isLoaded = false;
 		}
-
 		// Refresh current state
 		resSize = 0;
 		emptyDepCount = 1;
 		failedDepCount = 0;
+		CheckState();
 		mutex.Unlock();
 
-		CheckState();
+#if CJING3D_EDITOR
+		ResourceManager* resManager = &GetResourceManager();
+		if (wasMarkedToDelete)
+			resManager->DeleteResource(GetPath());
+#endif
 
 		// Delete self
 		Object::OnDelete();
 	}
 
-	ResourceFactory& Resource::GetResourceFactory()
-	{
-		return resFactory;
-	}
-
 	ResourceManager& Resource::GetResourceManager()
 	{
-		return resFactory.GetResourceManager();
+		return resManager;
 	}
 
-	Resource::Resource(const Path& path_, ResourceFactory& resFactory_) :
+	Resource::Resource(const ResourceInfo& info, ResourceManager& resManager_) :
+		guid(info.guid),
 		emptyDepCount(1),
 		failedDepCount(0),
 		currentState(State::EMPTY),
 		desiredState(State::EMPTY),
 		resSize(0),
-		path(path_),
-		resFactory(resFactory_),
+		path(info.path),
 		loadingTask(nullptr),
-		refCount(0)
+		refCount(0),
+		resManager(resManager_)
 	{
 	}
 
 	void Resource::DoLoad()
 	{
-		if (IsReady())
+		if (IsLoaded())
 			return;
 
 		desiredState = State::READY;
@@ -181,24 +278,24 @@ namespace VulkanTest
 
 	void Resource::Reload()
 	{
+		ASSERT(IsInMainThread());
+
+		// Temporary is memory-only
+		if (IsTemporary())
+			return;
+
 		Logger::Info("Reloading resource %s", GetPath().c_str());
 
-		// Cancel current loading task
-		if (loadingTask)
-		{
-			auto task = loadingTask;
-			loadingTask = nullptr;
-			task->Cancel();
-		}
+		// Wait for resource loaded
+		WaitForLoaded();
 
 		// Fire event
 		OnReloadingCallback.Invoke(this);
 
 		ScopedMutex lock(mutex);
 
+		// Unload resource content
 		desiredState = State::EMPTY;
-
-		// Unload real resource content
 		if (IsLoaded())
 		{
 			Unload();
@@ -209,7 +306,7 @@ namespace VulkanTest
 		resSize = 0;
 		emptyDepCount = 1;
 		failedDepCount = 0;
-		CheckState();
+		isStateDirty = true;
 
 		// Start reloading
 		DoLoad();
@@ -234,7 +331,6 @@ namespace VulkanTest
 			{
 				currentState = State::READY;
 				StateChangedCallback.Invoke(oldState, currentState, *this);
-				GetResourceFactory().OnResourceLoaded(this);
 			}
 
 			if (currentState != State::EMPTY && emptyDepCount > 0)
@@ -256,6 +352,10 @@ namespace VulkanTest
 		emptyDepCount = 0;
 	}
 
+	void Resource::CancelStreaming()
+	{
+	}
+
 	ContentLoadingTask* Resource::CreateLoadingTask()
 	{
 		LoadResourceTask* task = CJING_NEW(LoadResourceTask)(this);
@@ -267,18 +367,26 @@ namespace VulkanTest
 		if (loadingTask == nullptr)
 			return false;
 
-		ScopedMutex lock(mutex);
-		bool ret = LoadResource();
+		mutex.Lock();
+		bool isLoaded_ = LoadResource();
 		loadingTask = nullptr;
-		return ret;
+		isLoaded = isLoaded_;
+		mutex.Unlock();
+
+		// Fire onLoaded event
+		if (isLoaded)
+			GetResourceManager().OnResourceLoaded(this);
+
+		return isLoaded;
 	}
 
-	void Resource::OnLoadedFromTask(LoadResourceTask* task)
+	void Resource::OnLoadEndFromTask(LoadResourceTask* task)
 	{
 		ScopedMutex lock(mutex);
 
 		// Refresh resoruce state
-		ASSERT(currentState != State::READY);
+		const auto curState = currentState;
+		ASSERT(curState != State::READY);
 		auto state = task->GetState();
 		isLoaded = state == Task::State::Finished;
 
@@ -298,12 +406,12 @@ namespace VulkanTest
 		isStateDirty = true;
 	}
 
-	void Resource::OnLoaded()
+	void Resource::OnLoadedMainThread()
 	{
 		OnLoadedCallback.Invoke(this);
 	}
 
-	void Resource::OnUnLoaded()
+	void Resource::OnUnLoadedMainThread()
 	{
 		OnUnloadedCallback.Invoke(this);
 

@@ -47,6 +47,8 @@ namespace VulkanTest
 
 		I32 Task() override;
 
+		void Run(ContentLoadingTask* task);
+
 	private:
 		volatile I64 isFinished;
 	};
@@ -55,5 +57,6 @@ namespace VulkanTest
 	{
 		void Initialize();
 		void Uninitialize();
+		ContentLoadingThread* GetCurrentLoadThread();
 	}
 }

@@ -7,8 +7,8 @@ namespace VulkanTest
 {
 	DEFINE_RESOURCE(Texture);
 
-	Texture::Texture(const Path& path_, ResourceFactory& resFactory_) :
-		BinaryResource(path_, resFactory_)
+	Texture::Texture(const ResourceInfo& info, ResourceManager& resManager) :
+		BinaryResource(info, resManager)
 	{
 	}
 

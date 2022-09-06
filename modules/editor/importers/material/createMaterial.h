@@ -1,7 +1,7 @@
 #pragma once
 
 #include "editorPlugin.h"
-#include "editor\plugins\createResource.h"
+#include "editor\importers\resourceCreator.h"
 #include "renderer\materials\material.h"
 
 namespace VulkanTest
@@ -21,10 +21,7 @@ namespace Editor
 		};
 
 		// Creat a new importing material resource
-		static bool Create(EditorApp& editor, const Guid& guid, const Path& path, const Options& options);
-
-	private:
-		static CreateResourceContext::CreateResult CreateImpl(CreateResourceContext& ctx);
+		static CreateResult Create(CreateResourceContext& ctx);
 	};
 }
 }

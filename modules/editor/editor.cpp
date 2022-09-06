@@ -268,7 +268,7 @@ namespace Editor
                 break;
 
             case Platform::WindowEvent::Type::QUIT:
-                RequestShutdown();
+                Engine::RequestExit();
                 break;
 
             case Platform::WindowEvent::Type::WINDOW_CLOSE: {
@@ -276,7 +276,7 @@ namespace Editor
                 if (vp)
                     vp->PlatformRequestClose = true;
                 if (ent.window == mainWindow)
-                    RequestShutdown();
+                    Engine::RequestExit();
                 break;
             }
             case Platform::WindowEvent::Type::WINDOW_MOVE: {
@@ -1029,7 +1029,7 @@ namespace Editor
 
         void Exit()
         {
-            RequestShutdown();
+            Engine::RequestExit();
         }
 
         void ToggleGameMode()

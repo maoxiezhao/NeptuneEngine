@@ -13,12 +13,7 @@ namespace VulkanTest
 
 		if (FLAG_ANY(flags, FileFlags::CREATE))
 		{
-			if (Platform::FileExists(path)) {
-				createFlags = TRUNCATE_EXISTING;
-			}
-			else {
-				createFlags = CREATE_ALWAYS;
-			}
+			createFlags = CREATE_ALWAYS;
 		}
 		if (FLAG_ANY(flags, FileFlags::READ))
 		{
@@ -74,6 +69,13 @@ namespace VulkanTest
 		const U8* writeBuffer = static_cast<const U8*>(buffer);
 		BOOL success = ::WriteFile(handle, writeBuffer, (DWORD)bytes, (LPDWORD)&written, nullptr);
 		return success && bytes == written;
+	}
+
+	bool MappedFile::Write(void* buffer, size_t bytes, size_t& written)
+	{
+		const U8* writeBuffer = static_cast<const U8*>(buffer);
+		BOOL success = ::WriteFile(handle, writeBuffer, (DWORD)bytes, (LPDWORD)&written, nullptr);
+		return success;
 	}
 
 	bool MappedFile::Seek(size_t offset)

@@ -6,8 +6,6 @@
 
 namespace VulkanTest
 {
-	#define FILESTREAM_BUFFER_SIZE 4096
-
 	struct VULKAN_TEST_API FileReadStream final : public IInputStream
 	{
 		using IInputStream::Read;

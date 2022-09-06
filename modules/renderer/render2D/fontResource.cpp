@@ -10,8 +10,8 @@ namespace VulkanTest
 {
 	DEFINE_RESOURCE(FontResource);
 
-	FontResource::FontResource(const Path& path_, ResourceFactory& resFactory_) :
-		BinaryResource(path_, resFactory_),
+	FontResource::FontResource(const ResourceInfo& info, ResourceManager& resManager) :
+		BinaryResource(info, resManager),
 		face(nullptr)
 	{
 	}
@@ -70,8 +70,7 @@ namespace VulkanTest
 
 		fontData.Write(dataChunk->Data(), dataChunk->Size());
 
-		FontResourceFactory* factory = static_cast<FontResourceFactory*>(&GetResourceFactory());
-		const FT_Error error = FT_New_Memory_Face(factory->GetLibrary(), fontData.Data(), static_cast<FT_Long>(fontData.Size()), 0, &face);
+		const FT_Error error = FT_New_Memory_Face(FontManager::GetLibrary(), fontData.Data(), static_cast<FT_Long>(fontData.Size()), 0, &face);
 		if (error)
 		{
 			face = nullptr;

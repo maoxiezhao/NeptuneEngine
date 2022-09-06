@@ -73,7 +73,7 @@ namespace Editor
 		};
 
 		bool ImportModel(const char* filename);
-		bool WriteModel(const char* filepath, const ImportConfig& cfg);
+		bool WriteModel(Guid guid, const char* filepath, const ImportConfig& cfg);
 
 	private:
 		void PostprocessMeshes(const ImportConfig& cfg);

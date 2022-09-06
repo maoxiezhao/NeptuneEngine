@@ -1,10 +1,12 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\globals.h"
 #include "core\resource\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
 #include "core\utils\guid.h"
 #include "resourceHeader.h"
+#include "resourceInfo.h"
 
 namespace VulkanTest
 {
@@ -18,6 +20,7 @@ namespace VulkanTest
 	public:
 		friend class ResourceFactory;
 		friend class ResourceManager;
+		friend class ResourceStorage;
 
 		virtual ~Resource();
 		virtual ResourceType GetType()const = 0;
@@ -50,16 +53,20 @@ namespace VulkanTest
 			return path;
 		}
 
-		Path GetStoragePath()const;
-
 		U64 Size() const { 
 			return resSize;
 		}
 
-		bool WaitForLoaded(F32 seconds = 30.0f)const;
+		bool WaitForLoaded(F32 seconds = 30.0f);
 		void Refresh();
+		void Reload();
 		void AddDependency(Resource& depRes);
 		void RemoveDependency(Resource& depRes);
+
+		void SetIsTemporary();
+		bool IsTemporary()const {
+			return isTemporary;
+		}
 
 		void SetHooked(bool isHooked) {
 			hooked = isHooked;
@@ -103,10 +110,13 @@ namespace VulkanTest
 			return isLoaded;
 		}
 
+		ResourceInfo GetResourceInfo()const {
+			return ResourceInfo(guid, GetType(), GetPath());
+		}
+
 		// Called by ObjectService
 		void OnDelete()override;
 
-		ResourceFactory& GetResourceFactory();
 		ResourceManager& GetResourceManager();
 
 		using EventCallback = DelegateList<void(Resource*)>;
@@ -117,20 +127,18 @@ namespace VulkanTest
 	protected:
 		friend class LoadResourceTask;
 
-		Resource(const Path& path_, ResourceFactory& resFactory_);
+		Resource(const ResourceInfo& info, ResourceManager& resManager_);
 	
 		void DoLoad();
-		void Reload();
 		void CheckState();
-		void OnLoaded();
-		void OnUnLoaded();
 
 		virtual bool LoadResource() = 0;
 		virtual void OnCreated(State state);
+		virtual void CancelStreaming();
 
 		virtual ContentLoadingTask* CreateLoadingTask();
 		bool LoadingFromTask(LoadResourceTask* task);
-		void OnLoadedFromTask(LoadResourceTask* task);
+		void OnLoadEndFromTask(LoadResourceTask* task);
 
 		using StateChangedCallbackType = DelegateList<void(State, State, Resource&)>;
 		StateChangedCallbackType StateChangedCallback;
@@ -139,11 +147,12 @@ namespace VulkanTest
 		virtual bool Load() = 0;
 		virtual void Unload() = 0;
 
-		ResourceFactory& resFactory;
 		State desiredState;
 		U32 failedDepCount;
 		U32 emptyDepCount;
 		U64 resSize;
+
+		ResourceManager& resManager;
 		ContentLoadingTask* loadingTask;
 		volatile I64 refCount;
 		Mutex mutex;
@@ -151,6 +160,7 @@ namespace VulkanTest
 		bool isStateDirty = false;
 		bool isReloading = false;
 		bool isLoaded = false;
+		bool toDelete = false;
 
 	private:
 		friend struct ResourceDeleter;
@@ -158,12 +168,16 @@ namespace VulkanTest
 		Resource(const Resource&) = delete;
 		void operator=(const Resource&) = delete;
 		
+		void OnLoadedMainThread();
+		void OnUnLoadedMainThread();
 		void OnStateChanged(State oldState, State newState, Resource& res);
 
+	private:
 		Guid guid;
 		Path path;
 		bool hooked = false;
 		bool ownedBySelf = false;
+		bool isTemporary = false;
 		State currentState;
 	};
 

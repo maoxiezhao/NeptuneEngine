@@ -65,7 +65,7 @@ namespace ImGuiRenderer
 
 		// Load shader
 		auto& resManager = app->GetEngine().GetResourceManager();
-		shader = resManager.LoadResourcePtr<Shader>(Path("shaders/editor/imGui.shd"));
+		shader = resManager.LoadResource<Shader>(Path("shaders/editor/imGui.shd"));
 	}
 
 	static void UpdateImGuiMonitors() 

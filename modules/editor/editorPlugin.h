@@ -2,6 +2,7 @@
 
 #include "editor\common.h"
 #include "core\resource\resourceHeader.h"
+#include "core\filesystem\filesystem.h"
 
 #ifdef STATIC_PLUGINS
 #define VULKAN_EDITOR_ENTRY(plugin_name) \

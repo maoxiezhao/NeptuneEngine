@@ -20,7 +20,7 @@ namespace Editor
         struct VULKAN_EDITOR_API IPlugin
         {
             virtual ~IPlugin() {}
-            virtual bool Compile(const Path& path) = 0;
+            virtual bool Compile(const Path& path, Guid guid) = 0;
             virtual void RegisterResource(AssetCompiler& compiler, const char* path);
             virtual std::vector<const char*> GetSupportExtensions() = 0;
         };
@@ -40,9 +40,7 @@ namespace Editor
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
         virtual void AddDependency(const Path& from, const Path& dep) = 0;
-        virtual bool Compile(const Path& path) = 0;
-        virtual bool WriteCompiled(const char* path, const ResourceInitData& initData) = 0;
-        virtual bool WriteCompiled(const char* path, Span<const U8>data) = 0;
+        virtual bool Compile(const Path& path, Guid guid) = 0;
         virtual ResourceType GetResourceType(const char* path) const = 0;
         virtual void RegisterExtension(const char* extension, ResourceType type) = 0;
         virtual void AddResource(ResourceType type, const char* path) = 0;

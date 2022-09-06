@@ -12,7 +12,6 @@ namespace VulkanTest
 
 	ResourceFactory::~ResourceFactory()
 	{
-		ASSERT(resources.empty());
 	}
 
 	void ResourceFactory::Initialize(ResourceType type, ResourceManager& resManager_)
@@ -25,160 +24,37 @@ namespace VulkanTest
 	void ResourceFactory::Uninitialize()
 	{
 		exiting = true;
-
-		// Unload remaining resources
-		{
-			ScopedMutex lock(resLock);
-			for (auto& kvp : resources)
-			{
-				Resource* res = kvp.second;
-				UnloadResoruce(res);
-			}
-			resources.clear();
-		}
-
 		resManager->UnregisterFactory(resType);
 		resManager = nullptr;
 	}
-	
-	void ResourceFactory::Update(F32 dt)
-	{
-		// Refresh state of resoruces
-		{
-			ScopedMutex lock(resLock);
-			for (auto& kvp : resources)
-			{
-				if (kvp.second->IsStateDirty())
-					kvp.second->CheckState();
-			}
-		}
-		// Broadcast OnLoaded 
-		{
-			ScopedMutex lock(loadedResLock);
-			for (auto res : loadedResources)
-				res->OnLoaded();
-			loadedResources.clear();
-		}
-	}
 
-	void ResourceFactory::Reload(const Path& path)
-	{
-		Resource* res = GetResource(path);
-		if (res)
-			ReloadResource(res);
-	}
-
-	void ResourceFactory::Reload(Resource* res)
-	{
-		ReloadResource(res);
-	}
-
-	void ResourceFactory::RemoveUnreferenced()
-	{
-		ScopedMutex lock(resLock);
-		for (auto& kvp : resources)
-		{
-			if (kvp.second->GetReference() <= 0)
-				toRemoved.push_back(kvp.second);
-		}
-
-		for (auto res : toRemoved)
-		{
-			auto it = resources.find(res->GetPath().GetHashValue());
-			if (it != resources.end())
-			{
-				if (res->GetReference() <= 0)
-				{
-					UnloadResoruce(res);
-					resources.erase(it);
-				}
-			}
-		}
-		toRemoved.clear();
-	}
-
-	void ResourceFactory::OnResourceLoaded(Resource* res)
-	{
-		ScopedMutex lock(loadedResLock);
-		loadedResources.push_back(res);
-	}
-
-	Resource* ResourceFactory::GetResource(const Path& path)
-	{
-		if (path.IsEmpty())
-			return nullptr;
-
-		ScopedMutex lock(resLock);
-		auto it = resources.find(path.GetHashValue());
-		if (it != resources.end())
-			return it->second;
-
-		return nullptr;
-	}
-
-	ResourceFactory::ResourceTable& ResourceFactory::GetResourceTable()
-	{
-		return resources;
-	}
-
-	void ResourceFactory::DestroyResource(Resource* res)
-	{
-		ASSERT(res);
-		if (exiting)
-			res->DeleteObjectNow();
-		else
-			res->DeleteObject();
-	}
-
-	void ResourceFactory::ReloadResource(Resource* res)
+	ResourceManager::ResourceManager() : cache(*this)
 	{
 	}
 
-	Resource* ResourceFactory::LoadResource(Resource* res)
-	{
-		if (res->IsEmpty() && res->desiredState == Resource::State::EMPTY)
-		{
-			if (resManager->OnBeforeLoad(*res) == ResourceManager::LoadHook::Action::DEFERRED)
-			{
-				ASSERT(res->IsHooked() == false);
-				res->SetHooked(true);
-				res->desiredState = Resource::State::READY;
-				res->AddReference(); // Hook
-				return res;
-			}
-			res->DoLoad();
-		}
-		return res;
-	}
-
-	void ResourceFactory::UnloadResoruce(Resource* res)
-	{
-		if (res == nullptr)
-			return;
-
-		if (!res->IsOwnedBySelf())
-			DestroyResource(res);
-
-		loadedResources.erase(res);
-	}
-
-	ResourceManager::ResourceManager() = default;
 	ResourceManager::~ResourceManager() = default;
 
 	void ResourceManager::Initialize(FileSystem& fileSystem_)
 	{
 		ASSERT(isInitialized == false);
+		fileSystem = &fileSystem_;
+
+		// Init resource cache
+		cache.Initialize();
 
 		// Init resource loading
 		ContentLoadingManager::Initialize();
 
-		fileSystem = &fileSystem_;
 		isInitialized = true;
 	}
 
 	void ResourceManager::Uninitialzie()
 	{
 		ASSERT(isInitialized == true);
+		isInitialized = false;
+
+		// Save resources cache
+		cache.Save();
 
 		// Uninit resource loading
 		ContentLoadingManager::Uninitialize();
@@ -186,7 +62,145 @@ namespace VulkanTest
 		// Flush pending objects
 		ObjectService::FlushNow();
 
-		isInitialized = false;
+		// Unload remaining resources
+		{
+			ScopedMutex lock(resourceMutex);
+			Array<Resource*> toDeleteResources;
+			for (auto res : resources)
+				toDeleteResources.push_back(res);
+
+			for (auto res : toDeleteResources)
+				res->DeleteObjectNow();
+		}
+
+		// Flush pending objects
+		ObjectService::FlushNow();
+	}
+
+	Resource* ResourceManager::LoadResource(ResourceType type, const Guid& guid)
+	{
+		if (!guid.IsValid())
+			return nullptr;
+
+		// Check if resource has been already loaded
+		Resource* res = GetResource(guid);
+		if (res != nullptr)
+		{
+			if (res->GetType() != type)
+			{
+				Logger::Warning("Different loaded resource type. Resource: \'%s\'. Expected type: %d", res->GetPath().c_str(), type.GetHashValue());
+				return nullptr;
+			}
+			return res;
+		}
+
+		// Check if resource is loading
+		loadingResourcesMutex.Lock();
+		if (loadingResources.indexOf(guid) != -1)
+		{
+			loadingResourcesMutex.Unlock();
+
+			// Is necessary to wait for load end?
+			while (true)
+			{
+				loadingResourcesMutex.Lock();
+				const bool isLoading = loadingResources.indexOf(guid) != -1;
+				loadingResourcesMutex.Unlock();
+
+				if (!isLoading)
+					return GetResource(guid);
+
+				Platform::Sleep(0.001f);
+			}
+		}
+		else
+		{
+			// Mark resource is loading
+			loadingResources.push_back(guid);
+			loadingResourcesMutex.Unlock();
+		}
+
+		// Load resource
+		res = LoadResourceImpl(type, guid);
+
+		loadingResourcesMutex.Lock();
+		loadingResources.erase(guid);
+		loadingResourcesMutex.Unlock();
+		return res;
+	}
+
+	Resource* ResourceManager::LoadResourceImpl(ResourceType type, const Guid& guid)
+	{
+		ResourceInfo resInfo;
+		if (!GetResourceInfo(guid, resInfo))
+		{
+			Logger::Warning("Invalid resource id %d", guid.GetHash());
+			return nullptr;
+		}
+
+		// Get resource factory
+		auto factory = GetFactory(type);
+		if (factory == nullptr)
+		{
+			Logger::Warning("Cannot find resource factory %s", resInfo.path.c_str());
+			return nullptr;
+		}
+
+		// Create target resource
+		Resource* res = factory->NewResource(resInfo);
+		if (res == nullptr)
+		{
+			Logger::Warning("Cannot create resource %s", resInfo.path.c_str());
+			return nullptr;
+		}
+		ASSERT(res->GetGUID() == guid);
+
+		// Record resource 
+		resourceMutex.Lock();
+		resources.insert(guid, res);
+		resourceMutex.Unlock();
+
+#if CJING3D_EDITOR
+		if (res->IsEmpty() && res->desiredState == Resource::State::EMPTY)
+		{
+			if (OnBeforeLoad(*res) == ResourceManager::LoadHook::Action::DEFERRED)
+			{
+				ASSERT(res->IsHooked() == false);
+				res->SetHooked(true);
+				res->desiredState = Resource::State::READY;
+				res->AddReference(); // Hook
+				return res;
+			}
+		}
+#endif
+		// Resource start loading
+		res->DoLoad();
+
+		return res;
+	}
+
+	Resource* ResourceManager::ContinueLoadResource(ResourceType type, const Guid& guid)
+	{
+		if (!guid.IsValid())
+			return nullptr;
+
+		// Resource must is already set in continue load case
+		Resource* res = GetResource(guid);
+		if (res == nullptr)
+		{
+			Logger::Warning("Cannot continue to load resource %d", guid.GetHash());
+			return nullptr;
+		}
+
+		// Resource start loading
+		res->DoLoad();
+
+		// Remove from loading queue
+		loadingResourcesMutex.Lock();
+		loadingResources.erase(guid);
+		loadingResourcesMutex.Unlock();
+
+		return res;
 	}
 
 	Resource* ResourceManager::LoadResource(ResourceType type, const Path& path)
@@ -194,25 +208,205 @@ namespace VulkanTest
 		ASSERT(isInitialized);
 		ASSERT(!path.IsEmpty());
 
-		ResourceFactory* factory = GetFactory(type);
-		if (factory == nullptr)
+#if CJING3D_EDITOR
+		Resource* res = nullptr;
+		ResourceInfo info;
+		if (GetResourceInfo(path, info))
+		{
+			res = GetResource(info.guid);
+		}
+		else
+		{
+			info.guid = Guid::New();
+			info.type = type;
+			info.path = path;
+		}
+
+		if (res == nullptr)
+		{
+			// Check if resource is loading
+			loadingResourcesMutex.Lock();
+			if (loadingResources.indexOf(info.guid) != -1)
+			{
+				loadingResourcesMutex.Unlock();
+
+				// Is necessary to wait for load end?
+				while (true)
+				{
+					loadingResourcesMutex.Lock();
+					const bool isLoading = loadingResources.indexOf(info.guid) != -1;
+					loadingResourcesMutex.Unlock();
+
+					if (!isLoading)
+						return GetResource(info.guid);
+
+					Platform::Sleep(0.001f);
+				}
+			}
+			else
+			{
+				// Mark resource is loading
+				loadingResources.push_back(info.guid);
+				loadingResourcesMutex.Unlock();
+			}
+
+			// Get resource factory
+			auto factory = GetFactory(type);
+			if (factory == nullptr)
+			{
+				Logger::Warning("Cannot find resource factory %s", info.path.c_str());
+				return nullptr;
+			}
+
+			// Create target resource
+			res = factory->NewResource(info);
+			if (res == nullptr)
+			{
+				Logger::Warning("Cannot create resource %s", info.path.c_str());
+				return nullptr;
+			}
+
+			// Record resource
+			// TODO check if is necessary
+			resourceMutex.Lock();
+			resources.insert(res->GetGUID(), res);
+			resourceMutex.Unlock();
+		}
+
+		if (res->IsEmpty() && res->desiredState == Resource::State::EMPTY)
+		{
+			if (OnBeforeLoad(*res) == ResourceManager::LoadHook::Action::DEFERRED)
+			{
+				ASSERT(res->IsHooked() == false);
+				res->SetHooked(true);
+				res->desiredState = Resource::State::READY;
+				res->AddReference(); // Hook
+				return res;
+	}
+			res = ContinueLoadResource(res->GetType(), res->GetGUID());
+		}
+
+		return res;
+#else
+		ResourceInfo info;
+		if (!GetResourceInfo(path, info))
 			return nullptr;
 
-		return factory->LoadResource(path);
+		return LoadResource(type, info.guid);
+#endif
 	}
 
-	void ResourceManager::Reload(const Path& path)
+	void ResourceManager::UnloadResoruce(Resource* res)
 	{
-		for (auto kvp : factoryTable)
-			kvp.second->Reload(path);
+		if (res == nullptr)
+			return;
+		
+		res->DeleteObject();
+	}
+
+	void ResourceManager::ReloadResource(const Path& path)
+	{
+		auto storage = StorageManager::TryGetStorage(path);
+		if (storage && storage->IsLoaded())
+			storage->CloseContent();
+
+		if (storage)
+			storage->Reload();
+	}
+
+	static Path GetTemporaryResourcePath()
+	{
+		return Path(".export/resources/temporary");
+	}
+
+	Resource* ResourceManager::CreateTemporaryResource(ResourceType type)
+	{
+		auto factory = GetFactory(type);
+		if (factory == nullptr)
+		{
+			Logger::Error("Cannot find temporary resource factory %d", type.GetHashValue());
+			return nullptr;
+		}
+
+		ResourceInfo info;
+		info.guid = Guid::New();
+		info.type = type;
+		info.path = GetTemporaryResourcePath();
+		auto res = factory->CreateTemporaryResource(info);
+		if (res == nullptr)
+		{
+			Logger::Error("Failed to create temporary resource %d", type.GetHashValue());
+			return nullptr;
+		}
+	
+		// Set is a temporary resource
+		res->SetIsTemporary();
+
+		resourceMutex.Lock();
+		resources.insert(info.guid, res);
+		resourceMutex.Unlock();
+
+		return res;
+	}
+
+	void ResourceManager::DeleteResource(Resource* res)
+	{
+		ScopedMutex lock(resourceMutex);
+		if (res == nullptr || res->toDelete)
+			return;
+
+		Logger::Info("Delete resources %s ...", res->GetPath());
+		res->toDelete = true;
+		UnloadResoruce(res);
+	}
+
+	void ResourceManager::DeleteResource(const Path& path)
+	{
+		// If resource has been already loaded, we should unload resource first
+		auto res = GetResource(path);
+		if (res != nullptr)
+		{
+			DeleteResource(res);
+			return;
+		}
+
+		// Remove from resources cache
+		ResourceInfo info;
+		if (cache.Delete(path, &info))
+			Logger::Info("Delete resource %s", path.c_str());
+
+		// Close storage
+		auto storage = StorageManager::TryGetStorage(path);
+		if (storage && storage->IsLoaded())
+			storage->CloseContent();
+
+		// Delete resource file
+		auto storagePath = ResourceStorage::GetContentPath(path, true);
+		if (fileSystem->FileExists(storagePath.c_str()))
+			fileSystem->DeleteFile(storagePath.c_str());
 	}
 
 	void ResourceManager::Update(F32 dt)
 	{
 		ASSERT(isInitialized);
 		PROFILE_FUNCTION();
-		for (auto& kvp : factoryTable)
-			kvp.second->Update(dt);
+
+		// Refresh state of resoruces
+		{
+			ScopedMutex lock(resourceMutex);
+			for (auto res : resources)
+			{
+				if (res->IsStateDirty())
+					res->CheckState();
+			}
+		}
+		// Broadcast OnLoaded 
+		{
+			ScopedMutex lock(loadedResLock);
+			for (auto res : onLoadedResources)
+				res->OnLoadedMainThread();
+			onLoadedResources.clear();
+		}
 	}
 
 	static F32 UnloadCheckInterval = 0.5f;
@@ -226,11 +420,25 @@ namespace VulkanTest
 		const F32 now = timer.GetTimeSinceStart();
 		if (now - lastUnloadCheckTime >= UnloadCheckInterval)
 		{
-			for (auto& kvp : factoryTable)
-				kvp.second->RemoveUnreferenced();
-
 			lastUnloadCheckTime = now;
+
+			ScopedMutex lock(resourceMutex);
+			for (auto& res : resources)
+			{
+				if (res->GetReference() <= 0)
+					toRemoved.push_back(res);
+			}
+
+			for (auto res : toRemoved)
+			{
+				if (res->GetReference() <= 0)
+					UnloadResoruce(res);
+			}
+			toRemoved.clear();
 		}
+
+		// Update resources cache
+		cache.Save();
 	}
 
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)
@@ -274,10 +482,76 @@ namespace VulkanTest
 		return StorageManager::GetStorage(path, *this);
 	}
 
+	bool ResourceManager::GetResourceInfo(const Guid& guid, ResourceInfo& info)
+	{
+		return cache.Find(guid, info);
+	}
+
+	bool ResourceManager::GetResourceInfo(const Path& path, ResourceInfo& info)
+	{
+		return cache.Find(path, info);
+	}
+
+	Resource* ResourceManager::GetResource(const Path& path)
+	{
+		if (path.IsEmpty())
+			return nullptr;
+
+		ScopedMutex lock(resourceMutex);
+		for (auto& res : resources)
+		{
+			if (res->GetPath() == path)
+				return res;
+		}
+		return nullptr;
+	}
+
+	Resource* ResourceManager::GetResource(const Guid& guid)
+	{
+		Resource* ret = nullptr;
+		resourceMutex.Lock();
+		resources.tryGet(guid, ret);
+		resourceMutex.Unlock();
+		return ret;
+	}
+
 	void ResourceManager::LoadHook::ContinueLoad(Resource& res)
 	{
 		ASSERT(res.IsEmpty());
-		ResourceFactory& factory = res.GetResourceFactory();
-		factory.ContinuleLoadResource(&res);
+		res.RemoveReference();
+		res.SetHooked(false);
+		res.desiredState = Resource::State::EMPTY;
+		res.GetResourceManager().ContinueLoadResource(res.GetType(), res.GetGUID());
+	}
+
+	void ResourceManager::OnResourceLoaded(Resource* res)
+	{
+		ASSERT(res && res->IsLoaded());
+		ScopedMutex lock(loadedResLock);
+		onLoadedResources.push_back(res);
+	}
+
+	void ResourceManager::TryCallOnResourceLoaded(Resource* res)
+	{
+		ASSERT(res && res->IsLoaded());
+		ScopedMutex lock(loadedResLock);
+		int index = onLoadedResources.indexOf(res);
+		if (index != -1)
+		{
+			onLoadedResources.eraseAt(index);
+			res->OnLoadedMainThread();
+		}
+	}
+
+	void ResourceManager::OnResourceUnload(Resource* res)
+	{
+		if (isInitialized != false)
+			resourceMutex.Lock();
+
+		resources.erase(res->GetGUID());
+		onLoadedResources.erase(res);
+
+		if (isInitialized != false)
+			resourceMutex.Unlock();
 	}
 }

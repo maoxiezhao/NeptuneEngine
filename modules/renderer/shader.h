@@ -36,7 +36,7 @@ namespace VulkanTest
 			U64 CalculateHash(const String& name, I32 permutationIndex);
 		};
 
-		Shader(const Path& path_, ResourceFactory& resFactory_);
+		Shader(const ResourceInfo& info, ResourceManager& resManager);
 		virtual ~Shader();
 
 		bool Create(U64 size, const U8* mem);

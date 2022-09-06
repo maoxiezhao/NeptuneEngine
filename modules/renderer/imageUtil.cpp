@@ -13,7 +13,7 @@ namespace VulkanTest::ImageUtil
 
     void Initialize(ResourceManager& resManager)
     {
-        shader = resManager.LoadResourcePtr<Shader>(Path("shaders/image.shd"));
+        shader = resManager.LoadResource<Shader>(Path("shaders/image.shd"));
 
         GPU::BlendState blendStates[BLENDMODE_COUNT] = {};
         GPU::RasterizerState rasterizerState = {};

@@ -13,6 +13,7 @@ namespace VulkanTest
 
 	struct MaterialSlot
 	{
+		String name;
 		ResPtr<Material> material;
 	};
 
@@ -54,7 +55,7 @@ namespace VulkanTest
 		static const U32 FILE_MAGIC;
 		static const U32 FILE_VERSION;
 
-		Model(const Path& path_, ResourceFactory& resFactory_);
+		Model(const ResourceInfo& info, ResourceManager& resManager);
 		virtual ~Model();
 	
 		// Residency
@@ -64,8 +65,9 @@ namespace VulkanTest
 		// Check current resource should be update
 		bool ShouldUpdate()const override;
 
-		// Create streaming task
+		// Streaming task
 		Task* CreateStreamingTask(I32 residency) override;
+		void CancelStreamingTask() override;
 
 		U32 GetLODsCount()const 
 		{
@@ -109,9 +111,10 @@ namespace VulkanTest
 		I32 CalculateModelLOD(F32x3 eye, F32x3 pos, F32 radius);
 
 	protected:
-		bool Init(ResourceInitData& initData)override;
-		bool Load()override;
+		bool Init(ResourceInitData& initData) override;
+		bool Load() override;
 		void Unload() override;
+		void CancelStreaming() override;
 
 		void GetLODData(I32 lodIndex, OutputMemoryStream& data) const;
 		ContentLoadingTask* RequestLODDataAsync(I32 lodIndex);

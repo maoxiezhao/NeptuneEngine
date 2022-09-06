@@ -45,7 +45,7 @@ namespace VulkanTest
 			COUNT
 		};
 
-		Texture(const Path& path_, ResourceFactory& resFactory_);
+		Texture(const ResourceInfo& info, ResourceManager& resManager);
 		virtual ~Texture();
 
 		bool Create(U32 w, U32 h, VkFormat format, const void* data);

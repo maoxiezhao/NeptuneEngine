@@ -1,4 +1,5 @@
 #include "app.h"
+#include "core\globals.h"
 #include "core\utils\log.h"
 #include "core\profiler\profiler.h"
 #include "core\events\event.h"
@@ -56,6 +57,7 @@ void App::Run(std::unique_ptr<WSIPlatform> platform_)
     Jobsystem::Run(&data, [](void* ptr) 
     {
         Profiler::SetThreadName("AsyncMainThread");
+        Globals::MainThreadID = Platform::GetCurrentThreadID();
 
         Data* data = static_cast<Data*>(ptr);
         App* app = data->app;
@@ -177,7 +179,7 @@ void App::FrameEnd()
 
 bool App::Poll()
 {
-    if (requestedShutdown)
+    if (Engine::ShouldExit())
         return false;
     
     Platform::WindowEvent ent;
@@ -194,7 +196,7 @@ void App::OnEvent(const Platform::WindowEvent& ent)
     {
     case Platform::WindowEvent::Type::QUIT:
     case Platform::WindowEvent::Type::WINDOW_CLOSE:
-        RequestShutdown();
+        Engine::RequestExit();
         break;
     case Platform::WindowEvent::Type::WINDOW_MOVE:
     case Platform::WindowEvent::Type::WINDOW_SIZE:

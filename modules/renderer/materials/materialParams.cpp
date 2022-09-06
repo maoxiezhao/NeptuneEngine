@@ -44,7 +44,7 @@ namespace VulkanTest
 			case MaterialParameterType::Texture:
 			{
 				String path = stream.ReadStringWithLength();
-				param.asTexture = resManager.LoadResourcePtr<Texture>(Path(path.c_str()));
+				param.asTexture = resManager.LoadResource<Texture>(Path(path.c_str()));
 			}
 				break;
 			default:

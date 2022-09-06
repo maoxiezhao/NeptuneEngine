@@ -55,12 +55,16 @@ build_editor = true
 build_app = false
 build_tests = false
 all_plugins = {}
+target_architecture = ""
 
 function setup_project_env_win32()
     platforms "x64"
     filter { "platforms:x64" }
         system "Windows"
         architecture "x64"
+
+    defines { "WIN32" }
+    defines { "WIN64" }
 end 
 
 function setup_project_env_linux()
@@ -103,7 +107,7 @@ function setup_project_definines()
 
     if build_editor then 
         defines { "CJING3D_EDITOR" }
-    end 
+    end
 end 
 
 function force_Link(name)

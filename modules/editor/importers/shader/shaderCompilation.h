@@ -8,6 +8,8 @@ namespace VulkanTest
 {
 namespace Editor
 {
+    class EditorApp;
+
     struct CompilationOptions
     {
         Path path;
@@ -26,7 +28,8 @@ namespace Editor
 	class VULKAN_EDITOR_API ShaderCompilation
 	{
 	public:
-        static bool Compile(class EditorApp& editor, CompilationOptions& options);
+        static bool Compile(EditorApp& editor, CompilationOptions& options);
+        static bool Write(EditorApp& editor, Guid guid, const Path& path, OutputMemoryStream& mem);
 	};
 }
 }

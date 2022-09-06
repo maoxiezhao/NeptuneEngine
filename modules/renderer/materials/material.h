@@ -27,7 +27,7 @@ namespace VulkanTest
 	public:
 		DECLARE_RESOURCE(Material);
 
-		Material(const Path& path_, ResourceFactory& resFactory_);
+		Material(const ResourceInfo& info, ResourceManager& resManager);
 		virtual ~Material();
 
 		void WriteShaderMaterial(ShaderMaterial* dest);

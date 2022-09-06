@@ -19,7 +19,7 @@ namespace Editor
 	public:
 		MaterialPlugin(EditorApp& app_);
 
-		bool Compile(const Path& path)override;
+		bool Compile(const Path& path, Guid guid)override;
 		void OnGui(Span<class Resource*> resource)override;
 
 		std::vector<const char*> GetSupportExtensions();

@@ -39,8 +39,8 @@ namespace VulkanTest
 		}
 	};
 
-	FontAltasTexture::FontAltasTexture(VkFormat format_, PaddingStyle paddingStyle_, I32 index_, ResourceFactory& resFactory) :
-		Texture(Path("FontTexture"), resFactory),
+	FontAltasTexture::FontAltasTexture(VkFormat format_, PaddingStyle paddingStyle_, I32 index_, ResourceManager& resManager) :
+		Texture(ResourceInfo::Temporary(Texture::ResType), resManager),
 		format(format_),
 		paddingStyle(paddingStyle_),
 		index(index_),

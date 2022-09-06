@@ -74,10 +74,6 @@ protected:
 	virtual void Uninitialize();
 	virtual void OnEvent(const Platform::WindowEvent& ent);
 
-	void RequestShutdown() {
-		requestedShutdown = true;
-	}
-
 	virtual void Update(F32 deltaTime);
 	virtual void LateUpate();
 	virtual void FixedUpdate();
@@ -108,7 +104,6 @@ protected:
 
 	bool frameskip = true;
 	bool framerateLock = false;
-	bool requestedShutdown = false;
 	World* world = nullptr;
 	struct RendererPlugin* renderer = nullptr;
 	RenderPath* renderPath = nullptr;

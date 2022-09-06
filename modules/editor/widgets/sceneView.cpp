@@ -382,7 +382,9 @@ namespace Editor
 		if (!isMouseCaptured) return;
 		if (ImGui::GetIO().KeyCtrl) return;
 
+		cameraSpeed = std::max(0.01f, cameraSpeed + ImGui::GetIO().MouseWheel / 20.0f);
 		float speed = cameraSpeed * dt * 60.f;
+
 		if (moveForwardAction.IsActive()) worldView->OnCameraMove(1.0f, 0, 0, speed);
 		if (moveBackAction.IsActive()) worldView->OnCameraMove(-1.0f, 0, 0, speed);
 		if (moveLeftAction.IsActive()) worldView->OnCameraMove(0.0f, -1.0f, 0, speed);
@@ -508,8 +510,18 @@ namespace Editor
 				action->ToolbarButton(app.GetBigIconFont());
 			}
 		}
+
+		ImGui::SameLine();
+		ImGui::PushItemWidth(60);
+		float offset = (toolbarHeight - ImGui::GetTextLineHeightWithSpacing()) / 2;
+		pos = ImGui::GetCursorPos();
+		pos.y += offset;
+		ImGui::SetCursorPos(pos);
+		ImGui::DragFloat("##camera_speed", &cameraSpeed, 0.1f, 0.01f, 999.0f, "%.2f");
+
 		ImGui::SameLine();
 		ImGui::Text("%.2fx%.2f", worldView->mousePos.x, worldView->mousePos.y);
+
 		ImGuiEx::EndToolbar();
 	}
 

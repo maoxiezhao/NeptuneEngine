@@ -46,7 +46,7 @@ namespace VulkanTest
 			data[i + 3] = color.GetA();
 		}
 
-		Texture* texture = CJING_NEW(Texture)(Path("Helper_color"), *resourceManager->GetFactory(Texture::ResType));
+		Texture* texture = CJING_NEW(Texture)(ResourceInfo::Temporary(Texture::ResType), *resourceManager);
 		if (!texture->Create(1, 1, VK_FORMAT_R8G8B8A8_UNORM, data))
 		{
 			Logger::Error("Failed to create helper color texture.");

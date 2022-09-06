@@ -48,6 +48,7 @@ namespace VulkanTest
 		virtual bool   Read(void* buffer, size_t bytes) = 0;
 		virtual bool   Read(void* buffer, size_t bytes, size_t& readed) = 0;
 		virtual bool   Write(const void* buffer, U64 size) = 0;
+		virtual bool   Write(void* buffer, size_t bytes, size_t& written) = 0;
 		virtual bool   Seek(size_t offset) = 0;
 		virtual size_t Tell() const = 0;
 		virtual size_t Size() const = 0;
@@ -123,6 +124,18 @@ namespace VulkanTest
 			return false;
 		}
 
+		bool Write(void* buffer, size_t bytes, size_t& written)override
+		{
+			if (FLAG_ANY(flags, FileFlags::WRITE))
+			{
+				written = std::min(size - pos, bytes);
+				Memory::Memcpy((U8*)data + pos, buffer, written);
+				pos += written;
+				return written > 0;
+			}
+			return false;
+		}
+
 		bool Seek(size_t offset)override
 		{
 			if (offset < size)
@@ -166,6 +179,7 @@ namespace VulkanTest
 		bool Read(void* buffer, size_t bytes)override;
 		bool Read(void* buffer, size_t bytes, size_t& readed) override;
 		bool Write(const void* buffer, size_t bytes)override;
+		bool Write(void* buffer, size_t bytes, size_t& written) override;
 		bool Seek(size_t offset)override;
 		size_t Tell() const override;
 		size_t Size() const override;

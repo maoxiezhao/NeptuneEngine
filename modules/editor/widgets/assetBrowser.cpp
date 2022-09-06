@@ -1,7 +1,7 @@
 #include "assetBrowser.h"
 #include "assetCompiler.h"
 #include "editor\editor.h"
-#include "editor\plugins\createResource.h"
+#include "editor\importers\resourceImportingManager.h"
 #include "editor\widgets\codeEditor.h"
 #include "core\platform\platform.h"
 #include "renderer\texture.h"
@@ -476,34 +476,20 @@ namespace Editor
             if (!fs.LoadContext(from, mem))
                 return false;
 
-            ResourceDataWriter resWriter(Texture::ResType);
+            return ResourceImportingManager::Create(editor, [&](CreateResourceContext& ctx)->CreateResult {
+                IMPORT_SETUP(Texture);
 
-            // Texture header
-            TextureHeader header = {};
-            header.type = TextureResourceType::TGA;
-            resWriter.WriteCustomData(header);
+                // Texture header
+                TextureHeader header = {};
+                header.type = TextureResourceType::TGA;
+                ctx.WriteCustomData(header);
 
-            // Texture data
-            auto data = resWriter.GetChunk(0);
-            data->mem.Write(mem.Data(), mem.Size());
+                // Texture data
+                auto data = ctx.AllocateChunk(0);
+                data->mem.Write(mem.Data(), mem.Size());
 
-            OutputMemoryStream output;
-            if (!ResourceStorage::Save(output, resWriter.data))
-            {
-                Logger::Error("Failed to save resource storage.");
-                return false;
-            }
-
-            auto file = fs.OpenFile(to, FileFlags::DEFAULT_WRITE);
-            if (!file)
-            {
-                Logger::Error("Failed to create tile file %s", to);
-                return false;
-            }
-
-            file->Write(output.Data(), output.Size());
-            file->Close();
-            return true;
+                return CreateResult::Ok;
+            }, Path(to));
         }
 
         bool CreateThumbnailTile(FileInfo& info)
@@ -563,6 +549,12 @@ namespace Editor
                         CreateThumbnailTile(info);
                         break;
                     case TileState::DELETED:
+                        if (info.tex != nullptr)
+                        {
+                            renderInterface->DestroyTexture(info.tex);
+                            info.tex = nullptr;
+                        }
+                        editor.GetEngine().GetResourceManager().DeleteResource(Path(path));
                         break;
                     default:
                         break;
@@ -590,7 +582,7 @@ namespace Editor
         {
             auto& resManager = editor.GetEngine().GetResourceManager();
             const ResourceType resType = editor.GetAssetCompiler().GetResourceType(path.c_str());
-            ResPtr<Resource> res = resManager.LoadResourcePtr(resType, path);
+            ResPtr<Resource> res = resManager.LoadResource(resType, path);
             if (res)
             {
                 UnloadSelectedResources();

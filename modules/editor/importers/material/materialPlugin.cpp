@@ -1,7 +1,7 @@
 #include "materialPlugin.h"
 #include "editor\editor.h"
 #include "imgui-docking\imgui.h"
-#include "editor\plugins\material\materialImporter.h"
+#include "editor\importers\material\materialImporter.h"
 
 namespace VulkanTest
 {
@@ -13,7 +13,7 @@ namespace Editor
 		app_.GetAssetCompiler().RegisterExtension("mat", Material::ResType);
 	}
 
-	bool MaterialPlugin::Compile(const Path& path)
+	bool MaterialPlugin::Compile(const Path& path, Guid guid)
 	{
 		return MaterialImporter::Import(app, path);
 	}

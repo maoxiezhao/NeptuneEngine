@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "globals.h"
 
 namespace VulkanTest
 {
@@ -81,5 +82,16 @@ namespace VulkanTest
                 service->Uninit();
             }
         }
+    }
+
+    void Engine::RequestExit(I32 exitCode)
+    {
+        Globals::IsRequestingExit = true;
+        Globals::ExitCode = exitCode;
+    }
+
+    bool Engine::ShouldExit()
+    {
+        return Globals::IsRequestingExit;
     }
 }

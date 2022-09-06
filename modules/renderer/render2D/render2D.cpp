@@ -33,8 +33,6 @@ namespace Render2D
 
 	void ParseText(Font* font, const String& text, const TextParmas& params, F32x2& textSize)
 	{
-		FontResourceFactory* factory = static_cast<FontResourceFactory*>(&font->GetResource()->GetResourceFactory());
-
 		fontVertexList.clear();
 		drawCalls.clear();
 
@@ -71,7 +69,7 @@ namespace Render2D
 					drawCall->count = 0;
 
 					fontAltasIndex = charInfo.textureIndex;
-					fontAtlas = factory->GetAtlas(fontAltasIndex);
+					fontAtlas = FontManager::GetAtlas(fontAltasIndex);
 					if (fontAtlas)
 					{
 						fontAtlas->EnsureTextureCreated();
@@ -214,7 +212,7 @@ namespace Render2D
 
 	void Initialize(ResourceManager* resourceManager)
 	{
-		fontShader = resourceManager->LoadResourcePtr<Shader>(Path("shaders/font.shd"));
+		fontShader = resourceManager->LoadResource<Shader>(Path("shaders/font.shd"));
 		if (fontShader == nullptr)
 		{
 			Logger::Error("Failed to load font shader");

@@ -225,6 +225,16 @@ namespace VulkanTest
 			return { this, findPos(key) };
 		}
 
+		bool tryGet(const K& key, V& value)
+		{
+			auto it = find(key);
+			if (!it.isValid())
+				return false;
+
+			value = it.value();
+			return true;
+		}
+
 		ConstIterator find(const K& key) const
 		{
 			return { this, findPos(key) };
@@ -359,10 +369,12 @@ namespace VulkanTest
 		void erase(const K& key) 
 		{
 			const U32 pos = findPos(key);
-			ASSERT(pos < capacity);
 			if (keys[pos].valid) 
 				erase(Iterator{ this, pos });
 		}
+
+		bool empty() const { return size == 0; }
+		U32 count() const { return size; }
 
 		Iterator begin() 
 		{

@@ -1,8 +1,6 @@
 #include "textureImporter.h"
-#include "editor\plugins\createResource.h"
 #include "editor\editor.h"
-#include "editor\widgets\assetCompiler.h"
-#include "core\filesystem\filesystem.h"
+#include "editor\importers\resourceImportingManager.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb\stb_image.h"
@@ -193,7 +191,7 @@ namespace Editor
             return true;
         }
 
-        bool WriteTexture(const Input& input, const Options& options, ResourceDataWriter& textureWriter)
+        bool WriteTexture(const Input& input, const Options& options, CreateResourceContext& ctx)
         {
             // CompiledReource
             // ---------------------------
@@ -226,10 +224,10 @@ namespace Editor
             header.height = input.h;
             header.mips = mipLevels;
             header.type = TextureResourceType::INTERNAL;
-            textureWriter.WriteCustomData(header);
+            ctx.WriteCustomData(header);
 
             // Write texture data
-            auto textureChunk = textureWriter.GetChunk(0);
+            auto textureChunk = ctx.AllocateChunk(0);
             if (!options.compress)
                 WriteTexture(CompressRGBA, input, options, textureChunk->mem);
             else if (input.hasAlpha)
@@ -283,7 +281,7 @@ namespace Editor
             return true;
         }
 
-        bool Import(EditorApp& editor, const char* filename, const ImportConfig& config)
+        bool Import(EditorApp& editor, Guid guid, const char* filename, const ImportConfig& config)
         {
             ImageType type;
             if (!GetImageType(filename, type))
@@ -333,15 +331,17 @@ namespace Editor
                 return false;
             }
 
-            ResourceDataWriter resWriter(Texture::ResType);
+            return ResourceImportingManager::Create(editor, [&](CreateResourceContext& ctx)->CreateResult {          
+                IMPORT_SETUP(Texture);
+                
+                TextureCompressor::Options options;
+                options.generateMipmaps = config.generateMipmaps;
+                options.compress = config.compress;
+                if (!TextureCompressor::WriteTexture(input, options, ctx))
+                    return CreateResult::Error;
 
-            TextureCompressor::Options options;
-            options.generateMipmaps = config.generateMipmaps;
-            options.compress = config.compress;
-            if (!TextureCompressor::WriteTexture(input, options, resWriter))
-                return false;
-
-            return editor.GetAssetCompiler().WriteCompiled(filename, resWriter.data);
+                return CreateResult::Ok;
+            }, guid, Path(filename));
         }
     }
 }
