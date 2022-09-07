@@ -60,6 +60,10 @@ namespace Editor
         void Render() override;
         const char* GetName();
 
+        I32x2 GetScreenSize()const {
+            return screenSize;
+        }
+
         EditorRenderer& GetRenderer() {
             return *editorRenderer;
         }

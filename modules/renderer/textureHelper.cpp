@@ -6,7 +6,7 @@
 namespace VulkanTest
 {
 	ResourceManager* resourceManager = nullptr;
-	HashMap<U32, Texture*> colorTextures;
+	HashMap<U32, ResPtr<Texture>> colorTextures;
 	SpinLock colorlock;
 
 	void TextureHelper::Initialize(ResourceManager* resourceManager_)
@@ -16,11 +16,6 @@ namespace VulkanTest
 
 	void TextureHelper::Uninitialize()
 	{
-		for (auto texture : colorTextures)
-		{
-			if (texture)
-				texture->Destroy();
-		}
 		colorTextures.clear();
 		resourceManager = nullptr;
 	}
@@ -53,6 +48,7 @@ namespace VulkanTest
 			CJING_SAFE_DELETE(texture);
 			return nullptr;
 		}
+		resourceManager->AddTemporaryResource(texture);
 		
 		colorlock.Lock();
 		colorTextures.insert(color.GetRGBA(), texture);

@@ -48,7 +48,7 @@ namespace Editor::Utils
             return false;
 
         const ImVec4 activeColor = ImGui::GetStyle().Colors[ImGuiCol_ButtonActive];
-        const ImVec4 bgColor = isSelected.Invoke() ? activeColor : ImGui::GetStyle().Colors[ImGuiCol_Text];
+        const ImVec4 bgColor = isSelected.Invoke() ?  ImGui::GetStyle().Colors[ImGuiCol_Text] : activeColor;
 
         ImGui::SameLine();
 

@@ -76,14 +76,6 @@ namespace VulkanTest
 			return hooked;
 		}
 
-		void SetOwnedBySelf(bool ownedBySelf_) {
-			ownedBySelf = ownedBySelf_;
-		}
-
-		bool IsOwnedBySelf()const {
-			return ownedBySelf;
-		}
-
 		bool IsStateDirty()const {
 			return isStateDirty;
 		}
@@ -176,7 +168,6 @@ namespace VulkanTest
 		Guid guid;
 		Path path;
 		bool hooked = false;
-		bool ownedBySelf = false;
 		bool isTemporary = false;
 		State currentState;
 	};

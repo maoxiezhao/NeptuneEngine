@@ -349,6 +349,23 @@ namespace VulkanTest
 		return res;
 	}
 
+	void ResourceManager::AddTemporaryResource(Resource* res)
+	{
+		ASSERT(res != nullptr);
+		ASSERT(res->GetGUID() != Guid::Empty);
+
+		ScopedMutex lock(resourceMutex);
+		auto it = resources.find(res->GetGUID());
+		if (it.isValid())
+		{
+			ASSERT(res->IsTemporary());
+			return;
+		}
+
+		res->SetIsTemporary();
+		resources.insert(res->GetGUID(), res);
+	}
+
 	void ResourceManager::DeleteResource(Resource* res)
 	{
 		ScopedMutex lock(resourceMutex);

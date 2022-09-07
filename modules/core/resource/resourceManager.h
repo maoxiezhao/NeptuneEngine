@@ -80,6 +80,7 @@ namespace VulkanTest
 		void UnloadResoruce(Resource* res);
 		void ReloadResource(const Path& path);
 		Resource* CreateTemporaryResource(ResourceType type);
+		void AddTemporaryResource(Resource* res);
 		void DeleteResource(Resource* res);
 		void DeleteResource(const Path& path);
 

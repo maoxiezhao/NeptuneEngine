@@ -511,6 +511,7 @@ namespace Editor
 			}
 		}
 
+		// Camera speed
 		ImGui::SameLine();
 		ImGui::PushItemWidth(60);
 		float offset = (toolbarHeight - ImGui::GetTextLineHeightWithSpacing()) / 2;
@@ -519,8 +520,13 @@ namespace Editor
 		ImGui::SetCursorPos(pos);
 		ImGui::DragFloat("##camera_speed", &cameraSpeed, 0.1f, 0.01f, 999.0f, "%.2f");
 
+		// Resolution
 		ImGui::SameLine();
-		ImGui::Text("%.2fx%.2f", worldView->mousePos.x, worldView->mousePos.y);
+		ImGui::Text("size :%dx%d ", screenSize.x, screenSize.y);
+
+		// Mouse pos
+		ImGui::SameLine();
+		ImGui::Text("pos: %.2fx%.2f", worldView->mousePos.x, worldView->mousePos.y);
 
 		ImGuiEx::EndToolbar();
 	}

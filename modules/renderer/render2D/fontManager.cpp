@@ -30,16 +30,13 @@ namespace VulkanTest
 		}
 
 		Mutex mutex;
-		Array<FontAltasTexture*> fontAtlases;
+		Array<ResPtr<FontAltasTexture>> fontAtlases;
 		FT_Library Library;
 		FT_MemoryRec_ FreeTypeMemory;
 	}
 
 	class FontManagerServiceImpl : public EngineService
 	{
-	public:
-
-
 	public:
 		FontManagerServiceImpl() :
 			EngineService("FontManagerServiceImpl", -700)
@@ -84,11 +81,6 @@ namespace VulkanTest
 
 		void Uninit() override
 		{
-			for (auto altas : fontAtlases)
-			{
-				if (altas)
-					altas->Destroy();
-			}
 			fontAtlases.clear();
 
 			if (Library)
@@ -225,6 +217,7 @@ namespace VulkanTest
 				fontRes->GetResourceManager()
 			);
 			altas->Init(512, 512);
+			fontRes->GetResourceManager().AddTemporaryResource(altas);
 			fontAtlases.push_back(altas);
 
 			packSlot = altas->AddCharacter(glyphWidth, glyphHeight, glyphData);

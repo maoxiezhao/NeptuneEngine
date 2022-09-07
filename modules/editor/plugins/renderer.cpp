@@ -365,7 +365,6 @@ namespace Editor
 				CJING_SAFE_DELETE(texture);
 				return nullptr;
 			}
-			texture->SetOwnedBySelf(true);
 			textures.insert(texture->GetImage(), ResPtr<Texture>(texture));
 			return texture->GetImage();
 		}
