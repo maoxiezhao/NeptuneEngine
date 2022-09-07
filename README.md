@@ -12,7 +12,7 @@ Vulkan-test is a vulkan rendering sandbox.It's used to understand how things wor
 Vulkan-Test currently uses Vulkan as a rendering backend.
 As a result we have to make sure that we set up the right environment for it. 
 * Vulkan sdk
-* Microsoft Visual C++ Redistributable for Visual Studio 2019
+* Microsoft Visual C++ Redistributable for Visual Studio 2022
 
 #### 2. Use cjing-build-system to build
 Is very easy to build.  
@@ -31,14 +31,18 @@ Is very easy to build.
 v0.0.0-v0.1.0
 | Feature  | Completion | Notes |
 | :-----| ----: | :----: |
-| Vulkan backend | 100% | Basic vulkan backend |
+| Vulkan backend | 100% | Basic vulkan backend (multithreading) |
+| Core | 100% | Complete | 
 | Render graph | 100% | Complete | 
-| ECS | 80% | Need to optimize | 
-| Base render path | 10% | doing | 
-| Forward+ shading | 5% | doing | 
-| Scene | 5% | Use ecs | 
-| GPU particles | 0% | todo | 
-| Editor | 0% | todo. Based on imgui | 
+| ECS | 100% | Support multithreading | 
+| Native lua binder | 100% | Basic version | 
+| Resource | 100% | Resource pipeline(import and compile) | 
+| Scene | 60% | Use ecs with jobSystem | 
+| Editor | 50% | Basic editor | 
+| Base render path | 75% | doing | 
+| Forward+ shading | 25% | doing | 
+| Graphical features | 10% | doing | 
+
 
 ## Dependencies
 * dxcompiler
@@ -47,3 +51,4 @@ v0.0.0-v0.1.0
 * spriv_reflect
 * stb
 * volk
+* imGui
