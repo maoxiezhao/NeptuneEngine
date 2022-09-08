@@ -402,8 +402,12 @@ namespace Editor
 		shouldRender = false;
 
 		ImVec2 viewPos;
+		ImGuiWindowFlags flags =
+			ImGuiWindowFlags_NoScrollWithMouse |
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_NoMove;
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-		if (ImGui::Begin("Scene View", nullptr, ImGuiWindowFlags_NoScrollWithMouse))
+		if (ImGui::Begin("Scene View", nullptr, flags))
 		{
 			ImGui::Dummy(ImVec2(2, 2));
 			OnToolbarGUI();

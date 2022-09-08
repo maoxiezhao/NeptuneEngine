@@ -2,6 +2,7 @@
 
 #include "core\common.h"
 #include "core\collections\array.h"
+#include "core\platform\atomic.h"
 
 namespace VulkanTest
 {
@@ -61,7 +62,7 @@ namespace VulkanTest
 			return instance == rhs.instance && func == rhs.func;
 		}
 
-	private:
+	public:
 		using InstancePtr = void*;
 		using InstanceFunc = R(*)(void*, Args...);
 
@@ -77,16 +78,26 @@ namespace VulkanTest
 	{
 	public:
 		using DelegateT = Delegate<R(Args...)>;
+		using InstancePtr = void*;
+		using InstanceFunc = R(*)(void*, Args...);
 
-		DelegateList() = default;
+		DelegateList()
+		{
+		}
+
+		~DelegateList()
+		{
+			auto ptr = (DelegateT*)ptrs_;
+			if (ptr)
+				CJING_FREE((void*)ptr);
+		}
 
 		template <R(*Func)(Args...)>
 		void Bind()
 		{
 			DelegateT cb;
 			cb.Bind<Func>();
-			ScopedMutex lock(mutex);
-			delegates.push_back(cb);
+			Bind(cb);
 		}
 
 		template <auto Func, typename C>
@@ -94,8 +105,46 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>(ptr);
-			ScopedMutex lock(mutex);
-			delegates.push_back(cb);
+			Bind(cb);
+		}
+
+		void Bind(const DelegateT& cb)
+		{
+			const intptr size = AtomicRead(&size_);
+			DelegateT* bindings = (DelegateT*)AtomicRead(&ptrs_);
+			if (bindings)
+			{
+				// Find a free slot
+				for (intptr i = 0; i < size; i++)
+				{
+					if (AtomicCmpExchange((intptr volatile*)&bindings[i].func, (intptr)cb.func, 0) == 0)
+					{
+						bindings[i].instance = cb.instance;
+						return;
+					}
+				}
+			}
+
+			// Allocate a new bindings
+			const intptr newSize = size ? size * 2 : 32;
+			auto newBindings = (DelegateT*)CJING_MALLOC(newSize * sizeof(DelegateT));
+			memcpy(newBindings, bindings, size * sizeof(DelegateT));
+			memset(newBindings + size, 0, (newSize - size) * sizeof(DelegateT));
+
+			newBindings[size] = cb;
+
+			auto oldBindings = (DelegateT*)AtomicCmpExchange(&ptrs_, (intptr)newBindings, (intptr)bindings);
+			if (oldBindings != bindings)
+			{
+				// Othrer thread already set the new bindings, free new bindings and try again
+				CJING_FREE(newBindings);
+				Bind(cb);
+			}
+			else
+			{
+				AtomicExchange(&size_, newSize);
+				CJING_SAFE_DELETE(bindings);
+			}
 		}
 
 		template <R(*Func)(Args...)>
@@ -103,15 +152,7 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>();
-			ScopedMutex lock(mutex);
-			for (U32 i = 0; i < delegates.size(); i++)
-			{
-				if (delegates[i] == cb)
-				{
-					delegates.swapAndPop(i);
-					break;
-				}
-			}
+			UnBind(cb);
 		}
 
 		template <auto Func, typename C>
@@ -119,32 +160,48 @@ namespace VulkanTest
 		{
 			DelegateT cb;
 			cb.Bind<Func>(ptr);
-			ScopedMutex lock(mutex);
-			for (U32 i = 0; i < delegates.size(); i++)
+			UnBind(cb);
+		}
+
+		void UnBind(DelegateT& cb)
+		{
+			const intptr size = AtomicRead(&size_);
+			DelegateT* bindings = (DelegateT*)AtomicRead(&ptrs_);
+			for (intptr i = 0; i < size; i++)
 			{
-				if (delegates[i] == cb)
+				if (AtomicRead((intptr volatile*)&bindings[i].instance) == (intptr)cb.instance &&
+					AtomicRead((intptr volatile*)&bindings[i].func) == (intptr)cb.func)
 				{
-					delegates.swapAndPop(i);
+					AtomicExchange((intptr volatile*)&bindings[i].instance, 0);
+					AtomicExchange((intptr volatile*)&bindings[i].func, 0);
 					break;
 				}
+			}
+
+			if ((DelegateT*)AtomicRead(&ptrs_) != bindings)
+			{
+				// Othrer thread already set the new bindings, unbind again
+				UnBind(cb);
 			}
 		}
 
 		void Invoke(Args... args)
 		{
-			Array<DelegateT> temp;
+			const intptr size = AtomicRead(&size_);
+			DelegateT* bindings = (DelegateT*)AtomicRead(&ptrs_);
+			for (intptr i = 0; i < size; i++)
 			{
-				ScopedMutex lock(mutex);
-				for (auto& d : delegates)
-					temp.push_back(d);
+				auto func = (InstanceFunc)AtomicRead((intptr volatile*)&bindings[i].func);
+				if (func != nullptr)
+				{
+					auto inst = (void*)AtomicRead((intptr volatile*)&bindings[i].instance);
+					func(inst, std::forward<Args>(args)...);
+				}
 			}
-
-			for (auto& d : temp)
-				d.Invoke(args...);
 		}
 
 	private:
-		Array<DelegateT> delegates;
-		Mutex mutex;
+		intptr volatile ptrs_ = 0;
+		intptr volatile size_ = 0;
 	};
 }
