@@ -79,8 +79,14 @@ namespace GPU
 
 	void DeviceAllocator::Initialize(DeviceVulkan* device_)
 	{
+		ASSERT(device_ != nullptr);
+		ASSERT(device_->physicalDevice != nullptr);
+
 		device = device_;
 		allocator = VK_NULL_HANDLE;
+
+		memoryProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+		vkGetPhysicalDeviceMemoryProperties2(device_->physicalDevice, &memoryProperties2);
 
 		VmaVulkanFunctions vmaVulkanFunc = {};
 		vmaVulkanFunc.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
@@ -212,6 +218,22 @@ namespace GPU
 
 		if (flags & MEMORY_ACCESS_WRITE_BIT && !(allocation.memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 			vmaFlushAllocation(allocator, allocation.allocation, offset, length);
+	}
+
+	MemoryUsage DeviceAllocator::GetMemoryUsage() const
+	{
+		MemoryUsage usage;
+		VmaBudget budgets[VK_MAX_MEMORY_HEAPS] = {};
+		vmaGetHeapBudgets(allocator, budgets);
+		for (uint32_t i = 0; i < memoryProperties2.memoryProperties.memoryHeapCount; ++i)
+		{
+			if (memoryProperties2.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			{
+				usage.total += budgets[i].budget;
+				usage.usage += budgets[i].usage;
+			}
+		}
+		return usage;
 	}
 }
 }

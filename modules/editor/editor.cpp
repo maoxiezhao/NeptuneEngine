@@ -419,6 +419,7 @@ namespace Editor
         {
             PROFILE_BLOCK("Render");
 
+            F32 beforeDrawTime = timer.GetTimeSinceTick();
             auto& wsi = GetWSI();
 #if 1
             for (auto widget : widgets)
@@ -445,6 +446,7 @@ namespace Editor
             wsi.PresentEnd();
             wsi.EndFrame();
 #endif
+            drawTime = timer.GetTimeSinceTick() - beforeDrawTime;
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
 
             // Calculate FPS

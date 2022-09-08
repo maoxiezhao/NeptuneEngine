@@ -10,6 +10,7 @@
 #include "bufferPool.h"
 #include "sampler.h"
 #include "event.h"
+#include "queryPool.h"
 
 namespace VulkanTest
 {
@@ -242,6 +243,8 @@ public:
                    U32 imageMemoryBarrierCount, const VkImageMemoryBarrier* pImageMemoryBarriers);
     void BeginEvent(const char* name);
     void EndEvent();
+
+    QueryPoolResultPtr WriteTimestamp(VkPipelineStageFlagBits stage);
 
     // Used to end command buffer in a thread, and submitting in a different thread.
     void EndCommandBufferForThread();

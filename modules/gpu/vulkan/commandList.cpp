@@ -1,6 +1,7 @@
 ﻿#include "commandList.h"
-#include "vulkan/device.h"
+#include "vulkan\device.h"
 #include "core\platform\platform.h"
+#include "core\profiler\renderStats.h"
 
 namespace VulkanTest
 {
@@ -812,6 +813,7 @@ void CommandList::Draw(U32 vertexCount, U32 vertexOffset)
     if (FlushRenderState())
     {
         vkCmdDraw(cmd, vertexCount, 1, vertexOffset, 0);
+        RENDER_STAT_DRAW_CALL(vertexCount, vertexCount / 3);
     }
 }
 
@@ -821,6 +823,7 @@ void CommandList::DrawInstanced(U32 vertexCount, U32 instanceCount, uint32_t sta
     if (FlushRenderState())
     {
         vkCmdDraw(cmd, vertexCount, instanceCount, startVertexLocation, startInstanceLocation);
+        RENDER_STAT_DRAW_CALL(vertexCount * instanceCount, vertexCount * instanceCount / 3);
     }
 }
 
@@ -831,6 +834,7 @@ void CommandList::DrawIndexed(U32 indexCount, U32 firstIndex, U32 vertexOffset)
     if (FlushRenderState())
     {
         vkCmdDrawIndexed(cmd, indexCount, 1, firstIndex, vertexOffset, 0);
+        RENDER_STAT_DRAW_CALL(0, indexCount / 3);
     }
 }
 
@@ -841,6 +845,7 @@ void CommandList::DrawIndexedInstanced(U32 indexCount, U32 instanceCount, U32 st
     if (FlushRenderState())
     {
         vkCmdDrawIndexed(cmd, indexCount, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
+        RENDER_STAT_DRAW_CALL(0, indexCount * instanceCount / 3);
     }
 }
 
@@ -973,6 +978,12 @@ void CommandList::EndEvent()
         if (vkCmdEndDebugUtilsLabelEXT)
             vkCmdEndDebugUtilsLabelEXT(cmd);
     }
+}
+
+QueryPoolResultPtr CommandList::WriteTimestamp(VkPipelineStageFlagBits stage)
+{
+    ASSERT(renderPass == nullptr);
+    return device.WriteTimestamp(cmd, stage);
 }
 
 void CommandList::EndCommandBufferForThread()

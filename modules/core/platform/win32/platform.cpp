@@ -15,6 +15,7 @@
 #include <ShlObj.h>
 #include <commdlg.h>
 #include <shellapi.h>
+#include <Psapi.h>
 #pragma warning(pop)
 
 #pragma warning(disable : 4996)
@@ -867,6 +868,32 @@ namespace Platform {
 	void CreateGuid(void* result)
 	{
 		CoCreateGuid(reinterpret_cast<GUID*>(result));
+	}
+
+	MemoryStats GetMemoryStats()
+	{
+		MEMORYSTATUSEX statex;
+		statex.dwLength = sizeof(statex);
+		GlobalMemoryStatusEx(&statex);
+
+		MemoryStats ret;
+		ret.totalPhysicalMemory = statex.ullTotalPhys;
+		ret.usedPhysicalMemory = statex.ullTotalPhys - statex.ullAvailPhys;
+		ret.totalVirtualMemory = statex.ullTotalVirtual;
+		ret.usedVirtualMemory = statex.ullTotalVirtual - statex.ullAvailVirtual;
+		return ret;
+	}
+
+	ProcessMemoryStats GetProcessMemoryStats()
+	{
+		PROCESS_MEMORY_COUNTERS_EX countersEx;
+		countersEx.cb = sizeof(countersEx);
+		GetProcessMemoryInfo(GetCurrentProcess(), (PPROCESS_MEMORY_COUNTERS)&countersEx, sizeof(countersEx));
+
+		ProcessMemoryStats ret;
+		ret.usedPhysicalMemory = countersEx.WorkingSetSize;
+		ret.usedVirtualMemory = countersEx.PrivateUsage;
+		return ret;
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////

@@ -62,6 +62,20 @@ namespace Platform {
 		CONSOLE_FONT_RED
 	};
 
+	struct MemoryStats
+	{
+		U64 totalPhysicalMemory;
+		U64 usedPhysicalMemory;
+		U64 totalVirtualMemory;
+		U64 usedVirtualMemory;
+	};
+
+	struct ProcessMemoryStats
+	{
+		U64 usedPhysicalMemory;
+		U64 usedVirtualMemory;
+	};
+
 	void Initialize();
 	void Uninitialize();
 	void LogPlatformInfo();
@@ -338,8 +352,10 @@ namespace Platform {
 
 	bool GetWindowEvent(WindowEvent& event);
 	bool IsKeyDown(Keycode key);
-
 	void CreateGuid(void* result);
+
+	MemoryStats GetMemoryStats();
+	ProcessMemoryStats GetProcessMemoryStats();
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// File 

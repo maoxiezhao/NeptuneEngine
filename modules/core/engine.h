@@ -25,6 +25,7 @@ namespace VulkanTest
 		DECLARE_ENGINE_SERVICE(void, FixedUpdate);
 		DECLARE_ENGINE_SERVICE(void, Update);
 		DECLARE_ENGINE_SERVICE(void, LateUpdate);
+		DECLARE_ENGINE_SERVICE(void, BeforeUninit);
 		DECLARE_ENGINE_SERVICE(void, Uninit);
 #undef DECLARE_ENGINE_SERVICE_EVENT
 

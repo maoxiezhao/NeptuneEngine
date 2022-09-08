@@ -1591,6 +1591,8 @@ namespace VulkanTest
 
     void RenderGraphImpl::DoGraphicsCommands(GPU::CommandList& cmd, const PhysicalPass& physicalPass, GPUPassSubmissionState* state)
     {
+        auto blockID = ProfilerGPU::BeginBlockRenderPass(state->name, cmd, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+
         cmd.BeginEvent(state->name);
 
         // Clear colors
@@ -1630,15 +1632,19 @@ namespace VulkanTest
         cmd.EndRenderPass();
 
         cmd.EndEvent();
+
+        ProfilerGPU::EndBlockRenderPass(blockID);
     }
 
     void RenderGraphImpl::DoComputeCommands(GPU::CommandList& cmd, const PhysicalPass& physicalPass, GPUPassSubmissionState* state)
     {
         ASSERT(physicalPass.passes.size() == 1);
+        auto blockID = ProfilerGPU::BeginBlockRenderPass(state->name, cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
         auto& pass = *renderPasses[physicalPass.passes[0]];
         cmd.BeginEvent(pass.GetName().c_str());
         pass.BuildRenderPass(cmd);
         cmd.EndEvent();
+        ProfilerGPU::EndBlockRenderPass(blockID);
     }
 
     void RenderGraphImpl::TransferOwnership(const PhysicalPass& physicalPass)

@@ -41,7 +41,7 @@ namespace VulkanTest
 
 		// String infos
 		I32 TargetResidency = 0;
-		F32 LastUpdateTime = 0.0f;
+		U64 LastUpdateTime = 0;
 
 	protected:
 		IStreamingHandler* streamingHandler;

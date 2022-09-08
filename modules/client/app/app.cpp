@@ -112,11 +112,13 @@ void App::Render()
 {
     PROFILE_FUNCTION();
 
+    F32 beforeDrawTime = timer.GetTimeSinceTick();
     GetWSI().BeginFrame();
-    if (GetActivePath()) {
+    if (GetActivePath())
         GetActivePath()->Render();
-    }
+
     GetWSI().EndFrame();
+    drawTime = timer.GetTimeSinceTick() - beforeDrawTime;
 
     // Calculate FPS
     fpsFrames++;
@@ -212,22 +214,25 @@ void App::OnEvent(const Platform::WindowEvent& ent)
 
 void App::OnIdle()
 {
-    Profiler::BeginFrame();
     GetWSI().BeginFrame();
+
+    Profiler::BeginFrame();
+    ProfilerGPU::BeginFrame();
 
     // Calculate delta time
     deltaTime = timer.Tick();
     float dt = framerateLock ? (1.0f / targetFrameRate) : deltaTime;
     ++lastTimeFrames;
     lastTimeDeltas[lastTimeFrames % LengthOf(lastTimeDeltas)] = dt;
-
     ComputeSmoothTimeDelta();
 
-    // Update engine
+    // Update
+    F32 beforeUpdateTime = timer.GetTimeSinceTick();
     Update(dt);
     LateUpate();
+    updateTime = timer.GetTimeSinceTick() - beforeUpdateTime;
 
-    // FixedUpdate engine
+    // Fixed update
     Profiler::BeginBlock("FixedUpdate");
     {
         if (frameskip)
@@ -249,13 +254,14 @@ void App::OnIdle()
     }
     Profiler::EndBlock();
 
-    // Render frame
+    // Render
     Render();
 
-    GetWSI().EndFrame();
-    Profiler::EndFrame();
-
     // End frame
+    ProfilerGPU::EndFrame();
+    Profiler::EndFrame();
     FrameEnd();
+
+    GetWSI().EndFrame();
 }
 }

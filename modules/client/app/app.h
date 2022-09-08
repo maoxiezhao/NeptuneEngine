@@ -66,6 +66,14 @@ public:
 		return fpsFrames;
 	}
 
+	F32 GetUpdateTime()const {
+		return updateTime;
+	}
+
+	F32 GetDrawTime()const {
+		return drawTime;
+	}
+
 protected:	
 	bool Poll();
 	void OnIdle();
@@ -101,6 +109,9 @@ protected:
 	F32 fps = 0.0f;
 	U32 fpsFrames = 0;
 	Timer fpsTimer;
+
+	F32 updateTime = 0.0f;
+	F32 drawTime = 0.0f;
 
 	bool frameskip = true;
 	bool framerateLock = false;

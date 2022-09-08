@@ -74,7 +74,7 @@ namespace VulkanTest
 			return;
 
 		isStreaming = false;
-		LastUpdateTime = 0.0f;
+		LastUpdateTime = 0;
 		ScopedMutex lock(StreamingServiceImplInstance.mutex);
 		StreamingServiceImplInstance.resources.erase(this);
 	}
@@ -82,12 +82,12 @@ namespace VulkanTest
 	void StreamableResource::CancleStreaming()
 	{
 		TargetResidency = 0;
-		LastUpdateTime = FLT_MAX;
+		LastUpdateTime = std::numeric_limits<U64>::max();
 	}
 
 	void StreamableResource::RequestStreamingUpdate()
 	{
-		LastUpdateTime = 0.0f;
+		LastUpdateTime = 0;
 	}
 
 	void UpdataStreamableResource(StreamableResource* res, U64 time)
@@ -124,8 +124,8 @@ namespace VulkanTest
 
 			auto& lastUpdateIndex = StreamingServiceImplInstance.lastUpdateIndex;
 			auto& resources = StreamingServiceImplInstance.resources;
-			const U32 resourcesCount = resources.size();
-			I32 resourcesUpdates = std::min(MaxResourcesPerUpdate, resourcesCount);
+			const I32 resourcesCount = (I32)resources.size();
+			I32 resourcesUpdates = std::min((I32)MaxResourcesPerUpdate, resourcesCount);
 
 			const auto now = Timer::GetRawTimestamp();
 			U32 checkCount = resourcesCount;

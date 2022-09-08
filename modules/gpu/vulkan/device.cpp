@@ -289,6 +289,8 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     features = context.ext;
     systemHandles = context.GetSystemHandles();
 
+    TIMESTAMP_FREQUENCY = U64(1.0 / F64(features.properties2.properties.limits.timestampPeriod) * 1000 * 1000 * 1000);
+
     for (auto& index : queueInfo.familyIndices)
     {
         if (index != VK_QUEUE_FAMILY_IGNORED)
@@ -1010,6 +1012,17 @@ ImmutableSampler* DeviceVulkan::RequestImmutableSampler(const SamplerCreateInfo&
     return sampler;
 }
 
+QueryPoolPtr DeviceVulkan::RequestQueryPool(const QueryPoolCreateDesc& desc)
+{
+    return QueryPoolPtr(queryPools.allocate(*this, desc));
+}
+
+QueryPoolResultPtr DeviceVulkan::WriteTimestamp(VkCommandBuffer cmd, VkPipelineStageFlagBits stage)
+{
+    LOCK();
+    return CurrentFrameResource().queryPool.WriteTimestamp(cmd, stage);
+}
+
 void DeviceVulkan::RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size)
 {
     LOCK();
@@ -1597,8 +1610,10 @@ void DeviceVulkan::NextFrameContext()
         kvp.second->BeginFrame();
 #endif
 
-    // update frameIndex
+    // update frame count
     FRAMECOUNT++;
+
+    // update frameIndex
     frameIndex++;
     if (frameIndex >= frameResources.size())
         frameIndex = 0;
@@ -1843,6 +1858,11 @@ void DeviceVulkan::ReleasePipelineNolock(VkPipeline pipeline)
 void DeviceVulkan::FreeMemoryNolock(const DeviceAllocation& allocation)
 {
     CurrentFrameResource().destroyedAllocations.push_back(allocation);
+}
+
+void DeviceVulkan::ReleaseQueryPoolNolock(VkQueryPool queryPool)
+{
+    CurrentFrameResource().destroyedQueryPools.push_back(queryPool);
 }
 
 void DeviceVulkan::ReleaseBindlessResourceNoLock(I32 index, BindlessReosurceType type)
@@ -2358,7 +2378,8 @@ void DeviceVulkan::EmitQueueSignals(BatchComposer& composer, VkSemaphore sem, U6
 
 DeviceVulkan::FrameResource::FrameResource(DeviceVulkan& device_, U32 frameIndex_) : 
     device(device_),
-    frameIndex(frameIndex_)
+    frameIndex(frameIndex_),
+    queryPool(device_)
 {
     for (int queueIndex = 0; queueIndex < QUEUE_INDEX_COUNT; queueIndex++)
     {
@@ -2437,6 +2458,9 @@ void DeviceVulkan::FrameResource::Begin()
             pool->BeginFrame();
     }
 
+    // timesteamp query pool begin
+    queryPool.Begin();
+
     // Recycle buffer blocks
     for (auto& block : vboBlocks)
         device.vboPool.RecycleBlock(block);
@@ -2480,6 +2504,8 @@ void DeviceVulkan::FrameResource::Begin()
         allocation.Free(device.memory);
     for (auto& shader : destroyedShaders)
         vkDestroyShaderModule(vkDevice, shader, nullptr);
+    for (auto& queryPool : destroyedQueryPools)
+        vkDestroyQueryPool(vkDevice, queryPool, nullptr);
 
     for (auto& kvp : destroyedBindlessResources)
     {
@@ -2501,6 +2527,7 @@ void DeviceVulkan::FrameResource::Begin()
     destroyedAllocations.clear();
     destroyedBindlessResources.clear();
     destroyedShaders.clear();
+    destroyedQueryPools.clear();
 
     // reset persistent storage blocks
     for (auto& kvp : storageBlockMap)
@@ -2757,6 +2784,11 @@ const char* GetPipelineCachePath()
 {
     static const std::string PIPELINE_CACHE_PATH = ".export/pipeline_cache.bin";
     return PIPELINE_CACHE_PATH.c_str();
+}
+
+MemoryUsage DeviceVulkan::GetMemoryUsage() const
+{
+    return memory.GetMemoryUsage();
 }
 
 void DeviceVulkan::InitPipelineCache()

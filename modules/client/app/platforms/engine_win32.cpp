@@ -85,6 +85,8 @@ namespace VulkanTest
 
 		virtual ~EngineImpl()
 		{
+			EngineService::OnBeforeUninit();
+
 			pluginManager.Reset();
 			inputSystem.Reset();
 			resourceManager->Uninitialzie();

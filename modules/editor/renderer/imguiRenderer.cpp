@@ -486,6 +486,7 @@ namespace ImGuiRenderer
 			if (targetWSI == nullptr)
 				continue;
 
+			DISABLE_RENDER_STAT();
 			targetWSI->PresentBegin();
 			{
 				GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(&targetWSI->GetSwapchain(), GPU::SwapchainRenderPassType::ColorOnly);
@@ -496,6 +497,7 @@ namespace ImGuiRenderer
 				device->Submit(cmd);
 			}			
 			targetWSI->PresentEnd();
+			ENABLE_RENDER_STAT();
 		}
 	}
 }

@@ -9,3 +9,4 @@
 #include "gpu\vulkan\device.h"
 #include "math\geometry.h"
 #include "math\color.h"
+#include "renderer\profiler\profilerGPU.h"

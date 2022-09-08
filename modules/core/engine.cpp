@@ -15,6 +15,7 @@ namespace VulkanTest
 	DEFINE_ENGINE_SERVICE(FixedUpdate);
 	DEFINE_ENGINE_SERVICE(Update);
 	DEFINE_ENGINE_SERVICE(LateUpdate);
+    DEFINE_ENGINE_SERVICE(BeforeUninit);
 
 	EngineService::~EngineService()
 	{
@@ -43,7 +44,7 @@ namespace VulkanTest
 
     bool EngineService::Init(Engine& engine)
     {
-        return false;
+        return true;
     }
 
     void EngineService::OnInit(Engine& engine)

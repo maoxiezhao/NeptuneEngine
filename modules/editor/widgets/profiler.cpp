@@ -12,6 +12,7 @@ namespace Editor
 	{
 		ProfilerTools::MainStats mainStats;
 		std::vector<ProfilerTools::ThreadStats> cpuThreads;
+		std::vector<ProfilerGPU::Block> gpuBlocks;
 	};
 
 	// Base profiler mode
@@ -35,12 +36,15 @@ namespace Editor
 	{
 	private:
 		String name;
+		String sample;
 		SamplesBuffer<F32, ProfilerMode::MaxSamples> samples;
 		int selectedSampleIndex = -1;
 
 		const F32 HEIGHT = 60.0f;
 
 	public:
+		std::function<String(F32)> formatSample;
+
 		SingleChart(const char* name_) :
 			name(name_)
 		{
@@ -49,6 +53,7 @@ namespace Editor
 		void AddSample(F32 value)
 		{
 			samples.Add(value);
+			sample = formatSample ? formatSample(value) : std::to_string(value);
 		}
 
 		F32 GetSample(I32 index)const {
@@ -59,7 +64,13 @@ namespace Editor
 			return selectedSampleIndex;
 		}
 
-		void SetSelectedSampleIndex(I32 index) {
+		void SetSelectedSampleIndex(I32 index) 
+		{
+			if (selectedSampleIndex != index) 
+			{
+				F32 value = GetSample(index);
+				sample = formatSample ? formatSample(value) : std::to_string(value);
+			}
 			selectedSampleIndex = index;
 		}
 
@@ -68,7 +79,17 @@ namespace Editor
 			if (samples.Count() <= 0)
 				return;
 
-			ImGui::Text(name.c_str());
+			// Draw title bg
+			F32 bgWidth = ImGui::GetContentRegionAvail().x;
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			ImVec2 startPos = ImGui::GetCursorScreenPos();
+			const float lineHeight = ImGui::GetTextLineHeightWithSpacing();
+			const ImVec2 rb(startPos.x + bgWidth, startPos.y + lineHeight);
+			dl->AddRectFilled(startPos, rb, 0xff007ACC);
+
+			// Draw title
+			ImGuiEx::Label(name.c_str());
+			ImGui::Text(sample.c_str());
 
 			// Calculate min value and max value
 			F32* datas = samples.Data();
@@ -84,7 +105,6 @@ namespace Editor
 
 			// Draw selected line
 			F32 WIDTH = ImGui::GetContentRegionAvail().x;
-			ImDrawList* dl = ImGui::GetWindowDrawList();
 			ImVec2 screenPos = ImGui::GetCursorScreenPos();
 			F32 framePaddingX = ImGui::GetStyle().FramePadding.x;
 			F32 innerWidth = (WIDTH - 2 * framePaddingX);
@@ -107,7 +127,7 @@ namespace Editor
 				if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 				{
 					const F32 x = std::max(0.0f, ImGui::GetMousePos().x - innerPos.x);
-					selectedSampleIndex = (I32)(x / innerWidth * samples.Count());
+					SetSelectedSampleIndex((I32)(x / innerWidth * samples.Count()));
 				}
 			}
 		}
@@ -115,6 +135,7 @@ namespace Editor
 		void Clear()
 		{
 			samples.Clear();
+			sample.clear();
 		}
 	};
 
@@ -126,17 +147,38 @@ namespace Editor
 	{
 		SingleChart fpsChart;
 		SingleChart updateTimesChart;
+		SingleChart drawTimesChart;
+		SingleChart cpuMemoryChart;
+		SingleChart gpuMemoryChart;
 
 		OverallProfiler() :
 			fpsChart("FPS"),
-			updateTimesChart("UpdateTimes")
+			updateTimesChart("UpdateTimes"),
+			drawTimesChart("DrawTimes(CPU)"),
+			cpuMemoryChart("MemoryCPU"),
+			gpuMemoryChart("MemoryGPU")
 		{
+			updateTimesChart.formatSample = [](F32 value)->String {
+				return StaticString<32>().Sprintf("%.3f ms", value* 1000.0f).c_str();
+			};
+			drawTimesChart.formatSample = [](F32 value)->String {
+				return StaticString<32>().Sprintf("%.3f ms", value * 1000.0f).c_str();
+			};
+			cpuMemoryChart.formatSample = [](F32 value)->String {
+				return StaticString<32>().Sprintf("%d MB", (I32)value).c_str();
+			};
+			gpuMemoryChart.formatSample = [](F32 value)->String {
+				return StaticString<32>().Sprintf("%d MB", (I32)value).c_str();
+			};
 		}
 
 		void Update(ProfilerData& data) override
 		{
 			fpsChart.AddSample((F32)data.mainStats.fps);
 			updateTimesChart.AddSample(data.mainStats.updateTimes);
+			drawTimesChart.AddSample(data.mainStats.drawTimes);
+			cpuMemoryChart.AddSample((F32)(data.mainStats.memoryCPU / 1024 / 1024));	// Bytes -> MB)
+			gpuMemoryChart.AddSample((F32)(data.mainStats.memoryGPU / 1024 / 1024));	// Bytes -> MB
 		}
 
 		void OnGUI(bool isPaused) override
@@ -146,6 +188,9 @@ namespace Editor
 
 			fpsChart.OnGUI();
 			updateTimesChart.OnGUI();
+			drawTimesChart.OnGUI();
+			cpuMemoryChart.OnGUI();
+			gpuMemoryChart.OnGUI();
 
 			ImGui::EndTabItem();
 		}
@@ -154,6 +199,9 @@ namespace Editor
 		{
 			fpsChart.Clear();
 			updateTimesChart.Clear();
+			drawTimesChart.Clear();
+			cpuMemoryChart.Clear();
+			gpuMemoryChart.Clear();
 		}
 	};
 
@@ -169,43 +217,44 @@ namespace Editor
 		F32 time;
 		I32 depth;
 
-		static I32 DisplayNode(int index, int depth, const Array<CPUBlockNode>& nodes)
+		static void DisplayNode(int index, int maxDepth, const Array<CPUBlockNode>& blocks)
 		{
-			while (index < (I32)nodes.size())
+			const auto node = &blocks[index];
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+
+			bool hasDepth = false;
+			int childrenDepth = node->depth + 1;
+			if (childrenDepth <= maxDepth && index < blocks.size() - 1)
 			{
-				const CPUBlockNode* node = &nodes[index];
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-
-				I32 nextDepth = index < (I32)nodes.size() - 1 ? nodes[index + 1].depth : 0;
-				if (nextDepth == depth + 1)
-				{
-					bool open = ImGui::TreeNodeEx(node->name, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen);
-					ImGui::TableNextColumn();
-					ImGui::Text("%.2f%%", node->total);
-					ImGui::TableNextColumn();
-					ImGui::Text("%.4f", node->time);
-					if (open)
-					{
-						index = DisplayNode(index + 1, depth + 1, nodes);
-						ImGui::TreePop();
-					}
-				}
-				else 
-				{
-					ImGui::TreeNodeEx(node->name, ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanFullWidth);
-					ImGui::TableNextColumn();
-					ImGui::Text("%.2f%%", node->total);
-					ImGui::TableNextColumn();
-					ImGui::Text("%.4f", node->time);
-
-					if (nextDepth != depth)
-						break;
-				}
-				index++;
+				int subDepth = blocks[index + 1].depth;
+				if (subDepth == childrenDepth)
+					hasDepth = true;
 			}
 
-			return index;
+			ImGuiTreeNodeFlags flag = hasDepth ?
+				ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen :
+				ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanFullWidth;
+
+			bool open = ImGui::TreeNodeEx(node->name.c_str(), flag);
+			ImGui::TableNextColumn();
+			ImGui::Text("%.2f%%", node->total);
+			ImGui::TableNextColumn();
+			ImGui::Text("%.4f", node->time);
+
+			if (hasDepth && open)
+			{
+				while (++index < blocks.size())
+				{
+					int subDepth = blocks[index].depth;
+					if (subDepth <= node->depth)
+						break;
+
+					if (subDepth == childrenDepth)
+						DisplayNode(index, maxDepth, blocks);
+				}
+				ImGui::TreePop();
+			}
 		}
 	};
 
@@ -242,11 +291,14 @@ namespace Editor
 		CPUProfiler() :
 			updateTimesChart("Frames")
 		{
+			updateTimesChart.formatSample = [](F32 value)->String {
+				return StaticString<32>().Sprintf("%.3f ms", value * 1000.0f).c_str();
+			};
 		}
 
 		void Update(ProfilerData& data) override
 		{
-			updateTimesChart.AddSample(data.mainStats.updateTimes);
+			updateTimesChart.AddSample(data.mainStats.deltaTimes);
 			blocks.Add(data.cpuThreads);
 
 			OnSelectedFrameChagned(0, false);
@@ -254,8 +306,6 @@ namespace Editor
 		
 		void OnTableGUI(BlockRange range)
 		{
-			blockNodes.clear();
-
 			if (blocks.Count() == 0)
 				return;
 
@@ -272,6 +322,9 @@ namespace Editor
 				if (showMainThreadOnly && thread.name != "AsyncMainThread")
 					continue;
 
+				blockNodes.clear();
+
+				I32 maxDepth = 0;
 				for (const auto& block : thread.blocks)
 				{
 					F64 time = std::max(block.endTime - block.startTime, 0.000000001);
@@ -284,28 +337,33 @@ namespace Editor
 					node.total = (int)(time / totalTime * 1000.0f) / 10.0f;
 					node.time = (F32)(time * 1000.0);
 					node.depth = block.depth;
+
+					maxDepth = std::max(maxDepth, block.depth);
 				}
-			}
 
-			static ImGuiTableFlags flags =
-				ImGuiTableFlags_BordersV |
-				ImGuiTableFlags_BordersOuterH |
-				ImGuiTableFlags_Resizable |
-				ImGuiTableFlags_RowBg |
-				ImGuiTableFlags_NoBordersInBody;
+				static ImGuiTableFlags flags =
+					ImGuiTableFlags_BordersV |
+					ImGuiTableFlags_BordersOuterH |
+					ImGuiTableFlags_Resizable |
+					ImGuiTableFlags_RowBg |
+					ImGuiTableFlags_NoBordersInBody;
 
-			if (ImGui::BeginTable("FrameBlocks", 3, flags))
-			{
-				const float TEXT_BASE_WIDTH = ImGui::CalcTextSize("A").x;
-				ImGui::TableSetupColumn("Block", ImGuiTableColumnFlags_NoHide);
-				ImGui::TableSetupColumn("Total", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 12.0f);
-				ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 18.0f);
-				ImGui::TableHeadersRow();
+				if (ImGui::BeginTable(thread.name.c_str(), 3, flags))
+				{
+					const float TEXT_BASE_WIDTH = ImGui::CalcTextSize("A").x;
+					ImGui::TableSetupColumn("Block", ImGuiTableColumnFlags_NoHide);
+					ImGui::TableSetupColumn("Total", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 12.0f);
+					ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 18.0f);
+					ImGui::TableHeadersRow();
 
-				if (!blockNodes.empty())
-					CPUBlockNode::DisplayNode(0, 0, blockNodes);
+					for (int i = 0; i < blockNodes.size(); i++)
+					{
+						if (blockNodes[i].depth == 0)
+							CPUBlockNode::DisplayNode(i, maxDepth, blockNodes);
+					}
 
-				ImGui::EndTable();
+					ImGui::EndTable();
+				}
 			}
 		}
 
@@ -313,8 +371,9 @@ namespace Editor
 		F32 fromX = 0.0f;
 		F32 fromY = 0.0f;
 		F32 toX = 0.0f;
-		void OnTimelineBlockGUI(const Profiler::Block& block, F32 baseY, F32 lineHeight, I32 index, I32 maxDepth, const std::vector<Profiler::Block>& blocks, ImDrawList* dl)
+		void OnTimelineBlockGUI(F32 baseY, F32 lineHeight, I32 index, I32 maxDepth, const std::vector<Profiler::Block>& blocks, ImDrawList* dl)
 		{
+			const auto& block = blocks[index];
 			float posY = baseY + block.depth * lineHeight;
 			auto DrawBlock = [&](F64 from, F64 to, const char* name, U32 color)
 			{
@@ -380,7 +439,7 @@ namespace Editor
 						break;
 
 					if (subDepth == childrenDepth)
-						OnTimelineBlockGUI(blocks[index], baseY, lineHeight, index, maxDepth, blocks, dl);
+						OnTimelineBlockGUI(baseY, lineHeight, index, maxDepth, blocks, dl);
 				}
 			}		
 		}
@@ -408,7 +467,6 @@ namespace Editor
 				if (startTime < FLT_MAX)
 					viewStart = std::max(startTime, viewStart);
 			}
-
 		}
 
 		void OnTimelineGUI(BlockRange range)
@@ -458,7 +516,7 @@ namespace Editor
 						continue;
 					
 					if (block.depth == 0)
-						OnTimelineBlockGUI(block, baseY, lineHeight, index, maxDepth, thread.blocks, dl);
+						OnTimelineBlockGUI(baseY, lineHeight, index, maxDepth, thread.blocks, dl);
 
 					index++;
 				}
@@ -579,20 +637,337 @@ namespace Editor
 
 	struct GPUProfiler : ProfilerMode
 	{
-		void Update(ProfilerData& tools) override
+	public:
+		U32 selectedFrame = 0;
+		F64 timelineRange = 16.0f;
+		bool timeRangeInit = false;
+
+		SingleChart drawTimesCPUChart;
+		SingleChart drawTimesGPUChart;
+		SamplesBuffer<std::vector<ProfilerGPU::Block>, ProfilerMode::MaxSamples> blocks;
+
+		const U32 colors[6] = {
+			0xFF44355B,
+			0xFF51325C,
+			0xFF1355B5,
+			0xFF4365B2,
+			0xFF156621,
+			0xFF72A268,
+		};
+
+	public:
+		GPUProfiler() :
+			drawTimesCPUChart("DrawTime(CPU)"),
+			drawTimesGPUChart("DrawTime(GPU)")
 		{
+			drawTimesCPUChart.formatSample = [](F32 value)->String {
+				return StaticString<32>().Sprintf("%.3f ms", value * 1000.0f).c_str();
+			};
+			drawTimesGPUChart.formatSample = [](F32 value)->String {
+				return StaticString<32>().Sprintf("%.3f ms", value).c_str();
+			};
+		}
+
+		void Update(ProfilerData& data) override
+		{
+			drawTimesCPUChart.AddSample(data.mainStats.drawTimes);
+			drawTimesGPUChart.AddSample(data.mainStats.drawTimesGPU);
+			blocks.Add(data.gpuBlocks);
 		}
 
 		void OnGUI(bool isPaused) override
 		{
 			if (!ImGui::BeginTabItem("GPU"))
 				return;
+			
+			drawTimesCPUChart.OnGUI();
+			drawTimesGPUChart.OnGUI();
+
+			if (isPaused == false)
+			{
+				viewStart = 0.0f;
+				timeRangeInit = false;
+			}
+			else
+			{
+				I32 selectedIndex = drawTimesCPUChart.GetSelectedSampleIndex();
+				if (selectedIndex != -1)
+					OnSelectedFrameChagned(selectedIndex, true);
+
+				drawTimesGPUChart.SetSelectedSampleIndex(selectedIndex);
+			}
+
+			// Show timeline
+			ImGui::Separator();
+			OnTimelineGUI();
+			ImGui::NewLine();
+
+			ImGui::Separator();
+			OnTableGUI();
 
 			ImGui::EndTabItem();
 		}
 
+	public:
+		F32 lineHeight = 0.0f;
+		F64 viewStart = 0.0f;
+		F32 fromX = 0.0f;
+		F32 fromY = 0.0f;
+		F32 toX = 0.0f;
+		F32 OnTimelineBlockGUI(I32 index, I32 maxDepth, const std::vector<ProfilerGPU::Block>& blocks, ImDrawList* dl)
+		{
+			auto& block = blocks[index];
+			auto DrawBlock = [&](F64 from, F64 to, const char* name, U32 color)
+			{
+				if (to < viewStart)
+					return;
+
+				const F32 tStart = F32((from - viewStart) / timelineRange);
+				const F32 tEnd = F32((to - viewStart) / timelineRange);
+				const F32 xStart = fromX * (1 - tStart) + toX * tStart;
+				const F32 xEnd = fromX * (1 - tEnd) + toX * tEnd;
+
+				// Block background
+				F32 posY = fromY + block.depth * lineHeight;
+				const ImVec2 ra(xStart, posY);
+				const ImVec2 rb(xEnd, posY + lineHeight - 1);
+				dl->AddRectFilled(ra, rb, color);
+
+				// Block border
+				U32 borderColor = ImGui::GetColorU32(ImGuiCol_Border);
+				F32 width = xEnd - xStart;
+				if (width > 2) {
+					dl->AddRect(ra, rb, borderColor);
+				}
+
+				// Block name text
+				const float w = ImGui::CalcTextSize(name).x;
+				if (w + 2 < width) {
+					dl->AddText(ImVec2(xStart + 2, posY), 0xffffffff, name);
+				}
+
+				// Show tooltip
+				if (ImGui::IsMouseHoveringRect(ra, rb))
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("%s (%.3f ms)", name, block.time);
+					ImGui::EndTooltip();
+				}
+			};
+
+			U32 hash = (U32)StringID(block.name).GetHashValue();
+			auto color = colors[hash % ARRAYSIZE(colors)];
+			DrawBlock(block.startTime, block.startTime + block.time, block.name, color);
+
+			int childrenDepth = block.depth + 1;
+			if (childrenDepth <= maxDepth)
+			{
+				// Count sub blocks total duration
+				double subBlocksDuration = 0;
+				int tmpIndex = index;
+				while (++tmpIndex < blocks.size())
+				{
+					int subDepth = blocks[tmpIndex].depth;
+					if (subDepth <= block.depth)
+						break;
+
+					if (subDepth == childrenDepth)
+						subBlocksDuration += blocks[tmpIndex].time;
+				}
+
+				// Skip if has no sub events
+				if (subBlocksDuration > 0)
+				{
+					while (++index < blocks.size())
+					{
+						int subDepth = blocks[index].depth;
+						if (subDepth <= block.depth)
+							break;
+
+						if (subDepth == childrenDepth)
+							OnTimelineBlockGUI(index, maxDepth, blocks, dl);
+					}
+				}
+			}
+
+			return block.time;
+		}
+
+		void OnTimelineGUI()
+		{
+			if (blocks.Count() == 0)
+				return;
+
+			auto blockData = blocks.Get(selectedFrame);
+			if (blockData.empty())
+				return;
+
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			dl->ChannelsSplit(2);
+
+			float baseY = ImGui::GetCursorScreenPos().y;
+			lineHeight = ImGui::GetTextLineHeightWithSpacing();
+			fromX = ImGui::GetCursorScreenPos().x;
+			fromY = ImGui::GetCursorScreenPos().y;
+			toX = fromX + ImGui::GetContentRegionAvail().x;
+
+			I32 maxDepth = 0;
+			for (const auto& block : blockData)
+				maxDepth = std::max(maxDepth, block.depth);
+
+			if (!timeRangeInit)
+			{
+				timelineRange = blockData[0].time;
+				viewStart = blockData[0].startTime;
+				timeRangeInit = true;
+			}
+
+			for (I32 index = 0; index < blockData.size(); index++)
+			{
+				if (blockData[index].depth == 0)
+					OnTimelineBlockGUI(index, maxDepth, blockData, dl);
+			}
+			ImGui::Dummy(ImVec2(toX - fromX, (maxDepth + 1) * lineHeight));
+
+			if (ImGui::IsMouseHoveringRect(ImVec2(fromX, fromY), ImVec2(toX, ImGui::GetCursorScreenPos().y)))
+			{
+				if (ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+					viewStart -= F64((ImGui::GetIO().MouseDelta.x / (toX - fromX)) * timelineRange);
+
+				if (ImGui::GetIO().KeyCtrl)
+				{
+					U32 range = (U32)(timelineRange * 10000);
+					if (ImGui::GetIO().MouseWheel > 0 && range > 1)
+					{
+						range >>= 1;
+						timelineRange = range / 10000.0;
+					}
+					else if (ImGui::GetIO().MouseWheel < 0)
+					{
+						range <<= 1;
+						timelineRange = range / 10000.0;
+					}
+				}
+			}
+		}
+
+	public:
+		static void OnTableRowGUI(int index, int maxDepth, F32 totalTimes, const std::vector<ProfilerGPU::Block>& blocks)
+		{
+			const auto& block = blocks[index];
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+
+			bool hasDepth = false;
+			int childrenDepth = block.depth + 1;
+			if (childrenDepth <= maxDepth && index < blocks.size() - 1)
+			{
+				int subDepth = blocks[index + 1].depth;
+				if (subDepth == childrenDepth)
+					hasDepth = true;
+			}
+
+			ImGuiTreeNodeFlags flag = hasDepth ?
+				ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen :
+				ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanFullWidth;
+
+			bool open = ImGui::TreeNodeEx(block.name.c_str(), flag);
+			ImGui::TableNextColumn();
+			ImGui::Text("%.2f%%", (int)(block.time / totalTimes * 1000.0f) / 10.0f);
+			ImGui::TableNextColumn();
+			ImGui::Text("%.4f", (block.time * 10000.0f) / 10000.0f);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", block.stats.drawCalls);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", block.stats.vertices);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", block.stats.triangles);
+
+			if (hasDepth && open)
+			{
+				while (++index < blocks.size())
+				{
+					int subDepth = blocks[index].depth;
+					if (subDepth <= block.depth)
+						break;
+
+					if (subDepth == childrenDepth)
+						OnTableRowGUI(index, maxDepth, totalTimes, blocks);
+				}
+				ImGui::TreePop();
+			}
+		}
+
+		void OnTableGUI()
+		{
+			if (blocks.Count() == 0)
+				return;
+
+			auto blockData = blocks.Get(selectedFrame);
+			if (blockData.empty())
+				return;
+
+			I32 maxDepth = 0;
+			for (const auto& block : blockData)
+				maxDepth = std::max(maxDepth, block.depth);
+
+			F32 totalDrawTime = blockData[0].time;
+
+			static ImGuiTableFlags flags =
+				ImGuiTableFlags_BordersV |
+				ImGuiTableFlags_BordersOuterH |
+				ImGuiTableFlags_Resizable |
+				ImGuiTableFlags_RowBg |
+				ImGuiTableFlags_NoBordersInBody;
+
+			if (ImGui::BeginTable("GPUBlocks", 6, flags))
+			{
+				const float TEXT_BASE_WIDTH = ImGui::CalcTextSize("A").x;
+				ImGui::TableSetupColumn("Block", ImGuiTableColumnFlags_NoHide);
+				ImGui::TableSetupColumn("Total", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 12.0f);
+				ImGui::TableSetupColumn("GPU ms", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 18.0f);
+				ImGui::TableSetupColumn("Draw Calls", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 12.0f);
+				ImGui::TableSetupColumn("Vertices", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 12.0f);
+				ImGui::TableSetupColumn("Triangles", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 12.0f);
+				ImGui::TableHeadersRow();
+
+				for (int i = 0; i < blockData.size(); i++)
+				{
+					if (blockData[i].depth == 0)
+						OnTableRowGUI(i, maxDepth, totalDrawTime, blockData);
+				}
+
+				ImGui::EndTable();
+			}
+		}
+
+		void OnSelectedFrameChagned(I32 frame, bool isPaused)
+		{
+			if (isPaused && frame == selectedFrame)
+				return;
+
+			selectedFrame = frame;
+		}
+
 		void Clear() override
 		{
+			drawTimesCPUChart.Clear();
+			drawTimesGPUChart.Clear();
+			blocks.Clear();
+		}
+
+		void PrevFrame() override
+		{
+			I32 selectedIndex = drawTimesCPUChart.GetSelectedSampleIndex();
+			selectedIndex = std::max(selectedIndex - 1, 0);
+			drawTimesCPUChart.SetSelectedSampleIndex(selectedIndex);
+		}
+
+		void NextFrame() override
+		{
+			I32 selectedIndex = drawTimesCPUChart.GetSelectedSampleIndex();
+			selectedIndex = std::min(selectedIndex + 1, MaxSamples - 1);
+			drawTimesCPUChart.SetSelectedSampleIndex(selectedIndex);
 		}
 	};
 
@@ -634,6 +1009,7 @@ namespace Editor
 			// Get profiler data
 			profilerData.cpuThreads = profilerTools.GetCPUThreads();
 			profilerData.mainStats = profilerTools.GetMainStats();
+			profilerData.gpuBlocks = profilerTools.GetGPUBlocks();
 
 			for (auto mode : profilerModes)
 				mode->Update(profilerData);

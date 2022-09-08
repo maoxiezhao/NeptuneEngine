@@ -20,6 +20,12 @@ namespace GPU
 	};
 	using MemoryAccessFlags = U32;
 
+	struct MemoryUsage
+	{
+		U64 total = 0ull;		// Total video memory (bytes)
+		U64 usage = 0ull;		// Used video memory  (bytes)
+	};
+
 	struct MemoryAllocateUsage
 	{
 		VmaMemoryUsage usage;
@@ -105,11 +111,14 @@ namespace GPU
 		void* MapMemory(const DeviceAllocation& allocation, MemoryAccessFlags flags, VkDeviceSize offset, VkDeviceSize length);
 		void UnmapMemory(const DeviceAllocation& allocation, MemoryAccessFlags flags, VkDeviceSize offset, VkDeviceSize length);
 
+		MemoryUsage GetMemoryUsage()const;
+
 	private:
 		friend struct DeviceAllocation;
 
 		DeviceVulkan* device;
 		VmaAllocator allocator = VK_NULL_HANDLE;
+		VkPhysicalDeviceMemoryProperties2 memoryProperties2 = {};
 	};
 }
 }

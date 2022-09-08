@@ -345,7 +345,7 @@ namespace VulkanTest
 			matName[nameLenght] = 0;
 			input.Read(matName, nameLenght);
 
-			auto material = resManager.LoadResource<Material>(matGuid);
+			ResPtr<Material> material = resManager.LoadResource<Material>(matGuid);
 			if (!material)
 			{
 				Logger::Error("Faield to load material of model %s", matName);

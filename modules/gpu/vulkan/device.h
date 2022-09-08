@@ -16,6 +16,7 @@
 #include "TextureFormatLayout.h"
 #include "sampler.h"
 #include "event.h"
+#include "queryPool.h"
 
 #include "core\platform\sync.h"
 #include "core\utils\threadLocal.h"
@@ -202,6 +203,8 @@ public:
     ObjectPool<ImageView> imageViews;
     ObjectPool<Event> eventPool;
     ObjectPool<BindlessDescriptorHandler> bindlessDescriptorHandlers;
+    ObjectPool<QueryPool> queryPools;
+    ObjectPool<QueryPoolResult> queryPoolResults;
 
     // per frame resource
     struct FrameResource
@@ -235,6 +238,7 @@ public:
         std::vector<VkSampler> destroyedSamplers;
         std::vector<VkEvent> recyledEvents;
         std::vector<VkShaderModule> destroyedShaders;
+        std::vector<VkQueryPool> destroyedQueryPools;
 
         // bindless
         std::vector<std::pair<I32, BindlessReosurceType>> destroyedBindlessResources;
@@ -261,6 +265,9 @@ public:
 
         // persistent buffer blocks
         std::unordered_map<VkCommandBuffer, BufferBlock> storageBlockMap;
+
+        // timesteamp querypool
+        TimestampQueryPool queryPool;
     };
     std::vector<std::unique_ptr<FrameResource>> frameResources;
     uint32_t frameIndex = 0;
@@ -334,7 +341,9 @@ public:
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
     SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable = false);
     ImmutableSampler* RequestImmutableSampler(const SamplerCreateInfo& createInfo);
-    
+    QueryPoolPtr RequestQueryPool(const QueryPoolCreateDesc& desc);
+    QueryPoolResultPtr WriteTimestamp(VkCommandBuffer cmd, VkPipelineStageFlagBits stage);
+
     void RequestVertexBufferBlock(BufferBlock& block, VkDeviceSize size);
     void RequestVertexBufferBlockNolock(BufferBlock& block, VkDeviceSize size);
     void RequestIndexBufferBlock(BufferBlock& block, VkDeviceSize size);
@@ -389,6 +398,7 @@ public:
     void ReleaseEventNolock(VkEvent ent);
     void FreeMemoryNolock(const DeviceAllocation& allocation);
     void ReleaseBindlessResourceNoLock(I32 index, BindlessReosurceType type);
+    void ReleaseQueryPoolNolock(VkQueryPool queryPool);
 
     void* MapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
     void UnmapBuffer(const Buffer& buffer, MemoryAccessFlags flags);
@@ -425,17 +435,22 @@ public:
     VkFormat GetDefaultDepthStencilFormat() const;
     VkFormat GetDefaultDepthFormat() const;
     constexpr U64 GetFrameCount() const { return FRAMECOUNT; }
+    constexpr U64 GetTimestampFrequency() const { return TIMESTAMP_FREQUENCY; }
     VkInstance GetInstance() { return instance; }
     bool IsRendering()const { return isRendering; }
 
     BindlessDescriptorHeap* GetBindlessDescriptorHeap(BindlessReosurceType type);
 
+    MemoryUsage GetMemoryUsage()const;
+
+    // Pipeline cache
     void InitPipelineCache();
     bool InitPipelineCache(const U8* data, size_t size);
     void FlushPipelineCache();
     VkPipelineCache pipelineCache = VK_NULL_HANDLE;
     void InitShaderManagerCache();
 
+    // Initialize renderDoc library
     static bool InitRenderdocCapture();
 
     static constexpr U32 IMMUTABLE_SAMPLER_SLOT_BEGIN = 100;
@@ -444,6 +459,8 @@ private:
     friend class CommandList;
 
     U64 FRAMECOUNT = 0;
+    U64 TIMESTAMP_FREQUENCY = 0;
+
     bool isRendering = false;
 
     void AddFrameCounter();

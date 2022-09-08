@@ -84,7 +84,7 @@ namespace Renderer
 	{
 		U64 sortingKey;
 
-		RenderBatch(ECS::Entity mesh, ECS::Entity obj, F32 distance)
+		RenderBatch(ECS::EntityID mesh, ECS::EntityID obj, F32 distance)
 		{
 			ASSERT(mesh < 0x00FFFFFF);
 			ASSERT(obj < 0x00FFFFFF);
@@ -424,7 +424,8 @@ namespace Renderer
 	{
 		ASSERT(visible.scene);
 		PROFILE_FUNCTION();
-		
+		PROFILE_GPU("UpdateRenderData", cmd);
+
 		cmd.BeginEvent("UpdateRenderData");
 
 		// Update frame constbuffer

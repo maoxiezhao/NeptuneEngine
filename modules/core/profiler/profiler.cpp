@@ -1,9 +1,14 @@
 #include "profiler.h"
+#include "renderStats.h"
 #include "platform\timer.h"
 #include "core\memory\memory.h"
 
 namespace VulkanTest
 {
+
+ThreadLocalObject<RenderStats> RenderStats::Counters;
+volatile I32 RenderStats::enabled;
+
 namespace Profiler
 {
 	BlockBuffer::BlockBuffer()
@@ -287,6 +292,11 @@ namespace Profiler
 	void Enable(bool enabled)
 	{
 		gImpl.enabled = enabled;
+	}
+
+	bool IsEnable()
+	{
+		return gImpl.enabled;
 	}
 
 	std::vector<Thread*>& GetThreads()
