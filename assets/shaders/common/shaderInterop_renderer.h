@@ -3,6 +3,14 @@
 
 #include "shaderInterop.h"
 
+enum SHADER_LIGHT_TYPE
+{
+	SHADER_LIGHT_TYPE_DIRECTIONALLIGHT,
+	SHADER_LIGHT_TYPE_POINTLIGHT,
+	SHADER_LIGHT_TYPE_SPOTLIGHT,
+	SHADER_LIGHT_TYPE_COUNT
+};
+
 // Max light count in per frame
 static const uint SHADER_ENTITY_COUNT = 256;
 
@@ -45,7 +53,12 @@ struct ShaderGeometry
 struct ShaderMaterial
 {
 	float4 baseColor;
+	float  roughness;
+	float  metalness;
+	float  reflectance;
+
 	int	   texture_basecolormap_index;
+	int    texture_normalmap_index;
 };
 
 struct ObjectPushConstants

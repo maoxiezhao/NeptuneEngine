@@ -43,6 +43,11 @@ namespace VulkanTest
 		GPU::CommandList& cmd = *params.cmd;
 		auto cache = GetPSO(params.renderPass);
 		ASSERT(cache != nullptr);
+
+#ifdef CJING3D_EDITOR
+		cache->desc.shaders[(I32)GPU::ShaderStage::VS] = GetVSShader(params.renderPass);
+		cache->desc.shaders[(I32)GPU::ShaderStage::PS] = GetPSShader(params.renderPass);
+#endif
 		cmd.SetPipelineState(cache->desc);
 	}
 

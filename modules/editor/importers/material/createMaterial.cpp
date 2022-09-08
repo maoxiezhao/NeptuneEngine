@@ -23,6 +23,8 @@ namespace Editor
 		// Write base propreties
 		Color4 baseColor = options->baseColor;
 		generator.FindOrCreateEmpty("BaseColor", MaterialParameterType::Color).asColor = baseColor.GetRGBA();
+		generator.FindOrCreateEmpty("Metalness", MaterialParameterType::Float).asFloat = options->metalness;
+		generator.FindOrCreateEmpty("Roughness", MaterialParameterType::Float).asFloat = options->roughness;
 
 		// Write textures
 		auto WriteTexture = [options, &generator](Texture::TextureType type)

@@ -403,7 +403,6 @@ namespace Editor
 
 		ImVec2 viewPos;
 		ImGuiWindowFlags flags =
-			ImGuiWindowFlags_NoScrollWithMouse |
 			ImGuiWindowFlags_NoCollapse |
 			ImGuiWindowFlags_NoMove;
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));

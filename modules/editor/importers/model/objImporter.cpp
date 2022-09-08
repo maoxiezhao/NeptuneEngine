@@ -160,6 +160,8 @@ namespace Editor
 					break;
 				case Texture::NORMAL:
 					texname = mat.material->normal_texname;
+					if (texname.empty())
+						texname = mat.material->bump_texname;
 					break;
 				case Texture::SPECULAR:
 					texname = mat.material->specular_texname;
@@ -348,6 +350,7 @@ namespace Editor
 		outmem.Write(mesh.vertexPositions.size());
 		outmem.Write(mesh.vertexPositions.data(), mesh.vertexPositions.size() * sizeof(F32x3));
 		outmem.Write(mesh.vertexNormals.data(), mesh.vertexNormals.size() * sizeof(F32x3));
+		outmem.Write(mesh.vertexTangents.data(), mesh.vertexTangents.size() * sizeof(F32x4));
 		outmem.Write(mesh.vertexUvset_0.data(), mesh.vertexUvset_0.size() * sizeof(F32x2));
 	}
 
@@ -471,6 +474,8 @@ namespace Editor
 
 			// BaseColor
 			options.baseColor = Color4(F32x4(material.material->diffuse[0], material.material->diffuse[1], material.material->diffuse[2], 1.0f));
+			options.metalness = material.material->metallic;
+			options.roughness = material.material->roughness;
 
 			// Write textures
 			auto WriteTexture = [&material, &options](Texture::TextureType type)

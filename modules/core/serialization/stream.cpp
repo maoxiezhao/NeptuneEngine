@@ -93,8 +93,9 @@ namespace VulkanTest
 	{
 		U16 length = Read<U16>();
 		String ret;
-		ret.resize(length);
-		Read(ret.data(), length * sizeof(char));
+		ret.resize(length + 1);
+		Read(ret.data(), length);
+		ret[length] = '\0';
 		return ret;
 	}
 

@@ -83,7 +83,11 @@ namespace VulkanTest
 	struct DefaultMaterialParams
 	{
 		MaterialParam* baseColor;
+		MaterialParam* roughness;
+		MaterialParam* metalness;
+
 		MaterialParam* baseColorMap;
+		MaterialParam* normalMap;
 
 		void Load(MaterialParams& params);
 		void Unload();

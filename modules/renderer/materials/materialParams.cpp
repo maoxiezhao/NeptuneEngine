@@ -193,19 +193,28 @@ namespace VulkanTest
 	void DefaultMaterialParams::Load(MaterialParams& params)
 	{
 		baseColor = params.Get("BaseColor");
+		roughness = params.Get("Roughness");
+		metalness = params.Get("Metalness");
 		baseColorMap = params.GetTexture(Texture::TextureType::DIFFUSE);
+		normalMap = params.GetTexture(Texture::TextureType::NORMAL);
 	}
 
 	void DefaultMaterialParams::Unload()
 	{
 		baseColor = nullptr;
+		roughness = nullptr;
+		metalness = nullptr;
 		baseColorMap = nullptr;
+		normalMap = nullptr;
 	}
 
 	void DefaultMaterialParams::WriteShaderMaterial(ShaderMaterial* dest)
 	{
 		ShaderMaterial shaderMaterial = {};
 		shaderMaterial.baseColor = baseColor ? Color4(baseColor->asColor).ToFloat4() : F32x4(1.0f);
+		shaderMaterial.roughness = roughness ? roughness->asFloat : 0.0f;
+		shaderMaterial.metalness = metalness ? metalness->asFloat : 0.0f;
+		shaderMaterial.reflectance = 0.02f;
 
 		auto device = Renderer::GetDevice();
 		auto GetTextureIndex = [device](Texture* texture)->int {
@@ -216,6 +225,7 @@ namespace VulkanTest
 		};
 
 		shaderMaterial.texture_basecolormap_index = baseColorMap ? GetTextureIndex(baseColorMap->asTexture.get()) : -1;
+		shaderMaterial.texture_normalmap_index = normalMap ? GetTextureIndex(normalMap->asTexture.get()) : -1;
 
 		memcpy(dest, &shaderMaterial, sizeof(ShaderMaterial));
 	}

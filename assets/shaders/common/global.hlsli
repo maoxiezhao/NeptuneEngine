@@ -4,6 +4,9 @@
 #include "shaderInterop.h"
 #include "shaderInterop_renderer.h"
 
+// Common definitions
+#define PI 3.14159265358979323846
+
 // Bindless resources
 ByteAddressBuffer bindless_buffers[] : register(space1);
 Texture2D bindless_textures[] : register(space2);
@@ -13,6 +16,11 @@ SamplerState samLinearClamp : register(s100);
 SamplerState samLinearWrap  : register(s101);
 SamplerState samPointClamp  : register(s102);
 SamplerState samPointWrap   : register(s103);
+
+inline FrameCB GetFrame()
+{
+	return g_xFrame;
+}
 
 inline ShaderSceneCB GetScene()
 {
@@ -37,7 +45,11 @@ inline ShaderMaterial LoadMaterial(uint materialIndex)
 inline ShaderMeshInstance LoadInstance(uint instanceIndex)
 {
 	return bindless_buffers[GetScene().instancebuffer].Load<ShaderMeshInstance>(instanceIndex * sizeof(ShaderMeshInstance));
+}
 
+inline ShaderLight GetShaderLight(uint index)
+{
+	return bindless_buffers[GetFrame().bufferShaderLightsIndex].Load<ShaderLight>(index * sizeof(ShaderLight));
 }
 
 // These functions avoid pow() to efficiently approximate sRGB with an error < 0.4%.

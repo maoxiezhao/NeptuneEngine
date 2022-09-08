@@ -31,6 +31,7 @@ namespace VulkanTest
 			AlignTo(indices.size() * sizeof(U32), alignment) +
 			AlignTo(vertexPos.size() * sizeof(F32x3), alignment) +
 			AlignTo(vertexNor.size() * sizeof(F32x3), alignment) +
+			AlignTo(vertexTangents.size() * sizeof(F32x4), alignment) +
 			AlignTo(vertexUV.size() * sizeof(F32x2), alignment);
 
 		OutputMemoryStream output;
@@ -67,7 +68,7 @@ namespace VulkanTest
 		if (!vertexTangents.empty())
 		{
 			vbTan.offset = output.Size();
-			vbTan.size = vertexTangents.size() * sizeof(F32x3);
+			vbTan.size = vertexTangents.size() * sizeof(F32x4);
 			output.Write(vertexTangents.data(), vbTan.size, alignment);
 		}
 

@@ -17,6 +17,8 @@ namespace Editor
 		{
 			MaterialInfo info;
 			Color4 baseColor;
+			float roughness;
+			float metalness;
 			Path textures[Texture::TextureType::COUNT];
 		};
 

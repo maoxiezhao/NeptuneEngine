@@ -7,6 +7,7 @@
 // #define OBJECTSHADER_LAYOUT 1
 
 #include "common/objectHF.hlsli"
+#include "common/lighting.hlsli"
 
 // Vertex Shader function for Main Pass
 META_VS(true)
@@ -57,21 +58,24 @@ float4 PS(PixelInput input) : SV_Target
     Surface surface;
     surface.Init();
     
+    // Normal
 #ifdef OBJECTSHADER_USE_NORMAL
     surface.N = normalize(input.nor);
 #endif
 
+    // Positon3D
 #ifdef OBJECTSHADER_USE_POSITION3D
     surface.P = input.pos3D;
     surface.V = GetCamera().position - input.pos3D;
     surface.V /= length(surface.V);
 #endif
 
+    // Tagent
 #ifdef OBJECTSHADER_USE_TANGENT
     surface.T = input.tan;
-    surface.T.xyz = normalize(input.tan.xyz);
-    float3 binormal = normalize(cross(surface.T.xyz, surface.N) * surface.T.w);
-    float3x3 TBN = float3x3(surface.T.xyz, binormal, surface.N);
+    surface.T.xyz = normalize(surface.T.xyz);
+	float3 binormal = normalize(cross(surface.T.xyz, surface.N) * surface.T.w);
+	float3x3 TBN = float3x3(surface.T.xyz, binormal, surface.N);
 #endif
 
     float4 color = 1;
@@ -87,8 +91,32 @@ float4 PS(PixelInput input) : SV_Target
 #endif
 
 #ifdef OBJECTSHADER_USE_COLOR
-    color *= GetMaterial().baseColor;
+    color *= GetMaterial().baseColor * input.color;
 #endif
+
+    // Setup surface
+    surface.Setup(GetMaterial(), color);
+
+    // Normal mapping
+#ifdef OBJECTSHADER_USE_TANGENT
+    [branch]
+    if (GetMaterial().texture_normalmap_index >= 0)
+    {
+        const float3 N = surface.N;
+        float3 normalMap = float3(texture_normalmap.Sample(samLinearClamp, input.uvsets.xy).rg, 1);
+        float3 bumpColor = normalMap.rgb * 2 - 1;
+        surface.N = normalize(lerp(N, mul(bumpColor, TBN), 1.0f));
+    }
+#endif
+
+    // Update surfcae
+    surface.Update();
+
+    // Lighinting
+    Lighting lighting;
+    lighting.Init(0, 0);
+    ForwardLighting(surface, lighting);
+    ApplyLighting(surface, lighting, color);
 
     return color;
 }
