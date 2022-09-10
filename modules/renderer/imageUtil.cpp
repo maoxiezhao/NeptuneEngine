@@ -1,8 +1,8 @@
 #include "imageUtil.h"
 #include "renderer.h"
 #include "shaderInterop_image.h"
-#include "shader.h"
-#include "core\resource\resourceManager.h"
+#include "content\resources\shader.h"
+#include "content\resourceManager.h"
 
 namespace VulkanTest::ImageUtil
 {

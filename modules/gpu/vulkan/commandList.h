@@ -212,6 +212,8 @@ public:
     void SetSampler(U32 set, U32 binding, StockSampler type);
     void SetTexture(U32 set, U32 binding, const ImageView& imageView);
     void SetStorageTexture(U32 set, U32 binding, const ImageView& view);
+    void SetStorageBuffer(U32 set, U32 binding, const Buffer& buffer);
+    void SetStorageBuffer(U32 set, U32 binding, const Buffer& buffer, VkDeviceSize offset, VkDeviceSize range);
     void SetRasterizerState(const RasterizerState& state);
     void SetBlendState(const BlendState& state);
     void SetDepthStencilState(const DepthStencilState& state);

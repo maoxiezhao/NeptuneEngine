@@ -5,7 +5,7 @@
 #include "core\utils\guid.h"
 #include "resource.h"
 #include "resourceInfo.h"
-#include "storageManager.h"
+#include "storage\storageManager.h"
 
 namespace VulkanTest
 {

@@ -2,7 +2,7 @@
 
 #include "core\common.h"
 #include "core\globals.h"
-#include "core\resource\resourceLoading.h"
+#include "loading\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
 #include "core\utils\guid.h"
 #include "resourceHeader.h"

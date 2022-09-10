@@ -57,7 +57,8 @@ float4 PS(PixelInput input) : SV_Target
 {
     Surface surface;
     surface.Init();
-    
+    surface.Pixel = input.pos.xy;
+
     // Normal
 #ifdef OBJECTSHADER_USE_NORMAL
     surface.N = normalize(input.nor);
@@ -117,6 +118,9 @@ float4 PS(PixelInput input) : SV_Target
     lighting.Init(0, 0);
     ForwardLighting(surface, lighting);
     ApplyLighting(surface, lighting, color);
+
+    // Test
+    color = GetMaterial().baseColor;
 
     return color;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core\resource\binaryResource.h"
+#include "content\binaryResource.h"
 #include "core\collections\hashMap.h"
 #include "gpu\vulkan\device.h"
 #include "gpu\vulkan\shader.h"

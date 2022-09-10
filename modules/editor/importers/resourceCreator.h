@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core\resource\resource.h"
+#include "content\resource.h"
 #include "core\utils\string.h"
 
 namespace VulkanTest

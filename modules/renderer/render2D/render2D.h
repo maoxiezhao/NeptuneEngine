@@ -3,7 +3,7 @@
 #include "font.h"
 #include "math\color.h"
 #include "gpu\vulkan\device.h"
-#include "renderer\shader.h"
+#include "content\resources\shader.h"
 
 namespace VulkanTest
 {

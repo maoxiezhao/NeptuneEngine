@@ -32,6 +32,7 @@ bool WSI::Initialize(GPU::SystemHandles& handles, U32 numThread)
     // init gpu
     deviceVulkan = CJING_NEW(GPU::DeviceVulkan);
     deviceVulkan->SetContext(*vulkanContext);
+    GPU::GPUDevice::Instance = deviceVulkan;
 
     // init surface
     surface = platform->CreateSurface(vulkanContext->GetInstance());
@@ -124,6 +125,7 @@ void WSI::Uninitialize()
     {
         CJING_SAFE_DELETE(deviceVulkan);
         CJING_SAFE_DELETE(vulkanContext);
+        GPU::GPUDevice::Instance = nullptr;
     }
 }
 

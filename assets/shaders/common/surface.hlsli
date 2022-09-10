@@ -15,6 +15,7 @@ struct Surface
 	float3 N;				// world space normal
 	float3 V;				// world space view vector
 	float4 T;				// tangent
+    float2 Pixel;           // pixel coordinate
 
     float4 baseColor;       // base color
     float3 albedo;          // diffuse light absorbtion value

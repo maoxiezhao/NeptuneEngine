@@ -1,10 +1,10 @@
 #pragma once
 
 #include "resource.h"
-#include "resourceStorage.h"
 #include "resourceReference.h"
-#include "storageManager.h"
 #include "resourcesCache.h"
+#include "storage\resourceStorage.h"
+#include "storage\storageManager.h"
 #include "core\collections\hashMap.h"
 #include "core\platform\timer.h"
 #include "core\memory\memory.h"

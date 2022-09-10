@@ -1,7 +1,7 @@
 #include "resourcesCache.h"
 #include "resourceManager.h"
-#include "serialization\fileReadStream.h"
-#include "serialization\fileWriteStream.h"
+#include "core\serialization\fileReadStream.h"
+#include "core\serialization\fileWriteStream.h"
 #include "core\utils\deleteHandler.h"
 #include "core\profiler\profiler.h"
 

@@ -4,7 +4,7 @@
 #include "core\scene\world.h"
 #include "core\input\inputSystem.h"
 #include "core\filesystem\filesystem.h"
-#include "core\resource\resourceManager.h"
+#include "content\resourceManager.h"
 #include "core\profiler\profiler.h"
 #include "core\threading\taskGraph.h"
 #include "app\app.h"

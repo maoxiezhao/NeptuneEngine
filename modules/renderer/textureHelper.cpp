@@ -1,7 +1,7 @@
 #include "textureHelper.h"
 #include "core\platform\sync.h"
 #include "core\collections\hashMap.h"
-#include "core\resource\resourceManager.h"
+#include "content\resourceManager.h"
 
 namespace VulkanTest
 {

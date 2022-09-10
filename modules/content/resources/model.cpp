@@ -1,6 +1,6 @@
 #include "model.h"
 #include "core\profiler\profiler.h"
-#include "core\resource\resourceManager.h"
+#include "content\resourceManager.h"
 #include "core\streaming\streamingHandler.h"
 #include "renderer\renderer.h"
 #include "core\threading\threadPoolTask.h"

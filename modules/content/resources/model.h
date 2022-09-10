@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core\resource\binaryResource.h"
+#include "content\binaryResource.h"
 #include "core\streaming\streaming.h"
-#include "renderer\materials\material.h"
+#include "material.h"
 #include "mesh.h"
 
 namespace VulkanTest

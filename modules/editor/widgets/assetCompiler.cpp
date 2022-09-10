@@ -1,6 +1,5 @@
 #include "assetCompiler.h"
 #include "editor\editor.h"
-#include "core\compress\compressor.h"
 #include "core\platform\platform.h"
 #include "imgui-docking\imgui.h"
 

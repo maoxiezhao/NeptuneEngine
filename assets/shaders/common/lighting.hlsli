@@ -5,6 +5,11 @@
 #include "surface.hlsli"
 #include "brdf.hlsli"
 
+uint LoadEntityTile(uint tileIndex)
+{
+    return bindless_buffers[GetCamera().cullingTileBufferIndex].Load(tileIndex * sizeof(uint));
+}
+
 struct LightingPart
 {
     float3 diffuse;
@@ -68,19 +73,54 @@ inline void LightPoint(in ShaderLight light, in Surface surface, inout Lighting 
     }
 }
 
-inline void ForwardLighting(inout Surface surface, inout Lighting lighting)
+inline void ForwardLighting(inout Surface surface, inout Lighting lighting, uint tileBucketStart)
 {
     [branch]
     if (GetFrame().lightCount > 0)
     {
-        ShaderLight light = GetShaderLight(0);
-        switch(light.GetType())
+        // Divide all lights into a bucket of 32
+        const uint firstLight = GetFrame().lightOffset;
+        const uint lastLight = GetFrame().lightOffset + GetFrame().lightCount;
+        const uint firstBucket = firstLight / 32;
+        const uint lastBucket = min(lastLight / 32, max(0, SHADER_ENTITY_TILE_BUCKET_COUNT - 1));
+        
+        [loop]
+        for (int bucket = firstBucket; bucket <= lastBucket; bucket++)
         {
-        case SHADER_LIGHT_TYPE_POINTLIGHT:
-            LightPoint(light, surface, lighting);
-            break;
+            uint lightsBits = LoadEntityTile(tileBucketStart + bucket);
+            [loop]
+            while(lightsBits != 0)
+            {
+                const uint lightBitIndex = firstbitlow(lightsBits);
+                const uint lightIndex = bucket * 32 + lightBitIndex;
+
+                [branch]
+                if (lightIndex >= firstLight && lightIndex <= lastLight)
+                {
+                    ShaderLight light = GetShaderLight(lightIndex);
+                    switch(light.GetType())
+                    {
+                    case SHADER_LIGHT_TYPE_DIRECTIONALLIGHT:
+                        LightPoint(light, surface, lighting);
+                        break;
+                    case SHADER_LIGHT_TYPE_POINTLIGHT:
+                        LightPoint(light, surface, lighting);
+                        break;
+                    case SHADER_LIGHT_TYPE_SPOTLIGHT:
+                        LightPoint(light, surface, lighting);
+                        break;
+                    }
+                }
+            }
         }
     }
+}
+
+inline void ForwardLighting(inout Surface surface, inout Lighting lighting)
+{
+    const uint2 tileIndex = uint2(floor(surface.Pixel / TILED_CULLING_BLOCK_SIZE));
+    const uint flatTileIndex = flatten2D(tileIndex, GetCamera().cullingTileCount.xy);
+    ForwardLighting(surface, lighting, flatTileIndex * SHADER_ENTITY_TILE_BUCKET_COUNT);
 }
 
 #endif

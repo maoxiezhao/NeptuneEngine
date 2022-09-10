@@ -1,7 +1,7 @@
 #pragma once
 
 #include "editorPlugin.h"
-#include "renderer\texture.h"
+#include "content\resources\texture.h"
 #include "loader\tiny_obj_loader.h"
 #include "math\geometry.h"
 

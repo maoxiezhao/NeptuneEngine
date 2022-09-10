@@ -1,8 +1,8 @@
 #pragma once
 
 #include "editorPlugin.h"
-#include "renderer\texture.h"
-#include "renderer\models\model.h"
+#include "content\resources\texture.h"
+#include "content\resources\model.h"
 
 namespace VulkanTest
 {

@@ -721,6 +721,30 @@ void CommandList::SetStorageTexture(U32 set, U32 binding, const ImageView& view)
         DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
 }
 
+void CommandList::SetStorageBuffer(U32 set, U32 binding, const Buffer& buffer)
+{
+    SetStorageBuffer(set, binding, buffer, 0, buffer.GetCreateInfo().size);
+}
+
+void CommandList::SetStorageBuffer(U32 set, U32 binding, const Buffer& buffer, VkDeviceSize offset, VkDeviceSize range)
+{
+    ASSERT(set < VULKAN_NUM_DESCRIPTOR_SETS);
+    ASSERT(binding < VULKAN_NUM_BINDINGS);
+    ASSERT(buffer.GetCreateInfo().usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+    auto setType = DESCRIPTOR_SET_TYPE_STORAGE_BUFFER;
+    auto& b = bindings.bindings[set][setType][binding];
+    if (buffer.GetCookie() == bindings.cookies[set][setType][binding] &&
+        b.buffer.offset == offset &&
+        b.buffer.range == range)
+        return;
+
+    b.buffer = { buffer.GetBuffer(), offset, range };
+    b.dynamicOffset = 0;
+    bindings.cookies[set][setType][binding] = buffer.GetCookie();
+    dirtySets |= 1u << set;
+}
+
 void CommandList::SetRasterizerState(const RasterizerState& state)
 {
     pipelineState.rasterizerState = state;

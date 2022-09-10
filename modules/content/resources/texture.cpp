@@ -1,6 +1,6 @@
 #include "texture.h"
-#include "renderer.h"
 #include "gpu\vulkan\TextureFormatLayout.h"
+#include "core\profiler\profiler.h"
 #include "stb\stb_image.h"
 
 namespace VulkanTest
@@ -19,7 +19,7 @@ namespace VulkanTest
 
 	bool Texture::Create(U32 w, U32 h, VkFormat format, const void* data)
 	{
-		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 		info = GPU::ImageCreateInfo::ImmutableImage2D(w, h, format);
 		info.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;	// TODO check is necessary
 
@@ -49,7 +49,7 @@ namespace VulkanTest
 		if (!IsReady())
 			return -1;
 
-		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 		if (!bindless)
 			bindless = device->CreateBindlessSampledImage(GetImage()->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		
@@ -157,7 +157,7 @@ namespace VulkanTest
 			GPU::SubresourceData resData;
 			resData.data = stbData;
 
-			GPU::DeviceVulkan* device = Renderer::GetDevice();
+			GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 			handle = device->CreateImage(info, &resData);
 			if (handle)
 				this->info = info;
@@ -268,7 +268,7 @@ namespace VulkanTest
 			GPU::ImageCreateInfo info = GPU::ImageCreateInfo::ImmutableImage2D(tgaHeader.width, tgaHeader.height, VK_FORMAT_R8G8B8A8_UNORM);
 			GPU::SubresourceData resData;
 			resData.data = data.Data();
-			GPU::DeviceVulkan* device = Renderer::GetDevice();
+			GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 			handle = device->CreateImage(info, &resData);
 			if (handle)
 				this->info = info;
@@ -291,7 +291,7 @@ namespace VulkanTest
 		for (U32 i = 0; i < header.mips; i++)
 			resData[i].data = layout.Data(0, i);
 
-		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 		handle = device->CreateImage(info, resData);
 		if (handle)
 			this->info = info;
@@ -306,7 +306,7 @@ namespace VulkanTest
 		if (!handle)
 			return;
 
-		auto device = Renderer::GetDevice();
+		auto device = GPU::GPUDevice::Instance;
 		ASSERT(device != nullptr);
 		auto cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
 		cmd->ImageBarrier(*handle, 

@@ -3,9 +3,7 @@
 #include "editor\common.h"
 #include "editor\editorPlugin.h"
 #include "core\filesystem\filesystem.h"
-#include "core\resource\resource.h"
-#include "core\resource\resourceStorage.h"
-#include "core\resource\resourceManager.h"
+#include "content\resource.h"
 #include "core\scripts\luaUtils.h"
 
 namespace VulkanTest

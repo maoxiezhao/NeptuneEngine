@@ -3,7 +3,7 @@
 #include "rendererCommon.h"
 #include "shaderInterop_renderer.h"
 #include "renderGraph.h"
-#include "models\model.h"
+#include "content\resources\model.h"
 
 namespace VulkanTest
 {
@@ -28,9 +28,13 @@ namespace VulkanTest
 		FMat4x4 view;
 		FMat4x4 projection;
 		FMat4x4 viewProjection;
+		FMat4x4 invProjection;
 		FMat3x3 rotationMat;
 
 		Frustum frustum;
+
+		GPU::BindlessDescriptorPtr textureDepthBindless;
+		GPU::BindlessDescriptorPtr bufferLightTileBindless;
 
 		void UpdateCamera();
 		void UpdateTransform(const Transform& transform);
@@ -39,7 +43,11 @@ namespace VulkanTest
 			return LoadFMat4x4(viewProjection);
 		}
 
-		MATRIX GetRotationMat()const {
+		MATRIX GetInvProjection() const {
+			return LoadFMat4x4(invProjection);
+		}
+
+		MATRIX GetRotationMat() const {
 			return LoadFMat3x3(rotationMat);
 		}
 	};

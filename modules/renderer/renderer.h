@@ -7,8 +7,8 @@
 #include "core\plugin\plugin.h"
 #include "renderScene.h"
 #include "culling.h"
-#include "shader.h"
-#include "models\mesh.h"
+#include "content\resources\shader.h"
+#include "content\resources\mesh.h"
 
 namespace VulkanTest
 {
@@ -56,7 +56,11 @@ namespace VulkanTest
 
 		I32 ComputeModelLOD(const Model* model, F32x3 eye, F32x3 pos, F32 radius);
 
-		// TODO
+		// Light culling
+		U32x3 GetLightCullingTileCount(const U32x2& resolution);
+		void SetupTiledLightCulling(RenderGraph& graph, CameraComponent& camera, const AttachmentInfo& attchment);
+
+		// Postprocess
 		void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment);
 		void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const F32x4& color);
 

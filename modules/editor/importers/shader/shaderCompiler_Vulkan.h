@@ -4,7 +4,6 @@
 
 #include "shaderMeta.h"
 #include "shaderReader.h"
-#include "renderer\shader.h"
 
 namespace VulkanTest
 {

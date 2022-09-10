@@ -186,9 +186,12 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 					continue;
 				}
 			}
-	
 			layout.sets[x->set].masks[mask] |= 1u << rolledBinding;
 		
+			// Resource type
+			layout.sets[x->set].resourceType[mask][rolledBinding] = (U8)x->resource_type;
+
+			// Array size
 			auto& arraySize = layout.sets[x->set].arraySize[mask][rolledBinding];
 			if (x->type_description->op == SpvOpTypeRuntimeArray)
 			{
@@ -313,6 +316,7 @@ void ShaderProgram::Bake()
 				ForEachBit(bindingMask, [&](U32 bit) {			
 					resLayout.stagesForBindings[set][bit] |= stageMask;
 					resLayout.sets[set].arraySize[maskbit][bit] = shaderResLayout.sets[set].arraySize[maskbit][bit];
+					resLayout.sets[set].resourceType[maskbit][bit] = shaderResLayout.sets[set].resourceType[maskbit][bit];
 				});
 			}
 			// Immutable samplers
@@ -465,10 +469,11 @@ void PipelineLayout::CreateUpdateTemplates()
 		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE)],
 			[&](U32 bit) {
 				auto& arraySize = setLayout.arraySize[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][bit];
+				auto& resType = setLayout.resourceType[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE][bit];
 				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
 				auto& entry = updateEntries[updateCount++];
 				entry.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-				entry.dstBinding = GetUnrolledBinding(bit, DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
+				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
 				entry.dstArrayElement = 0;
 				entry.descriptorCount = arraySize;
 				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;
@@ -480,10 +485,11 @@ void PipelineLayout::CreateUpdateTemplates()
 		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_STORAGE_IMAGE)],
 			[&](U32 bit) {
 				auto& arraySize = setLayout.arraySize[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][bit];
+				auto& resType = setLayout.resourceType[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE][bit];
 				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
 				auto& entry = updateEntries[updateCount++];
 				entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-				entry.dstBinding = GetUnrolledBinding(bit, DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
+				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
 				entry.dstArrayElement = 0;
 				entry.descriptorCount = arraySize;
 				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;
@@ -495,10 +501,11 @@ void PipelineLayout::CreateUpdateTemplates()
 		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER)],
 			[&](U32 bit) {
 				auto& arraySize = setLayout.arraySize[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][bit];
+				auto& resType = setLayout.resourceType[DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER][bit];
 				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
 				auto& entry = updateEntries[updateCount++];
 				entry.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-				entry.dstBinding = GetUnrolledBinding(bit, DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER);
+				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
 				entry.dstArrayElement = 0;
 				entry.descriptorCount = arraySize;
 				entry.offset = offsetof(ResourceBinding, buffer) + sizeof(ResourceBinding) * offset;
@@ -506,14 +513,31 @@ void PipelineLayout::CreateUpdateTemplates()
 				offset += arraySize;
 			});
 
+		// Storage buffers
+		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_STORAGE_BUFFER)],
+			[&](U32 bit) {
+				auto& arraySize = setLayout.arraySize[DESCRIPTOR_SET_TYPE_STORAGE_BUFFER][bit];
+				auto& resType = setLayout.resourceType[DESCRIPTOR_SET_TYPE_STORAGE_BUFFER][bit];
+				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
+				auto& entry = updateEntries[updateCount++];
+				entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
+				entry.dstArrayElement = 0;
+				entry.descriptorCount = arraySize;
+				entry.offset = offsetof(ResourceBinding, buffer) + sizeof(ResourceBinding) * offset;
+				entry.stride = sizeof(ResourceBinding);
+				offset += arraySize;
+		});
+
 		// Input attachment
 		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT)],
 			[&](U32 bit) {
 				auto& arraySize = setLayout.arraySize[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][bit];
+				auto& resType = setLayout.resourceType[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT][bit];
 				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
 				auto& entry = updateEntries[updateCount++];
 				entry.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-				entry.dstBinding = GetUnrolledBinding(bit, DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT);
+				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
 				entry.dstArrayElement = 0;
 				entry.descriptorCount = arraySize;
 				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;
@@ -525,10 +549,11 @@ void PipelineLayout::CreateUpdateTemplates()
 		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_SAMPLER)],
 			[&](U32 bit) {
 				auto& arraySize = setLayout.arraySize[DESCRIPTOR_SET_TYPE_SAMPLER][bit];
+				auto& resType = setLayout.resourceType[DESCRIPTOR_SET_TYPE_SAMPLER][bit];
 				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
 				auto& entry = updateEntries[updateCount++];
 				entry.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-				entry.dstBinding = GetUnrolledBinding(bit, DESCRIPTOR_SET_TYPE_SAMPLER);
+				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
 				entry.dstArrayElement = 0;
 				entry.descriptorCount = arraySize;
 				entry.offset = offsetof(ResourceBinding, image) + sizeof(ResourceBinding) * offset;

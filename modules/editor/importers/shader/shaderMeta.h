@@ -1,6 +1,6 @@
 #pragma once
 
-#include "renderer\shader.h"
+#include "content\resources\shader.h"
 
 namespace VulkanTest
 {

@@ -7,7 +7,6 @@
 #include "editor\settings.h"
 #include "editor\profiler\profilerTools.h"
 #include "renderer\imguiRenderer.h"
-#include "renderer\models\model.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
 #include "renderer\render2D\fontResource.h"

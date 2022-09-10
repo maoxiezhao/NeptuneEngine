@@ -2,7 +2,6 @@
 
 #include "core\common.h"
 #include "core\scene\world.h"
-#include "core\resource\resource.h"
 
 namespace VulkanTest
 {
@@ -34,15 +33,6 @@ namespace Reflection
 
 		virtual ~IAttribute() {}
 		virtual Type GetType() const = 0;
-	};
-
-	struct ResourceAttribute : IAttribute
-	{
-		ResourceAttribute(ResourceType type) : resType(type) {}
-		ResourceAttribute() {}
-		Type GetType() const override { return RESOURCE; }
-
-		ResourceType resType;
 	};
 
 	struct ColorAttribute : IAttribute

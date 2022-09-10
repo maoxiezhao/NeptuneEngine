@@ -30,6 +30,7 @@ namespace VulkanTest
 
 	void RenderPath3D::Update(float dt)
 	{
+		GPU::DeviceVulkan* device = wsi->GetDevice();
 		RenderScene* scene = GetScene();
 		ASSERT(scene != nullptr);
 
@@ -51,90 +52,81 @@ namespace VulkanTest
 
 		// Update per frame data
 		Renderer::UpdateFrameData(visibility, *scene, dt, frameCB);
+
+		// Update camera buffers mapping
+		auto& renderGraph = GetRenderGraph();
+		auto lightTileBuffer = renderGraph.TryGetPhysicalBuffer("LightTiles");
+		camera->bufferLightTileBindless = lightTileBuffer ? device->CreateBindlessStroageBuffer(*lightTileBuffer) : GPU::BindlessDescriptorPtr();
 	}
 
 	void RenderPath3D::SetupPasses(RenderGraph& renderGraph)
 	{
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 
-		AttachmentInfo rtAttachmentInfo;
-		rtAttachmentInfo.format = backbufferDim.format;
-		rtAttachmentInfo.sizeX = (F32)backbufferDim.width;
-		rtAttachmentInfo.sizeY = (F32)backbufferDim.height;
+		// Render target attachment
+		AttachmentInfo rtAttachment;
+		rtAttachment.format = backbufferDim.format;
+		rtAttachment.sizeX = (F32)backbufferDim.width;
+		rtAttachment.sizeY = (F32)backbufferDim.height;
 		
-		AttachmentInfo depth;
-		depth.format = device->GetDefaultDepthStencilFormat();
-		depth.sizeX = (F32)backbufferDim.width;
-		depth.sizeY = (F32)backbufferDim.height;
+		// Depth attachement
+		AttachmentInfo depthAttachment;
+		depthAttachment.format = device->GetDefaultDepthStencilFormat();
+		depthAttachment.sizeX = (F32)backbufferDim.width;
+		depthAttachment.sizeY = (F32)backbufferDim.height;
 
-		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Depth prepass
-		AttachmentInfo rtAttachmentPrimitive = rtAttachmentInfo;
-		rtAttachmentPrimitive.format = VK_FORMAT_R32_UINT;
+		{
+			AttachmentInfo rtAttachmentPrimitive = rtAttachment;
+			rtAttachmentPrimitive.format = VK_FORMAT_R32_UINT;
 
-		auto& preDepthPass = renderGraph.AddRenderPass("PreDepth", RenderGraphQueueFlag::Graphics);
-		preDepthPass.WriteColor("rtPrimitiveID", rtAttachmentPrimitive, "rtPrimitiveID");
-		preDepthPass.WriteDepthStencil(SetDepthStencil("depth"), depth);
-		preDepthPass.SetClearDepthStencilCallback(DefaultClearDepthFunc);
-		preDepthPass.SetClearColorCallback(DefaultClearColorFunc);
-		preDepthPass.SetBuildCallback([&](GPU::CommandList& cmd) {
+			auto& pass = renderGraph.AddRenderPass("PreDepth", RenderGraphQueueFlag::Graphics);
+			pass.WriteColor("rtPrimitiveID", rtAttachmentPrimitive, "rtPrimitiveID");
+			pass.WriteDepthStencil("depth", depthAttachment);
+			pass.SetClearDepthStencilCallback(DefaultClearDepthFunc);
+			pass.SetClearColorCallback(DefaultClearColorFunc);
 
-			GPU::Viewport viewport;
-			viewport.width = (F32)backbufferDim.width;
-			viewport.height = (F32)backbufferDim.height;
-			cmd.SetViewport(viewport);
-			Renderer::BindCameraCB(*camera, cmd);
-			Renderer::DrawScene(cmd, visibility, RENDERPASS_PREPASS);
-		});
+			pass.SetBuildCallback([&](GPU::CommandList& cmd) {
 
-		///////////////////////////////////////////////////////////////////////////////////////////////
+				GPU::Viewport viewport;
+				viewport.width = (F32)backbufferDim.width;
+				viewport.height = (F32)backbufferDim.height;
+
+				cmd.SetViewport(viewport);
+				Renderer::BindCameraCB(*camera, cmd);
+				Renderer::DrawScene(cmd, visibility, RENDERPASS_PREPASS);
+			});
+
+			SetDepthStencil("depth");
+		}
+
+		// Lighting pass
+		// Renderer::SetupTiledLightCulling(renderGraph, *camera, rtAttachment);
+
 		// Main opaque pass
-		auto& opaquePass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
-		opaquePass.WriteColor(SetRenderResult3D("rtOpaque"), rtAttachmentInfo, "rtOpaque");
-		opaquePass.SetClearColorCallback(DefaultClearColorFunc);
-		opaquePass.ReadDepthStencil(GetDepthStencil());
-		opaquePass.AddProxyOutput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
-		opaquePass.SetBuildCallback([&](GPU::CommandList& cmd) {
+		{
+			auto& pass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
+			pass.WriteColor("rtOpaque", rtAttachment, "rtOpaque");
+			pass.SetClearColorCallback(DefaultClearColorFunc);
+			pass.AddProxyOutput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
+			pass.ReadDepthStencil(GetDepthStencil());
+			// pass.ReadStorageBufferReadonly("LightTiles");
 
-			GPU::Viewport viewport;
-			viewport.width = (F32)backbufferDim.width;
-			viewport.height = (F32)backbufferDim.height;
-			cmd.SetViewport(viewport);
+			pass.SetBuildCallback([&](GPU::CommandList& cmd) {
 
-			Renderer::BindCameraCB(*camera, cmd);
-			Renderer::DrawScene(cmd, visibility, RENDERPASS_MAIN);
-		});
+				GPU::Viewport viewport;
+				viewport.width = (F32)backbufferDim.width;
+				viewport.height = (F32)backbufferDim.height;
+				cmd.SetViewport(viewport);
 
-		///////////////////////////////////////////////////////////////////////////////////////////////
-		// Transparents
-		auto& transparentPass = renderGraph.AddRenderPass("Transparent", RenderGraphQueueFlag::Graphics);
-		transparentPass.WriteColor(SetRenderResult3D("rtOpaque"), rtAttachmentInfo, "rtOpaque");
-		transparentPass.ReadDepthStencil(GetDepthStencil());
-		transparentPass.AddFakeResourceWriteAlias(GetDepthStencil(), "mainDepth");
-		transparentPass.WriteDepthStencil(SetDepthStencil("mainDepth"), depth);
-		transparentPass.AddProxyInput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
-		transparentPass.SetBuildCallback([&](GPU::CommandList& cmd) {
+				Renderer::BindCameraCB(*camera, cmd);
+				Renderer::DrawScene(cmd, visibility, RENDERPASS_MAIN);
+			});
 
-//			GPU::Viewport viewport;
-//			viewport.width = (F32)backbufferDim.width;
-//			viewport.height = (F32)backbufferDim.height;
-//			cmd.SetViewport(viewport);
-//
-//			Renderer::BindCameraCB(*camera, cmd);
-//			Renderer::BindCommonResources(cmd);
-//;
-//			cmd.SetProgram("screenVS.hlsl", "screenPS.hlsl");
-//			cmd.SetDefaultTransparentState();
-//			cmd.SetBlendState(Renderer::GetBlendState(BSTYPE_TRANSPARENT));
-//			cmd.SetRasterizerState(Renderer::GetRasterizerState(RSTYPE_DOUBLE_SIDED));
-//			cmd.SetDepthStencilState(Renderer::GetDepthStencilState(DSTYPE_DEFAULT));
-//			cmd.Draw(3);
-		});
+			SetRenderResult3D("rtOpaque");
+		}
 
-		///////////////////////////////////////////////////////////////////////////////////////////////
-		// Postprocess
-		// Renderer::SetupPostprocessBlurGaussian(renderGraph, GetRenderResult3D(), lastRenderPassRT, rtAttachmentInfo);
-
+		// Setup render path2D
 		RenderPath2D::SetupPasses(renderGraph);
 	}
 

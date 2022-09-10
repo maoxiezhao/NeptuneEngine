@@ -1,6 +1,6 @@
 #pragma once
 
-#include "texture.h"
+#include "content\resources\texture.h"
 
 namespace VulkanTest
 {

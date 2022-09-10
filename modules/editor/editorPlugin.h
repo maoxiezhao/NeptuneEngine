@@ -1,7 +1,7 @@
 #pragma once
 
 #include "editor\common.h"
-#include "core\resource\resourceHeader.h"
+#include "content\resourceHeader.h"
 #include "core\filesystem\filesystem.h"
 
 #ifdef STATIC_PLUGINS

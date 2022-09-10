@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\common.h"
-#include "core\resource\binaryResource.h"
+#include "content\binaryResource.h"
 #include "core\profiler\profiler.h"
 
 typedef struct FT_FaceRec_* FT_Face;

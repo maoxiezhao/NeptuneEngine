@@ -280,9 +280,10 @@ namespace GPU
 						poolArraySize = arraySize * VULKAN_NUM_SETS_PER_POOL;
 					}
 
+					BindingResourceType type = (BindingResourceType)layout.resourceType[maskbit][i];
 					auto descriptorType = GetTypeBySetMask(static_cast<DescriptorSetType>(maskbit));
 					bindings.push_back({
-						isBindless ? 0 : GetUnrolledBinding(i, (DescriptorSetType)maskbit),				// binding
+						isBindless ? 0 : GetUnrolledBinding(i, type), // binding
 						descriptorType, 						// descriptorType
 						arraySize, 								// descriptorCount
 						stages, 								// stageFlags

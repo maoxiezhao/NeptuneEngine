@@ -1,6 +1,6 @@
 #include "shader.h"
-#include "renderer.h"
 #include "core\scripts\luaConfig.h"
+#include "core\profiler\profiler.h"
 
 namespace VulkanTest
 {
@@ -104,7 +104,7 @@ namespace VulkanTest
 
 	bool Shader::LoadFromMemory(InputMemoryStream& inputMem)
 	{
-		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 		ASSERT(device != nullptr);
 
 		// Shader format:

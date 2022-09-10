@@ -1,7 +1,7 @@
 #pragma once
 
 #include "resource.h"
-#include "resourceStorage.h"
+#include "storage\resourceStorage.h"
 #include "resourceManager.h"
 
 namespace VulkanTest

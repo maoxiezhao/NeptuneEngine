@@ -4,7 +4,7 @@
 #include "editor\importers\resourceImportingManager.h"
 #include "editor\widgets\codeEditor.h"
 #include "core\platform\platform.h"
-#include "renderer\texture.h"
+#include "content\resources\texture.h"
 #include "renderer\render2D\fontResource.h"
 #include "imgui-docking\imgui.h"
 

@@ -13,6 +13,11 @@ enum SHADER_LIGHT_TYPE
 
 // Max light count in per frame
 static const uint SHADER_ENTITY_COUNT = 256;
+static const uint SHADER_ENTITY_TILE_BUCKET_COUNT = SHADER_ENTITY_COUNT / 32;
+
+// Light culling
+static const uint TILED_CULLING_BLOCK_SIZE = 16;
+static const uint TILED_CULLING_THREADSIZE = 8;
 
 struct ShaderSceneCB
 {
@@ -36,7 +41,15 @@ CONSTANTBUFFER(g_xFrame, FrameCB, CBSLOT_RENDERER_FRAME);
 struct CameraCB
 {
 	float4x4 viewProjection;
+	float4x4 invProjection;
 	float3 position;
+	float zNear;
+	uint2 resolution;
+	float2 iresolutionRcp;
+
+	int texture_depth_index;	 //  Depth texture bindless index
+	uint3 cullingTileCount;		 // Entity culling tile
+	int  cullingTileBufferIndex; // Entity culling tile buffer bindless index
 };
 
 CONSTANTBUFFER(g_xCamera, CameraCB, CBSLOT_RENDERER_CAMERA);

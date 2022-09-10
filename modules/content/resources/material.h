@@ -1,7 +1,6 @@
 #pragma once
 
-#include "core\resource\binaryResource.h"
-#include "core\resource\resourceManager.h"
+#include "content\binaryResource.h"
 #include "core\scripts\luaConfig.h"
 #include "materialShader.h"
 #include "materialParams.h"

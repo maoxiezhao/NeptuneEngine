@@ -19,6 +19,7 @@ namespace VulkanTest
 
         view = StoreFMat4x4(_V);
         viewProjection = StoreFMat4x4(_VP);
+        invProjection = StoreFMat4x4(MatrixInverse(_P));
 
         frustum.Compute(LoadFMat4x4(viewProjection));
     }

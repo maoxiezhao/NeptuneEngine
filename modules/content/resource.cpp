@@ -1,8 +1,8 @@
 #include "resource.h"
 #include "resourceManager.h"
+#include "compress\compressor.h"
 #include "core\engine.h"
 #include "core\utils\string.h"
-#include "core\compress\compressor.h"
 #include "core\profiler\profiler.h"
 #include "core\threading\taskQueue.h"
 

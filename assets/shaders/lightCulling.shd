@@ -1,0 +1,141 @@
+#include "common/global.hlsli"
+#include "common/shaderInterop_renderer.h"
+
+struct Plane
+{
+	float3	N;		// Plane normal.
+	float	d;		// Distance to origin.
+};
+
+// Tile frustum
+struct Frustum
+{
+	Plane planes[4];	// left, right, top, bottom frustum planes.
+};
+
+float4 ClipToView(float4 clip)
+{
+    float4 view = mul(GetCamera().invProjection, clip);
+    view = view / view.w;
+    return view;
+}
+
+float4 ScreenToView(float4 screen, float2 dimRcp)
+{	
+    // Convert to normalized texture coordinates
+	float2 texcoord = screen.xy * dimRcp;
+ 
+    // Convert to clip space
+    float4 clip = float4(float2(texcoord.x, 1.0f - texcoord.y) * 2.0f - 1.0f, screen.z, screen.w);
+
+    return ClipToView(clip);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+RWStructuredBuffer<Frustum> outFrustums : register(u0);
+
+// Compute a plane from 3 noncollinear points that form a triangle.
+// This equation assumes a right-handed (counter-clockwise winding order) 
+// coordinate system to determine the direction of the plane normal.
+Plane ComputePlane(float3 p0, float3 p1, float3 p2)
+{
+    Plane plane;
+    float3 v0 = p1 - p0;
+    float3 v1 = p2 - p0;
+    plane.N = normalize(cross(v0, v1));
+    plane.d = dot(plane.N, p0);
+    return plane;   
+}
+
+META_CS(true)
+[numthreads(TILED_CULLING_BLOCK_SIZE, TILED_CULLING_BLOCK_SIZE, 1)]
+void CS_Frustum(uint3 DTid : SV_DispatchThreadID)
+{	
+    uint2 dim;
+    texture_depth.GetDimensions(dim.x, dim.y);
+    float2 dimRcp = rcp(dim);
+
+	// View space eye position is always at the origin.
+	const float3 eyePos = float3(0, 0, 0);
+
+	// Compute 4 points on the far clipping plane to use as the 
+	// frustum vertices.
+	float4 screenSpace[4];
+    // Top left point
+	screenSpace[0] = float4(DTid.xy * TILED_CULLING_BLOCK_SIZE, 1.0f, 1.0f);
+	// Top right point
+	screenSpace[1] = float4(float2(DTid.x + 1, DTid.y) * TILED_CULLING_BLOCK_SIZE, 1.0f, 1.0f);
+	// Bottom left point
+	screenSpace[2] = float4(float2(DTid.x, DTid.y + 1) * TILED_CULLING_BLOCK_SIZE, 1.0f, 1.0f);
+	// Bottom right point
+	screenSpace[3] = float4(float2(DTid.x + 1, DTid.y + 1) * TILED_CULLING_BLOCK_SIZE, 1.0f, 1.0f);
+
+    float3 viewSpace[4];
+    for ( int i = 0; i < 4; i++ )
+    {
+        viewSpace[i] = ScreenToView(screenSpace[i], dimRcp).xyz;
+    }
+
+	Frustum frustum;
+    frustum.planes[0].N = float3(1, 1, 1);
+    frustum.planes[0].d = 3.0f;
+
+    frustum.planes[1].N = float3(1, 1, 1);
+    frustum.planes[1].d = 3.0f;
+
+    frustum.planes[2].N = float3(1, 1, 1);
+    frustum.planes[2].d = 3.0f;
+
+    frustum.planes[3].N = float3(1, 1, 1);
+    frustum.planes[3].d = 3.0f;
+
+	uint2 cullingTileCount = GetCamera().cullingTileCount.xy;
+    if (DTid.x < cullingTileCount.x && DTid.y < cullingTileCount.y)
+    {
+        outFrustums[flatten2D(DTid.xy, cullingTileCount)] = frustum;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+StructuredBuffer<Frustum> inFrustums : register(t0);
+RWByteAddressBuffer entityTiles : register(u1);
+
+// Group shared variables
+groupshared uint shared_entity_tiles[SHADER_ENTITY_TILE_BUCKET_COUNT];
+
+void AppendEntity(uint index)
+{
+	const uint bucketIndex = index / 32;
+	const uint bucketBit = index % 32;
+	InterlockedOr(shared_entity_tiles[bucketIndex], 1u << bucketBit);
+}
+
+META_CS(true)
+META_PERMUTATION_1(DEBUG_TILEDLIGHTCULLING = 0)	// NoDebug
+META_PERMUTATION_1(DEBUG_TILEDLIGHTCULLING = 1)	// Debug
+[numthreads(TILED_CULLING_THREADSIZE, TILED_CULLING_THREADSIZE, 1)]
+void CS_LightCulling(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex)
+{	
+	// Reused loop counter:
+    uint i = 0;
+    
+    const uint tileIndex = flatten2D(Gid.xy, GetCamera().cullingTileCount.xy);
+    Frustum frustum = inFrustums[tileIndex];
+
+	// Each thread clear the LDS
+	for (i = groupIndex; i < SHADER_ENTITY_TILE_BUCKET_COUNT; i += TILED_CULLING_THREADSIZE * TILED_CULLING_THREADSIZE)
+	{
+		shared_entity_tiles[i] = 0;
+	}
+
+    GroupMemoryBarrierWithGroupSync();
+
+    //  Each thread export the bucket from LDS to global memory
+    int tilesAddress = tileIndex * SHADER_ENTITY_TILE_BUCKET_COUNT;
+    for (i = groupIndex; i < SHADER_ENTITY_TILE_BUCKET_COUNT; i += TILED_CULLING_THREADSIZE * TILED_CULLING_THREADSIZE)
+    {
+        entityTiles.Store(tilesAddress* sizeof(uint), frustum.planes[0].d); //shared_entity_tiles[i]);
+    }
+}

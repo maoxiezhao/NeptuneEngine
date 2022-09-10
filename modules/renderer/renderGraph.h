@@ -10,20 +10,6 @@ namespace VulkanTest
 {
 class RenderGraph;
 
-struct VULKAN_TEST_API RenderPassJob
-{
-    virtual~RenderPassJob() = default;
-
-    virtual bool IsConditional()const;
-    virtual bool GetClearDepthStencil(VkClearDepthStencilValue* value) const;
-    virtual bool GetClearColor(unsigned attachment, VkClearColorValue* value) const;
-
-    virtual void Setup(GPU::DeviceVulkan& device);
-    virtual void SetupDependencies(RenderGraph& graph);
-    virtual void EnqueuePrepare(RenderGraph& graph);
-    virtual void BuildRenderPass(GPU::CommandList& cmd);
-};
-
 enum class RenderGraphQueueFlag
 {
     Graphics = 1 << 0,
@@ -254,12 +240,24 @@ class VULKAN_TEST_API RenderBufferResource : public RenderResource
 public:
     RenderBufferResource(U32 index_) : RenderResource(index_, RenderGraphResourceType::Buffer) {}
 
-    void SetBufferUsage(VkBufferUsageFlags flags)
-    {
+    void SetBufferInfo(const BufferInfo& info_) {
+        info = info_;
+    }
+
+    const BufferInfo& GetBufferInfo()const {
+        return info;
+    }
+
+    void AddBufferUsage(VkBufferUsageFlags flags) {
         usage |= flags;
     }
 
+    VkBufferUsageFlags GetBufferUsage() const {
+        return usage;
+    }
+
 private:
+    BufferInfo info;
     VkBufferUsageFlags usage = 0;
 };
 
@@ -282,6 +280,11 @@ public:
     struct AccessedTextureResource : AccessedResource
     {
         RenderTextureResource* texture = nullptr;
+    };
+
+    struct AccessedBufferResource : AccessedResource
+    {
+        RenderBufferResource* buffer = nullptr;
     };
 
     struct AccessedProxyResource : AccessedResource
@@ -348,8 +351,9 @@ public:
     RenderTextureResource& WriteColor(const char* name, const AttachmentInfo& info, const char* input = nullptr);
     RenderTextureResource& WriteDepthStencil(const char* name, const AttachmentInfo& info);
     RenderTextureResource& WriteStorageTexture(const char* name, const AttachmentInfo& info, const char* input = "");
-    RenderBufferResource& ReadStorageBuffer(const char* name);
-    RenderBufferResource& WriteStorageBuffer(const char* name, const BufferInfo& info, const char* input);
+    RenderBufferResource& ReadStorageBufferReadonly(const char* name);
+    RenderBufferResource& WriteStorageBuffer(const char* name, const BufferInfo& info, const char* input = "");
+    RenderBufferResource& AddGenericBufferInput(const char* name, VkPipelineStageFlags stages, VkAccessFlags access, VkBufferUsageFlags usage);
 
     void AddProxyOutput(const char* name, VkPipelineStageFlags stages);
     void AddProxyInput(const char* name, VkPipelineStageFlags stages);
@@ -363,6 +367,11 @@ public:
     const std::vector<AccessedTextureResource>& GetInputTextures()const
     {
         return inputTextures;
+    }
+
+    const std::vector<AccessedBufferResource>& GetInputBuffers()const
+    {
+        return inputBuffers;
     }
 
     const std::vector<RenderTextureResource*>& GetInputColors()const
@@ -471,7 +480,10 @@ private:
 
     RenderTextureResource* inputDepthStencil = nullptr;
     RenderTextureResource* outputDepthStencil = nullptr;
+
     std::vector<AccessedTextureResource> inputTextures;
+    std::vector<AccessedBufferResource> inputBuffers;
+
     std::vector<RenderTextureResource*> inputColors;
     std::vector<RenderTextureResource*> outputColors;
     std::vector<RenderTextureResource*> inputStorageTextures;
@@ -519,11 +531,13 @@ public:
     RenderTextureResource& GetOrCreateTexture(const char* name);
     RenderBufferResource& GetOrCreateBuffer(const char* name);
     RenderResource& GetOrCreateProxy(const char* name);
+    RenderBufferResource* GetBuffer(const char* name);
 
     GPU::ImageView& GetPhysicalTexture(const RenderTextureResource& res);
     GPU::ImageView* TryGetPhysicalTexture(RenderTextureResource* res);
     GPU::Buffer& GetPhysicalBuffer(const RenderBufferResource& res);
     GPU::Buffer* TryGetPhysicalBuffer(RenderBufferResource* res);
+    GPU::Buffer* TryGetPhysicalBuffer(const char* name);
 
     void SetBackbufferDimension(const ResourceDimensions& dim);
 

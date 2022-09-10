@@ -1,5 +1,4 @@
 #include "materialParams.h"
-#include "renderer\renderer.h"
 
 namespace VulkanTest
 {
@@ -216,7 +215,7 @@ namespace VulkanTest
 		shaderMaterial.metalness = metalness ? metalness->asFloat : 0.0f;
 		shaderMaterial.reflectance = 0.02f;
 
-		auto device = Renderer::GetDevice();
+		auto device = GPU::GPUDevice::Instance;
 		auto GetTextureIndex = [device](Texture* texture)->int {
 			if (texture == nullptr || !texture->IsReady())
 				return -1;

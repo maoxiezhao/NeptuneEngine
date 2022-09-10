@@ -1,5 +1,5 @@
 #include "resourceManager.h"
-#include "resourceLoading.h"
+#include "loading\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
 #include "core\profiler\profiler.h"
 

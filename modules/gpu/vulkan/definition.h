@@ -147,26 +147,34 @@ namespace GPU
         DESCRIPTOR_SET_TYPE_COUNT,
     };
 
+    enum BindingResourceType
+    {
+        BINDING_RESOURCE_TYPE_UNDEFINED = 0,
+        BINDING_RESOURCE_TYPE_SAMPLER = 1 << 0,
+        BINDING_RESOURCE_TYPE_CBV = 1 << 1,
+        BINDING_RESOURCE_TYPE_SRV = 1 << 2,
+        BINDING_RESOURCE_TYPE_UAV = 1 << 3,
+    };
+
     static inline U32 GetRolledBinding(U32 unrolledBinding)
     {
         return (unrolledBinding % VULKAN_BINDING_SHIFT_T);
     }
 
-    static inline U32 GetUnrolledBinding(U32 binding, DescriptorSetType type)
+    static inline U32 GetUnrolledBinding(U32 binding, BindingResourceType type)
     {
         switch (type)
         {
-        case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
+        case BINDING_RESOURCE_TYPE_SRV:
             binding += VULKAN_BINDING_SHIFT_T;
             break;
-        case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
+        case BINDING_RESOURCE_TYPE_UAV:
             binding += VULKAN_BINDING_SHIFT_U;
             break;
-        case DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER:
-        case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
+        case BINDING_RESOURCE_TYPE_CBV:
             binding += VULKAN_BINDING_SHIFT_B;
             break;
-        case DESCRIPTOR_SET_TYPE_SAMPLER:
+        case BINDING_RESOURCE_TYPE_SAMPLER:
             binding += VULKAN_BINDING_SHIFT_S;
             break;
         default:

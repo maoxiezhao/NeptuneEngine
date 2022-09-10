@@ -1,7 +1,7 @@
 #pragma once
 
 #include "editorPlugin.h"
-#include "renderer\materials\material.h"
+#include "content\resources\material.h"
 
 namespace VulkanTest
 {

@@ -2,7 +2,7 @@
 
 #include "editorPlugin.h"
 #include "editor\importers\resourceCreator.h"
-#include "renderer\materials\material.h"
+#include "content\resources\material.h"
 
 namespace VulkanTest
 {

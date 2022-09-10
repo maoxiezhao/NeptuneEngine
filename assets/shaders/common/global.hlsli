@@ -17,6 +17,11 @@ SamplerState samLinearWrap  : register(s101);
 SamplerState samPointClamp  : register(s102);
 SamplerState samPointWrap   : register(s103);
 
+// Bindless textures
+#define texture_depth bindless_textures[GetCamera().texture_depth_index]
+
+/////////////////////////////////////////////////////////////////////////
+
 inline FrameCB GetFrame()
 {
 	return g_xFrame;
@@ -52,6 +57,8 @@ inline ShaderLight GetShaderLight(uint index)
 	return bindless_buffers[GetFrame().bufferShaderLightsIndex].Load<ShaderLight>(index * sizeof(ShaderLight));
 }
 
+/////////////////////////////////////////////////////////////////////////
+
 // These functions avoid pow() to efficiently approximate sRGB with an error < 0.4%.
 float3 ApplySRGBCurveFast( float3 x )
 {
@@ -77,5 +84,14 @@ inline float4 unpack_rgba(in uint value)
 	return retVal;
 }
 
+inline uint flatten2D(uint2 coord, uint2 dim)
+{
+	return coord.x + coord.y * dim.x;
+}
+
+inline uint2 unflatten2D(uint idx, uint2 dim)
+{
+	return uint2(idx % dim.x, idx / dim.x);
+}
 
 #endif

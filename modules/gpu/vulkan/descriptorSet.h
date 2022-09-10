@@ -17,16 +17,11 @@ namespace GPU
 		Count
 	};
 
-	//struct DescriptorSetLayoutBinding
-	//{
-	//	U32 unrolledBinding = 0;
-	//	U8  arraySize = 0;
-	//};
-
 	struct DescriptorSetLayout
 	{
 		U32 masks[DESCRIPTOR_SET_TYPE_COUNT] = {};
-		U8  arraySize[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
+		U8 arraySize[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
+		U8 resourceType[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
 		bool isBindless = false;
 		U32 immutableSamplerMask = 0;
 		U32 immutableSamplerBindings[VULKAN_NUM_BINDINGS];

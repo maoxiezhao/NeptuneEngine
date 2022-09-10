@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core\resource\binaryResource.h"
-#include "core\resource\resourceManager.h"
-#include "renderer\texture.h"
+#include "content\binaryResource.h"
+#include "content\resourceManager.h"
+#include "texture.h"
 #include "shaderInterop_renderer.h"
 
 namespace VulkanTest

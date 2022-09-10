@@ -204,6 +204,16 @@ namespace VulkanTest
             newDim.levels = info.levels;
             return newDim;
         }
+
+        ResourceDimensions CreatePhysicalDimensions(const RenderBufferResource& res)
+        {
+            const BufferInfo& bufferInfo = res.GetBufferInfo();
+            ResourceDimensions newDim = {};
+            newDim.bufferInfo = bufferInfo;
+            newDim.queues = res.GetUsedQueues();
+            newDim.name = res.GetName();
+            return newDim;
+        }
     };
 
     void RenderGraphImpl::HandlePassRecursive(RenderPass& self, const std::unordered_set<U32>& writtenPass, U32 stackCount)
@@ -252,6 +262,12 @@ namespace VulkanTest
         {
             if (res.texture != nullptr)
                 HandlePassRecursive(pass, res.texture->GetWrittenPasses(), stackCount);
+        }
+
+        for (auto& res : pass.GetInputBuffers())
+        {
+            if (res.buffer != nullptr)
+                HandlePassRecursive(pass, res.buffer->GetWrittenPasses(), stackCount);
         }
 
         for (auto& input : pass.GetProxyInputs())
@@ -364,16 +380,33 @@ namespace VulkanTest
                 physicalDimensions[res->GetPhysicalIndex()].imageUsage |= res->GetImageUsage();
             }
         };
+        auto AddBufferPhysicalDimension = [&](RenderBufferResource* res)
+        {
+            if (res->GetPhysicalIndex() == RenderResource::Unused)
+            {
+                physicalDimensions.push_back(CreatePhysicalDimensions(*res));
+                res->SetPhysicalIndex(physicalIndex++);
+            }
+            else
+            {
+                physicalDimensions[res->GetPhysicalIndex()].queues |= res->GetUsedQueues();
+                physicalDimensions[res->GetPhysicalIndex()].bufferInfo.usage |= res->GetBufferUsage();
+            }
+        };
 
         for (auto& passIndex : passStack)
         {
             auto& pass = renderPasses[passIndex];
 
+            // Input textures
             for (auto& input : pass->GetInputTextures())
-            {
                 AddImagePhysicalDimension(input.texture);
-            }
 
+            // Input buffers
+            for (auto& input : pass->GetInputBuffers())
+                AddBufferPhysicalDimension(input.buffer);
+
+            // Input colosr
             if (!pass->GetInputColors().empty())
             {
                 auto& inputColors = pass->GetInputColors();
@@ -392,6 +425,7 @@ namespace VulkanTest
                 }
             }
 
+            // Input sotrage textures
             if (!pass->GetInputStorageTextures().empty())
             {
                 auto& textures = pass->GetInputStorageTextures();
@@ -410,11 +444,37 @@ namespace VulkanTest
                 }
             }
 
+            // Input storage buffers
+            if (!pass->GetInputStorageBuffers().empty())
+            {
+                auto& buffers = pass->GetInputStorageBuffers();
+                for (int i = 0; i < buffers.size(); i++)
+                {
+                    auto* input = buffers[i];
+                    if (input != nullptr)
+                    {
+                        AddBufferPhysicalDimension(input);
+
+                        if (pass->GetOutputStorageBuffers()[i]->GetPhysicalIndex() == RenderResource::Unused)
+                            pass->GetOutputStorageBuffers()[i]->SetPhysicalIndex(input->GetPhysicalIndex());
+                        else if (pass->GetOutputStorageBuffers()[i]->GetPhysicalIndex() != input->GetPhysicalIndex())
+                            Logger::Error("Cannot alias resources. Index already claimed.");
+                    }
+                }
+            }
+
+
+            // Output colors
             for (auto& output : pass->GetOutputColors())
                 AddImagePhysicalDimension(output);
 
+            // Output storage textures
             for (auto& output : pass->GetOutputStorageTextures())
                 AddImagePhysicalDimension(output);
+
+            // Ouptut storage buffers
+            for (auto& output : pass->GetOutputStorageBuffers())
+                AddBufferPhysicalDimension(output);
 
             auto* dsInput = pass->GetInputDepthStencil();
             auto* dsOutput = pass->GetOutputDepthStencil();
@@ -467,7 +527,7 @@ namespace VulkanTest
             if ((prevPass.GetQueue() & (U32)RenderGraphQueueFlag::Compute) || prevPass.GetQueue() != nextPass.GetQueue())
                 return false;
 
-            // Check dependency
+            // Check if is non-local dependency, cannot merge
             for (auto& input : nextPass.GetInputTextures())
             {
                 if (FindTexture(prevPass.GetOutputColors(), input.texture))
@@ -477,15 +537,19 @@ namespace VulkanTest
                 if (prevPass.GetOutputDepthStencil() == input.texture)
                     return false;
             }
-            for (auto& input : nextPass.GetInputStorageBuffers())
+            for (auto& input : nextPass.GetInputBuffers())
             {
-                if (FindBuffer(prevPass.GetOutputStorageBuffers(), input))
+                if (FindBuffer(prevPass.GetOutputStorageBuffers(), input.buffer))
                     return false;
             }
-
             for (auto& input : nextPass.GetInputStorageTextures())
             {
                 if (FindTexture(prevPass.GetOutputStorageTextures(), input))
+                    return false;
+            }
+            for (auto& input : nextPass.GetInputStorageBuffers())
+            {
+                if (FindBuffer(prevPass.GetOutputStorageBuffers(), input))
                     return false;
             }
 
@@ -848,6 +912,15 @@ namespace VulkanTest
                 barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
             }
 
+            for (auto& buffer : pass.GetInputBuffers())
+            {
+                Barrier& barrier = GetInvalidateAccess(buffer.buffer->GetPhysicalIndex());
+                barrier.access |= buffer.access;
+                barrier.stages |= buffer.stages;
+                ASSERT(barrier.layout == VK_IMAGE_LAYOUT_UNDEFINED);
+                barrier.layout = buffer.layout;
+            }
+
             /////////////////////////////////////////////////////////////////////
             // Output
             // Push into flush list
@@ -877,6 +950,20 @@ namespace VulkanTest
             }
 
             for (auto& output : pass.GetOutputStorageTextures())
+            {
+                Barrier& barrier = GetFlushAccess(output->GetPhysicalIndex());
+                barrier.access |= VK_ACCESS_SHADER_WRITE_BIT;
+                if (pass.GetQueue() & COMPUTE_QUEUES)
+                    barrier.stages |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+                else
+                    barrier.stages |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+                if (barrier.layout != VK_IMAGE_LAYOUT_UNDEFINED)
+                    ASSERT_MSG(false, "Layout mismatch.");
+                barrier.layout = VK_IMAGE_LAYOUT_GENERAL;
+            }
+
+            for (auto& output : pass.GetOutputStorageBuffers())
             {
                 Barrier& barrier = GetFlushAccess(output->GetPhysicalIndex());
                 barrier.access |= VK_ACCESS_SHADER_WRITE_BIT;
@@ -942,8 +1029,8 @@ namespace VulkanTest
         {
             VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            VkAccessFlags invalidatedTypes = 0;
-            VkAccessFlags flushedTypes = 0;
+            VkAccessFlags invalidatedAccesses = 0;
+            VkAccessFlags flushedAccesses = 0;
             VkPipelineStageFlags invalidatedStages = 0;
             VkPipelineStageFlags flushedStages = 0;
         };
@@ -974,7 +1061,7 @@ namespace VulkanTest
                     // Find a physical pass first use of the resource
                     if (resState.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
                     {
-                        resState.invalidatedTypes |= invalidate.access;
+                        resState.invalidatedAccesses |= invalidate.access;
                         resState.invalidatedStages |= invalidate.stages;
 
                         if (dim.IsStorageImage())
@@ -989,7 +1076,7 @@ namespace VulkanTest
                         resState.finalLayout = invalidate.layout;
 
                     resState.flushedStages = 0;
-                    resState.flushedTypes = 0;
+                    resState.flushedAccesses = 0;
                 }
 
                 // Flush
@@ -1001,7 +1088,7 @@ namespace VulkanTest
                         continue;
 
                     // Find a physical pass last use use of the resource
-                    resState.flushedTypes |= flush.access;
+                    resState.flushedAccesses |= flush.access;
                     resState.flushedStages |= flush.stages;
 
                     if (dim.IsStorageImage())
@@ -1016,7 +1103,7 @@ namespace VulkanTest
                         {
                             resState.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                             resState.invalidatedStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                            resState.invalidatedTypes = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+                            resState.invalidatedAccesses = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
                         }
                         else
                         {
@@ -1030,7 +1117,7 @@ namespace VulkanTest
                                 flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
                             if (flags & VK_ACCESS_SHADER_WRITE_BIT)
                                 flags |= VK_ACCESS_SHADER_READ_BIT;
-                            resState.invalidatedTypes = flags;
+                            resState.invalidatedAccesses = flags;
                         }
 
                         // Resource is not used in current pass, so we discard the resource
@@ -1050,20 +1137,20 @@ namespace VulkanTest
                 physicalPass.invalidate.push_back({
                     resIndex, 
                     resState.invalidatedStages, 
-                    resState.invalidatedTypes, 
+                    resState.invalidatedAccesses, 
                     resState.initialLayout
                 });
 
-                if (resState.flushedTypes != 0)
+                if (resState.flushedAccesses != 0)
                 {
                     physicalPass.flush.push_back({
                         resIndex, 
                         resState.flushedStages, 
-                        resState.flushedTypes, 
+                        resState.flushedAccesses, 
                         resState.finalLayout
                     });
                 }
-                else if (resState.invalidatedTypes != 0)
+                else if (resState.invalidatedAccesses != 0)
                 {
                     // Only read in this pass, add a flush with 0 access bits to protect before it can be written
                     physicalPass.flush.push_back({
@@ -1341,8 +1428,11 @@ namespace VulkanTest
                 info.misc = GPU::BUFFER_MISC_ZERO_INITIALIZE_BIT;
 
                 physicalBuffers[attachment] = device.CreateBuffer(info, nullptr);
-                if (!physicalImages[attachment])
+                if (!physicalBuffers[attachment])
                     Logger::Error("Faile to create buffer of render graph.");
+
+                device.SetName(*physicalBuffers[attachment], physicalDim.name);
+                physicalEvents[attachment] = {};
             }
         };
 
@@ -2102,6 +2192,22 @@ namespace VulkanTest
                         ret += " [color=red2]\n";
                     }
                 }
+                // InputBuffers
+                for (auto& buffer : pass->GetInputBuffers())
+                {
+                    auto& res = buffer.buffer;
+                    U32 physicalIndex = res->GetPhysicalIndex();
+                    if (physicalIndex != RenderResource::Unused)
+                    {
+                        ret += "Res_";
+                        ret += std::to_string(physicalIndex).c_str();
+                        ret += "-> ";
+                        ret += "Pass_";
+                        ret += std::to_string(passIndex).c_str();
+                        ret += " [color=red2]\n";
+                    }
+                } 
+
                 // Outputs
                 for (auto& res : pass->GetOutputColors())
                 {
@@ -2182,43 +2288,7 @@ namespace VulkanTest
             device.Submit(cmd);
         }
     }
-    ///////////////////////////////////////////////////////////////////////////////////
-
-    bool RenderPassJob::IsConditional()const
-    {
-        return false;
-    }
-
-    bool RenderPassJob::GetClearDepthStencil(VkClearDepthStencilValue* value) const
-    {
-        if (value)
-            *value = { 1.0f, 0u };
-        return true;
-    }
-
-    bool RenderPassJob::GetClearColor(unsigned attachment, VkClearColorValue* value) const
-    {
-        if (value)
-            *value = {};
-        return true;
-    }
-
-    void RenderPassJob::Setup(GPU::DeviceVulkan& device)
-    {
-    }
-
-    void RenderPassJob::SetupDependencies(RenderGraph& graph)
-    {
-    }
-
-    void RenderPassJob::EnqueuePrepare(RenderGraph& graph)
-    {
-    }
-
-    void RenderPassJob::BuildRenderPass(GPU::CommandList& cmd)
-    {
-    }
-
+ 
     ///////////////////////////////////////////////////////////////////////////////////
     
     RenderPass::RenderPass(RenderGraph& graph_, U32 index_, U32 queue_) :
@@ -2330,21 +2400,54 @@ namespace VulkanTest
         return res;
     }
 
-    RenderBufferResource& RenderPass::ReadStorageBuffer(const char* name)
+    RenderBufferResource& RenderPass::ReadStorageBufferReadonly(const char* name)
     {
-        auto& res = graph.GetOrCreateBuffer(name);
-        res.AddUsedQueue(queue);
-        res.PassRead(index);
-        inputStorageBuffers.push_back(&res);
-        return res;
+        VkPipelineStageFlags stages ;
+        if (queue & (U32)RenderGraphQueueFlag::Compute)
+            stages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        else
+            stages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        return AddGenericBufferInput(name, stages, VK_ACCESS_SHADER_READ_BIT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     }
 
     RenderBufferResource& RenderPass::WriteStorageBuffer(const char* name, const BufferInfo& info, const char* input)
     {
         auto& res = graph.GetOrCreateBuffer(name);
         res.AddUsedQueue(queue);
+        res.SetBufferInfo(info);
         res.PassWrite(index);
+        res.AddBufferUsage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         outputStorageBuffers.push_back(&res);
+       
+        if (input != nullptr && input[0] != '\0')
+        {
+            auto& inputRes = graph.GetOrCreateBuffer(input);
+            inputRes.PassRead(index);
+            inputRes.AddBufferUsage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+            inputStorageBuffers.push_back(&res);
+        }
+        else
+        {
+            inputStorageBuffers.push_back(nullptr);
+        }
+
+        return res;
+    }
+
+    RenderBufferResource& RenderPass::AddGenericBufferInput(const char* name, VkPipelineStageFlags stages, VkAccessFlags access, VkBufferUsageFlags usage)
+    {
+        auto& res = graph.GetOrCreateBuffer(name);
+        res.AddUsedQueue(queue);
+        res.PassRead(index);
+        res.AddBufferUsage(usage);
+
+        AccessedBufferResource buffer;
+        buffer.buffer = &res;
+        buffer.layout = VK_IMAGE_LAYOUT_GENERAL;
+        buffer.access = access;
+        buffer.stages = stages;
+        inputBuffers.push_back(buffer);
         return res;
     }
 
@@ -2554,14 +2657,11 @@ namespace VulkanTest
                 info.name = pass.name;
 
                 // Input
-                //for (auto& tex : pass.GetInputColors())
-                //{
-                //    if (tex != nullptr)
-                //        info.reads.push_back(tex->GetName());
-                //}     
-
                 for (auto& tex : pass.GetInputTextures())
                     info.reads.push_back(tex.texture->GetName());
+
+                for (auto& buffer : pass.GetInputBuffers())
+                    info.reads.push_back(buffer.buffer->GetName());
 
                 for (auto& tex : pass.GetInputStorageTextures())
                 {
@@ -2570,7 +2670,10 @@ namespace VulkanTest
                 }
 
                 for (auto& buffer : pass.GetInputStorageBuffers())
-                    info.reads.push_back(buffer->GetName());
+                {
+                    if (buffer != nullptr)
+                        info.reads.push_back(buffer->GetName());
+                }
 
                 if (pass.GetInputDepthStencil())
                     info.reads.push_back(pass.GetInputDepthStencil()->GetName());
@@ -2635,6 +2738,14 @@ namespace VulkanTest
         return *static_cast<RenderResource*>(&res);
     }
 
+    RenderBufferResource* RenderGraph::GetBuffer(const char* name)
+    {
+        auto it = impl->nameToResourceIndex.find(name);
+        if (it != impl->nameToResourceIndex.end())
+            return static_cast<RenderBufferResource*>(impl->resources[it->second].Get());
+        return nullptr;
+    }
+
     GPU::ImageView& RenderGraph::GetPhysicalTexture(const RenderTextureResource& res)
     {
         ASSERT(res.GetPhysicalIndex() != RenderResource::Unused);
@@ -2663,6 +2774,11 @@ namespace VulkanTest
         if (res == nullptr || res->GetPhysicalIndex() == RenderResource::Unused)
             return nullptr;
         return impl->physicalBuffers[res->GetPhysicalIndex()].get();
+    }
+
+    GPU::Buffer* RenderGraph::TryGetPhysicalBuffer(const char* name)
+    {
+        return TryGetPhysicalBuffer(GetBuffer(name));
     }
 
     void RenderGraph::SetBackbufferDimension(const ResourceDimensions& dim)

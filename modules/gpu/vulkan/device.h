@@ -364,7 +364,7 @@ public:
     BufferViewPtr CreateBufferView(const BufferViewCreateInfo& viewInfo);
     DeviceAllocationOwnerPtr AllocateMemmory(const MemoryAllocateInfo& allocInfo);
 
-    BindlessDescriptorPtr CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize range);
+    BindlessDescriptorPtr CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset = 0, VkDeviceSize range = 0);
     BindlessDescriptorPtr CreateBindlessSampledImage(const ImageView& imageView, VkImageLayout imageLayout);
 
     void ReleaseFrameBuffer(VkFramebuffer buffer);
@@ -554,5 +554,14 @@ private:
     // shaders
     ShaderManager shaderManager;
 };
+
+class GPUDevice
+{
+public:
+    // The singleton instance of the graphics device
+    static DeviceVulkan* Instance;
+
+};
+
 }
 }

@@ -4,7 +4,7 @@
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\sceneView.h"
-#include "renderer\models\model.h"
+#include "content\resources\model.h"
 #include "renderer\render2D\fontResource.h"
 #include "gpu\vulkan\typeToString.h"
 #include "imgui-docking\imgui.h"

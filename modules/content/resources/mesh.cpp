@@ -1,8 +1,7 @@
 #include "model.h"
 #include "core\profiler\profiler.h"
-#include "core\resource\resourceManager.h"
+#include "content\resourceManager.h"
 #include "core\streaming\streamingHandler.h"
-#include "renderer\renderer.h"
 
 namespace VulkanTest
 {
@@ -17,7 +16,7 @@ namespace VulkanTest
 
 	bool Mesh::Load()
 	{
-		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 		GPU::BufferCreateInfo bufferInfo = {};
 		bufferInfo.domain = GPU::BufferDomain::Device;
 		bufferInfo.usage =

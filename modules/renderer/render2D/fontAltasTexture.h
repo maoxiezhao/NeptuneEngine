@@ -1,7 +1,7 @@
 #pragma once
 
 #include "fontResource.h"
-#include "renderer\texture.h"
+#include "content\resources\texture.h"
 #include "core\utils\rectPacker.h"
 
 namespace VulkanTest

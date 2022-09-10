@@ -11,6 +11,8 @@ namespace VulkanTest
 {
 namespace GPU
 {
+DeviceVulkan* GPUDevice::Instance = nullptr;
+
 namespace 
 {
 #ifdef VULKAN_MT
@@ -278,6 +280,9 @@ DeviceVulkan::~DeviceVulkan()
     frameBufferAllocator.Clear();
 
     DeinitTimelineSemaphores();
+
+    ASSERT(GPU::GPUDevice::Instance == this);
+    GPU::GPUDevice::Instance = nullptr;
 }
 
 void DeviceVulkan::SetContext(VulkanContext& context)
@@ -1559,6 +1564,8 @@ DeviceAllocationOwnerPtr DeviceVulkan::AllocateMemmory(const MemoryAllocateInfo&
 
 BindlessDescriptorPtr DeviceVulkan::CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset, VkDeviceSize range)
 {
+    if (range <= 0)
+        range = buffer.GetCreateInfo().size;
     if (range <= 0)
         return BindlessDescriptorPtr();
 
