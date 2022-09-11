@@ -102,40 +102,89 @@ void CS_Frustum(uint3 DTid : SV_DispatchThreadID)
 StructuredBuffer<Frustum> inFrustums : register(t0);
 RWByteAddressBuffer entityTiles : register(u1);
 
-// Group shared variables
-groupshared uint shared_entity_tiles[SHADER_ENTITY_TILE_BUCKET_COUNT];
+#ifdef DEBUG_TILEDLIGHTCULLING
+RWTexture2D<unorm float4> debugTexture : register(u2);
+#endif
+
+// Group shared tiled entities
+groupshared uint shared_tile_buckets[SHADER_ENTITY_TILE_BUCKET_COUNT];
+groupshared uint uMinDepth;
+groupshared uint uMaxDepth;
+groupshared uint uDepthMask;	
+#ifdef DEBUG_TILEDLIGHTCULLING
+groupshared uint entityCountDebug;
+#endif
+
+// The granularty of each cullling thread (16 / 8)
+static const uint TILED_CULLING_GRANULARITY = TILED_CULLING_BLOCK_SIZE / TILED_CULLING_THREADSIZE;
 
 void AppendEntity(uint index)
 {
 	const uint bucketIndex = index / 32;
 	const uint bucketBit = index % 32;
-	InterlockedOr(shared_entity_tiles[bucketIndex], 1u << bucketBit);
+	InterlockedOr(shared_tile_buckets[bucketIndex], 1u << bucketBit);
+
+#ifdef DEBUG_TILEDLIGHTCULLING
+	InterlockedAdd(entityCountDebug, 1);
+#endif
 }
 
 META_CS(true)
 META_PERMUTATION_1(DEBUG_TILEDLIGHTCULLING = 0)	// NoDebug
 META_PERMUTATION_1(DEBUG_TILEDLIGHTCULLING = 1)	// Debug
 [numthreads(TILED_CULLING_THREADSIZE, TILED_CULLING_THREADSIZE, 1)]
-void CS_LightCulling(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex)
+void CS_LightCulling(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID)
 {	
-	// Reused loop counter:
-    uint i = 0;
-    
+    uint2 dim;
+    texture_depth.GetDimensions(dim.x, dim.y);
+    float2 dimRcp = rcp(dim);
+
     const uint tileIndex = flatten2D(Gid.xy, GetCamera().cullingTileCount.xy);
     Frustum frustum = inFrustums[tileIndex];
 
-	// Each thread clear the LDS
-	for (i = groupIndex; i < SHADER_ENTITY_TILE_BUCKET_COUNT; i += TILED_CULLING_THREADSIZE * TILED_CULLING_THREADSIZE)
-	{
-		shared_entity_tiles[i] = 0;
+    // Reset the variables
+    uint i = 0;
+	for (i = groupIndex; i < SHADER_ENTITY_TILE_BUCKET_COUNT; i += TILED_CULLING_THREADSIZE * TILED_CULLING_THREADSIZE) {
+		shared_tile_buckets[i] = 0;
 	}
+    
+    if (groupIndex == 0)
+	{
+		uMinDepth = 0xffffffff;
+		uMaxDepth = 0;
+		uDepthMask = 0;
+
+#ifdef DEBUG_TILEDLIGHTCULLING
+		entityCountDebug = 0;
+#endif
+    }
 
     GroupMemoryBarrierWithGroupSync();
 
+    // Calculate min depth and max depth in granularity
+    float depth[TILED_CULLING_GRANULARITY * TILED_CULLING_GRANULARITY];
+    float depthMinGranularity = 10000000;
+	float depthMaxGranularity = -10000000;
+    [unroll]
+    for(uint granularity = 0; granularity < TILED_CULLING_GRANULARITY * TILED_CULLING_GRANULARITY; granularity++)
+    {
+        uint2 pixel = DTid.xy * uint2(TILED_CULLING_GRANULARITY, TILED_CULLING_GRANULARITY) + unflatten2D(granularity, TILED_CULLING_GRANULARITY);
+    	pixel = min(pixel, dim - 1); // Clamp
+        depth[granularity] = texture_depth[pixel];
+        depthMinGranularity = min(depthMinGranularity, depth[granularity]);
+		depthMaxGranularity = max(depthMaxGranularity, depth[granularity]);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+	// reversed depth buffer!
+	float fMinDepth = asfloat(uMaxDepth);
+	float fMaxDepth = asfloat(uMinDepth);
+
     //  Each thread export the bucket from LDS to global memory
-    int tilesAddress = tileIndex * SHADER_ENTITY_TILE_BUCKET_COUNT;
+    int tileBucketAddress = tileIndex * SHADER_ENTITY_TILE_BUCKET_COUNT;
     for (i = groupIndex; i < SHADER_ENTITY_TILE_BUCKET_COUNT; i += TILED_CULLING_THREADSIZE * TILED_CULLING_THREADSIZE)
     {
-        entityTiles.Store(tilesAddress * sizeof(uint), frustum.planes[0].d); //shared_entity_tiles[i]);
+        entityTiles.Store(tileBucketAddress * sizeof(uint),  shared_tile_buckets[i]);
     }
 }

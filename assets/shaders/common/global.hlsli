@@ -12,6 +12,7 @@
 ByteAddressBuffer bindless_buffers[] : register(space1);
 Texture2D bindless_textures[] : register(space2);
 Buffer<uint> bindless_ib[] : register(space3);
+Texture2D<float> bindless_textures_float[] : register(space4);
 
 // Immutable samplers
 SamplerState samLinearClamp : register(s100);
@@ -20,7 +21,7 @@ SamplerState samPointClamp  : register(s102);
 SamplerState samPointWrap   : register(s103);
 
 // Bindless textures
-#define texture_depth bindless_textures[GetCamera().texture_depth_index]
+#define texture_depth bindless_textures_float[GetCamera().texture_depth_index]
 
 /////////////////////////////////////////////////////////////////////////
 

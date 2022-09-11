@@ -403,14 +403,28 @@ void CommandList::SetProgram(const Shader* compute)
 
 void CommandList::SetGlobalBindlessSets()
 {
-    auto BindCommonBindless = [&](GPU::BindlessReosurceType type, U32 set) {
-        auto heap = device.GetBindlessDescriptorHeap(type);
+    auto& resLayout = currentLayout->GetResLayout();
+    ForEachBit(resLayout.bindlessSetMask, [&](U32 set) {
+        BindlessDescriptorHeap* heap = nullptr;
+        auto typeMask = (DescriptorSetType)resLayout.bindlessSetTypeMask[set];
+        switch (typeMask)
+        {
+        case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
+            heap = device.GetBindlessDescriptorHeap(BindlessReosurceType::SampledImage);
+            break;
+        case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
+            heap = device.GetBindlessDescriptorHeap(BindlessReosurceType::StorageBuffer);
+            break;
+        case DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER:
+            heap = device.GetBindlessDescriptorHeap(BindlessReosurceType::UniformTexelBuffer);
+            break;
+        default:
+            break;
+        }
+
         if (heap != nullptr)
             SetBindless(set, heap->GetDescriptorSet());
-    };
-    BindCommonBindless(GPU::BindlessReosurceType::StorageBuffer, 1);
-    BindCommonBindless(GPU::BindlessReosurceType::SampledImage, 2);
-    BindCommonBindless(GPU::BindlessReosurceType::UniformTexelBuffer, 3);
+    });
 }
 
 void CommandList::ResetCommandContext()

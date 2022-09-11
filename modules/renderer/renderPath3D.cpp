@@ -15,7 +15,7 @@ namespace VulkanTest
 	{
 		passArray.push_back(PreDepthPass::Instance());
 		passArray.push_back(VisibilityPass::Instance());
-		// passArray.push_back(LightPass::Instance());
+		passArray.push_back(LightPass::Instance());
 		passArray.push_back(OpaquePass::Instance());
 	}
 
@@ -43,11 +43,6 @@ namespace VulkanTest
 
 		// Update per frame data
 		Renderer::UpdateFrameData(visibility, *scene, dt, frameCB);
-
-		// Update camera buffers mapping
-		auto& renderGraph = GetRenderGraph();
-		camera->bufferLightTileBindless = device->CreateBindlessStroageBuffer(*renderGraph.TryGetPhysicalBuffer("LightTiles"));
-		camera->textureDepthBindless = device->CreateBindlessSampledImage(*renderGraph.TryGetPhysicalTexture("depthCopy"), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 
 	void RenderPath3D::SetupPasses(RenderGraph& renderGraph)
@@ -78,6 +73,15 @@ namespace VulkanTest
 		auto cmd = device->RequestCommandList(GPU::QueueType::QUEUE_TYPE_GRAPHICS);
 		Renderer::UpdateRenderData(visibility, frameCB, *cmd);
 		device->Submit(cmd,  nullptr);
+	}
+
+	void RenderPath3D::BeforeRender()
+	{
+		GPU::DeviceVulkan* device = wsi->GetDevice();
+		auto& renderGraph = GetRenderGraph();
+		// camera->bufferLightTileBindless = device->CreateBindlessStroageBuffer(*renderGraph.TryGetPhysicalBuffer("LightTiles"));
+		camera->textureDepthBindless = device->CreateBindlessSampledImage(*renderGraph.TryGetPhysicalTexture("depthCopy"), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 	}
 
 	void RenderPath3D::SetupComposeDependency(RenderPass& composePass)

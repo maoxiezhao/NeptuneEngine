@@ -924,17 +924,16 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const Descri
 	return *allocator;
 }
 
-DescriptorSetAllocator& DeviceVulkan::RequestBindlessDescriptorSetAllocator(const U32* stageForBinds, U32 typeMask)
+DescriptorSetAllocator& DeviceVulkan::RequestBindlessDescriptorSetAllocator(U32 typeMask)
 {
     HashCombiner hasher;
     hasher.HashCombine(typeMask);
-    hasher.HashCombine(stageForBinds, sizeof(U32) * VULKAN_NUM_BINDINGS);
 
     auto findIt = bindlessDescriptorSetAllocators.find(hasher.Get());
     if (findIt != nullptr)
         return *findIt;
 
-    DescriptorSetAllocator* allocator = bindlessDescriptorSetAllocators.emplace(hasher.Get(), *this, stageForBinds, typeMask);
+    DescriptorSetAllocator* allocator = bindlessDescriptorSetAllocators.emplace(hasher.Get(), *this, typeMask);
     allocator->SetHash(hasher.Get());
     return *allocator;
 }
@@ -2790,28 +2789,27 @@ void DeviceVulkan::InitStockSampler(StockSampler type)
 
 void DeviceVulkan::InitBindless()
 {
-    U32 stagesForSets[VULKAN_NUM_BINDINGS] = { VK_SHADER_STAGE_ALL };
     if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
-        bindlessSampledImagesSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
+        bindlessSampledImagesSetAllocator = &RequestBindlessDescriptorSetAllocator(DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
         bindlessHandler.bindlessSampledImages.Init(*this, bindlessSampledImagesSetAllocator);
     }
     if (features.features_1_2.descriptorBindingStorageBufferUpdateAfterBind == VK_TRUE)
     {
-        bindlessStorageBuffersSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_STORAGE_BUFFER);
+        bindlessStorageBuffersSetAllocator = &RequestBindlessDescriptorSetAllocator(DESCRIPTOR_SET_TYPE_STORAGE_BUFFER);
         bindlessHandler.bindlessStorageBuffers.Init(*this, bindlessStorageBuffersSetAllocator);
     }
     if (features.features_1_2.descriptorBindingStorageImageUpdateAfterBind == VK_TRUE)
     {
-        bindlessStorageImagesSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
+        bindlessStorageImagesSetAllocator = &RequestBindlessDescriptorSetAllocator(DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
     }
     if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
-        bindlessSamplersSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_SAMPLER);
+        bindlessSamplersSetAllocator = &RequestBindlessDescriptorSetAllocator(DESCRIPTOR_SET_TYPE_SAMPLER);
     }
     if (features.features_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind == VK_TRUE)
     {
-        bindlessUniformTexelBufferSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER);
+        bindlessUniformTexelBufferSetAllocator = &RequestBindlessDescriptorSetAllocator(DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER);
         bindlessHandler.bindlessUniformTexelBuffers.Init(*this, bindlessUniformTexelBufferSetAllocator);
     }
 }

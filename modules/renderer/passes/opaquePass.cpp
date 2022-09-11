@@ -14,8 +14,7 @@ namespace VulkanTest
 		pass.SetClearColorCallback(DefaultClearColorFunc);
 		pass.AddProxyOutput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
 		pass.ReadDepthStencil(renderPath.GetDepthStencil());
-		pass.ReadTexture("depthCopy");
-		// pass.ReadStorageBufferReadonly("LightTiles");
+		pass.ReadStorageBufferReadonly("LightTiles");
 
 		pass.SetBuildCallback([rtAttachment, &renderPath](GPU::CommandList& cmd) {
 

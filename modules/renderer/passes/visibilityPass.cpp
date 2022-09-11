@@ -15,8 +15,8 @@ namespace VulkanTest
 		auto& pass = renderGraph.AddRenderPass("VisbilityPrepare", RenderGraphQueueFlag::Compute);
 		pass.ReadTexture("rtPrimitiveID");
 
-		pass.WriteStorageTexture("depthCopy", depthAttachment, "depthCopy");
-		pass.WriteStorageTexture("depthLinear", depthAttachment, "depthLinear");
+		pass.WriteStorageTexture("depthCopy", depthAttachment);
+		pass.WriteStorageTexture("depthLinear", depthAttachment);
 		pass.SetBuildCallback([&, tileCount](GPU::CommandList& cmd) {
 
 			Renderer::BindCommonResources(cmd);

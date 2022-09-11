@@ -137,7 +137,7 @@ private:
     CompiledPipelineState pipelineState = {};
     PipelineLayout* currentLayout = nullptr;
     ResourceBindings bindings;
-    VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+    VkDescriptorSet bindlessSets[VULKAN_NUM_BINDLESS_DESCRIPTOR_SETS] = {};
     VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
     U32 dirtySets = 0;
     U32 dirtySetsBindless = 0;

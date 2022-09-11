@@ -76,7 +76,7 @@ namespace GPU
 	{
 	public:
 		DescriptorSetAllocator(DeviceVulkan& device_, const DescriptorSetLayout& layout, const U32* stageForBinds);
-		DescriptorSetAllocator(DeviceVulkan& device_, const U32* stageForBinds, U32 bindlessTypeMask);
+		DescriptorSetAllocator(DeviceVulkan& device_, U32 bindlessTypeMask);
 		~DescriptorSetAllocator();
 
 		void BeginFrame();

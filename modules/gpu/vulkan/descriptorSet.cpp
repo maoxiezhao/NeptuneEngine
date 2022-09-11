@@ -303,7 +303,7 @@ namespace GPU
 		}
 	}
 
-	DescriptorSetAllocator::DescriptorSetAllocator(DeviceVulkan& device_, const U32* stageForBinds, U32 bindlessTypeMask) :
+	DescriptorSetAllocator::DescriptorSetAllocator(DeviceVulkan& device_, U32 bindlessTypeMask) :
 		device(device_),
 		setLayout(VK_NULL_HANDLE),
 		isBindless(true)
@@ -331,10 +331,6 @@ namespace GPU
 
 		std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-		auto stages = stageForBinds[0];
-		if (stages == 0)
-			return;;
-
 		// Calculate array size and pool size
 		U32 poolArraySize = 0;
 		U32 arraySize = GetBindlessArraySize(device, static_cast<DescriptorSetType>(bindlessTypeMask));
@@ -350,7 +346,7 @@ namespace GPU
 			0,										// binding
 			descriptorType, 						// descriptorType
 			arraySize, 								// descriptorCount
-			stages, 								// stageFlags
+			VK_SHADER_STAGE_ALL, 					// stageFlags
 			nullptr 								// pImmutableSamplers
 		});
 		poolSize.push_back({ descriptorType, poolArraySize });

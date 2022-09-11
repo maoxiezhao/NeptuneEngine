@@ -338,7 +338,7 @@ public:
     Shader* RequestShaderByHash(HashValue hash);
     ShaderProgram* RequestProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
-    DescriptorSetAllocator& RequestBindlessDescriptorSetAllocator(const U32* stageForBinds, U32 typeMask);
+    DescriptorSetAllocator& RequestBindlessDescriptorSetAllocator(U32 typeMask);
     BindlessDescriptorPoolPtr GetBindlessDescriptorPool(BindlessReosurceType type, U32 numSets, U32 numDescriptors);
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
     SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable = false);

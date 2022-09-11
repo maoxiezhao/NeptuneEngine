@@ -57,6 +57,7 @@ namespace VulkanTest
 	protected:
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void UpdateRenderData() override;
+		void BeforeRender() override;
 		void SetupComposeDependency(RenderPass& composePass) override;
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
 

@@ -40,20 +40,25 @@ namespace VulkanTest
 		lightTileBufferInfo.size = tileCount.x * tileCount.y * sizeof(U32) * SHADER_ENTITY_TILE_BUCKET_COUNT;
 		auto& tilesRes = cullingPass.WriteStorageBuffer("LightTiles", lightTileBufferInfo);
 
-		RenderBufferResource* debugRes = nullptr;
-		bool debugLightCulling = false;
+		RenderTextureResource* debugRes = nullptr;
+		bool debugLightCulling = true;
 		if (debugLightCulling)
 		{
-			BufferInfo debugInfo = {};
-			debugRes = &cullingPass.WriteStorageBuffer("DebugCulling", debugInfo);
+			AttachmentInfo debugInfo = rtAttachment;
+			debugInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+			debugRes = &cullingPass.WriteStorageTexture("DebugCulling", debugInfo);
 		}
 
-		cullingPass.SetBuildCallback([&, tileCount](GPU::CommandList& cmd) {
+		cullingPass.SetBuildCallback([&, tileCount, debugLightCulling, debugRes](GPU::CommandList& cmd) {
 			Renderer::BindCameraCB(*renderPath.camera, cmd);
 			cmd.BeginEvent("Light culling");
 			cmd.SetStorageBuffer(0, 0, renderGraph.GetPhysicalBuffer(frustumRes));
 			cmd.SetStorageBuffer(0, 1, renderGraph.GetPhysicalBuffer(tilesRes));
-			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_TILED_LIGHT_CULLING)->GetCS("CS_LightCulling"));
+
+			if (debugLightCulling)
+				cmd.SetStorageTexture(0, 2, renderGraph.GetPhysicalTexture(*debugRes));
+
+			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_TILED_LIGHT_CULLING)->GetCS("CS_LightCulling", debugLightCulling ? 1 : 0));
 			cmd.Dispatch(tileCount.x, tileCount.y, 1);
 			cmd.EndEvent();
 		});

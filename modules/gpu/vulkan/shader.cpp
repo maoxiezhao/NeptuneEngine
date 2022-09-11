@@ -331,15 +331,15 @@ void ShaderProgram::Bake()
 				});
 			}
 
-			// Bindless
-			if (shaderResLayout.bindlessDescriptorSetMask & (1u << set))
-			{
-				resLayout.stagesForBindings[set][0] |= VK_SHADER_STAGE_ALL;
-				resLayout.bindlessSetTypeMask[set] = shaderResLayout.bindlessSetTypeMask[set];
-			}
-
 			if (stageForSet)
 				resLayout.stagesForSets[set] |= stageMask;
+		}
+
+		// Bindless
+		for (U32 set = 0; set < VULKAN_NUM_BINDLESS_DESCRIPTOR_SETS; set++)
+		{
+			if (shaderResLayout.bindlessDescriptorSetMask & (1u << set))
+				resLayout.bindlessSetTypeMask[set] = shaderResLayout.bindlessSetTypeMask[set];
 		}
 
 		// push constants
@@ -397,7 +397,7 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout res
 	{
 		if (resLayout.bindlessSetMask & (1 << i))
 		{
-			auto allocator = &device.RequestBindlessDescriptorSetAllocator(resLayout_.stagesForBindings[i], resLayout.bindlessSetTypeMask[i]);
+			auto allocator = &device.RequestBindlessDescriptorSetAllocator(resLayout.bindlessSetTypeMask[i]);
 			descriptorSetAllocators[i] = allocator;
 
 			// There can be padding between bindless spaces because sets need to be bound contiguously
