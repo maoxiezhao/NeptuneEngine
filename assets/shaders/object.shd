@@ -8,6 +8,7 @@
 
 #include "common/objectHF.hlsli"
 #include "common/lighting.hlsli"
+#include "common/primitive.hlsli"
 
 // Vertex Shader function for Main Pass
 META_VS(true)
@@ -131,6 +132,10 @@ META_PS(true)
 META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 2)
 uint PS_Depth(PixelInput input, in uint primitiveID : SV_PrimitiveID, out uint coverage : SV_Coverage) : SV_Target
 {
-    return 0;
+    PrimitiveID prim;
+    prim.primitiveIndex = primitiveID;
+    prim.instanceIndex = input.instanceIndex;
+    prim.subsetIndex = push.geometryIndex - LoadInstance(input.instanceIndex).geometryOffset;   // Be care of the lodOffset
+    return prim.Pack();
 }
 

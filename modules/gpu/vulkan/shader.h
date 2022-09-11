@@ -20,6 +20,7 @@ namespace GPU
 		U32 pushConstantSize = 0;
 		U32 inputMask = 0;
 		U32 outputMask = 0;
+		U32 bindlessSetTypeMask[VULKAN_NUM_BINDLESS_DESCRIPTOR_SETS];
 		U32 bindlessDescriptorSetMask = 0;
 	};
 
@@ -31,9 +32,10 @@ namespace GPU
 		U32 stagesForSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
 		U32 stagesForBindings[VULKAN_NUM_DESCRIPTOR_SETS][VULKAN_NUM_BINDINGS] = {};
 		DescriptorSetLayout sets[VULKAN_NUM_DESCRIPTOR_SETS];
+		U32 bindlessSetTypeMask[VULKAN_NUM_BINDLESS_DESCRIPTOR_SETS];
+		U32 bindlessSetMask = 0;
 		VkPushConstantRange pushConstantRange = {};
 		HashValue pushConstantHash = 0;
-		U32 bindlessSetMask = 0;
 	};
 
 	struct ResourceBinding

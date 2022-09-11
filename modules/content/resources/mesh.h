@@ -47,8 +47,15 @@ namespace VulkanTest
 		void Init(const char* name_, Model* model_, I32 lodIndex_, I32 index_, const AABB& aabb_);
 		bool Load();
 		void Unload();
-
 		bool IsReady()const;
+
+		inline GPU::IndexBufferFormat GetIndexFormat() const { 
+			return vertexPos.size() > 65536 ? GPU::IndexBufferFormat::UINT32 : GPU::IndexBufferFormat::UINT16; 
+		}
+
+		inline size_t GetIndexStride() const { 
+			return GetIndexFormat() == GPU::IndexBufferFormat::UINT32 ? sizeof(U32) : sizeof(U16);
+		}
 
 	public:
 		String name;
@@ -106,6 +113,7 @@ namespace VulkanTest
 				srv.reset();
 			}
 		};
+		GPU::BufferViewPtr ibView;
 		BufferView ib;
 		BufferView vbPos;
 		BufferView vbNor;

@@ -279,9 +279,11 @@ namespace Renderer
 		auto& resManager = rendererPlugin->GetEngine().GetResourceManager();
 		shaders[SHADERTYPE_OBJECT] = resManager.LoadResource<Shader>(Path("shaders/object.shd"));
 		shaders[SHADERTYPE_VERTEXCOLOR] = resManager.LoadResource<Shader>(Path("shaders/vertexColor.shd"));
+		shaders[SHADERTYPE_VISIBILITY] = resManager.LoadResource<Shader>(Path("shaders/visibility.shd"));
 		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = resManager.LoadResource<Shader>(Path("shaders/outline.shd"));
 		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResource<Shader>(Path("shaders/blurGaussian.shd"));
 		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = resManager.LoadResource<Shader>(Path("shaders/lightCulling.shd"));
+		shaders[SHADERTYPE_MESHLET] = resManager.LoadResource<Shader>(Path("shaders/meshlet.shd"));
 	}
 
 	void InitializeFactories(Engine& engine)
@@ -497,10 +499,12 @@ namespace Renderer
 		CameraCB cb;
 		cb.viewProjection = camera.viewProjection;
 		cb.invProjection = camera.invProjection;
+		cb.invViewProjection = camera.invViewProjection;
 		cb.position = camera.eye;
 		cb.zNear = camera.nearZ;
-		cb.resolution = U32x2(U32x2((U32)camera.width, (U32)camera.height));
-		cb.iresolutionRcp = F32x2(1.0f / camera.width, 1.0f / camera.height);
+		cb.zFar = camera.farZ;
+		cb.resolution = U32x2((U32)camera.width, (U32)camera.height);
+		cb.resolutionRcp = F32x2(1.0f / camera.width, 1.0f / camera.height);
 
 		cb.texture_depth_index = camera.textureDepthBindless ? camera.textureDepthBindless->GetIndex() : -1;
 		cb.cullingTileCount = GetLightCullingTileCount(cb.resolution);
@@ -510,19 +514,7 @@ namespace Renderer
 
 	void BindCommonResources(GPU::CommandList& cmd)
 	{
-		BindBindlessSet(cmd);
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
-	}
-
-	void BindBindlessSet(GPU::CommandList& cmd)
-	{
-		auto BindCommonBindless = [&](GPU::BindlessReosurceType type, U32 set) {
-			auto heap = cmd.GetDevice().GetBindlessDescriptorHeap(type);
-			if (heap != nullptr)
-				cmd.SetBindless(set, heap->GetDescriptorSet());
-		};
-		BindCommonBindless(GPU::BindlessReosurceType::StorageBuffer, 1);
-		BindCommonBindless(GPU::BindlessReosurceType::SampledImage, 2);
 	}
 
 	Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera)
@@ -569,7 +561,7 @@ namespace Renderer
 				return;
 
 			Mesh& mesh = *meshCmp->meshes[instancedBatch.lodIndex];
-			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, VK_INDEX_TYPE_UINT32);
+			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, mesh.GetIndexFormat() == GPU::IndexBufferFormat::UINT32 ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16);
 
 			U32 lodOffset = meshCmp->subsetsPerLod * instancedBatch.lodIndex;
 			for (U32 subsetIndex = 0; subsetIndex < mesh.subsets.size(); subsetIndex++)
@@ -691,63 +683,19 @@ namespace Renderer
 		return 0;
 	}
 
+	U32x2 GetVisibilityTileCount(const U32x2& resolution)
+	{
+		return U32x2(
+			(resolution.x + VISIBILITY_BLOCKSIZE - 1) / VISIBILITY_BLOCKSIZE,
+			(resolution.y + VISIBILITY_BLOCKSIZE - 1) / VISIBILITY_BLOCKSIZE);
+	}
+
 	U32x3 GetLightCullingTileCount(const U32x2& resolution)
 	{
 		return U32x3(
 			(resolution.x + TILED_CULLING_BLOCK_SIZE - 1) / TILED_CULLING_BLOCK_SIZE,
 			(resolution.y + TILED_CULLING_BLOCK_SIZE - 1) / TILED_CULLING_BLOCK_SIZE,
 			1);
-	}
-
-	void SetupTiledLightCulling(RenderGraph& graph, CameraComponent& camera, const AttachmentInfo& attchment)
-	{
-		U32x3 tileCount = GetLightCullingTileCount(U32x2((U32)attchment.sizeX, (U32)attchment.sizeY));
-
-		// Frustum computation
-		auto& pass = graph.AddRenderPass("FrustumComputation", RenderGraphQueueFlag::Compute);
-
-		BufferInfo frustumBufferInfo = {};
-		frustumBufferInfo.size = (sizeof(F32x4) * 4) * tileCount.x * tileCount.y;
-		auto& frustumRes = pass.WriteStorageBuffer("TiledFrustum", frustumBufferInfo);
-
-		pass.SetBuildCallback([&, tileCount](GPU::CommandList& cmd) {
-			BindCameraCB(camera, cmd);
-			cmd.BeginEvent("Tile Frustums");
-			cmd.SetStorageBuffer(0, 0, graph.GetPhysicalBuffer(frustumRes));
-			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_TILED_LIGHT_CULLING)->GetCS("CS_Frustum"));
-			cmd.Dispatch(
-				(tileCount.x + TILED_CULLING_BLOCK_SIZE - 1) / TILED_CULLING_BLOCK_SIZE,
-				(tileCount.y + TILED_CULLING_BLOCK_SIZE - 1) / TILED_CULLING_BLOCK_SIZE,
-				1
-			);
-			cmd.EndEvent();
-		});
-
-		// Light culling
-		auto& cullingPass = graph.AddRenderPass("LightCulling", RenderGraphQueueFlag::Compute);
-		cullingPass.ReadStorageBufferReadonly("TiledFrustum");
-
-		BufferInfo lightTileBufferInfo = {};
-		lightTileBufferInfo.size = tileCount.x * tileCount.y * sizeof(U32) * SHADER_ENTITY_TILE_BUCKET_COUNT;
-		auto& tilesRes = cullingPass.WriteStorageBuffer("LightTiles", lightTileBufferInfo);
-
-		RenderBufferResource* debugRes = nullptr;
-		bool debugLightCulling = false;
-		if (debugLightCulling)
-		{
-			BufferInfo debugInfo = {};
-			debugRes = &cullingPass.WriteStorageBuffer("DebugCulling", debugInfo);
-		}			
-
-		cullingPass.SetBuildCallback([&, tileCount](GPU::CommandList& cmd) {
-			BindCameraCB(camera, cmd);
-			cmd.BeginEvent("Light culling");
-			cmd.SetStorageBuffer(0, 0, graph.GetPhysicalBuffer(frustumRes));
-			cmd.SetStorageBuffer(0, 1, graph.GetPhysicalBuffer(tilesRes));
-			cmd.SetProgram(Renderer::GetShader(SHADERTYPE_TILED_LIGHT_CULLING)->GetCS("CS_LightCulling"));
-			cmd.Dispatch(tileCount.x, tileCount.y, 1);
-			cmd.EndEvent();
-		});
 	}
 
 	void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment)

@@ -13,6 +13,7 @@ namespace GPU
 		SampledImage,
 		StorageImage,
 		StorageBuffer,
+		UniformTexelBuffer,
 		Sampler,
 		Count
 	};
@@ -22,10 +23,8 @@ namespace GPU
 		U32 masks[DESCRIPTOR_SET_TYPE_COUNT] = {};
 		U8 arraySize[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
 		U8 resourceType[DESCRIPTOR_SET_TYPE_COUNT][VULKAN_NUM_BINDINGS];
-		bool isBindless = false;
 		U32 immutableSamplerMask = 0;
 		U32 immutableSamplerBindings[VULKAN_NUM_BINDINGS];
-		enum { UNSIZED_ARRAY = 0xff };
 	};
 
 	class DescriptorSetAllocator;
@@ -51,7 +50,7 @@ namespace GPU
 		void SetTexture(int binding, const ImageView& iamgeView, VkImageLayout imageLayout);
 		void SetBuffer(int binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
 		void SetUniformTexelBuffer(int binding, VkBufferView bufferView);
-
+		
 	private:
 		friend class DeviceVulkan;
 		friend struct BindlessDescriptorPoolDeleter;
@@ -77,10 +76,15 @@ namespace GPU
 	{
 	public:
 		DescriptorSetAllocator(DeviceVulkan& device_, const DescriptorSetLayout& layout, const U32* stageForBinds);
+		DescriptorSetAllocator(DeviceVulkan& device_, const U32* stageForBinds, U32 bindlessTypeMask);
 		~DescriptorSetAllocator();
 
 		void BeginFrame();
 		void Clear();
+
+		bool IsBindless() const {
+			return isBindless;
+		}
 
 		I32 GetDescriptorCount()const {
 			return descriptorCount;
@@ -95,7 +99,6 @@ namespace GPU
 
 	private:
 		DeviceVulkan& device;
-		DescriptorSetLayout layoutInfo;
 		VkDescriptorSetLayout setLayout;
 		std::vector<VkDescriptorPoolSize> poolSize;
 		I32 descriptorCount = 0;

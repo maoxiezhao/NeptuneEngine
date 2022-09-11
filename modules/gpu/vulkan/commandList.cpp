@@ -319,6 +319,8 @@ void CommandList::SetShaderProgram(ShaderProgram* program)
 
         currentLayout = program->GetPipelineLayout();
         currentPipelineLayout = currentLayout->GetLayout();
+
+        SetGlobalBindlessSets();
     }
     else if (program->GetPipelineLayout()->GetHash() != currentLayout->GetHash())
     {
@@ -347,6 +349,8 @@ void CommandList::SetShaderProgram(ShaderProgram* program)
 
         currentLayout = program->GetPipelineLayout();
         currentPipelineLayout = currentLayout->GetLayout();
+
+        SetGlobalBindlessSets();
     }
 }
 
@@ -395,6 +399,18 @@ void CommandList::SetProgram(const Shader* compute)
     memset(shaders, 0, sizeof(shaders));
     shaders[(U32)ShaderStage::CS] = compute;
     SetShaderProgram(device.RequestProgram(shaders));
+}
+
+void CommandList::SetGlobalBindlessSets()
+{
+    auto BindCommonBindless = [&](GPU::BindlessReosurceType type, U32 set) {
+        auto heap = device.GetBindlessDescriptorHeap(type);
+        if (heap != nullptr)
+            SetBindless(set, heap->GetDescriptorSet());
+    };
+    BindCommonBindless(GPU::BindlessReosurceType::StorageBuffer, 1);
+    BindCommonBindless(GPU::BindlessReosurceType::SampledImage, 2);
+    BindCommonBindless(GPU::BindlessReosurceType::UniformTexelBuffer, 3);
 }
 
 void CommandList::ResetCommandContext()
@@ -671,7 +687,7 @@ void CommandList::FillBuffer(const BufferPtr& buffer, U32 value)
 void CommandList::SetBindless(U32 set, VkDescriptorSet descriptorSet)
 {
     bindlessSets[set] = descriptorSet;
-    dirtySets |= 1u << set;
+    dirtySetsBindless |= 1u << set;
 }
 
 void CommandList::SetSampler(U32 set, U32 binding, const Sampler& sampler)
@@ -1179,11 +1195,16 @@ void CommandList::FlushDescriptorSets()
     auto& resLayout = currentLayout->GetResLayout();
 
     // find all set need to update
+    U32 firstSet = 0;
     U32 setUpdate = resLayout.descriptorSetMask & dirtySets;
     ForEachBit(setUpdate, [&](U32 set) {
         FlushDescriptorSet(set);
+        firstSet++;
     });
     dirtySets &= ~setUpdate;
+
+    // Update bindless
+    FlushBindlessDescriptorSets(firstSet);
 
     // Update for the dynamic offset of constant buffer
     dirtySetsDynamic &= ~setUpdate;
@@ -1199,17 +1220,7 @@ void CommandList::FlushDescriptorSet(U32 set)
     auto& resLayout = currentLayout->GetResLayout();
     // check is bindless descriptor set
     if (resLayout.bindlessSetMask & (1u << set))
-    {
-        vkCmdBindDescriptorSets(cmd, 
-            renderPass ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE,
-            currentPipelineLayout, 
-            set, 
-            1, 
-            &bindlessSets[set], 
-            0,
-            nullptr);
         return;
-    }
 
     // allocator new descriptor set
     DescriptorSetAllocator* allocator = currentLayout->GetAllocator(set);
@@ -1265,10 +1276,10 @@ void CommandList::FlushDescriptorSet(U32 set)
         }
     });
     // Sampled buffers
-    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER], [&](U32 binding)
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER], [&](U32 binding)
     {
-        for (U8 i = 0; i < setLayout.arraySize[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding]; i++)
-            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding + i]);
+        for (U8 i = 0; i < setLayout.arraySize[DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER][binding]; i++)
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER][binding + i]);
     });
     // Input attachments
     ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT], [&](U32 binding)
@@ -1280,12 +1291,12 @@ void CommandList::FlushDescriptorSet(U32 set)
         }
     });
     // Samplers
-    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER], [&](U32 binding)
+    ForEachBit(setLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLER], [&](U32 binding)
     {
-        for (U8 i = 0; i < setLayout.arraySize[DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding]; i++)
+        for (U8 i = 0; i < setLayout.arraySize[DESCRIPTOR_SET_TYPE_SAMPLER][binding]; i++)
         {
-            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding + i]);
-            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER][binding + i].image.imageLayout);
+            hasher.HashCombine(bindings.cookies[set][DESCRIPTOR_SET_TYPE_SAMPLER][binding + i]);
+            hasher.HashCombine(bindings.bindings[set][DESCRIPTOR_SET_TYPE_SAMPLER][binding + i].image.imageLayout);
         }
     });
 
@@ -1316,6 +1327,24 @@ void CommandList::FlushDescriptorSet(U32 set)
         numDynamicOffsets,
         dynamicOffsets);
     allocatedSets[set] = allocated.first;
+}
+
+void CommandList::FlushBindlessDescriptorSets(U32 firstSet)
+{
+    auto& resLayout = currentLayout->GetResLayout();
+    U32 bindlessSetUpdate = resLayout.bindlessSetMask & dirtySetsBindless;
+    ForEachBit(bindlessSetUpdate, [&](U32 set) {
+        vkCmdBindDescriptorSets(cmd,
+            renderPass ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE,
+            currentPipelineLayout,
+            set,
+            1,
+            &bindlessSets[set],
+            0,
+            nullptr);
+
+    });
+    dirtySetsBindless &= ~bindlessSetUpdate;
 }
 
 void CommandList::FlushDescriptorDynamicSet(U32 set)
@@ -1653,7 +1682,7 @@ void CommandList::UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U3
     hash.HashCombine(pipeline.subpassIndex);
     hash.HashCombine(pipeline.shaderProgram->GetHash());
 
-    // Calculate pipelinestate hash
+    // Calculate pipelineState hash
     hash.HashCombine(RuntimeHash(&pipeline.blendState, sizeof(BlendState)).GetHashValue());
     hash.HashCombine(RuntimeHash(&pipeline.rasterizerState, sizeof(RasterizerState)).GetHashValue());
     hash.HashCombine(RuntimeHash(&pipeline.depthStencilState, sizeof(DepthStencilState)).GetHashValue());

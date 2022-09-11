@@ -3,12 +3,15 @@
 #include "renderPath2D.h"
 #include "culling.h"
 #include "renderScene.h"
+#include "passes\renderGraphPass.h"
 
 namespace VulkanTest
 {
 	class VULKAN_TEST_API RenderPath3D : public RenderPath2D
 	{
 	public:
+		RenderPath3D();
+
 		void Update(float dt) override;
 
 		bool GetSceneUpdateEnabled()const {
@@ -43,13 +46,21 @@ namespace VulkanTest
 			return name;
 		}
 
+		const AttachmentInfo& GetAttachmentRT() const {
+			return rtAttachment;
+		}
+
+		const AttachmentInfo& GetAttachmentDepth() const {
+			return depthAttachment;
+		}
+
 	protected:
 		void SetupPasses(RenderGraph& renderGraph) override;
 		void UpdateRenderData() override;
 		void SetupComposeDependency(RenderPass& composePass) override;
 		void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) override;
 
-	protected:
+	public:
 		bool sceneUpdateEnable = true;
 
 		Visibility visibility;
@@ -57,5 +68,11 @@ namespace VulkanTest
 		FrameCB frameCB = {};
 		String lastRenderPassRT;
 		String lastDepthStencil;
+
+		AttachmentInfo rtAttachment;
+		AttachmentInfo depthAttachment;
+
+	protected:
+		Array<RenderGraphPassBase*> passArray;
 	};
 }

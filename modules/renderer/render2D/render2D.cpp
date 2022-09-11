@@ -203,7 +203,6 @@ namespace Render2D
 			psFont.shaders[(U32)GPU::ShaderStage::VS] = fontShader->GetVS("VS");
 			psFont.shaders[(U32)GPU::ShaderStage::PS] = fontShader->GetPS("PS");
 
-			Renderer::BindBindlessSet(cmd);
 			cmd.SetPipelineState(psFont);
 			cmd.DrawInstanced(4, drawcall.count, 0, drawcall.startIndex);
 			cmd.EndEvent();

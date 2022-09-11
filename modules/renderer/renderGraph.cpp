@@ -2738,6 +2738,14 @@ namespace VulkanTest
         return *static_cast<RenderResource*>(&res);
     }
 
+    RenderTextureResource* RenderGraph::GetTexture(const char* name)
+    {
+        auto it = impl->nameToResourceIndex.find(name);
+        if (it != impl->nameToResourceIndex.end())
+            return static_cast<RenderTextureResource*>(impl->resources[it->second].Get());
+        return nullptr;
+    }
+
     RenderBufferResource* RenderGraph::GetBuffer(const char* name)
     {
         auto it = impl->nameToResourceIndex.find(name);
@@ -2761,6 +2769,11 @@ namespace VulkanTest
             return nullptr;
 
         return impl->physicalAttachments[res->GetPhysicalIndex()];
+    }
+
+    GPU::ImageView* RenderGraph::TryGetPhysicalTexture(const char* name)
+    {
+        return TryGetPhysicalTexture(GetTexture(name));
     }
 
     GPU::Buffer& RenderGraph::GetPhysicalBuffer(const RenderBufferResource& res)

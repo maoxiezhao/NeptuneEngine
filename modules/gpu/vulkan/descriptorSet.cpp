@@ -12,7 +12,7 @@ namespace GPU
 		//DESCRIPTOR_SET_TYPE_STORAGE_IMAGE,
 		//DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER,
 		//DESCRIPTOR_SET_TYPE_STORAGE_BUFFER,
-		//DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER,
+		//DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER,
 		//DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT,
 		//DESCRIPTOR_SET_TYPE_SAMPLER,
 		//DESCRIPTOR_SET_TYPE_COUNT,
@@ -31,7 +31,7 @@ namespace GPU
 					return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 				case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
 					return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-				case DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER:
+				case DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER:
 					return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
 				case DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT:
 					return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
@@ -58,32 +58,42 @@ namespace GPU
 				return feature_1_2.descriptorBindingStorageBufferUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindStorageBuffers / 4 : -1;
 			case DESCRIPTOR_SET_TYPE_SAMPLER:
 				return feature_1_2.descriptorBindingSampledImageUpdateAfterBind ? 256 : -1;
+			case DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER:
+				return feature_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind ? properties_1_2.maxDescriptorSetUpdateAfterBindSampledImages / 4 : -1;
 			default:
 				return -1;
 				break;
 			}
 		}
 
-		bool CheckSupportBindless(DeviceVulkan& device, const U32* maskFlags)
+		bool CheckSupportBindless(DeviceVulkan& device, const U32 mask)
 		{
 			auto& feature_1_2 = device.features.features_1_2;
+			switch (mask)
+			{
+			case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
+				return feature_1_2.descriptorBindingSampledImageUpdateAfterBind;
+			case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
+				return feature_1_2.descriptorBindingStorageImageUpdateAfterBind;
+			case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
+				return feature_1_2.descriptorBindingStorageBufferUpdateAfterBind;
+			case DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER:
+				return feature_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind;
+			case DESCRIPTOR_SET_TYPE_SAMPLER:
+				return feature_1_2.descriptorBindingSampledImageUpdateAfterBind;
+			}
+			return false;
+		}
+
+		bool CheckSupportBindless(DeviceVulkan& device, const U32* maskFlags)
+		{
 			bool ret = false;
 			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
 			{
 				if (maskFlags[maskbit] & 1)
 				{
 					DescriptorSetType mask = static_cast<DescriptorSetType>(maskbit);
-					switch (mask)
-					{
-					case DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE:
-						return feature_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind;
-					case DESCRIPTOR_SET_TYPE_STORAGE_IMAGE:
-						return feature_1_2.descriptorBindingStorageImageUpdateAfterBind;
-					case DESCRIPTOR_SET_TYPE_STORAGE_BUFFER:
-						return feature_1_2.descriptorBindingStorageBufferUpdateAfterBind;
-					case DESCRIPTOR_SET_TYPE_SAMPLER:
-						return feature_1_2.descriptorBindingSampledImageUpdateAfterBind;
-					}
+					ret = CheckSupportBindless(device, (U32)mask);
 				}
 			}
 			return ret;
@@ -220,35 +230,12 @@ namespace GPU
 
 	DescriptorSetAllocator::DescriptorSetAllocator(DeviceVulkan& device_, const DescriptorSetLayout& layout, const U32* stageForBinds) :
 		device(device_),
-		layoutInfo(layout),
-		setLayout(VK_NULL_HANDLE)
+		setLayout(VK_NULL_HANDLE),
+		isBindless(false)
 	{
-		// Check bindless enable
-		isBindless = layout.isBindless;
-		if (isBindless && !CheckSupportBindless(device, layout.masks))
-		{
-			Logger::Error("Device does not support bindless descriptor allocate.");
-			return;
-		}
-
 		VkDescriptorBindingFlagsEXT bindingFlags = 0;
 		VkDescriptorSetLayoutCreateInfo info = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-		if (isBindless)
-		{
-			info.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
-			
-			VkDescriptorBindingFlags bindingFlags =
-				VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT |
-				VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-				VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
-		
-			VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo = {};
-			bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-			bindingFlagsInfo.bindingCount = 1;
-			bindingFlagsInfo.pBindingFlags = &bindingFlags;
-			info.pNext = &bindingFlagsInfo;
-		}
-
+	
 		std::vector<VkDescriptorSetLayoutBinding> bindings;
 		for(U32 i = 0; i < VULKAN_NUM_BINDINGS; i++)
 		{
@@ -264,22 +251,8 @@ namespace GPU
 				{
 					// Calculate array size and pool size
 					U32 arraySize = layout.arraySize[maskbit][i];
-					U32 poolArraySize = 0;
-					if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY || isBindless)
-					{
-						arraySize = GetBindlessArraySize(device, static_cast<DescriptorSetType>(maskbit));
-						if (arraySize <= 0)
-						{
-							Logger::Error("Device does not support bindless descriptor allocate.");
-							return;
-						}
-						poolArraySize = arraySize;
-					}
-					else
-					{
-						poolArraySize = arraySize * VULKAN_NUM_SETS_PER_POOL;
-					}
-
+					U32 poolArraySize = poolArraySize = arraySize * VULKAN_NUM_SETS_PER_POOL;
+					
 					BindingResourceType type = (BindingResourceType)layout.resourceType[maskbit][i];
 					auto descriptorType = GetTypeBySetMask(static_cast<DescriptorSetType>(maskbit));
 					bindings.push_back({
@@ -303,8 +276,6 @@ namespace GPU
 
 				// Calculate array size and pool size
 				U32 arraySize = 1; // binding.arraySize;
-				ASSERT(arraySize != DescriptorSetLayout::UNSIZED_ARRAY);
-				ASSERT(!isBindless);
 				U32 poolArraySize = arraySize * VULKAN_NUM_SETS_PER_POOL;
 
 				ASSERT(i < (U32)StockSampler::Count);
@@ -320,6 +291,71 @@ namespace GPU
 			}	
 		}
 
+		if (!bindings.empty())
+		{
+			info.bindingCount = (U32)bindings.size();
+			info.pBindings = bindings.data();
+		}
+
+		if (vkCreateDescriptorSetLayout(device.device, &info, nullptr, &setLayout) != VK_SUCCESS)
+		{
+			Logger::Error("Failed to create descriptor set layout.");
+		}
+	}
+
+	DescriptorSetAllocator::DescriptorSetAllocator(DeviceVulkan& device_, const U32* stageForBinds, U32 bindlessTypeMask) :
+		device(device_),
+		setLayout(VK_NULL_HANDLE),
+		isBindless(true)
+	{
+		// Check bindless enable
+		if (!CheckSupportBindless(device, bindlessTypeMask))
+		{
+			Logger::Error("Device does not support bindless descriptor allocate.");
+			return;
+		}
+
+		VkDescriptorSetLayoutCreateInfo info = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+		info.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+
+		VkDescriptorBindingFlags bindingFlags =
+			VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT |
+			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+			VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+
+		VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo = {};
+		bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+		bindingFlagsInfo.bindingCount = 1;
+		bindingFlagsInfo.pBindingFlags = &bindingFlags;
+		info.pNext = &bindingFlagsInfo;
+
+		std::vector<VkDescriptorSetLayoutBinding> bindings;
+
+		auto stages = stageForBinds[0];
+		if (stages == 0)
+			return;;
+
+		// Calculate array size and pool size
+		U32 poolArraySize = 0;
+		U32 arraySize = GetBindlessArraySize(device, static_cast<DescriptorSetType>(bindlessTypeMask));
+		if (arraySize <= 0)
+		{
+			Logger::Error("Device does not support bindless descriptor allocate.");
+			return;
+		}
+		poolArraySize = arraySize;
+
+		auto descriptorType = GetTypeBySetMask(static_cast<DescriptorSetType>(bindlessTypeMask));
+		bindings.push_back({
+			0,										// binding
+			descriptorType, 						// descriptorType
+			arraySize, 								// descriptorCount
+			stages, 								// stageFlags
+			nullptr 								// pImmutableSamplers
+		});
+		poolSize.push_back({ descriptorType, poolArraySize });
+		descriptorCount = poolArraySize;
+	
 		if (!bindings.empty())
 		{
 			info.bindingCount = (U32)bindings.size();

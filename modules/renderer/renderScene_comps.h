@@ -29,6 +29,7 @@ namespace VulkanTest
 		FMat4x4 projection;
 		FMat4x4 viewProjection;
 		FMat4x4 invProjection;
+		FMat4x4 invViewProjection;
 		FMat3x3 rotationMat;
 
 		Frustum frustum;
@@ -71,6 +72,7 @@ namespace VulkanTest
 		I32 lodsCount = 0;
 		Mesh* meshes[Model::MAX_MODEL_LODS];
 		U32 geometryOffset = 0;
+		U32 meshletCount = 0;
 	};
 
 	struct ObjectComponent

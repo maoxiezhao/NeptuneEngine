@@ -531,10 +531,13 @@ public:
     RenderTextureResource& GetOrCreateTexture(const char* name);
     RenderBufferResource& GetOrCreateBuffer(const char* name);
     RenderResource& GetOrCreateProxy(const char* name);
+    RenderTextureResource* GetTexture(const char* name);
     RenderBufferResource* GetBuffer(const char* name);
 
     GPU::ImageView& GetPhysicalTexture(const RenderTextureResource& res);
     GPU::ImageView* TryGetPhysicalTexture(RenderTextureResource* res);
+    GPU::ImageView* TryGetPhysicalTexture(const char* name);
+
     GPU::Buffer& GetPhysicalBuffer(const RenderBufferResource& res);
     GPU::Buffer* TryGetPhysicalBuffer(RenderBufferResource* res);
     GPU::Buffer* TryGetPhysicalBuffer(const char* name);

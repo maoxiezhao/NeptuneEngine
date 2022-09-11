@@ -140,6 +140,7 @@ private:
     VkDescriptorSet bindlessSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
     VkDescriptorSet allocatedSets[VULKAN_NUM_DESCRIPTOR_SETS] = {};
     U32 dirtySets = 0;
+    U32 dirtySetsBindless = 0;
     U32 dirtySetsDynamic = 0; // Used for constant buffer dynamic offset
     U32 dirtyVbos = 0;
 
@@ -306,6 +307,7 @@ public:
     void SetProgram(const std::string& vertex, const std::string& fragment, const ShaderVariantMap& defines = {});
     void SetProgram(const Shader* vertex, const Shader* fragment);
     void SetProgram(const Shader* compute);
+    void SetGlobalBindlessSets();
 
 private:
     friend class DeviceVulkan;
@@ -321,6 +323,7 @@ private:
     bool FlushComputePipeline();
     void FlushDescriptorSets();
     void FlushDescriptorSet(U32 set);
+    void FlushBindlessDescriptorSets(U32 firstSet);
     void FlushDescriptorDynamicSet(U32 set);
     void UpdateGraphicsPipelineHash(CompiledPipelineState& pipeline, U32& activeVbos);
     void UpdateComputePipelineHash(CompiledPipelineState& pipeline);

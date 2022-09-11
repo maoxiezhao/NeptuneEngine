@@ -27,7 +27,7 @@ namespace VulkanTest
 
 		U64 alignment = device->GetMinOffsetAlignment();
 		U64 totalSize =
-			AlignTo(indices.size() * sizeof(U32), alignment) +
+			AlignTo(indices.size() * GetIndexStride(), alignment) +
 			AlignTo(vertexPos.size() * sizeof(F32x3), alignment) +
 			AlignTo(vertexNor.size() * sizeof(F32x3), alignment) +
 			AlignTo(vertexTangents.size() * sizeof(F32x4), alignment) +
@@ -37,9 +37,22 @@ namespace VulkanTest
 		output.Reserve(totalSize);
 
 		// Create index buffer
-		ib.offset = output.Size();
-		ib.size = indices.size() * sizeof(U32);
-		output.Write(indices.data(), ib.size, alignment);
+		auto indexBufferFormat = GetIndexFormat();
+		if (indexBufferFormat == GPU::IndexBufferFormat::UINT32)
+		{
+			ib.offset = output.Size();
+			ib.size = indices.size() * sizeof(U32);
+			output.Write(indices.data(), ib.size, alignment);
+		}
+		else
+		{
+			ib.offset = output.Size();
+			ib.size = indices.size() * sizeof(U16);
+			U16* indexdata = (U16*)(output.Data() + output.Size());
+			output.Skip(AlignTo(ib.size, alignment));
+			for (size_t i = 0; i < indices.size(); ++i)
+				indexdata[i] = (U16)indices[i];
+		}
 
 		F32x3 _min = F32x3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
 		F32x3 _max = F32x3(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
@@ -92,6 +105,14 @@ namespace VulkanTest
 		vbUVs.srv = device->CreateBindlessStroageBuffer(*buffer, vbUVs.offset, vbUVs.size);
 		vbTan.srv = device->CreateBindlessStroageBuffer(*buffer, vbTan.offset, vbTan.size);
 
+		GPU::BufferViewCreateInfo viewInfo = {};
+		viewInfo.buffer = buffer.get();
+		viewInfo.offset = ib.offset;
+		viewInfo.range = ib.size;
+		viewInfo.format = GetIndexFormat() == GPU::IndexBufferFormat::UINT32 ? VK_FORMAT_R32_UINT : VK_FORMAT_R16_UINT;
+		ibView = device->CreateBufferView(viewInfo);
+		ib.srv = device->CreateBindlessUniformTexelBuffer(*buffer, *ibView);
+
 		return true;
 	}
 
@@ -102,6 +123,8 @@ namespace VulkanTest
 		vbNor.Reset();
 		vbUVs.Reset();
 		vbTan.Reset();
+		ib.Reset();
+		ibView.reset();
 	}
 
 	bool Mesh::IsReady()const

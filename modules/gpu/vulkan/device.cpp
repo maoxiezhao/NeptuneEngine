@@ -924,6 +924,21 @@ DescriptorSetAllocator& DeviceVulkan::RequestDescriptorSetAllocator(const Descri
 	return *allocator;
 }
 
+DescriptorSetAllocator& DeviceVulkan::RequestBindlessDescriptorSetAllocator(const U32* stageForBinds, U32 typeMask)
+{
+    HashCombiner hasher;
+    hasher.HashCombine(typeMask);
+    hasher.HashCombine(stageForBinds, sizeof(U32) * VULKAN_NUM_BINDINGS);
+
+    auto findIt = bindlessDescriptorSetAllocators.find(hasher.Get());
+    if (findIt != nullptr)
+        return *findIt;
+
+    DescriptorSetAllocator* allocator = bindlessDescriptorSetAllocators.emplace(hasher.Get(), *this, stageForBinds, typeMask);
+    allocator->SetHash(hasher.Get());
+    return *allocator;
+}
+
 DescriptorSetAllocator* DeviceVulkan::GetBindlessDescriptorSetAllocator(BindlessReosurceType type)
 {
     switch (type)
@@ -936,6 +951,8 @@ DescriptorSetAllocator* DeviceVulkan::GetBindlessDescriptorSetAllocator(Bindless
         return bindlessStorageBuffersSetAllocator;
     case BindlessReosurceType::Sampler:
         return bindlessSamplersSetAllocator;
+    case BindlessReosurceType::UniformTexelBuffer:
+        return bindlessUniformTexelBufferSetAllocator;
     default:
         break;
     }
@@ -1595,6 +1612,20 @@ BindlessDescriptorPtr DeviceVulkan::CreateBindlessSampledImage(const ImageView& 
     return BindlessDescriptorPtr(bindlessDescriptorHandlers.allocate(*this, BindlessReosurceType::SampledImage, index));
 }
 
+BindlessDescriptorPtr DeviceVulkan::CreateBindlessUniformTexelBuffer(const Buffer& buffer, const BufferView& view)
+{
+    auto heap = GetBindlessDescriptorHeap(BindlessReosurceType::UniformTexelBuffer);
+    if (heap == nullptr || !heap->IsInitialized())
+        return BindlessDescriptorPtr();
+
+    I32 index = heap->Allocate();
+    if (index < 0)
+        return BindlessDescriptorPtr();
+
+    heap->GetPool().SetUniformTexelBuffer(index, view.GetBufferView());
+    return BindlessDescriptorPtr(bindlessDescriptorHandlers.allocate(*this, BindlessReosurceType::UniformTexelBuffer, index));
+}
+
 void DeviceVulkan::NextFrameContext()
 {
     DRAIN_FRAME_LOCK();
@@ -1611,9 +1642,18 @@ void DeviceVulkan::NextFrameContext()
         set.BeginFrame();
     for (auto& set : descriptorSetAllocators.GetReadWrite())
         set.BeginFrame();
+
+    for (auto& set : bindlessDescriptorSetAllocators.GetReadOnly())
+        set.BeginFrame();
+    for (auto& set : bindlessDescriptorSetAllocators.GetReadWrite())
+        set.BeginFrame();
+    
 #else
     // descriptor set begin
     for (auto& kvp : descriptorSetAllocators)
+        kvp.second->BeginFrame();
+
+    for (auto& kvp : bindlessDescriptorSetAllocators)
         kvp.second->BeginFrame();
 #endif
 
@@ -2003,8 +2043,16 @@ void DeviceVulkan::WaitIdleNolock()
         set.Clear();
     for (auto& set : descriptorSetAllocators.GetReadWrite())
         set.Clear();
+
+    for (auto& set : bindlessDescriptorSetAllocators.GetReadOnly())
+        set.Clear();
+    for (auto& set : bindlessDescriptorSetAllocators.GetReadWrite())
+        set.Clear(); 
 #else
     for (auto& allocator : descriptorSetAllocators)
+        allocator.second->Clear();
+
+    for (auto& allocator : bindlessDescriptorSetAllocators)
         allocator.second->Clear();
 #endif
 
@@ -2024,6 +2072,7 @@ void DeviceVulkan::MoveReadWriteCachesToReadOnly()
 {
 #ifdef VULKAN_MT
     descriptorSetAllocators.MoveToReadOnly();
+    bindlessDescriptorSetAllocators.MoveToReadOnly();
     pipelineLayouts.MoveToReadOnly();
     shaders.MoveToReadOnly();
     programs.MoveToReadOnly();
@@ -2741,35 +2790,29 @@ void DeviceVulkan::InitStockSampler(StockSampler type)
 
 void DeviceVulkan::InitBindless()
 {
-    DescriptorSetLayout layout;
-    layout.isBindless = true;
-
     U32 stagesForSets[VULKAN_NUM_BINDINGS] = { VK_SHADER_STAGE_ALL };
     if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
-        DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE] = 1;
-        bindlessSampledImagesSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessSampledImagesSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_SAMPLED_IMAGE);
         bindlessHandler.bindlessSampledImages.Init(*this, bindlessSampledImagesSetAllocator);
     }
     if (features.features_1_2.descriptorBindingStorageBufferUpdateAfterBind == VK_TRUE)
     {
-        DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_BUFFER] = 1;
-        bindlessStorageBuffersSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessStorageBuffersSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_STORAGE_BUFFER);
         bindlessHandler.bindlessStorageBuffers.Init(*this, bindlessStorageBuffersSetAllocator);
     }
     if (features.features_1_2.descriptorBindingStorageImageUpdateAfterBind == VK_TRUE)
     {
-        DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_TYPE_STORAGE_IMAGE] = 1;
-        bindlessStorageImagesSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessStorageImagesSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_STORAGE_IMAGE);
     }
     if (features.features_1_2.descriptorBindingSampledImageUpdateAfterBind == VK_TRUE)
     {
-        DescriptorSetLayout tmpLayout = layout;
-        tmpLayout.masks[DESCRIPTOR_SET_TYPE_SAMPLER] = 1;
-        bindlessSamplersSetAllocator = &RequestDescriptorSetAllocator(tmpLayout, stagesForSets);
+        bindlessSamplersSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_SAMPLER);
+    }
+    if (features.features_1_2.descriptorBindingUniformTexelBufferUpdateAfterBind == VK_TRUE)
+    {
+        bindlessUniformTexelBufferSetAllocator = &RequestBindlessDescriptorSetAllocator(stagesForSets, DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER);
+        bindlessHandler.bindlessUniformTexelBuffers.Init(*this, bindlessUniformTexelBufferSetAllocator);
     }
 }
 
@@ -2781,6 +2824,8 @@ BindlessDescriptorHeap* DeviceVulkan::GetBindlessDescriptorHeap(BindlessReosurce
         return &bindlessHandler.bindlessSampledImages;
     case BindlessReosurceType::StorageBuffer:
         return &bindlessHandler.bindlessStorageBuffers;
+    case BindlessReosurceType::UniformTexelBuffer:
+        return &bindlessHandler.bindlessUniformTexelBuffers;
     default:
         break;
     }

@@ -81,6 +81,9 @@ namespace
 		case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_STORAGE_BUFFER);
 			break;
+		case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+			mask = static_cast<I32>(DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER);
+			break;
 		default:
 			break;
 		}
@@ -167,41 +170,37 @@ bool Shader::ReflectShader(ShaderResourceLayout& layout, const U32* spirvData, s
 	// parse bindings
 	for (auto& x : bindings)
 	{
-		if (x->set > 1)
-			int a = 0;
-
 		I32 mask = GetMaskByDescriptorType(x->descriptor_type);
 		if (mask >= 0)
 		{
-			U32 rolledBinding = GetRolledBinding(x->binding);
-			
-			// Check is immutable sampler
-			if (mask == DESCRIPTOR_SET_TYPE_SAMPLER)
-			{
-				if (rolledBinding >= DeviceVulkan::IMMUTABLE_SAMPLER_SLOT_BEGIN)
-				{
-					rolledBinding -= DeviceVulkan::IMMUTABLE_SAMPLER_SLOT_BEGIN;
-					layout.sets[x->set].immutableSamplerMask |= 1u << rolledBinding;
-					layout.sets[x->set].immutableSamplerBindings[rolledBinding] = x->binding;
-					continue;
-				}
-			}
-			layout.sets[x->set].masks[mask] |= 1u << rolledBinding;
-		
-			// Resource type
-			layout.sets[x->set].resourceType[mask][rolledBinding] = (U8)x->resource_type;
-
-			// Array size
-			auto& arraySize = layout.sets[x->set].arraySize[mask][rolledBinding];
 			if (x->type_description->op == SpvOpTypeRuntimeArray)
 			{
 				// Bindless array
-				arraySize = DescriptorSetLayout::UNSIZED_ARRAY;
+				layout.bindlessSetTypeMask[x->set] = mask;
 				layout.bindlessDescriptorSetMask |= 1u << x->set;
 			}
 			else
 			{
-				arraySize = x->count;
+				U32 rolledBinding = GetRolledBinding(x->binding);
+
+				// Check is immutable sampler
+				if (mask == DESCRIPTOR_SET_TYPE_SAMPLER)
+				{
+					if (rolledBinding >= DeviceVulkan::IMMUTABLE_SAMPLER_SLOT_BEGIN)
+					{
+						rolledBinding -= DeviceVulkan::IMMUTABLE_SAMPLER_SLOT_BEGIN;
+						layout.sets[x->set].immutableSamplerMask |= 1u << rolledBinding;
+						layout.sets[x->set].immutableSamplerBindings[rolledBinding] = x->binding;
+						continue;
+					}
+				}
+				layout.sets[x->set].masks[mask] |= 1u << rolledBinding;
+
+				// Resource type
+				layout.sets[x->set].resourceType[mask][rolledBinding] = (U8)x->resource_type;
+
+				// Array size
+				layout.sets[x->set].arraySize[mask][rolledBinding] = x->count;
 			}
 		}
 	}
@@ -332,11 +331,15 @@ void ShaderProgram::Bake()
 				});
 			}
 
+			// Bindless
+			if (shaderResLayout.bindlessDescriptorSetMask & (1u << set))
+			{
+				resLayout.stagesForBindings[set][0] |= VK_SHADER_STAGE_ALL;
+				resLayout.bindlessSetTypeMask[set] = shaderResLayout.bindlessSetTypeMask[set];
+			}
+
 			if (stageForSet)
 				resLayout.stagesForSets[set] |= stageMask;
-
-			if (shaderResLayout.bindlessDescriptorSetMask & (1u << set))
-				resLayout.sets[set].isBindless = true;
 		}
 
 		// push constants
@@ -353,37 +356,7 @@ void ShaderProgram::Bake()
 	for (U32 set = 0; set < VULKAN_NUM_DESCRIPTOR_SETS; set++)
 	{
 		if (resLayout.stagesForSets[set] != 0)
-		{
 			resLayout.descriptorSetMask |= 1u << set;
-
-			for (U32 maskbit = 0; maskbit < DESCRIPTOR_SET_TYPE_COUNT; maskbit++)
-			{
-				if (resLayout.sets[set].masks[maskbit] == 0)
-					continue;
-
-				for (U32 binding = 0; binding < VULKAN_NUM_BINDINGS; binding++)
-				{
-					U8& arraySize = resLayout.sets[set].arraySize[maskbit][binding];
-					if (arraySize == DescriptorSetLayout::UNSIZED_ARRAY)
-					{
-						// Check is valid bindless
-						for (U32 i = 1; i < VULKAN_NUM_BINDINGS; i++)
-						{
-							if (resLayout.stagesForBindings[set][i] != 0)
-								Logger::Error("Invalid bindless for set %u", set);
-						}
-
-						// Allows us to have one unified descriptor set layout for bindless.
-						resLayout.stagesForBindings[set][binding] = VK_SHADER_STAGE_ALL;
-					}
-					else if (arraySize == 0)
-					{
-						// just keep one array size
-						arraySize = 1;
-					}
-				}
-			}
-		}
 	}
 
 	// Create pipeline layout
@@ -406,14 +379,35 @@ PipelineLayout::PipelineLayout(DeviceVulkan& device_, CombinedResourceLayout res
 	// PipelineLayout = DescriptorSetLayouts + PushConstants
 
 	U32 numSets = 0;
-	VkDescriptorSetLayout layouts[VULKAN_NUM_DESCRIPTOR_SETS] = {};
+	VkDescriptorSetLayout layouts[VULKAN_NUM_BINDLESS_DESCRIPTOR_SETS] = {};
+
+	// Normal descriptor sets
 	for (U32 i = 0; i < VULKAN_NUM_DESCRIPTOR_SETS; i++)
 	{
 		if (resLayout.descriptorSetMask & (1 << i))
 		{
 			auto allocator = &device.RequestDescriptorSetAllocator(resLayout_.sets[i], resLayout_.stagesForBindings[i]);
 			descriptorSetAllocators[i] = allocator;
-			layouts[i] = allocator->GetSetLayout();
+			layouts[numSets] = allocator->GetSetLayout();
+			numSets++;
+		}
+	}
+	// Bindless descriptor sets
+	for (U32 i = 0; i < VULKAN_NUM_BINDLESS_DESCRIPTOR_SETS; i++)
+	{
+		if (resLayout.bindlessSetMask & (1 << i))
+		{
+			auto allocator = &device.RequestBindlessDescriptorSetAllocator(resLayout_.stagesForBindings[i], resLayout.bindlessSetTypeMask[i]);
+			descriptorSetAllocators[i] = allocator;
+
+			// There can be padding between bindless spaces because sets need to be bound contiguously
+			while (numSets < i) 
+			{
+				layouts[numSets] = allocator->GetSetLayout();
+				numSets++;
+			} 
+
+			layouts[numSets] = allocator->GetSetLayout();
 			numSets++;
 		}
 	}
@@ -521,6 +515,22 @@ void PipelineLayout::CreateUpdateTemplates()
 				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
 				auto& entry = updateEntries[updateCount++];
 				entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
+				entry.dstArrayElement = 0;
+				entry.descriptorCount = arraySize;
+				entry.offset = offsetof(ResourceBinding, buffer) + sizeof(ResourceBinding) * offset;
+				entry.stride = sizeof(ResourceBinding);
+				offset += arraySize;
+		});
+
+		// Uniform texel buffers
+		ForEachBit(setLayout.masks[static_cast<U32>(DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER)],
+			[&](U32 bit) {
+				auto& arraySize = setLayout.arraySize[DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER][bit];
+				auto& resType = setLayout.resourceType[DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER][bit];
+				ASSERT(updateCount < VULKAN_NUM_BINDINGS);
+				auto& entry = updateEntries[updateCount++];
+				entry.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
 				entry.dstBinding = GetUnrolledBinding(bit, (BindingResourceType)resType);
 				entry.dstArrayElement = 0;
 				entry.descriptorCount = arraySize;

@@ -42,6 +42,9 @@ files
 includedirs { asset_location .. "/shaders/common" }
 
 vpaths { 
+    ["shaders"] = {
+        asset_location .. "/shaders/common/**.h"
+    },
     ["compress/lz4"] = {
         third_party_location .. "/lz4/**.h",
         third_party_location .. "/lz4/**.c",

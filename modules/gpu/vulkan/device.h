@@ -298,6 +298,7 @@ public:
     VulkanCache<RenderPass> renderPasses;
     VulkanCache<PipelineLayout> pipelineLayouts;
     VulkanCache<DescriptorSetAllocator> descriptorSetAllocators;
+    VulkanCache<DescriptorSetAllocator> bindlessDescriptorSetAllocators;
     VulkanCache<DeviceAllocationOwner> allocations;
     VulkanCache<BindlessDescriptorPool> bindlessDescriptorPools;
     VulkanCache<ImmutableSampler> immutableSamplers;
@@ -337,6 +338,7 @@ public:
     Shader* RequestShaderByHash(HashValue hash);
     ShaderProgram* RequestProgram(const Shader* shaders[static_cast<U32>(ShaderStage::Count)]);
     DescriptorSetAllocator& RequestDescriptorSetAllocator(const DescriptorSetLayout& layout, const U32* stageForBinds);
+    DescriptorSetAllocator& RequestBindlessDescriptorSetAllocator(const U32* stageForBinds, U32 typeMask);
     BindlessDescriptorPoolPtr GetBindlessDescriptorPool(BindlessReosurceType type, U32 numSets, U32 numDescriptors);
     ImagePtr RequestTransientAttachment(U32 w, U32 h, VkFormat format, U32 index = 0, U32 samples = 1, U32 layers = 1);
     SamplerPtr RequestSampler(const SamplerCreateInfo& createInfo, bool isImmutable = false);
@@ -366,6 +368,7 @@ public:
 
     BindlessDescriptorPtr CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset = 0, VkDeviceSize range = 0);
     BindlessDescriptorPtr CreateBindlessSampledImage(const ImageView& imageView, VkImageLayout imageLayout);
+    BindlessDescriptorPtr CreateBindlessUniformTexelBuffer(const Buffer& buffer, const BufferView& view);
 
     void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);
@@ -479,16 +482,19 @@ private:
     DescriptorSetAllocator* bindlessStorageBuffersSetAllocator = nullptr;
     DescriptorSetAllocator* bindlessStorageImagesSetAllocator = nullptr;
     DescriptorSetAllocator* bindlessSamplersSetAllocator = nullptr;
+    DescriptorSetAllocator* bindlessUniformTexelBufferSetAllocator = nullptr;
 
     struct BindlessHandler
     {
         BindlessDescriptorHeap bindlessStorageBuffers;
         BindlessDescriptorHeap bindlessSampledImages;
+        BindlessDescriptorHeap bindlessUniformTexelBuffers;
 
         ~BindlessHandler()
         {
             bindlessStorageBuffers.Destroy();
             bindlessSampledImages.Destroy();
+            bindlessUniformTexelBuffers.Destroy();
         }
     }
     bindlessHandler;

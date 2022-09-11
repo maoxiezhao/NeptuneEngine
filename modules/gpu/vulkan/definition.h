@@ -80,6 +80,7 @@ namespace GPU
 
     static const U32 VULKAN_NUM_ATTACHMENTS = 8;
     static const U32 VULKAN_NUM_DESCRIPTOR_SETS = 4;
+    static const U32 VULKAN_NUM_BINDLESS_DESCRIPTOR_SETS = 16;
     static const U32 VULKAN_NUM_VERTEX_ATTRIBS = 16;
     static const U32 VULKAN_NUM_VERTEX_BUFFERS = 8;
     static const U32 VULKAN_NUM_BINDINGS = 16;
@@ -141,7 +142,7 @@ namespace GPU
         DESCRIPTOR_SET_TYPE_STORAGE_IMAGE,
         DESCRIPTOR_SET_TYPE_UNIFORM_BUFFER,
         DESCRIPTOR_SET_TYPE_STORAGE_BUFFER,
-        DESCRIPTOR_SET_TYPE_SAMPLED_BUFFER,
+        DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER,
         DESCRIPTOR_SET_TYPE_INPUT_ATTACHMENT,
         DESCRIPTOR_SET_TYPE_SAMPLER,
         DESCRIPTOR_SET_TYPE_COUNT,
@@ -154,6 +155,12 @@ namespace GPU
         BINDING_RESOURCE_TYPE_CBV = 1 << 1,
         BINDING_RESOURCE_TYPE_SRV = 1 << 2,
         BINDING_RESOURCE_TYPE_UAV = 1 << 3,
+    };
+
+    enum class IndexBufferFormat
+    {
+        UINT16,
+        UINT32,
     };
 
     static inline U32 GetRolledBinding(U32 unrolledBinding)

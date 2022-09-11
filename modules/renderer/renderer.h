@@ -32,7 +32,6 @@ namespace VulkanTest
 
 		void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd);
 		void BindCommonResources(GPU::CommandList& cmd);
-		void BindBindlessSet(GPU::CommandList& cmd);
 
 		Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera);
 		GPU::DeviceVulkan* GetDevice();
@@ -56,10 +55,12 @@ namespace VulkanTest
 
 		I32 ComputeModelLOD(const Model* model, F32x3 eye, F32x3 pos, F32 radius);
 
+		// Visibiliry
+		U32x2 GetVisibilityTileCount(const U32x2& resolution);
+
 		// Light culling
 		U32x3 GetLightCullingTileCount(const U32x2& resolution);
-		void SetupTiledLightCulling(RenderGraph& graph, CameraComponent& camera, const AttachmentInfo& attchment);
-
+		
 		// Postprocess
 		void SetupPostprocessBlurGaussian(RenderGraph& graph, const String& input, String& out, const AttachmentInfo& attchment);
 		void PostprocessOutline(GPU::CommandList& cmd, const GPU::ImageView& texture, F32 threshold, F32 thickness, const F32x4& color);

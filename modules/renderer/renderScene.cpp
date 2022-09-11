@@ -117,8 +117,12 @@ namespace VulkanTest
         UniquePtr<CullingSystem> cullingSystem;
         Array<ECS::System> systems;
         ECS::Pipeline pipeline;
-
         EntityMap<Model*> modelEntityMap;
+
+        // The count of instances
+        U32 instanceArraySize = 0;
+
+        // Component query
         ECS::Query<ObjectComponent> objectQuery;
         ECS::Query<MeshComponent> meshQuery;
         ECS::Query<MaterialComponent> materialQuery;
@@ -128,6 +132,11 @@ namespace VulkanTest
         RenderSceneBuffer<ShaderMeshInstance> instanceBuffer;
         RenderSceneBuffer<ShaderGeometry> geometryBuffer;
         RenderSceneBuffer<ShaderMaterial> materialBuffer;
+
+        // Meshlets:
+        GPU::BufferPtr meshletBuffer;
+        GPU::BindlessDescriptorPtr meshletBufferBindless;
+        volatile I32 meshletAllocator = 0;
 
         ShaderMeshInstance* instanceMapped = nullptr;
         ShaderMaterial* materialMapped = nullptr;
@@ -531,9 +540,23 @@ namespace VulkanTest
         void UpdateRenderData(GPU::CommandList& cmd)
         {
             auto& device = cmd.GetDevice();
+
+            // Update scene common buffers
             instanceBuffer.UploadBuffer(device, cmd);
             geometryBuffer.UploadBuffer(device, cmd);
             materialBuffer.UploadBuffer(device, cmd);
+
+            // Update meshlet buffer
+            if (instanceArraySize > 0 && meshletBuffer)
+            {
+                Renderer::BindCommonResources(cmd);
+                cmd.BeginEvent("Meshlet prepare");
+                cmd.BufferBarrier(*meshletBuffer, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT);
+                cmd.SetStorageBuffer(0, 0, *meshletBuffer);
+                cmd.SetProgram(Renderer::GetShader(SHADERTYPE_MESHLET)->GetCS("CS"));
+                cmd.Dispatch(instanceArraySize, 1, 1);
+                cmd.EndEvent();
+            }
         }
 
         const ShaderSceneCB& GetShaderScene()const override
@@ -547,7 +570,7 @@ namespace VulkanTest
             GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
 
             // Update instance buffer
-            U32 instanceArraySize = 0;
+            instanceArraySize = 0;
             if (objectQuery.Valid())
             {
                 objectQuery.ForEach([&](ECS::Entity entity, ObjectComponent& obj) {
@@ -586,14 +609,32 @@ namespace VulkanTest
             geometryBuffer.UpdateBuffer(device, geometryArraySize);
             geometryMapped = geometryBuffer.Mapping(device);
 
+            // Reset meshlet count
+            AtomicStore(&meshletAllocator, 0);
+
             // Run systems
             if (pipeline)
                 world.RunPipeline(pipeline);
+
+            // Create meshlet buffer
+            I32 meshletCount = AtomicRead(&meshletAllocator);
+            U32 bufferSize = meshletCount * sizeof(ShaderMeshlet);
+            if (bufferSize > 0 && (!meshletBuffer || meshletBuffer->GetCreateInfo().size < bufferSize))
+            {
+                GPU::BufferCreateInfo info = {};
+                info.domain = GPU::BufferDomain::Device;
+                info.size = bufferSize * 2;
+                info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+                meshletBuffer = device.CreateBuffer(info, nullptr);
+                device.SetName(*meshletBuffer, "meshletBuffer");
+                meshletBufferBindless = device.CreateBindlessStroageBuffer(*meshletBuffer);
+            }
 
             // Update shader scene
             sceneCB.instancebuffer = instanceBuffer.GetBindlessIndex();
             sceneCB.geometrybuffer = geometryBuffer.GetBindlessIndex();
             sceneCB.materialbuffer = materialBuffer.GetBindlessIndex();
+            sceneCB.meshletBuffer = meshletBufferBindless ? meshletBufferBindless->GetReference() : -1;
         }
     };
 
@@ -623,6 +664,10 @@ namespace VulkanTest
             if (!meshComp.model || !meshComp.model->IsReady())
                 return;
 
+            // Reset meshlet count
+            meshComp.meshletCount = 0;
+
+            U32 subsetIndex = 0;
             auto lodsCount = meshComp.model->GetLODsCount();
             for (int lodIndex = 0; lodIndex < lodsCount; lodIndex++)
             {
@@ -634,13 +679,16 @@ namespace VulkanTest
                     geometry.vbNor = mesh->vbNor.srv->GetIndex();
                     geometry.vbUVs = mesh->vbUVs.srv->GetIndex();
                     geometry.vbTan = mesh->vbTan.srv->GetIndex();
-                    geometry.ib = 0;
+                    geometry.ib = mesh->ib.srv->GetIndex();
 
-                    U32 lodOffset = meshComp.subsetsPerLod * lodIndex;
-                    U32 subsetIndex = 0;
                     for (auto& subset : mesh->subsets)
                     {
-                        memcpy(geometryMapped + meshComp.geometryOffset + lodOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                        geometry.indexOffset = subset.indexOffset;
+                        geometry.meshletOffset = meshComp.meshletCount;
+                        geometry.meshletCount = TriangleCountToMeshletCount(subset.indexCount);
+                        meshComp.meshletCount += geometry.meshletCount;
+
+                        memcpy(geometryMapped + meshComp.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
                         subsetIndex++;
                     }
                 }
@@ -692,6 +740,13 @@ namespace VulkanTest
                 // Setup shader mesh instance
                 ShaderMeshInstance inst;
                 inst.init();
+                inst.uid = uint((ECS::EntityID)objComp.mesh);   // Need use u64?
+                inst.geometryOffset = meshComp->geometryOffset;
+                inst.geometryCount = meshComp->subsetsPerLod;   // TODO select the subset for target lod
+                inst.meshletOffset = AtomicRead(&scene.meshletAllocator);
+                AtomicAdd(&scene.meshletAllocator, meshComp->meshletCount);
+
+                // Set world transform
                 inst.transform.Create(transform.transform.world);
 
                 // Inverse transpose world mat

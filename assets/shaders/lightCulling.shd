@@ -1,6 +1,9 @@
 #include "common/global.hlsli"
 #include "common/shaderInterop_renderer.h"
 
+// A article abount Forard+
+// https://www.3dgep.com/forward-plus/#Forward
+
 struct Plane
 {
 	float3	N;		// Plane normal.
@@ -51,7 +54,7 @@ Plane ComputePlane(float3 p0, float3 p1, float3 p2)
 META_CS(true)
 [numthreads(TILED_CULLING_BLOCK_SIZE, TILED_CULLING_BLOCK_SIZE, 1)]
 void CS_Frustum(uint3 DTid : SV_DispatchThreadID)
-{	
+{
     uint2 dim;
     texture_depth.GetDimensions(dim.x, dim.y);
     float2 dimRcp = rcp(dim);
@@ -78,17 +81,14 @@ void CS_Frustum(uint3 DTid : SV_DispatchThreadID)
     }
 
 	Frustum frustum;
-    frustum.planes[0].N = float3(1, 1, 1);
-    frustum.planes[0].d = 3.0f;
-
-    frustum.planes[1].N = float3(1, 1, 1);
-    frustum.planes[1].d = 3.0f;
-
-    frustum.planes[2].N = float3(1, 1, 1);
-    frustum.planes[2].d = 3.0f;
-
-    frustum.planes[3].N = float3(1, 1, 1);
-    frustum.planes[3].d = 3.0f;
+	// Left plane
+	frustum.planes[0] = ComputePlane(viewSpace[2], eyePos, viewSpace[0]);
+	// Right plane
+	frustum.planes[1] = ComputePlane(viewSpace[1], eyePos, viewSpace[3]);
+	// Top plane
+	frustum.planes[2] = ComputePlane(viewSpace[0], eyePos, viewSpace[1]);
+	// Bottom plane
+	frustum.planes[3] = ComputePlane(viewSpace[3], eyePos, viewSpace[2]);
 
 	uint2 cullingTileCount = GetCamera().cullingTileCount.xy;
     if (DTid.x < cullingTileCount.x && DTid.y < cullingTileCount.y)
@@ -136,6 +136,6 @@ void CS_LightCulling(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex)
     int tilesAddress = tileIndex * SHADER_ENTITY_TILE_BUCKET_COUNT;
     for (i = groupIndex; i < SHADER_ENTITY_TILE_BUCKET_COUNT; i += TILED_CULLING_THREADSIZE * TILED_CULLING_THREADSIZE)
     {
-        entityTiles.Store(tilesAddress* sizeof(uint), frustum.planes[0].d); //shared_entity_tiles[i]);
+        entityTiles.Store(tilesAddress * sizeof(uint), frustum.planes[0].d); //shared_entity_tiles[i]);
     }
 }

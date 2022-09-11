@@ -3,6 +3,7 @@
 
 #include "shaderInterop.h"
 
+// Shader light type
 enum SHADER_LIGHT_TYPE
 {
 	SHADER_LIGHT_TYPE_DIRECTIONALLIGHT,
@@ -10,6 +11,22 @@ enum SHADER_LIGHT_TYPE
 	SHADER_LIGHT_TYPE_SPOTLIGHT,
 	SHADER_LIGHT_TYPE_COUNT
 };
+
+// 256 triangle batch of a ShaderGeometry
+static const uint MESHLET_TRIANGLE_COUNT = 256u;
+inline uint TriangleCountToMeshletCount(uint triangleCount)
+{
+	return (triangleCount + MESHLET_TRIANGLE_COUNT - 1u) / MESHLET_TRIANGLE_COUNT;
+}
+struct ShaderMeshlet
+{
+	uint instanceIndex;
+	uint geometryIndex;
+	uint primitiveOffset;
+};
+
+// Visibility
+static const uint VISIBILITY_BLOCKSIZE = 8;
 
 // Max light count in per frame
 static const uint SHADER_ENTITY_COUNT = 256;
@@ -24,7 +41,7 @@ struct ShaderSceneCB
 	int geometrybuffer;
 	int materialbuffer;
 	int instancebuffer;
-	int padding;
+	int meshletBuffer;
 };
 
 struct FrameCB
@@ -42,10 +59,13 @@ struct CameraCB
 {
 	float4x4 viewProjection;
 	float4x4 invProjection;
+	float4x4 invViewProjection;
 	float3 position;
 	float zNear;
+	float zFar;
+	float padding;
 	uint2 resolution;
-	float2 iresolutionRcp;
+	float2 resolutionRcp;
 
 	int texture_depth_index;	 //  Depth texture bindless index
 	uint3 cullingTileCount;		 // Entity culling tile
@@ -61,6 +81,10 @@ struct ShaderGeometry
 	int vbTan;
 	int vbUVs;
 	int ib;
+	uint indexOffset;
+
+	uint meshletOffset;
+	uint meshletCount;
 };
 
 struct ShaderMaterial
@@ -116,11 +140,19 @@ struct ShaderTransform
 
 struct ShaderMeshInstance
 {
+	uint uid;
+	uint geometryOffset;
+	uint geometryCount;
+	uint meshletOffset;
+
 	ShaderTransform transform;
 	ShaderTransform transformInvTranspose; // Transform normal
 
 	void init()
 	{
+		
+		meshletOffset = 0;
+
 		transform.init();
 		transformInvTranspose.init();
 	}
