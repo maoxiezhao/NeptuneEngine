@@ -75,13 +75,12 @@ namespace VulkanTest
 		device->Submit(cmd,  nullptr);
 	}
 
-	void RenderPath3D::BeforeRender()
+	void RenderPath3D::PrepareResources()
 	{
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		auto& renderGraph = GetRenderGraph();
-		// camera->bufferLightTileBindless = device->CreateBindlessStroageBuffer(*renderGraph.TryGetPhysicalBuffer("LightTiles"));
+		camera->bufferLightTileBindless = device->CreateBindlessStroageBuffer(*renderGraph.TryGetPhysicalBuffer("lightTiles"));
 		camera->textureDepthBindless = device->CreateBindlessSampledImage(*renderGraph.TryGetPhysicalTexture("depthCopy"), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
 	}
 
 	void RenderPath3D::SetupComposeDependency(RenderPass& composePass)

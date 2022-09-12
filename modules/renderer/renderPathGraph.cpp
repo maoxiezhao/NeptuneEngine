@@ -24,7 +24,13 @@ namespace VulkanTest
 
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		renderGraph.SetupAttachments(*device, &wsi->GetImageView());
-		BeforeRender();
+
+		if (isDirty)
+		{
+			PrepareResources();
+			isDirty = false;
+		}
+
 		Jobsystem::JobHandle handle;
 		renderGraph.Render(*device, handle);
 		Jobsystem::Wait(&handle);
@@ -92,13 +98,15 @@ namespace VulkanTest
 
 		renderGraph.SetBackBufferSource("back");
 		renderGraph.Bake();
+
+		isDirty = true;
 	}
 
 	void RenderPathGraph::UpdateRenderData()
 	{
 	}
 
-	void RenderPathGraph::BeforeRender()
+	void RenderPathGraph::PrepareResources()
 	{
 	}
 

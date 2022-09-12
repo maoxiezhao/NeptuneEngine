@@ -19,7 +19,7 @@ namespace VulkanTest
 		pass.WriteStorageTexture("depthLinear", depthAttachment);
 		pass.SetBuildCallback([&, tileCount](GPU::CommandList& cmd) {
 
-			Renderer::BindCommonResources(cmd);
+			Renderer::BindFrameCB(cmd);
 			Renderer::BindCameraCB(*renderPath.camera, cmd);
 
 			cmd.BeginEvent("Visibility resolve");

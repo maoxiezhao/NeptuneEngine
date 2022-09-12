@@ -497,6 +497,7 @@ namespace Renderer
 	void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd)
 	{
 		CameraCB cb;
+		cb.view = camera.view;
 		cb.viewProjection = camera.viewProjection;
 		cb.invProjection = camera.invProjection;
 		cb.invViewProjection = camera.invViewProjection;
@@ -512,7 +513,7 @@ namespace Renderer
 		cmd.BindConstant(cb, 0, CBSLOT_RENDERER_CAMERA);
 	}
 
-	void BindCommonResources(GPU::CommandList& cmd)
+	void BindFrameCB(GPU::CommandList& cmd)
 	{
 		cmd.BindConstantBuffer(frameBuffer, 0, CBSLOT_RENDERER_FRAME, 0, sizeof(FrameCB));
 	}
@@ -637,7 +638,7 @@ namespace Renderer
 
 		cmd.BeginEvent("DrawScene");
 
-		BindCommonResources(cmd);
+		BindFrameCB(cmd);
 
 #if 0
 		static thread_local RenderQueue queue;

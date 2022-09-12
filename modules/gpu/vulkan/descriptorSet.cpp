@@ -167,6 +167,7 @@ namespace GPU
 
 		VkWriteDescriptorSet write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
 		write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		write.dstBinding = 0;
 		write.dstArrayElement = binding;
 		write.descriptorCount = 1;
 		write.dstSet = set;
@@ -329,8 +330,6 @@ namespace GPU
 		bindingFlagsInfo.pBindingFlags = &bindingFlags;
 		info.pNext = &bindingFlagsInfo;
 
-		std::vector<VkDescriptorSetLayoutBinding> bindings;
-
 		// Calculate array size and pool size
 		U32 poolArraySize = 0;
 		U32 arraySize = GetBindlessArraySize(device, static_cast<DescriptorSetType>(bindlessTypeMask));
@@ -342,21 +341,18 @@ namespace GPU
 		poolArraySize = arraySize;
 
 		auto descriptorType = GetTypeBySetMask(static_cast<DescriptorSetType>(bindlessTypeMask));
-		bindings.push_back({
-			0,										// binding
-			descriptorType, 						// descriptorType
-			arraySize, 								// descriptorCount
-			VK_SHADER_STAGE_ALL, 					// stageFlags
-			nullptr 								// pImmutableSamplers
-		});
 		poolSize.push_back({ descriptorType, poolArraySize });
 		descriptorCount = poolArraySize;
-	
-		if (!bindings.empty())
-		{
-			info.bindingCount = (U32)bindings.size();
-			info.pBindings = bindings.data();
-		}
+
+		VkDescriptorSetLayoutBinding binding = {};
+		binding.descriptorType = descriptorType;
+		binding.binding = 0;
+		binding.descriptorCount = descriptorCount;
+		binding.stageFlags = VK_SHADER_STAGE_ALL;
+		binding.pImmutableSamplers = nullptr;
+
+		info.bindingCount = 1;
+		info.pBindings = &binding;
 
 		if (vkCreateDescriptorSetLayout(device.device, &info, nullptr, &setLayout) != VK_SUCCESS)
 		{

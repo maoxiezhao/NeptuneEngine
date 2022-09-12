@@ -80,7 +80,7 @@ inline void ForwardLighting(inout Surface surface, inout Lighting lighting, uint
     {
         // Divide all lights into a bucket of 32
         const uint firstLight = GetFrame().lightOffset;
-        const uint lastLight = GetFrame().lightOffset + GetFrame().lightCount;
+        const uint lastLight = GetFrame().lightOffset + GetFrame().lightCount - 1;
         const uint firstBucket = firstLight / 32;
         const uint lastBucket = min(lastLight / 32, max(0, SHADER_ENTITY_TILE_BUCKET_COUNT - 1));
         
@@ -88,11 +88,18 @@ inline void ForwardLighting(inout Surface surface, inout Lighting lighting, uint
         for (int bucket = firstBucket; bucket <= lastBucket; bucket++)
         {
             uint lightsBits = LoadEntityTile(tileBucketStart + bucket);
+
+            // Bucket scalarizer - Siggraph 2017 - Improved Culling [Michal Drobot]:
+			lightsBits = WaveReadLaneFirst(WaveActiveBitOr(lightsBits));
+
             [loop]
             while(lightsBits != 0)
             {
                 const uint lightBitIndex = firstbitlow(lightsBits);
                 const uint lightIndex = bucket * 32 + lightBitIndex;
+                lightsBits ^= 1u << lightBitIndex;
+
+                lighting.direct.diffuse.r = lightIndex;
 
                 [branch]
                 if (lightIndex >= firstLight && lightIndex <= lastLight)
@@ -111,12 +118,17 @@ inline void ForwardLighting(inout Surface surface, inout Lighting lighting, uint
                         break;
                     }
                 }
+                else if (lightIndex >= lastLight)
+                {
+                    bucket = SHADER_ENTITY_TILE_BUCKET_COUNT;
+                    break;
+                }
             }
         }
     }
 }
 
-inline void ForwardLighting(inout Surface surface, inout Lighting lighting)
+inline void TiledForwardLighting(inout Surface surface, inout Lighting lighting)
 {
     const uint2 tileIndex = uint2(floor(surface.Pixel / TILED_CULLING_BLOCK_SIZE));
     const uint flatTileIndex = flatten2D(tileIndex, GetCamera().cullingTileCount.xy);

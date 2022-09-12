@@ -39,7 +39,9 @@ void CS_Resolve(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex)
 
     float depth = 1; // invalid
 	uint primitiveID = inputPrimitiveID[pixel];
-    if ((pixel.x < GetCamera().resolution.x) && (pixel.y < GetCamera().resolution.y))
+
+    const bool pixelValid = (pixel.x < GetCamera().resolution.x) && (pixel.y < GetCamera().resolution.y);
+    if (pixelValid)
     {
         [branch]
         if (any(primitiveID))

@@ -24,7 +24,7 @@ namespace VulkanTest
 	protected:
 		virtual void SetupPasses(RenderGraph& renderGraph) = 0;
 		virtual void UpdateRenderData();
-		virtual void BeforeRender();
+		virtual void PrepareResources();
 		virtual void SetupComposeDependency(RenderPass& composePass) = 0;
 		virtual void Compose(RenderGraph& renderGraph, GPU::CommandList* cmd) = 0;
 
@@ -32,6 +32,7 @@ namespace VulkanTest
 
 		U32x2 currentBufferSize {};
 		ResourceDimensions backbufferDim;
+		bool isDirty = false;
 
 	private:
 		RenderGraph renderGraph;

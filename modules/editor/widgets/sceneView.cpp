@@ -76,7 +76,13 @@ namespace Editor
 		GPU::DeviceVulkan* device = wsi->GetDevice();
 		auto& graph = GetRenderGraph();
 		graph.SetupAttachments(*device, nullptr, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL); // Used for sceneView
-		BeforeRender();
+		
+		if (isDirty)
+		{
+			PrepareResources();
+			isDirty = false;
+		}
+
 		Jobsystem::JobHandle handle;
 		graph.Render(*device, handle);
 		Jobsystem::Wait(&handle);

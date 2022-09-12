@@ -57,6 +57,7 @@ CONSTANTBUFFER(g_xFrame, FrameCB, CBSLOT_RENDERER_FRAME);
 
 struct CameraCB
 {
+	float4x4 view;
 	float4x4 viewProjection;
 	float4x4 invProjection;
 	float4x4 invViewProjection;

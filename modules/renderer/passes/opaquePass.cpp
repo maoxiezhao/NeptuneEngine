@@ -14,9 +14,9 @@ namespace VulkanTest
 		pass.SetClearColorCallback(DefaultClearColorFunc);
 		pass.AddProxyOutput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
 		pass.ReadDepthStencil(renderPath.GetDepthStencil());
-		pass.ReadStorageBufferReadonly("LightTiles");
+		pass.ReadStorageBufferReadonly("lightTiles");
 
-		pass.SetBuildCallback([rtAttachment, &renderPath](GPU::CommandList& cmd) {
+		pass.SetBuildCallback([rtAttachment, &renderPath, &renderGraph](GPU::CommandList& cmd) {
 
 			GPU::Viewport viewport;
 			viewport.width = rtAttachment.sizeX;

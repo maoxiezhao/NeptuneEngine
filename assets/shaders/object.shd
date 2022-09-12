@@ -10,6 +10,8 @@
 #include "common/lighting.hlsli"
 #include "common/primitive.hlsli"
 
+// StructuredBuffer<uint> inLightTiles : register(t5);
+
 // Vertex Shader function for Main Pass
 META_VS(true)
 META_PERMUTATION_1(OBJECTSHADER_LAYOUT = 1)	// Common
@@ -117,11 +119,11 @@ float4 PS(PixelInput input) : SV_Target
     // Lighinting
     Lighting lighting;
     lighting.Init(0, 0);
-    ForwardLighting(surface, lighting);
-    ApplyLighting(surface, lighting, color);
-
-    // Test
-    color = GetMaterial().baseColor;
+    //TiledForwardLighting(surface, lighting);
+    //ApplyLighting(surface, lighting, color);
+    // color.r = asfloat(LoadEntityTile(0));
+    // color.g = 0;
+    // color.b = 0;
 
     return color;
 }
@@ -138,4 +140,3 @@ uint PS_Depth(PixelInput input, in uint primitiveID : SV_PrimitiveID, out uint c
     prim.subsetIndex = push.geometryIndex - LoadInstance(input.instanceIndex).geometryOffset;   // Be care of the lodOffset
     return prim.Pack();
 }
-

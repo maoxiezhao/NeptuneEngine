@@ -1537,7 +1537,7 @@ namespace VulkanTest
                 b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
                 b.buffer = physicalBuffers[barrier.resIndex]->GetBuffer();
                 b.offset = 0;
-                b.size = VK_WHOLE_SIZE;
+                b.size = physicalBuffers[barrier.resIndex]->GetCreateInfo().size;
                 state.bufferBarriers.push_back(b);
             }
         }
@@ -2408,7 +2408,11 @@ namespace VulkanTest
         else
             stages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 
-        return AddGenericBufferInput(name, stages, VK_ACCESS_SHADER_READ_BIT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        return AddGenericBufferInput(
+            name, 
+            stages, 
+            VK_ACCESS_SHADER_READ_BIT, 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     }
 
     RenderBufferResource& RenderPass::WriteStorageBuffer(const char* name, const BufferInfo& info, const char* input)

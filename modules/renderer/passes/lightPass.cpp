@@ -12,7 +12,7 @@ namespace VulkanTest
 		U32x3 tileCount = Renderer::GetLightCullingTileCount(U32x2((U32)rtAttachment.sizeX, (U32)rtAttachment.sizeY));
 
 		// Frustum computation
-		auto& pass = renderGraph.AddRenderPass("FrustumComputation", RenderGraphQueueFlag::Compute);
+		auto& pass = renderGraph.AddRenderPass("FrustumComputation", RenderGraphQueueFlag::AsyncCompute);
 		pass.ReadTexture("depthCopy");
 
 		BufferInfo frustumBufferInfo = {};
@@ -33,12 +33,12 @@ namespace VulkanTest
 		});
 
 		// Light culling
-		auto& cullingPass = renderGraph.AddRenderPass("LightCulling", RenderGraphQueueFlag::Compute);
+		auto& cullingPass = renderGraph.AddRenderPass("LightCulling", RenderGraphQueueFlag::AsyncCompute);
 		cullingPass.ReadStorageBufferReadonly("TiledFrustum");
 
 		BufferInfo lightTileBufferInfo = {};
 		lightTileBufferInfo.size = tileCount.x * tileCount.y * sizeof(U32) * SHADER_ENTITY_TILE_BUCKET_COUNT;
-		auto& tilesRes = cullingPass.WriteStorageBuffer("LightTiles", lightTileBufferInfo);
+		auto& tilesRes = cullingPass.WriteStorageBuffer("lightTiles", lightTileBufferInfo);
 
 		RenderTextureResource* debugRes = nullptr;
 		bool debugLightCulling = true;
@@ -50,7 +50,10 @@ namespace VulkanTest
 		}
 
 		cullingPass.SetBuildCallback([&, tileCount, debugLightCulling, debugRes](GPU::CommandList& cmd) {
+
+			Renderer::BindFrameCB(cmd);
 			Renderer::BindCameraCB(*renderPath.camera, cmd);
+			
 			cmd.BeginEvent("Light culling");
 			cmd.SetStorageBuffer(0, 0, renderGraph.GetPhysicalBuffer(frustumRes));
 			cmd.SetStorageBuffer(0, 1, renderGraph.GetPhysicalBuffer(tilesRes));

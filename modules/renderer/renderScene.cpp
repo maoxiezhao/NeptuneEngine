@@ -549,7 +549,7 @@ namespace VulkanTest
             // Update meshlet buffer
             if (instanceArraySize > 0 && meshletBuffer)
             {
-                Renderer::BindCommonResources(cmd);
+                Renderer::BindFrameCB(cmd);
                 cmd.BeginEvent("Meshlet prepare");
                 cmd.BufferBarrier(*meshletBuffer, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT);
                 cmd.SetStorageBuffer(0, 0, *meshletBuffer);
