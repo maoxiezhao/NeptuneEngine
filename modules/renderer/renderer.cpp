@@ -503,12 +503,13 @@ namespace Renderer
 		cb.invViewProjection = camera.invViewProjection;
 		cb.position = camera.eye;
 		cb.zNear = camera.nearZ;
+		cb.forward = camera.at;
 		cb.zFar = camera.farZ;
 		cb.resolution = U32x2((U32)camera.width, (U32)camera.height);
 		cb.resolutionRcp = F32x2(1.0f / camera.width, 1.0f / camera.height);
-
-		cb.texture_depth_index = camera.textureDepthBindless ? camera.textureDepthBindless->GetIndex() : -1;
 		cb.cullingTileCount = GetLightCullingTileCount(cb.resolution);
+
+		cb.textureDepthIndex = camera.textureDepthBindless ? camera.textureDepthBindless->GetIndex() : -1;
 		cb.cullingTileBufferIndex = camera.bufferLightTileBindless ? camera.bufferLightTileBindless->GetIndex() : -1;
 		cmd.BindConstant(cb, 0, CBSLOT_RENDERER_CAMERA);
 	}

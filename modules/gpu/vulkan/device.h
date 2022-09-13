@@ -107,6 +107,7 @@ private:
     void BeginBatch();
 
     bool hasTimelineSemaphoreInBatch(U32 index)const;
+    bool hasBinarySemaphoreInBatch(U32 index)const;
 
 public:
     void AddWaitSemaphores(WaitSemaphores& semaphores);

@@ -83,13 +83,13 @@ struct Surface
 
         // Get indices
         const uint startIndex = prim.primitiveIndex * 3 + geometry.indexOffset;
-        Buffer<uint> indexBuffer = bindless_ib[geometry.ib];
+        Buffer<uint> indexBuffer = bindless_ib[NonUniformResourceIndex(geometry.ib)];
 		i0 = indexBuffer[startIndex + 0];
 		i1 = indexBuffer[startIndex + 1];
 		i2 = indexBuffer[startIndex + 2];
 
         // Get vertices
-        ByteAddressBuffer posBuffer = bindless_buffers[geometry.vbPos];
+        ByteAddressBuffer posBuffer = bindless_buffers[NonUniformResourceIndex(geometry.vbPos)];
 		float3 p0 = posBuffer.Load<float3>(i0 * sizeof(float3));
         float3 p1 = posBuffer.Load<float3>(i1 * sizeof(float3));
         float3 p2 = posBuffer.Load<float3>(i2 * sizeof(float3));
@@ -101,6 +101,8 @@ struct Surface
         ComputeBarycentrics(rayOrigin, rayDirection, pos0, pos1, pos2, hitDepth);
         P = rayOrigin + rayDirection * hitDepth;
         V = -rayDirection;
+
+        P = pos0;
 
         return true;
     }

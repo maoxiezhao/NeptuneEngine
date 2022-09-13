@@ -59,17 +59,20 @@ Semaphore& Semaphore::operator=(Semaphore&& other) noexcept
 	if (this == &other)
 		return *this;
 
+	ASSERT(&device == &other.device);
 	Recycle();
 
 	semaphore = other.semaphore;
 	timeline = other.timeline;
 	signalled = other.signalled;
-	timeline = other.timeline;
+	semaphoreType = other.semaphoreType;
+	isPendingWait = other.isPendingWait;
 
 	other.semaphore = VK_NULL_HANDLE;
 	other.timeline = 0;
 	other.signalled = false;
 	other.timeline = 0;
+	other.isPendingWait = false;
 
 	return *this;
 }

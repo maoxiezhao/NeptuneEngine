@@ -99,8 +99,6 @@ inline void ForwardLighting(inout Surface surface, inout Lighting lighting, uint
                 const uint lightIndex = bucket * 32 + lightBitIndex;
                 lightsBits ^= 1u << lightBitIndex;
 
-                lighting.direct.diffuse.r = lightIndex;
-
                 [branch]
                 if (lightIndex >= firstLight && lightIndex <= lastLight)
                 {

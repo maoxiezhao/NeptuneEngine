@@ -551,10 +551,11 @@ namespace VulkanTest
             {
                 Renderer::BindFrameCB(cmd);
                 cmd.BeginEvent("Meshlet prepare");
-                cmd.BufferBarrier(*meshletBuffer, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT);
+                cmd.BufferBarrier(*meshletBuffer, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
                 cmd.SetStorageBuffer(0, 0, *meshletBuffer);
                 cmd.SetProgram(Renderer::GetShader(SHADERTYPE_MESHLET)->GetCS("CS"));
                 cmd.Dispatch(instanceArraySize, 1, 1);
+                cmd.BufferBarrier(*meshletBuffer, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
                 cmd.EndEvent();
             }
         }
@@ -634,7 +635,7 @@ namespace VulkanTest
             sceneCB.instancebuffer = instanceBuffer.GetBindlessIndex();
             sceneCB.geometrybuffer = geometryBuffer.GetBindlessIndex();
             sceneCB.materialbuffer = materialBuffer.GetBindlessIndex();
-            sceneCB.meshletBuffer = meshletBufferBindless ? meshletBufferBindless->GetReference() : -1;
+            sceneCB.meshletBuffer = meshletBufferBindless ? meshletBufferBindless->GetIndex() : -1;
         }
     };
 

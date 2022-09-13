@@ -12,7 +12,7 @@ namespace VulkanTest
 		U32x3 tileCount = Renderer::GetLightCullingTileCount(U32x2((U32)rtAttachment.sizeX, (U32)rtAttachment.sizeY));
 
 		// Frustum computation
-		auto& pass = renderGraph.AddRenderPass("FrustumComputation", RenderGraphQueueFlag::AsyncCompute);
+		auto& pass = renderGraph.AddRenderPass("FrustumComputation", RenderGraphQueueFlag::Compute);
 		pass.ReadTexture("depthCopy");
 
 		BufferInfo frustumBufferInfo = {};
@@ -33,7 +33,7 @@ namespace VulkanTest
 		});
 
 		// Light culling
-		auto& cullingPass = renderGraph.AddRenderPass("LightCulling", RenderGraphQueueFlag::AsyncCompute);
+		auto& cullingPass = renderGraph.AddRenderPass("LightCulling", RenderGraphQueueFlag::Compute);
 		cullingPass.ReadStorageBufferReadonly("TiledFrustum");
 
 		BufferInfo lightTileBufferInfo = {};

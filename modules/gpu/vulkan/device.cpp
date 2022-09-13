@@ -1735,11 +1735,12 @@ void DeviceVulkan::AddWaitSemaphore(QueueType queueType, SemaphorePtr semaphore,
 void DeviceVulkan::AddWaitSemaphore(QueueIndices queueIndex, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
 {
     LOCK();
-    AddWaitSemaphoreNolock(queueIndex, semaphore, stages, flush);
+    AddWaitSemaphoreNolock(queueIndex, std::move(semaphore), stages, flush);
 }
 
 void DeviceVulkan::AddWaitSemaphoreNolock(QueueIndices queueIndex, SemaphorePtr semaphore, VkPipelineStageFlags stages, bool flush)
 {
+    ASSERT(stages != 0);
     if (flush)
         FlushFrame(queueIndex);
 
@@ -2126,7 +2127,6 @@ void DeviceVulkan::SubmitNolock(CommandListPtr cmd, FencePtr* fence, U32 semapho
     auto& submissions = CurrentFrameResource().submissions[queueIndex];
 
     cmd->EndCommandBuffer();
-
     submissions.push_back(std::move(cmd));
 
     InternalFence signalledFence;
@@ -2619,6 +2619,19 @@ static bool hasTimelineSemaphore(const std::vector<uint64_t>& counts)
     }) != counts.end();
 }
 
+static bool hasBinarySemaphore(const std::vector<uint64_t>& counts)
+{
+    return std::find_if(counts.begin(), counts.end(), [](uint64_t count) {
+        return count == 0;
+    }) != counts.end();
+}
+
+bool BatchComposer::hasBinarySemaphoreInBatch(U32 index) const
+{
+    return hasBinarySemaphore(submitInfos[index].waitCounts) ||
+        hasBinarySemaphore(submitInfos[index].signalCounts);
+}
+
 bool BatchComposer::hasTimelineSemaphoreInBatch(U32 index) const
 {
     return hasTimelineSemaphore(submitInfos[index].waitCounts) ||
@@ -2639,13 +2652,14 @@ void BatchComposer::AddWaitSemaphore(SemaphorePtr& sem, VkPipelineStageFlags sta
 
 void BatchComposer::AddWaitSemaphores(WaitSemaphores& semaphores)
 {
+    auto&submit = submitInfos[submitIndex];
     if (!semaphores.binaryWaits.empty())
     {
         for (int i = 0; i < semaphores.binaryWaits.size(); i++)
         {
-            submitInfos[submitIndex].waitSemaphores.push_back(semaphores.binaryWaits[i]);
-            submitInfos[submitIndex].waitStages.push_back(semaphores.binaryWaitStages[i]);
-            submitInfos[submitIndex].waitCounts.push_back(0);
+            submit.waitSemaphores.push_back(semaphores.binaryWaits[i]);
+            submit.waitStages.push_back(semaphores.binaryWaitStages[i]);
+            submit.waitCounts.push_back(0);
         }
     }
 
@@ -2653,9 +2667,9 @@ void BatchComposer::AddWaitSemaphores(WaitSemaphores& semaphores)
     {
         for (int i = 0; i < semaphores.timelineWaits.size(); i++)
         {
-            submitInfos[submitIndex].waitSemaphores.push_back(semaphores.timelineWaits[i]);
-            submitInfos[submitIndex].waitStages.push_back(semaphores.timelineWaitStages[i]);
-            submitInfos[submitIndex].waitCounts.push_back(semaphores.timelineWaitCounts[i]);
+            submit.waitSemaphores.push_back(semaphores.timelineWaits[i]);
+            submit.waitStages.push_back(semaphores.timelineWaitStages[i]);
+            submit.waitCounts.push_back(semaphores.timelineWaitCounts[i]);
         }
     }
 }
@@ -2687,6 +2701,13 @@ std::vector<VkSubmitInfo>& BatchComposer::Bake()
 
         if (hasTimelineSemaphoreInBatch(index))
         {
+            //if (hasBinarySemaphoreInBatch(index))
+            //{
+            //    Logger::Error("Using timeline semaphore info, bug have binary semaphore as well");
+            //    submits.resize(0);
+            //    return submits;
+            //}
+
             timelineInfo = {};
             timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
             timelineInfo.pNext = nullptr;

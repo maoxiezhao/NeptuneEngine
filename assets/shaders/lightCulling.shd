@@ -151,7 +151,7 @@ void CS_Frustum(uint3 DTid : SV_DispatchThreadID)
 StructuredBuffer<Frustum> inFrustums : register(t0);
 RWByteAddressBuffer entityTiles : register(u1);
 
-#ifdef DEBUG_TILEDLIGHTCULLING
+#if DEBUG_TILEDLIGHTCULLING == 1
 RWTexture2D<unorm float4> debugTexture : register(u2);
 #endif
 
@@ -161,7 +161,7 @@ groupshared uint uMinDepth;
 groupshared uint uMaxDepth;
 groupshared uint uDepthMask;	
 
-#ifdef DEBUG_TILEDLIGHTCULLING
+#if DEBUG_TILEDLIGHTCULLING == 1
 groupshared uint entityCountDebug;
 #endif
 
@@ -192,7 +192,7 @@ void AppendEntity(uint index)
 	const uint bucketBit = index % 32;
 	InterlockedOr(uTileBuckets[bucketIndex], 1u << bucketBit);
 
-#ifdef DEBUG_TILEDLIGHTCULLING
+#if DEBUG_TILEDLIGHTCULLING == 1
 	InterlockedAdd(entityCountDebug, 1);
 #endif
 }
@@ -221,7 +221,7 @@ void CS_LightCulling(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex, ui
 		uMinDepth = 0xffffffff;
 		uMaxDepth = 0;
 		uDepthMask = 0;
-#ifdef DEBUG_TILEDLIGHTCULLING
+#if DEBUG_TILEDLIGHTCULLING == 1
 		entityCountDebug = 0;
 #endif
     }
@@ -366,7 +366,7 @@ void CS_LightCulling(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex, ui
     }
 
     // Output debug texture
-#ifdef DEBUG_TILEDLIGHTCULLING
+#if DEBUG_TILEDLIGHTCULLING == 1
     for(granularity = 0; granularity < TILED_CULLING_GRANULARITY * TILED_CULLING_GRANULARITY; granularity++)
     {
         uint2 pixel = DTid.xy * uint2(TILED_CULLING_GRANULARITY, TILED_CULLING_GRANULARITY) + unflatten2D(granularity, TILED_CULLING_GRANULARITY);

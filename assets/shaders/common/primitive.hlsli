@@ -9,35 +9,39 @@ struct PrimitiveID
     uint instanceIndex;
     uint subsetIndex;
 
-    // 1 bit valid flag
-    // 23 bit meshletIndex
-    // 8  bit meshletPrimitiveIndex
+    // |---------------------- 32 bits-----------------------|
+    // | 1 valid | 8 meshletPrimitiveIndex | 23 meshletIndex |
     inline uint Pack()
     {
 		ShaderMeshInstance inst = LoadInstance(instanceIndex);
 		ShaderGeometry geometry = LoadGeometry(inst.geometryOffset + subsetIndex);
 
+        // MeshletIndex
         uint meshletIndex = inst.meshletOffset + geometry.meshletOffset + primitiveIndex / MESHLET_TRIANGLE_COUNT;
-	    uint meshletPrimitiveIndex = primitiveIndex % MESHLET_TRIANGLE_COUNT;
- 		return (1u << 31u) | meshletPrimitiveIndex | meshletIndex;
+        meshletIndex &= ~0u >> 9u;
+
+        // Meshlet primitive index
+        uint meshletPrimitiveIndex = primitiveIndex % MESHLET_TRIANGLE_COUNT;
+		meshletPrimitiveIndex &= 0xFF; // mask 8 active bits
+		meshletPrimitiveIndex <<= 23u;
+
+		return (1u << 31u) | meshletPrimitiveIndex | meshletIndex;
     }
 
-    // 1 bit valid flag
-    // 23 bit meshletIndex
-    // 8  bit meshletPrimitiveIndex
+    // |---------------------- 32 bits-----------------------|
+    // | 1 valid | 8 meshletPrimitiveIndex | 23 meshletIndex |
     inline void Unpack(uint value)
     {
-        value ^= 1u << 31u;
-
-        uint meshletIndex = value & (~0u >> 9u);
+		value ^= 1u << 31u; // remove valid flag
+		uint meshletIndex = value & (~0u >> 9u);
 		uint meshletPrimitiveIndex = (value >> 23u) & 0xFF;
 
         ShaderMeshlet meshlet = LoadMeshlet(meshletIndex);
-        primitiveIndex = meshlet.primitiveOffset + meshletPrimitiveIndex;
-        instanceIndex = meshlet.instanceIndex;
-
         ShaderMeshInstance inst = LoadInstance(instanceIndex);
-        subsetIndex = meshlet.geometryIndex - inst.geometryOffset;
+
+		primitiveIndex = meshlet.primitiveOffset + meshletPrimitiveIndex;
+		instanceIndex = meshlet.instanceIndex;
+		subsetIndex = meshlet.geometryIndex - inst.geometryOffset;
     }
 };
 

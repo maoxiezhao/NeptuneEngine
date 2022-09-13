@@ -1671,7 +1671,8 @@ namespace VulkanTest
         {
             ent.waitGraphicsSemaphore = state.graphicsSemaphore;
             ent.waitComputeSemaphore = state.computeSemaphore;
-            ent.pieplineBarrierSrcStages = 0;
+            // ent.pieplineBarrierSrcStages = 0;
+            ent.pieplineBarrierSrcStages = state.postPipelineBarrierStages;
         }
         else
         {
@@ -2268,7 +2269,8 @@ namespace VulkanTest
         auto& device = cmd->GetDevice();
         
         // Wait semaphores in queue
-        for (U32 i = 0; i < waitSemaphores.size(); i++)
+        U32 numSemaphores = (U32)waitSemaphores.size();
+        for (U32 i = 0; i < numSemaphores; i++)
         {
             auto& semaphore = waitSemaphores[i];
             if (semaphore->GetSemaphore() != VK_NULL_HANDLE && !semaphore->IsPendingWait())

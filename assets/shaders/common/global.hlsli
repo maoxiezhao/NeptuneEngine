@@ -21,7 +21,7 @@ SamplerState samPointClamp  : register(s102);
 SamplerState samPointWrap   : register(s103);
 
 // Bindless textures
-#define texture_depth bindless_textures_float[GetCamera().texture_depth_index]
+#define texture_depth bindless_textures_float[GetCamera().textureDepthIndex]
 
 /////////////////////////////////////////////////////////////////////////
 

@@ -23,6 +23,7 @@ struct ShaderMeshlet
 	uint instanceIndex;
 	uint geometryIndex;
 	uint primitiveOffset;
+	uint padding;
 };
 
 // Visibility
@@ -61,16 +62,21 @@ struct CameraCB
 	float4x4 viewProjection;
 	float4x4 invProjection;
 	float4x4 invViewProjection;
+
 	float3 position;
 	float zNear;
+	
+	float3 forward;
 	float zFar;
-	float padding;
+
 	uint2 resolution;
 	float2 resolutionRcp;
 
-	int texture_depth_index;	 //  Depth texture bindless index
-	uint3 cullingTileCount;		 // Entity culling tile
-	int  cullingTileBufferIndex; // Entity culling tile buffer bindless index
+	uint3 cullingTileCount;		// Entity culling tile
+	uint padding;
+
+	int textureDepthIndex;	//  Depth texture bindless index
+	int cullingTileBufferIndex; // Entity culling tile buffer bindless index
 };
 
 CONSTANTBUFFER(g_xCamera, CameraCB, CBSLOT_RENDERER_CAMERA);
