@@ -105,6 +105,7 @@ namespace Editor
 		}
 	
 		// Gather meshes
+		meshes.reserve(objShapes.size());
 		for (auto& shape : objShapes)
 		{
 			auto& mesh = meshes.emplace();

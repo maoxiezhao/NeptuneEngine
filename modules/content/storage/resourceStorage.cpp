@@ -343,11 +343,12 @@ namespace VulkanTest
 					return false;
 				}
 
-				if (compressedSize <= 0 || compressedSize > I32(chunk->Size() / 4 * 3))
-				{
-					compressedChunks.clear();
-					compressed = false;
-				}
+				// TODO
+				//if (compressedSize <= 0 || compressedSize > I32(chunk->Size() / 4 * 3))
+				//{
+				//	compressedChunks.clear();
+				//	compressed = false;
+				//}
 	
 				chunk->compressed = compressed;
 			}

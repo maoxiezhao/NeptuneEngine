@@ -224,7 +224,7 @@ namespace VulkanTest
 
 	bool Model::ShouldUpdate() const
 	{
-		return IsReady() && streamTask == nullptr;
+		return IsInitialized() && streamTask == nullptr;
 	}
 
 	Task* Model::CreateStreamingTask(I32 residency)

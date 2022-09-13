@@ -138,7 +138,7 @@ namespace VulkanTest
 				auto res = resources[lastUpdateIndex];
 
 				const static U64 ResourceUpdateInterval = (U64)(0.1f * Timer::GetFrequency());
-				if (now - res->LastUpdateTime >= ResourceUpdateInterval)
+				if (now - res->LastUpdateTime >= ResourceUpdateInterval && res->ShouldUpdate())
 				{
 					UpdataStreamableResource(res, now);
 					resourcesUpdates--;

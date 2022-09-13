@@ -559,7 +559,9 @@ namespace Renderer
 				return;
 
 			const MeshComponent* meshCmp = instancedBatch.meshID.Get<MeshComponent>();
-			if (meshCmp == nullptr)
+			if (meshCmp == nullptr || 
+				!meshCmp->model->IsReady() || 
+				instancedBatch.lodIndex >= meshCmp->model->GetLODsCount())
 				return;
 
 			Mesh& mesh = *meshCmp->meshes[instancedBatch.lodIndex];

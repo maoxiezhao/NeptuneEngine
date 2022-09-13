@@ -76,7 +76,7 @@ namespace VulkanTest
 
 		I32 ClampLODIndex(I32 index) const
 		{
-			return std::clamp(index, HighestResidentLODIndex(), (I32)modelLods.size() - 1);
+			return Clamp(index, HighestResidentLODIndex(), (I32)modelLods.size() - 1);
 		}
 
 		ModelLOD* GetModelLOD(I32 lodIndex) 
@@ -109,6 +109,10 @@ namespace VulkanTest
 		bool IsReady()const override;
 		PickResult CastRayPick(const VECTOR& rayOrigin, const VECTOR& rayDirection, F32 tmin, F32 tmax);
 		I32 CalculateModelLOD(F32x3 eye, F32x3 pos, F32 radius);
+
+		bool IsInitialized()const {
+			return !modelLods.empty();
+		}
 
 	protected:
 		bool Init(ResourceInitData& initData) override;

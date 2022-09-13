@@ -11,6 +11,18 @@ namespace VulkanTest
 {
 	static const FMat4x4 IDENTITY_MATRIX = FMat4x4(1.0f);
 
+	template<class T>
+	static T Clamp(const T value, const T min, const T max)
+	{
+		return value < min ? min : value < max ? value : max;
+	}
+
+	template<class T>
+	static T Saturate(const T value)
+	{
+		return value < 0 ? 0 : value < 1 ? value : 1;
+	}
+
 	constexpr F32x3 Max(const F32x3& a, const F32x3& b) {
 		return F32x3(std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z));
 	}
