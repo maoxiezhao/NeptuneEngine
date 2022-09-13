@@ -18,7 +18,7 @@ namespace VulkanTest
 	{
 		F32 fov = MATH_PI / 3.0f;
 		F32 nearZ = 0.1f;
-		F32 farZ = 1000.0f;
+		F32 farZ = 5000.0f;
 		F32 width = 0.0f;
 		F32 height = 0.0f;
 

@@ -69,7 +69,7 @@ namespace Editor
         Mutex compiledMutex;
         HashMap<Path, Array<Path>> dependencies;
         U32 batchCompileCount = 0;
-        U32 batchRemainningCount = 0;
+        volatile I32 batchRemainningCount = 0;
 
         Mutex mutex;
         CompilerTask compilerTask;
@@ -491,7 +491,7 @@ namespace Editor
 
         void OnGUI() override
         {
-            if (batchRemainningCount == 0)
+            if (AtomicRead(&batchRemainningCount) == 0)
                 return;
 
             const F32 uiWidth = std::max(300.f, ImGui::GetIO().DisplaySize.x * 0.33f);
@@ -511,7 +511,8 @@ namespace Editor
             if (ImGui::Begin("Resource compilation", nullptr, flags)) 
             {
                 ImGui::Text("%s", "Compiling resources...");
-                ImGui::ProgressBar(((float)batchCompileCount - batchRemainningCount) / batchCompileCount);
+                const I32 remainingCount = AtomicRead(&batchRemainningCount);
+                ImGui::ProgressBar(((float)batchCompileCount - remainingCount) / batchCompileCount);
 
                 // Show the current res in progress
                 StaticString<MAX_PATH_LENGTH> path;
@@ -707,7 +708,7 @@ namespace Editor
 
             toCompileJobs.push_back(job);
             batchCompileCount++;
-            batchRemainningCount++;
+            AtomicIncrement(&batchRemainningCount);
             semaphore.Signal();
         }
 
@@ -720,8 +721,8 @@ namespace Editor
             CompileJob compiled = compiledJobs.back();
             compiledJobs.pop_back();
 
-            batchRemainningCount--;
-            if (batchRemainningCount == 0)
+            AtomicDecrement(&batchRemainningCount);
+            if (AtomicRead(&batchRemainningCount) == 0)
                 batchCompileCount = 0;
 
             return compiled;

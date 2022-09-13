@@ -144,6 +144,8 @@ namespace VulkanTest
 
         ShaderSceneCB sceneCB;
 
+        std::vector<ECS::Entity> toLoadModels;
+
     public:
         RenderSceneImpl(RendererPlugin& rendererPlugin_, Engine& engine_, World& world_) :
             rendererPlugin(rendererPlugin_),
@@ -459,7 +461,7 @@ namespace VulkanTest
 
             I32 lodsCount = model->GetLODsCount();
             Array<MeshComponent*> lodMeshes;
-            for (I32 lodIndex = 0; lodIndex < lodsCount; lodIndex++)
+            for (I32 meshIndex = 0; meshIndex < model->GetModelLOD(0)->GetMeshes().size(); meshIndex++)
                 lodMeshes.push_back(nullptr);
 
             for (I32 lodIndex = 0; lodIndex < lodsCount; lodIndex++)
@@ -468,10 +470,10 @@ namespace VulkanTest
                 for (int meshIndex = 0; meshIndex < meshes.size(); meshIndex++)
                 {
                     auto& mesh = meshes[meshIndex];
-                    MeshComponent* meshCmp = lodMeshes[lodIndex];
+                    MeshComponent* meshCmp = lodMeshes[meshIndex];
                     if (meshCmp == nullptr)
                     {
-                        auto meshEntity = CreateMesh(CreateEntity(mesh.name.c_str()));
+                        auto meshEntity = CreateMesh(CreateEntity(mesh.name + "_mesh"));
                         meshCmp = meshEntity.GetMut<MeshComponent>();
                         lodMeshes[lodIndex] = meshCmp;
 
@@ -481,8 +483,7 @@ namespace VulkanTest
                         meshCmp->lodsCount = lodsCount;
 
                         // ObjectComponent
-                        String name = entity.GetName();
-                        auto objectEntity = CreateObject(CreateEntity(name + "_obj"));
+                        auto objectEntity = CreateObject(CreateEntity(mesh.name + "_obj"));
                         ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
                         obj->mesh = meshEntity;
                     }
@@ -526,7 +527,7 @@ namespace VulkanTest
             Model* model = static_cast<Model*>(resource);
             auto it = modelEntityMap.find(model);
             if (it != modelEntityMap.end())
-                OnModelLoaded(model, it->second);
+                toLoadModels.push_back(it->second);
         }
 
         void OnModelUnloadedCallback(Resource* resource)
@@ -569,6 +570,15 @@ namespace VulkanTest
         {
             PROFILE_FUNCTION();
             GPU::DeviceVulkan& device = *engine.GetWSI().GetDevice();
+
+            // Process to load models
+            for (auto entity : toLoadModels)
+            {
+                const LoadModelComponent* loadComp = entity.Get<LoadModelComponent>();
+                if (loadComp->model)
+                    OnModelLoaded(loadComp->model.get(), entity);
+            }
+            toLoadModels.clear();
 
             // Update instance buffer
             instanceArraySize = 0;
