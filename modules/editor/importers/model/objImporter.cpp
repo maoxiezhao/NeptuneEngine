@@ -309,21 +309,31 @@ namespace Editor
 		// Attributes (pos, normal, texcoord)
 		U32 attrCount = GetAttributeCount(mesh);
 		outmem.Write(attrCount);
-		outmem.Write(Mesh::AttributeSemantic::POSITION);
-		outmem.Write(Mesh::AttributeType::F32);
-		outmem.Write((U8)3);
 
-		outmem.Write(Mesh::AttributeSemantic::NORMAL);
-		outmem.Write(Mesh::AttributeType::F32);
-		outmem.Write((U8)3);
-
-		outmem.Write(Mesh::AttributeSemantic::TANGENT);
-		outmem.Write(Mesh::AttributeType::F32);
-		outmem.Write((U8)4);
-
-		outmem.Write(Mesh::AttributeSemantic::TEXCOORD0);
-		outmem.Write(Mesh::AttributeType::F32);
-		outmem.Write((U8)2);
+		if (!mesh.vertexPositions.empty())
+		{
+			outmem.Write(Mesh::AttributeSemantic::POSITION);
+			outmem.Write(Mesh::AttributeType::F32);
+			outmem.Write((U8)3);
+		}
+		if (!mesh.vertexNormals.empty())
+		{
+			outmem.Write(Mesh::AttributeSemantic::NORMAL);
+			outmem.Write(Mesh::AttributeType::F32);
+			outmem.Write((U8)3);
+		}
+		if (!mesh.vertexTangents.empty())
+		{
+			outmem.Write(Mesh::AttributeSemantic::TANGENT);
+			outmem.Write(Mesh::AttributeType::F32);
+			outmem.Write((U8)4);
+		}
+		if (!mesh.vertexUvset_0.empty())
+		{
+			outmem.Write(Mesh::AttributeSemantic::TEXCOORD0);
+			outmem.Write(Mesh::AttributeType::F32);
+			outmem.Write((U8)2);
+		}
 
 		// Indices
 		const bool are16bit = AreIndices16Bit(mesh);
@@ -348,11 +358,26 @@ namespace Editor
 		}
 
 		// Vertex datas
-		outmem.Write(mesh.vertexPositions.size());
-		outmem.Write(mesh.vertexPositions.data(), mesh.vertexPositions.size() * sizeof(F32x3));
-		outmem.Write(mesh.vertexNormals.data(), mesh.vertexNormals.size() * sizeof(F32x3));
-		outmem.Write(mesh.vertexTangents.data(), mesh.vertexTangents.size() * sizeof(F32x4));
-		outmem.Write(mesh.vertexUvset_0.data(), mesh.vertexUvset_0.size() * sizeof(F32x2));
+		if (!mesh.vertexPositions.empty())
+		{
+			outmem.Write(mesh.vertexPositions.size());
+			outmem.Write(mesh.vertexPositions.data(), mesh.vertexPositions.size() * sizeof(F32x3));
+		}
+		if (!mesh.vertexNormals.empty())
+		{
+			outmem.Write(mesh.vertexNormals.size());
+			outmem.Write(mesh.vertexNormals.data(), mesh.vertexNormals.size() * sizeof(F32x3));
+		}
+		if (!mesh.vertexTangents.empty())
+		{
+			outmem.Write(mesh.vertexTangents.size());
+			outmem.Write(mesh.vertexTangents.data(), mesh.vertexTangents.size() * sizeof(F32x4));
+		}
+		if (!mesh.vertexUvset_0.empty())
+		{
+			outmem.Write(mesh.vertexUvset_0.size());
+			outmem.Write(mesh.vertexUvset_0.data(), mesh.vertexUvset_0.size() * sizeof(F32x2));
+		}
 	}
 
 	bool OBJImporter::AreIndices16Bit(const ImportMesh& mesh) const
@@ -364,7 +389,16 @@ namespace Editor
 
 	I32 OBJImporter::GetAttributeCount(const ImportMesh& mesh) const
 	{
-		return 4; // Pos & Normals & Tagents & UV
+		I32 attributeCount = 0;
+		if (!mesh.vertexPositions.empty())
+			attributeCount++;
+		if (!mesh.vertexNormals.empty())
+			attributeCount++;
+		if (!mesh.vertexUvset_0.empty())
+			attributeCount++;
+		if (!mesh.vertexTangents.empty())
+			attributeCount++;
+		return attributeCount; // Pos & Normals & Tagents & UV
 	}
 
 	bool OBJImporter::WriteModel(Guid guid, const char* filepath, const ImportConfig& cfg)

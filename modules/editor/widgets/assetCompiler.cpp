@@ -68,7 +68,7 @@ namespace Editor
         Mutex toCompileMutex;
         Mutex compiledMutex;
         HashMap<Path, Array<Path>> dependencies;
-        U32 batchCompileCount = 0;
+        volatile I32 batchCompileCount = 0;
         volatile I32 batchRemainningCount = 0;
 
         Mutex mutex;
@@ -512,7 +512,8 @@ namespace Editor
             {
                 ImGui::Text("%s", "Compiling resources...");
                 const I32 remainingCount = AtomicRead(&batchRemainningCount);
-                ImGui::ProgressBar(((float)batchCompileCount - remainingCount) / batchCompileCount);
+                const I32 totalCount = AtomicRead(&batchCompileCount);
+                ImGui::ProgressBar(((float)totalCount - remainingCount) / totalCount);
 
                 // Show the current res in progress
                 StaticString<MAX_PATH_LENGTH> path;
@@ -707,7 +708,7 @@ namespace Editor
             job.guid = guid;
 
             toCompileJobs.push_back(job);
-            batchCompileCount++;
+            AtomicIncrement(&batchCompileCount);
             AtomicIncrement(&batchRemainningCount);
             semaphore.Signal();
         }
@@ -716,7 +717,10 @@ namespace Editor
         {
             ScopedMutex lock(compiledMutex);
             if (compiledJobs.empty())
+            {
+                AtomicStore(&batchRemainningCount, 0);
                 return {};
+            }
 
             CompileJob compiled = compiledJobs.back();
             compiledJobs.pop_back();

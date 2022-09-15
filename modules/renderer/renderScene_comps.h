@@ -110,6 +110,11 @@ namespace VulkanTest
 		AABB aabb;
 	};
 
+	struct WeatherComponent
+	{
+		F32x3 ambientColor = F32x3(0.2f);
+	};
+
 	class VULKAN_TEST_API RenderPassPlugin
 	{
 	public:

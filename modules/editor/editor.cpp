@@ -406,14 +406,6 @@ namespace Editor
              profilerTools.Update();
         }
 
-        struct ShaderGeometry
-        {
-            I32 vbPos;
-            I32 vbNor;
-            I32 vbUVs;
-            I32 ib;
-        };
-
         void Render() override
         {
             PROFILE_BLOCK("Render");

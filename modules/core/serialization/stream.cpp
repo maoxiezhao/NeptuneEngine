@@ -66,6 +66,9 @@ namespace VulkanTest
 
 	bool InputMemoryStream::Read(void* buffer_, U64 size_)
 	{
+		if (size_ <= 0)
+			return true;
+
 		if (pos + size_ > size)
 		{
 			memset(buffer_, 0, size_);

@@ -13,7 +13,7 @@ tools/cjing_build/scripts/__pycache__
 
 # assets
 assets/.export
-assets/models/sponza
+assets/models
 
 # vscode
 .vscode

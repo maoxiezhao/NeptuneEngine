@@ -25,6 +25,7 @@ struct Surface
 
     float roughnessBRDF;	// real roughness (perceptualRoughness->roughness)
 	float f90;				// reflectance at grazing angle
+    float3 F;                // fresnel
     float NdotV;
 
     // Init default surface
@@ -58,8 +59,8 @@ struct Surface
         float perceptualRoughness = clamp(roughness, 0.045, 1);
 		roughnessBRDF = perceptualRoughness * perceptualRoughness;   
         f90 = saturate(50.0 * dot(f0, 0.33));
-
         NdotV = saturate(dot(N, V) + 1e-5);
+        F = FresnelSchlick(f0, f90, NdotV);
     }
 
     // Use promitive to reconstruction the surface
@@ -76,23 +77,22 @@ struct Surface
 
     bool LoadFromPrimitive(in PrimitiveID prim, in float3 rayOrigin, in float3 rayDirection)
     {
-        inst = LoadInstance(prim.instanceIndex);
-        geometry = LoadGeometry(inst.geometryOffset + prim.subsetIndex);
-        if (geometry.vbPos < 0)
-            return false;
+        ShaderMeshInstance inst = LoadInstance(prim.instanceIndex);
+        ShaderGeometry geometry = LoadGeometry(inst.geometryOffset + prim.subsetIndex);
 
-        // Get indices
         const uint startIndex = prim.primitiveIndex * 3 + geometry.indexOffset;
         Buffer<uint> indexBuffer = bindless_ib[NonUniformResourceIndex(geometry.ib)];
-		i0 = indexBuffer[startIndex + 0];
-		i1 = indexBuffer[startIndex + 1];
-		i2 = indexBuffer[startIndex + 2];
+        i0 = indexBuffer[startIndex + 0];
+        i1 = indexBuffer[startIndex + 1];
+        i2 = indexBuffer[startIndex + 2];
 
-        // Get vertices
-        ByteAddressBuffer posBuffer = bindless_buffers[NonUniformResourceIndex(geometry.vbPos)];
-		float3 p0 = posBuffer.Load<float3>(i0 * sizeof(float3));
-        float3 p1 = posBuffer.Load<float3>(i1 * sizeof(float3));
-        float3 p2 = posBuffer.Load<float3>(i2 * sizeof(float3));
+        ByteAddressBuffer posBuffer = bindless_buffers[NonUniformResourceIndex(geometry.vbPosNor)];
+        uint4 data0 = posBuffer.Load4(i0 * sizeof(uint4));
+        uint4 data1 = posBuffer.Load4(i1 * sizeof(uint4));
+        uint4 data2 = posBuffer.Load4(i2 * sizeof(uint4));
+        float3 p0 = asfloat(data0.xyz);
+        float3 p1 = asfloat(data1.xyz);
+        float3 p2 = asfloat(data2.xyz);
         pos0 = mul(inst.transform.GetMatrix(), float4(p0, 1)).xyz;
         pos1 = mul(inst.transform.GetMatrix(), float4(p1, 1)).xyz;
         pos2 = mul(inst.transform.GetMatrix(), float4(p2, 1)).xyz;
@@ -101,8 +101,6 @@ struct Surface
         ComputeBarycentrics(rayOrigin, rayDirection, pos0, pos1, pos2, hitDepth);
         P = rayOrigin + rayDirection * hitDepth;
         V = -rayDirection;
-
-        P = pos0;
 
         return true;
     }

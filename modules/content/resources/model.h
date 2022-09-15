@@ -34,7 +34,6 @@ namespace VulkanTest
 		friend class Model;
 
 		Model* model = nullptr;
-		U32 verticesCount = 0;
 		Array<Mesh> meshes;
 	};
 

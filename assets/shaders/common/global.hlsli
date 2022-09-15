@@ -65,6 +65,11 @@ inline ShaderLight GetShaderLight(uint index)
 	return bindless_buffers[GetFrame().bufferShaderLightsIndex].Load<ShaderLight>(index * sizeof(ShaderLight));
 }
 
+inline ShaderWeather GetWeather()
+{
+	return GetScene().weather;
+}
+
 /////////////////////////////////////////////////////////////////////////
 
 // These functions avoid pow() to efficiently approximate sRGB with an error < 0.4%.

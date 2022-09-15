@@ -44,6 +44,22 @@ namespace VulkanTest
 			COUNT
 		};
 
+		struct VertexPosNor
+		{
+			F32x3 pos = F32x3(0.0f);
+			U32 normal = 0;
+
+			void Setup(const F32x3& pos_, const F32x3& nor_)
+			{
+				pos = pos_;
+
+				normal = 0;
+				normal |= (uint32_t)((nor_.x * 0.5f + 0.5f) * 255.0f) << 0;
+				normal |= (uint32_t)((nor_.y * 0.5f + 0.5f) * 255.0f) << 8;
+				normal |= (uint32_t)((nor_.z * 0.5f + 0.5f) * 255.0f) << 16;
+			}
+		};
+
 		void Init(const char* name_, Model* model_, I32 lodIndex_, I32 index_, const AABB& aabb_);
 		bool Load();
 		void Unload();
@@ -115,8 +131,7 @@ namespace VulkanTest
 		};
 		GPU::BufferViewPtr ibView;
 		BufferView ib;
-		BufferView vbPos;
-		BufferView vbNor;
+		BufferView vbPosNor;
 		BufferView vbTan;
 		BufferView vbUVs;
 

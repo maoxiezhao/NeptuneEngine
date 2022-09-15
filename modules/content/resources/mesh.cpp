@@ -25,13 +25,16 @@ namespace VulkanTest
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 			VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
 
+		// General buffer layout
+		//------------------------------------
+		// VertexPosNor
+
 		U64 alignment = device->GetMinOffsetAlignment();
 		U64 totalSize =
 			AlignTo(indices.size() * GetIndexStride(), alignment) +
-			AlignTo(vertexPos.size() * sizeof(F32x3), alignment) +
-			AlignTo(vertexNor.size() * sizeof(F32x3), alignment) +
+			AlignTo(vertexPos.size() * sizeof(VertexPosNor), alignment) +
 			AlignTo(vertexTangents.size() * sizeof(F32x4), alignment) +
-			AlignTo(vertexUV.size() * sizeof(F32x2), alignment);
+			AlignTo(vertexUV.size() * sizeof(F32x4), alignment);
 
 		OutputMemoryStream output;
 		output.Reserve(totalSize);
@@ -57,23 +60,21 @@ namespace VulkanTest
 		F32x3 _min = F32x3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
 		F32x3 _max = F32x3(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
 
-		// VertexBuffer position
-		vbPos.offset = output.Size();
-		vbPos.size = vertexPos.size() * sizeof(F32x3);
-		output.Write(vertexPos.data(), vbPos.size, alignment);
+		// VertexBuffer position and normal
+		vbPosNor.offset = output.Size();
+		vbPosNor.size = vertexPos.size() * sizeof(VertexPosNor);
+		VertexPosNor* vertices = (VertexPosNor*)(output.Data() + output.Size());
+		output.Skip(AlignTo(vbPosNor.size, alignment));
+
 		for (U32 i = 0; i < vertexPos.size(); i++)
 		{
 			const F32x3& pos = vertexPos[i];
+			F32x3 nor = vertexNor.empty() ? F32x3(1.0f) : vertexNor[i];
+			nor = StoreF32x3(Vector3Normalize(LoadF32x3(nor)));
+			vertices[i].Setup(pos, nor);
+
 			_min = Min(_min, pos);
 			_max = Max(_max, pos);
-		}
-
-		// VertexBuffer normal
-		if (!vertexNor.empty())
-		{
-			vbNor.offset = output.Size();
-			vbNor.size = vertexNor.size() * sizeof(F32x3);
-			output.Write(vertexNor.data(), vbNor.size, alignment);
 		}
 
 		// VertexBuffer tangent
@@ -88,8 +89,12 @@ namespace VulkanTest
 		if (!vertexUV.empty())
 		{
 			vbUVs.offset = output.Size();
-			vbUVs.size = vertexUV.size() * sizeof(F32x2);
-			output.Write(vertexUV.data(), vbUVs.size, alignment);
+			vbUVs.size = vertexUV.size() * sizeof(F32x4);
+			F32x4* uvSets = (F32x4*)(output.Data() + output.Size());
+			output.Skip(AlignTo(vbUVs.size, alignment));
+
+			for (int i = 0; i < vertexUV.size(); i++)
+				uvSets[i] = F32x4(vertexUV[i].x, vertexUV[i].y, 0.0f, 0.0f);
 		}
 
 		bufferInfo.size = output.Size();
@@ -100,10 +105,9 @@ namespace VulkanTest
 		generalBuffer = buffer;
 
 		// Create bindless descriptor
-		vbPos.srv = device->CreateBindlessStroageBuffer(*buffer, vbPos.offset, vbPos.size);
-		vbNor.srv = device->CreateBindlessStroageBuffer(*buffer, vbNor.offset, vbNor.size);
-		vbUVs.srv = device->CreateBindlessStroageBuffer(*buffer, vbUVs.offset, vbUVs.size);
-		vbTan.srv = device->CreateBindlessStroageBuffer(*buffer, vbTan.offset, vbTan.size);
+		vbPosNor.srv = device->CreateBindlessStroageBuffer(*buffer, vbPosNor.offset, vbPosNor.size);
+		vbUVs.srv = vbUVs.size > 0 ? device->CreateBindlessStroageBuffer(*buffer, vbUVs.offset, vbUVs.size) : GPU::BindlessDescriptorPtr();
+		vbTan.srv = vbTan.size > 0 ? device->CreateBindlessStroageBuffer(*buffer, vbTan.offset, vbTan.size) : GPU::BindlessDescriptorPtr();
 
 		GPU::BufferViewCreateInfo viewInfo = {};
 		viewInfo.buffer = buffer.get();
@@ -119,8 +123,7 @@ namespace VulkanTest
 	void Mesh::Unload()
 	{
 		generalBuffer.reset();
-		vbPos.Reset();
-		vbNor.Reset();
+		vbPosNor.Reset();
 		vbUVs.Reset();
 		vbTan.Reset();
 		ib.Reset();

@@ -19,19 +19,22 @@ struct LightingPart
 struct Lighting
 {
     LightingPart direct;
+    LightingPart indirect;
 
-    void Init(float3 directDiffuse, float3 directSpecular)
+    void Init(in float3 directDiffuse, in float3 directSpecular, in float3 indirectDiffuse, in float3 indirectSpecular)
     {
         direct.diffuse = directDiffuse;
         direct.specular = directSpecular;
+        indirect.diffuse = indirectDiffuse;
+        indirect.specular = indirectSpecular;
     }
 };
 
 // Apply lighting to color (Combine direct lighting and indirect lighting)
 inline void ApplyLighting(in Surface surface, in Lighting lighting, inout float4 color)
 {
-    float3 diffuse = lighting.direct.diffuse / PI;
-    float3 specular = lighting.direct.specular;
+    float3 diffuse = lighting.direct.diffuse / PI + lighting.indirect.diffuse * (1 - surface.F);
+    float3 specular = lighting.direct.specular + lighting.indirect.specular;
     color.rgb = surface.albedo * diffuse + specular;
 }
 
@@ -131,6 +134,12 @@ inline void TiledForwardLighting(inout Surface surface, inout Lighting lighting)
     const uint2 tileIndex = uint2(floor(surface.Pixel / TILED_CULLING_BLOCK_SIZE));
     const uint flatTileIndex = flatten2D(tileIndex, GetCamera().cullingTileCount.xy);
     ForwardLighting(surface, lighting, flatTileIndex * SHADER_ENTITY_TILE_BUCKET_COUNT);
+}
+
+inline float3 GetAmbient(in float3 N)
+{
+    float3 ambient = GetWeather().ambientColor;
+    return ambient;
 }
 
 #endif

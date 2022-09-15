@@ -49,12 +49,17 @@ struct VertexInput
 
 	float4 GetPosition()
 	{
-		return float4(bindless_buffers[GetMesh().vbPos].Load<float3>(vertexID * sizeof(float3)), 1);
+		return float4(bindless_buffers[GetMesh().vbPosNor].Load<float3>(vertexID * sizeof(uint4)), 1);
 	}
 
     float3 GetNormal()
     {
-        return bindless_buffers[GetMesh().vbNor].Load<float3>(vertexID * sizeof(float3));
+        const uint normalUint = bindless_buffers[GetMesh().vbPosNor].Load<uint4>(vertexID * sizeof(uint4)).w;
+		float3 normal;
+		normal.x = (float)((normalUint >> 0u) & 0xFF) / 255.0 * 2 - 1;
+		normal.y = (float)((normalUint >> 8u) & 0xFF) / 255.0 * 2 - 1;
+		normal.z = (float)((normalUint >> 16u) & 0xFF) / 255.0 * 2 - 1;
+		return normal;
     }
 
     float4 GetTangent()
@@ -72,7 +77,7 @@ struct VertexInput
 		if (GetMesh().vbUVs < 0)
 			return 0;
         
-        return bindless_buffers[GetMesh().vbUVs].Load<float2>(vertexID * sizeof(float2));
+        return bindless_buffers[GetMesh().vbUVs].Load<float4>(vertexID * sizeof(float4)).xy;
     }
 
     ShaderMeshInstancePointer GetInstancePointer()

@@ -118,6 +118,7 @@ namespace VulkanTest
         Array<ECS::System> systems;
         ECS::Pipeline pipeline;
         EntityMap<Model*> modelEntityMap;
+        WeatherComponent weather;
 
         // The count of instances
         U32 instanceArraySize = 0;
@@ -646,6 +647,8 @@ namespace VulkanTest
             sceneCB.geometrybuffer = geometryBuffer.GetBindlessIndex();
             sceneCB.materialbuffer = materialBuffer.GetBindlessIndex();
             sceneCB.meshletBuffer = meshletBufferBindless ? meshletBufferBindless->GetIndex() : -1;
+
+            sceneCB.weather.ambientColor = weather.ambientColor;
         }
     };
 
@@ -686,10 +689,9 @@ namespace VulkanTest
                 if (mesh != nullptr)
                 {
                     ShaderGeometry geometry;
-                    geometry.vbPos = mesh->vbPos.srv->GetIndex();
-                    geometry.vbNor = mesh->vbNor.srv->GetIndex();
-                    geometry.vbUVs = mesh->vbUVs.srv->GetIndex();
-                    geometry.vbTan = mesh->vbTan.srv->GetIndex();
+                    geometry.vbPosNor = mesh->vbPosNor.srv->GetIndex();
+                    geometry.vbUVs = mesh->vbUVs.srv ? mesh->vbUVs.srv->GetIndex() : -1;
+                    geometry.vbTan = mesh->vbTan.srv ? mesh->vbTan.srv->GetIndex() : -1;
                     geometry.ib = mesh->ib.srv->GetIndex();
 
                     for (auto& subset : mesh->subsets)
@@ -754,9 +756,8 @@ namespace VulkanTest
                 inst.uid = uint((ECS::EntityID)objComp.mesh);   // Need use u64?
                 inst.geometryOffset = meshComp->geometryOffset;
                 inst.geometryCount = meshComp->subsetsPerLod;   // TODO select the subset for target lod
-                inst.meshletOffset = AtomicRead(&scene.meshletAllocator);
-                AtomicAdd(&scene.meshletAllocator, meshComp->meshletCount);
-
+                inst.meshletOffset = AtomicAdd(&scene.meshletAllocator, meshComp->meshletCount) - meshComp->meshletCount;
+                
                 // Set world transform
                 inst.transform.Create(transform.transform.world);
 

@@ -54,9 +54,9 @@ void CS_Resolve(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex)
             [branch]
             if (surface.LoadFromPrimitive(prim, ray.Origin, ray.Direction))
             {
-                float4 screenPos = mul(GetCamera().viewProjection, float4(surface.P, 1));
-                screenPos.xyz /= screenPos.w;
-				depth = screenPos.z;
+                float4 tmp = mul(GetCamera().viewProjection, float4(surface.P, 1));
+                tmp.xyz /= tmp.w;
+                depth = tmp.z;
             }            
         }
         else

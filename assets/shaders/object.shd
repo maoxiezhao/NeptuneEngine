@@ -117,8 +117,10 @@ float4 PS(PixelInput input) : SV_Target
     surface.Update();
 
     // Lighinting
+    float3 ambient = GetAmbient(surface.N);
+
     Lighting lighting;
-    lighting.Init(0, 0);
+    lighting.Init(0, 0, ambient, 0);
     TiledForwardLighting(surface, lighting);
     ApplyLighting(surface, lighting, color);
 

@@ -37,14 +37,25 @@ static const uint SHADER_ENTITY_TILE_BUCKET_COUNT = SHADER_ENTITY_COUNT / 32;
 static const uint TILED_CULLING_BLOCK_SIZE = 16;
 static const uint TILED_CULLING_THREADSIZE = 8;
 
+// Weather
+struct ShaderWeather
+{
+	float3 ambientColor;
+	float padding;
+};
+
+// Scene
 struct ShaderSceneCB
 {
 	int geometrybuffer;
 	int materialbuffer;
 	int instancebuffer;
 	int meshletBuffer;
+
+	ShaderWeather weather;
 };
 
+// Frame
 struct FrameCB
 {
 	ShaderSceneCB scene;
@@ -53,9 +64,11 @@ struct FrameCB
 	uint lightCount;
 
 	int bufferShaderLightsIndex;
+	int padding;
 };
 CONSTANTBUFFER(g_xFrame, FrameCB, CBSLOT_RENDERER_FRAME);
 
+// Camera
 struct CameraCB
 {
 	float4x4 view;
@@ -77,23 +90,26 @@ struct CameraCB
 
 	int textureDepthIndex;	//  Depth texture bindless index
 	int cullingTileBufferIndex; // Entity culling tile buffer bindless index
+	int padding0;
+	int padding1;
 };
 
 CONSTANTBUFFER(g_xCamera, CameraCB, CBSLOT_RENDERER_CAMERA);
 
+// Geometry
 struct ShaderGeometry
 {
-	int vbPos;
-	int vbNor;
+	int vbPosNor;
 	int vbTan;
 	int vbUVs;
 	int ib;
 	uint indexOffset;
-
+	uint materialIndex;
 	uint meshletOffset;
 	uint meshletCount;
 };
 
+// Material
 struct ShaderMaterial
 {
 	float4 baseColor;

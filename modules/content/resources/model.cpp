@@ -102,7 +102,6 @@ namespace VulkanTest
 
 	bool ModelLOD::Load(InputMemoryStream& input)
 	{
-		verticesCount = 0;
 		for (int i = 0; i < (I32)meshes.size(); i++)
 		{
 			auto& mesh = meshes[i];
@@ -150,25 +149,28 @@ namespace VulkanTest
 			input.Read(mesh.indices.data(), sizeof(U32) * indicesCount);
 
 			// Read vertex datas
-			U32 vertexCount;
-			input.Read(vertexCount);
 			for (U32 i = 0; i < layout.attributeCount; i++)
 			{
+				U32 vertexCount = 0;
 				switch (semantics[i])
 				{
 				case Mesh::AttributeSemantic::POSITION:
+					input.Read(vertexCount);
 					mesh.vertexPos.resize(vertexCount);
 					input.Read(mesh.vertexPos.data(), sizeof(F32x3) * vertexCount);
 					break;
 				case Mesh::AttributeSemantic::NORMAL:
+					input.Read(vertexCount);
 					mesh.vertexNor.resize(vertexCount);
 					input.Read(mesh.vertexNor.data(), sizeof(F32x3) * vertexCount);
 					break;
 				case Mesh::AttributeSemantic::TEXCOORD0:
+					input.Read(vertexCount);
 					mesh.vertexUV.resize(vertexCount);
 					input.Read(mesh.vertexUV.data(), sizeof(F32x2) * vertexCount);
 					break;
 				case Mesh::AttributeSemantic::TANGENT:
+					input.Read(vertexCount);
 					mesh.vertexTangents.resize(vertexCount);
 					input.Read(mesh.vertexTangents.data(), sizeof(F32x4) * vertexCount);
 					break;
