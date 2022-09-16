@@ -4,7 +4,7 @@
 #include "core\globals.h"
 #include "loading\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
-#include "core\utils\guid.h"
+#include "core\scripts\scriptingObject.h"
 #include "resourceHeader.h"
 #include "resourceInfo.h"
 
@@ -15,7 +15,7 @@ namespace VulkanTest
 	class LoadResourceTask;
 
 	// Resource base class
-	class VULKAN_TEST_API Resource : public Object
+	class VULKAN_TEST_API Resource : public ScriptingObject
 	{
 	public:
 		friend class ResourceFactory;
@@ -43,10 +43,6 @@ namespace VulkanTest
 		}
 		virtual bool IsReady()const {
 			return currentState == State::READY;
-		}
-
-		Guid GetGUID()const {
-			return guid;
 		}
 
 		const Path& GetPath()const {
@@ -165,7 +161,6 @@ namespace VulkanTest
 		void OnStateChanged(State oldState, State newState, Resource& res);
 
 	private:
-		Guid guid;
 		Path path;
 		bool hooked = false;
 		bool isTemporary = false;

@@ -265,22 +265,25 @@ namespace VulkanTest
                 const VECTOR rayOriginLocal = Vector3Transform(LoadF32x3(ray.origin), objectMatInverse);
                 const XMVECTOR rayDirectionLocal = XMVector3Normalize(XMVector3TransformNormal(LoadF32x3(ray.direction), objectMatInverse));
 
-                auto mesh = meshComp->meshes[0];
-                PickResult hit = mesh->CastRayPick(rayOriginLocal, rayDirectionLocal, ray.tMin, ray.tMax);
-                if (hit.isHit)
+                auto& mesheInfos = meshComp->meshes[0];
+                for (auto& meshInfo : mesheInfos)
                 {
-                    // Calculate the distance in world space
-                    const VECTOR posV = Vector3Transform(VectorAdd(rayOriginLocal, rayDirectionLocal * hit.distance), objectMat);
-                    F32x3 pos = StoreF32x3(posV);
-                    F32 distance = Distance(pos, ray.origin);
-
-                    if (distance < ret.distance)
+                    PickResult hit = meshInfo.mesh->CastRayPick(rayOriginLocal, rayDirectionLocal, ray.tMin, ray.tMax);
+                    if (hit.isHit)
                     {
-                        ret.isHit = true;
-                        ret.distance = distance;
-                        ret.entity = entity;
-                        ret.position = pos;
-                        ret.normal = StoreF32x3(Vector3Normalize(Vector3Transform(LoadF32x3(hit.normal), objectMat)));
+                        // Calculate the distance in world space
+                        const VECTOR posV = Vector3Transform(VectorAdd(rayOriginLocal, rayDirectionLocal * hit.distance), objectMat);
+                        F32x3 pos = StoreF32x3(posV);
+                        F32 distance = Distance(pos, ray.origin);
+
+                        if (distance < ret.distance)
+                        {
+                            ret.isHit = true;
+                            ret.distance = distance;
+                            ret.entity = entity;
+                            ret.position = pos;
+                            ret.normal = StoreF32x3(Vector3Normalize(Vector3Transform(LoadF32x3(hit.normal), objectMat)));
+                        }
                     }
                 }
             });
@@ -444,64 +447,40 @@ namespace VulkanTest
         void OnModelLoaded(Model* model, ECS::Entity entity)
         {
             ASSERT(model->IsLoaded());     
-            const LoadModelComponent* modelCmp = entity.Get<LoadModelComponent>();
 
             // Materials
-            Array<ECS::Entity> materialEntities;
+            auto materialEntity = CreateMaterial(entity);
+            MaterialComponent* materialCmp = materialEntity.GetMut<MaterialComponent>();
             const auto& materials = model->GetMaterials();
             for (const auto& material : materials)
-            {
-                char name[64];
-                CopyString(Span(name), Path::GetBaseName(material.material->GetPath().c_str()));
-                auto materialEntity = CreateMaterial(CreateEntity(name));
-                MaterialComponent* materialComp = materialEntity.GetMut<MaterialComponent>();
-                materialComp->material = material.material;
+                materialCmp->materials.push_back(material.material);
 
-                materialEntities.push_back(materialEntity);
-            }
+            // Meshes
+            auto meshEntity = CreateMesh(entity);
+            auto meshCmp = meshEntity.GetMut<MeshComponent>();
+            meshCmp->model = model;
+            meshCmp->lodsCount = model->GetLODsCount();
+            meshCmp->meshCount = 0;
 
-            I32 lodsCount = model->GetLODsCount();
-            Array<MeshComponent*> lodMeshes;
-            for (I32 meshIndex = 0; meshIndex < model->GetModelLOD(0)->GetMeshes().size(); meshIndex++)
-                lodMeshes.push_back(nullptr);
-
-            for (I32 lodIndex = 0; lodIndex < lodsCount; lodIndex++)
+            for (I32 lodIndex = 0; lodIndex < meshCmp->lodsCount; lodIndex++)
             {
                 auto& meshes = model->GetModelLOD(lodIndex)->GetMeshes();
                 for (int meshIndex = 0; meshIndex < meshes.size(); meshIndex++)
                 {
-                    auto& mesh = meshes[meshIndex];
-                    MeshComponent* meshCmp = lodMeshes[meshIndex];
-                    if (meshCmp == nullptr)
-                    {
-                        auto meshEntity = CreateMesh(CreateEntity(mesh.name + "_mesh"));
-                        meshCmp = meshEntity.GetMut<MeshComponent>();
-                        lodMeshes[lodIndex] = meshCmp;
-
-                        meshCmp->model = modelCmp->model;
-                        meshCmp->aabb = mesh.aabb;
-                        meshCmp->subsetsPerLod = mesh.subsets.size();
-                        meshCmp->lodsCount = lodsCount;
-
-                        // ObjectComponent
-                        auto objectEntity = CreateObject(CreateEntity(mesh.name + "_obj"));
-                        ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
-                        obj->mesh = meshEntity;
-                    }
- 
-                    meshCmp->meshes[lodIndex] = &mesh;
-    
-                    for (auto& subset : mesh.subsets)
-                    {
-                        if (subset.materialIndex >= 0)
-                            subset.material = materialEntities[subset.materialIndex];
-                    }
+                    Mesh& mesh = meshes[meshIndex];
+                    MeshComponent::MeshInfo info = {};
+                    info.aabb = mesh.aabb;
+                    info.mesh = &mesh;
+                    info.material = materialEntity;
+                    meshCmp->meshes[lodIndex].push_back(info);
+                    meshCmp->meshCount++;
                 }
             }
 
-            // Remove model loading entity
-            RemoveFromModelEntityMap(model, entity);
-            world.DeleteEntity(entity);
+            // ObjectComponent
+            auto objectEntity = CreateObject(entity);
+            ObjectComponent* obj = objectEntity.GetMut<ObjectComponent>();
+            obj->mesh = meshEntity;
         }
 
         void OnModelUnloaded(Model* model, ECS::Entity entity)
@@ -586,8 +565,11 @@ namespace VulkanTest
             if (objectQuery.Valid())
             {
                 objectQuery.ForEach([&](ECS::Entity entity, ObjectComponent& obj) {
-                    obj.objectIndex = instanceArraySize;
-                    instanceArraySize++;
+                    obj.instanceOffset = instanceArraySize;
+                    auto meshComp = obj.mesh.Get<MeshComponent>();
+                    if (meshComp != nullptr)
+                        instanceArraySize += meshComp->meshCount;
+                    
                 });
             }
             instanceBuffer.UpdateBuffer(device, instanceArraySize);
@@ -598,8 +580,8 @@ namespace VulkanTest
             if (materialQuery.Valid())
             {
                 materialQuery.ForEach([&](ECS::Entity entity, MaterialComponent& mat) {
-                    mat.materialIndex = materialArraySize;
-                    materialArraySize++;
+                    mat.materialOffset = materialArraySize;
+                    materialArraySize += mat.materials.size();
                 });
             }
             materialBuffer.UpdateBuffer(device, materialArraySize);
@@ -614,8 +596,14 @@ namespace VulkanTest
                     if (!meshComp.model || !meshComp.model->IsReady())
                         return;
 
-                    meshComp.geometryOffset = geometryArraySize;
-                    geometryArraySize += meshComp.lodsCount * meshComp.subsetsPerLod;
+                    for (I32 lodIndex = 0; lodIndex < meshComp.lodsCount; lodIndex++)
+                    {
+                        for (auto& meshInfo : meshComp.meshes[lodIndex])
+                        {
+                            meshInfo.geometryOffset = geometryArraySize;
+                            geometryArraySize += meshInfo.mesh->subsets.size();
+                        }
+                    }
                 });
             }
             geometryBuffer.UpdateBuffer(device, geometryArraySize);
@@ -678,30 +666,30 @@ namespace VulkanTest
             if (!meshComp.model || !meshComp.model->IsReady())
                 return;
 
-            // Reset meshlet count
-            meshComp.meshletCount = 0;
-
-            U32 subsetIndex = 0;
             auto lodsCount = meshComp.model->GetLODsCount();
             for (int lodIndex = 0; lodIndex < lodsCount; lodIndex++)
             {
-                Mesh* mesh = meshComp.meshes[lodIndex];
-                if (mesh != nullptr)
+                for (auto& meshInfo : meshComp.meshes[lodIndex])
                 {
+                    // Reset meshlet count
+                    meshInfo.meshletCount = 0;
+
+                    auto mesh = meshInfo.mesh;
                     ShaderGeometry geometry;
                     geometry.vbPosNor = mesh->vbPosNor.srv->GetIndex();
                     geometry.vbUVs = mesh->vbUVs.srv ? mesh->vbUVs.srv->GetIndex() : -1;
                     geometry.vbTan = mesh->vbTan.srv ? mesh->vbTan.srv->GetIndex() : -1;
                     geometry.ib = mesh->ib.srv->GetIndex();
 
+                    U32 subsetIndex = 0;
                     for (auto& subset : mesh->subsets)
                     {
                         geometry.indexOffset = subset.indexOffset;
-                        geometry.meshletOffset = meshComp.meshletCount;
+                        geometry.meshletOffset = meshInfo.meshletCount;
                         geometry.meshletCount = TriangleCountToMeshletCount(subset.indexCount);
-                        meshComp.meshletCount += geometry.meshletCount;
+                        meshInfo.meshletCount += geometry.meshletCount;
 
-                        memcpy(geometryMapped + meshComp.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                        memcpy(geometryMapped + meshInfo.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
                         subsetIndex++;
                     }
                 }
@@ -717,10 +705,15 @@ namespace VulkanTest
             .ForEach([&](ECS::Entity entity, MaterialComponent& materialComp) {
 
             auto materialMapped = scene.materialMapped;
-            if (!materialMapped || !materialComp.material->IsReady())
+            if (!materialMapped || materialComp.materials.empty())
                 return;
 
-            materialComp.material->WriteShaderMaterial(materialMapped + materialComp.materialIndex);
+            for (int i = 0; i < materialComp.materials.size(); i++)
+            {
+                auto& material = materialComp.materials[i];
+                if (material->IsReady())
+                    material->WriteShaderMaterial(materialMapped + materialComp.materialOffset + i);
+            }
          });
     }
 
@@ -744,27 +737,38 @@ namespace VulkanTest
                 if (meshComp == nullptr)
                     return;
 
+                I32 instOffset = objComp.instanceOffset;
                 MATRIX mat = LoadFMat4x4(transform.transform.world);
-                aabb = meshComp->aabb.Transform(mat);
+                for (int lodIndex = 0; lodIndex < meshComp->lodsCount; lodIndex++)
+                {
+                    for (auto& meshInfo : meshComp->meshes[lodIndex])
+                    {
+                        auto mesh = meshInfo.mesh;
+                        if (lodIndex == 0)
+                            aabb.Merge(meshInfo.aabb.Transform(mat));
 
+                        // Setup shader mesh instance
+                        ShaderMeshInstance inst;
+                        inst.init();
+                        inst.uid = uint((ECS::EntityID)objComp.mesh);   // Need use u64?
+                        inst.geometryOffset = meshInfo.geometryOffset;
+                        inst.geometryCount = mesh->subsets.size();   // TODO select the subset for target lod
+                        inst.meshletOffset = AtomicAdd(&scene.meshletAllocator, meshInfo.meshletCount) - meshInfo.meshletCount;
+
+                        // Set world transform
+                        inst.transform.Create(transform.transform.world);
+
+                        // Inverse transpose world mat
+                        MATRIX worldMatInvTranspose = MatrixTranspose(MatrixInverse(mat));
+                        inst.transformInvTranspose.Create(StoreFMat4x4(worldMatInvTranspose));
+                        memcpy(instanceMapped + instOffset, &inst, sizeof(ShaderMeshInstance));
+
+                        instOffset++;
+                    }
+                }
+      
                 FMat4x4 meshMatrix = StoreFMat4x4(aabb.GetCenterAsMatrix() * mat);
                 objComp.center = meshMatrix.vec[3].xyz();
-
-                // Setup shader mesh instance
-                ShaderMeshInstance inst;
-                inst.init();
-                inst.uid = uint((ECS::EntityID)objComp.mesh);   // Need use u64?
-                inst.geometryOffset = meshComp->geometryOffset;
-                inst.geometryCount = meshComp->subsetsPerLod;   // TODO select the subset for target lod
-                inst.meshletOffset = AtomicAdd(&scene.meshletAllocator, meshComp->meshletCount) - meshComp->meshletCount;
-                
-                // Set world transform
-                inst.transform.Create(transform.transform.world);
-
-                // Inverse transpose world mat
-                MATRIX worldMatInvTranspose = MatrixTranspose(MatrixInverse(mat));
-                inst.transformInvTranspose.Create(StoreFMat4x4(worldMatInvTranspose));
-                memcpy(instanceMapped + objComp.objectIndex, &inst, sizeof(ShaderMeshInstance));
             }
 
             // objComp.center = aabb.GetCenter();

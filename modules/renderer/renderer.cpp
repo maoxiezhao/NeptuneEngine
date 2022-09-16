@@ -83,16 +83,18 @@ namespace Renderer
 	struct RenderBatch
 	{
 		U64 sortingKey;
+		const MeshComponent::MeshInfo* meshInfo;
+		const ObjectComponent* objCmp;
 
-		RenderBatch(ECS::EntityID mesh, ECS::EntityID obj, F32 distance)
+		RenderBatch(const MeshComponent::MeshInfo* meshInfo_, const ObjectComponent* objCmp_, U32 instanceIndex, F32 distance) :
+			meshInfo(meshInfo_),
+			objCmp(objCmp_)
 		{
-			ASSERT(mesh < 0x00FFFFFF);
-			ASSERT(obj < 0x00FFFFFF);
-
+			ASSERT(instanceIndex < 0x00FFFFFF);
 			sortingKey = 0;
-			sortingKey |= U64((U32)mesh & 0x00FFFFFF) << 40ull;
+			sortingKey |= U64((U32)meshInfo->mesh->GetGUID().GetHash() & 0x00FFFFFF) << 40ull;
 			sortingKey |= U64(ConvertFloatToHalf(distance) & 0xFFFF) << 24ull;
-			sortingKey |= U64((U32)obj & 0x00FFFFFF) << 0ull;
+			sortingKey |= U64((U32)instanceIndex & 0x00FFFFFF) << 0ull;
 		}
 
 		inline float GetDistance() const
@@ -100,14 +102,18 @@ namespace Renderer
 			return ConvertHalfToFloat(HALF((sortingKey >> 24ull) & 0xFFFF));
 		}
 
-		inline ECS::EntityID GetMeshEntity() const
+		inline const MeshComponent::MeshInfo* GetMeshInfo() const
 		{
-			return ECS::EntityID((sortingKey >> 40ull) & 0x00FFFFFF);
+			return meshInfo;
+		}
+		
+		inline const ObjectComponent* GetObjectComponent()const {
+			return objCmp;
 		}
 
-		inline ECS::EntityID GetInstanceEntity() const
+		inline U32 GetInstanceIndex() const
 		{
-			return ECS::EntityID((sortingKey >> 0ull) & 0x00FFFFFF);
+			return (sortingKey >> 0ull) & 0x00FFFFFF;
 		}
 
 		bool operator<(const RenderBatch& other) const
@@ -128,9 +134,9 @@ namespace Renderer
 			batches.clear();
 		}
 
-		void Add(ECS::Entity mesh, ECS::Entity obj, F32 distance)
+		void Add(const MeshComponent::MeshInfo* meshInfo, const ObjectComponent* objCmp, U32 instanceIndex, F32 distance)
 		{
-			batches.emplace(mesh, obj, distance);
+			batches.emplace(meshInfo, objCmp, instanceIndex, distance);
 		}
 
 		bool Empty()const
@@ -546,43 +552,41 @@ namespace Renderer
 
 		struct InstancedBatch
 		{
-			ECS::Entity meshID = ECS::INVALID_ENTITY;
+			const MeshComponent::MeshInfo* meshInfo = nullptr;
 			uint32_t instanceCount = 0;
 			uint32_t dataOffset = 0;
 			U8 stencilRef = 0;
-			I32 lodIndex = 0;
-		} instancedBatch = {};
+		} 
+		instancedBatch = {};
 
 		auto FlushBatch = [&]()
 		{
 			if (instancedBatch.instanceCount <= 0)
 				return;
 
-			const MeshComponent* meshCmp = instancedBatch.meshID.Get<MeshComponent>();
-			if (meshCmp == nullptr || 
-				!meshCmp->model->IsReady() || 
-				instancedBatch.lodIndex >= meshCmp->model->GetLODsCount())
+			auto meshInfo = instancedBatch.meshInfo;
+			const MaterialComponent* materialCmp = meshInfo->material.Get<MaterialComponent>();
+			if (materialCmp == nullptr || materialCmp->materials.empty())
 				return;
 
-			Mesh& mesh = *meshCmp->meshes[instancedBatch.lodIndex];
+			Mesh& mesh = *meshInfo->mesh;
 			cmd.BindIndexBuffer(mesh.generalBuffer, mesh.ib.offset, mesh.GetIndexFormat() == GPU::IndexBufferFormat::UINT32 ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16);
 
-			U32 lodOffset = meshCmp->subsetsPerLod * instancedBatch.lodIndex;
 			for (U32 subsetIndex = 0; subsetIndex < mesh.subsets.size(); subsetIndex++)
 			{
 				auto& subset = mesh.subsets[subsetIndex];
-				if (subset.indexCount <= 0 || subset.material == ECS::INVALID_ENTITY)
+				if (subset.indexCount <= 0 || subset.materialIndex < 0)
 					continue;
 
-				const MaterialComponent* material = subset.material.Get<MaterialComponent>();
-				if (!material || !material->material || !material->material->IsReady())
+				Material* material = materialCmp->materials[subset.materialIndex];
+				if (!material || !material->IsReady())
 					continue;
 
 				// Bind material
 				MaterialShader::BindParameters bindParams = {};
 				bindParams.cmd = &cmd;
 				bindParams.renderPass = renderPass;
-				material->material->Bind(bindParams);
+				material->Bind(bindParams);
 
 				// StencilRef
 				U8 stencilRef = instancedBatch.stencilRef;
@@ -590,8 +594,8 @@ namespace Renderer
 
 				// PushConstants
 				ObjectPushConstants push;
-				push.geometryIndex = meshCmp->geometryOffset + lodOffset + subsetIndex;
-				push.materialIndex = material != nullptr ? material->materialIndex : 0;
+				push.geometryIndex = meshInfo->geometryOffset + subsetIndex;
+				push.materialIndex = materialCmp->materialOffset + subset.materialIndex;
 				push.instance = allocation.bindless ? allocation.bindless->GetIndex() : -1;	// Pointer to ShaderInstancePointers
 				push.instanceOffset = (U32)instancedBatch.dataOffset;
 
@@ -604,25 +608,23 @@ namespace Renderer
 		U32 instanceCount = 0;
 		for (auto& batch : queue.batches)
 		{
-			const ECS::Entity objID(scene->GetWorld().GetPtr(), batch.GetInstanceEntity());
-			const ECS::Entity meshID(scene->GetWorld().GetPtr(), batch.GetMeshEntity());
+			U32 instanceIndex = batch.GetInstanceIndex();
+			const auto* meshInfo = batch.GetMeshInfo();
+			const ObjectComponent* obj = batch.GetObjectComponent();
 
-			const ObjectComponent* obj = objID.Get<ObjectComponent>();
-			if (meshID != instancedBatch.meshID ||
-				obj->stencilRef != instancedBatch.stencilRef ||
-				obj->lodIndex != instancedBatch.lodIndex)
+			if (meshInfo != instancedBatch.meshInfo ||
+				obj->stencilRef != instancedBatch.stencilRef)
 			{
 				FlushBatch();
 
 				instancedBatch = {};
-				instancedBatch.meshID = meshID;
+				instancedBatch.meshInfo = meshInfo;
 				instancedBatch.dataOffset = allocation.offset + instanceCount * sizeof(ShaderMeshInstancePointer);
 				instancedBatch.stencilRef = obj->stencilRef;
-				instancedBatch.lodIndex = obj->lodIndex;
 			}
 
 			ShaderMeshInstancePointer data;
-			data.instanceIndex = obj->objectIndex;
+			data.instanceIndex = instanceIndex;
 			memcpy((ShaderMeshInstancePointer*)allocation.data + instanceCount, &data, sizeof(ShaderMeshInstancePointer));
 
 			instancedBatch.instanceCount++;
@@ -655,8 +657,16 @@ namespace Renderer
 			if (obj == nullptr || obj->mesh == ECS::INVALID_ENTITY)
 				continue;
 
-			const F32 distance = Distance(vis.camera->eye, obj->center);
-			queue.Add(obj->mesh, objectID, distance);
+			const MeshComponent* mesh = obj->mesh.Get<MeshComponent>();
+			if (mesh == nullptr || obj->lodIndex >= mesh->lodsCount || !mesh->model->IsReady())
+				continue;
+
+			auto& lodMeshes = mesh->meshes[obj->lodIndex];
+			for (U32 i = 0; i < lodMeshes.size(); i++)
+			{
+				const F32 distance = Distance(vis.camera->eye, obj->center);
+				queue.Add(&lodMeshes[i], obj, obj->instanceOffset + i, distance);
+			}
 		}
 
 		if (!queue.Empty())

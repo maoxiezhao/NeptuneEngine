@@ -1,6 +1,7 @@
 #pragma once
 
 #include "renderer\rendererCommon.h"
+#include "core\scripts\scriptingObject.h"
 
 namespace VulkanTest
 {
@@ -15,9 +16,11 @@ namespace VulkanTest
 		bool isHit = false;
 	};
 
-	class VULKAN_TEST_API Mesh
+	class VULKAN_TEST_API Mesh : public ScriptingObject
 	{
 	public:
+		DECLARE_SCRIPTING_TYPE(Mesh);
+
 		enum class AttributeSemantic : U8 
 		{
 			POSITION,
@@ -91,7 +94,6 @@ namespace VulkanTest
 			I32 materialIndex = -1;
 			U32 indexOffset = 0;
 			U32 indexCount = 0;
-			ECS::Entity material = ECS::INVALID_ENTITY;
 		};
 		Array<MeshSubset> subsets;
 

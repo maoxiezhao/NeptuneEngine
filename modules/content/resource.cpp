@@ -250,7 +250,7 @@ namespace VulkanTest
 	}
 
 	Resource::Resource(const ResourceInfo& info, ResourceManager& resManager_) :
-		guid(info.guid),
+		ScriptingObject(ScriptingObjectParams(info.guid)),
 		emptyDepCount(1),
 		failedDepCount(0),
 		currentState(State::EMPTY),

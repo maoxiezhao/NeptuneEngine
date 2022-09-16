@@ -5,6 +5,11 @@
 
 namespace VulkanTest
 {
+	Mesh::Mesh(const ScriptingObjectParams& params) :
+		ScriptingObject(params)
+	{
+	}
+
 	void Mesh::Init(const char* name_, Model* model_, I32 lodIndex_, I32 index_, const AABB& aabb_)
 	{
 		name = name_;
