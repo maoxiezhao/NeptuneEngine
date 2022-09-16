@@ -9,5 +9,8 @@ namespace VulkanTest
 	{
 	public:
 		void Setup(RenderGraph& renderGraph, RenderPath3D& renderPath) override;
+
+		static const String DepthCopy;
+		static const String DepthLinear;
 	};
 }

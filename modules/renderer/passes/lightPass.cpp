@@ -4,8 +4,12 @@
 #include "renderer.h"
 #include "renderPath3D.h"
 
+#include "visibilityPass.h"
+
 namespace VulkanTest
 {
+	const String LightPass::LightTileRes = "lightTiles";
+
 	void LightPass::Setup(RenderGraph& renderGraph, RenderPath3D& renderPath)
 	{
 		AttachmentInfo rtAttachment = renderPath.GetAttachmentRT();
@@ -13,7 +17,7 @@ namespace VulkanTest
 
 		// Frustum computation
 		auto& pass = renderGraph.AddRenderPass("FrustumComputation", RenderGraphQueueFlag::Compute);
-		pass.ReadTexture("depthCopy");
+		pass.ReadTexture(VisibilityPass::DepthCopy);
 
 		BufferInfo frustumBufferInfo = {};
 		frustumBufferInfo.size = (sizeof(F32x4) * 4) * tileCount.x * tileCount.y;
@@ -38,10 +42,10 @@ namespace VulkanTest
 
 		BufferInfo lightTileBufferInfo = {};
 		lightTileBufferInfo.size = tileCount.x * tileCount.y * sizeof(U32) * SHADER_ENTITY_TILE_BUCKET_COUNT;
-		auto& tilesRes = cullingPass.WriteStorageBuffer("lightTiles", lightTileBufferInfo);
+		auto& tilesRes = cullingPass.WriteStorageBuffer(LightPass::LightTileRes, lightTileBufferInfo);
 
 		RenderTextureResource* debugRes = nullptr;
-		bool debugLightCulling = true;
+		bool debugLightCulling = false;
 		if (debugLightCulling)
 		{
 			AttachmentInfo debugInfo = rtAttachment;

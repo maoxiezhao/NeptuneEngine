@@ -1,6 +1,7 @@
 #include "opaquePass.h"
 #include "renderer.h"
 #include "renderPath3D.h"
+#include "lightPass.h"
 
 namespace VulkanTest
 {
@@ -14,7 +15,7 @@ namespace VulkanTest
 		pass.SetClearColorCallback(DefaultClearColorFunc);
 		pass.AddProxyOutput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
 		pass.ReadDepthStencil(renderPath.GetDepthStencil());
-		pass.ReadStorageBufferReadonly("lightTiles");
+		pass.ReadStorageBufferReadonly(LightPass::LightTileRes);
 
 		pass.SetBuildCallback([rtAttachment, &renderPath, &renderGraph](GPU::CommandList& cmd) {
 

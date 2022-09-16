@@ -4,19 +4,21 @@
 
 namespace VulkanTest
 {
+	const String VisibilityPass::DepthCopy = "depthCopy";
+	const String VisibilityPass::DepthLinear = "depthLinear";
+
 	void VisibilityPass::Setup(RenderGraph& renderGraph, RenderPath3D& renderPath)
 	{
+		// Calculate visibility tile count
 		AttachmentInfo depthAttachment = renderPath.GetAttachmentDepth();
 		depthAttachment.format = VK_FORMAT_R32_SFLOAT;
-
-		// Calculate visibility tile count
 		U32x2 tileCount = Renderer::GetVisibilityTileCount(U32x2((U32)depthAttachment.sizeX, (U32)depthAttachment.sizeY));
 
 		auto& pass = renderGraph.AddRenderPass("VisbilityPrepare", RenderGraphQueueFlag::Compute);
 		pass.ReadTexture("rtPrimitiveID");
 
-		pass.WriteStorageTexture("depthCopy", depthAttachment);
-		pass.WriteStorageTexture("depthLinear", depthAttachment);
+		pass.WriteStorageTexture(DepthCopy, depthAttachment);
+		pass.WriteStorageTexture(DepthLinear, depthAttachment);
 		pass.SetBuildCallback([&, tileCount](GPU::CommandList& cmd) {
 
 			Renderer::BindFrameCB(cmd);
@@ -24,8 +26,8 @@ namespace VulkanTest
 
 			cmd.BeginEvent("Visibility resolve");
 			{
-				auto textureDepthCopy = renderGraph.TryGetPhysicalTexture("depthCopy");
-				auto textureDepthLinear = renderGraph.TryGetPhysicalTexture("depthLinear");
+				auto textureDepthCopy = renderGraph.TryGetPhysicalTexture(DepthCopy);
+				auto textureDepthLinear = renderGraph.TryGetPhysicalTexture(DepthLinear);
 
 				cmd.SetTexture(0, 0, *renderGraph.TryGetPhysicalTexture("rtPrimitiveID"));
 				cmd.SetStorageTexture(0, 1, *textureDepthCopy);
