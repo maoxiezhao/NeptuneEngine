@@ -6,6 +6,7 @@
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
 #include "renderer\render2D\render2D.h"
+#include "renderer\debugDraw.h"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -338,7 +339,9 @@ namespace Editor
 
 	SceneView::SceneView(EditorApp& app_) :
 		app(app_),
-		worldEditor(app_.GetWorldEditor())
+		worldEditor(app_.GetWorldEditor()),
+		screenPos(I32x2(0)),
+		screenSize(I32x2(0))
 	{
 		moveForwardAction.Init("Move forward", "moveForward");
 		moveBackAction.Init("Move back", "moveBack");
@@ -484,6 +487,38 @@ namespace Editor
 
 	void SceneView::Render()
 	{
+		// Debug draw for selected entities
+		const auto& selected = worldEditor.GetSelectedEntities();
+		if (!selected.empty())
+		{
+			auto world = worldEditor.GetWorld();
+			auto entity = selected[0];
+			entity.Each([&](ECS::EntityID compID) {
+				if (compID == world->GetComponentID<LightComponent>())
+				{
+					const LightComponent* light = entity.Get<LightComponent>();
+					switch (light->type)
+					{
+					case LightComponent::POINT:
+					{
+						Sphere sphere;
+						sphere.center = light->position;
+						sphere.radius = light->range;
+						DebugDraw::DrawSphere(sphere, F32x4(0.5f));
+					}
+					break;
+					default:
+						break;
+					}					
+				}
+				else if (compID == world->GetComponentID<ObjectComponent>())
+				{
+					const ObjectComponent* obj = entity.Get<ObjectComponent>();
+					DebugDraw::DrawBox(StoreFMat4x4(obj->aabb.GetAsMatrix()), F32x4(0.5f));
+				}
+			});
+		}
+
 		if (shouldRender)
 			editorRenderer->Render();
 	}

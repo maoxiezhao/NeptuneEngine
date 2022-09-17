@@ -65,8 +65,7 @@ namespace ProfilerGPU
 				return;
 		}
 
-		auto device = Renderer::GetDevice();
-		F64 frequency = (F64)device->GetTimestampFrequency() / 1000.0;
+		F64 frequency = (F64)GPU::GPUDevice::Instance->GetTimestampFrequency() / 1000.0;
 
 		U64 frameBeginTime = blocks[0].gpuBegin->GetTimestamp();
 		for (int i = 0; i < blocks.size(); i++)
@@ -93,25 +92,22 @@ namespace ProfilerGPU
 		if (!Profiler::IsEnable())
 			return;
 
-		auto device = Renderer::GetDevice();
-		ASSERT(device != nullptr);
-
 		Array<RenderStats*> statsArray;
 		RenderStats::Counters.GetNotNullValues(statsArray);
 		for (auto stats : statsArray)
 			*stats = RenderStats();
 
 		depth = 0;
-		blockBuffers[currentBuffer].frameIndex = device->GetFrameCount();
+		blockBuffers[currentBuffer].frameIndex = GPU::GPUDevice::Instance->GetFrameCount();
 
 		// Try to reslove previous frames
 		for (I32 i = 0; i < ARRAYSIZE(blockBuffers); i++)
 			blockBuffers[i].TryResolve();
 
 		// Reset query pool
-		auto cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
+		auto cmd = GPU::GPUDevice::Instance->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
 		BeginBlockGPU("GPU Frame", *cmd);
-		device->Submit(cmd);
+		GPU::GPUDevice::Instance->Submit(cmd);
 	}
 	
 	void EndFrame()
@@ -120,7 +116,7 @@ namespace ProfilerGPU
 			return;
 
 		ASSERT(depth == 1);
-		auto device = Renderer::GetDevice();
+		auto device = GPU::GPUDevice::Instance;
 		ASSERT(device != nullptr);
 		auto cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
 

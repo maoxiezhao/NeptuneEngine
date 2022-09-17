@@ -2,7 +2,7 @@
 
 #include "core\utils\path.h"
 #include "core\utils\dataChunk.h"
-#include "core\utils\guid.h"
+#include "core\types\guid.h"
 
 namespace VulkanTest
 {

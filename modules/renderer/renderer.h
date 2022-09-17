@@ -17,9 +17,32 @@ namespace VulkanTest
 
 	struct VULKAN_TEST_API RendererPlugin : public IPlugin
 	{
-		virtual GPU::DeviceVulkan* GetDevice() = 0;
 		virtual RenderScene* GetScene() = 0;
 		virtual Engine& GetEngine() = 0;
+	};
+
+	// Use RendererService to replace the EngineService, manage the lifetime in the renderer module
+	class RendererService
+	{
+	public:
+		typedef std::vector<RendererService*> RenderingServicesArray; 	// TODO use Array
+		static RenderingServicesArray& GetRenderingServices();
+		static void Sort();
+
+		virtual ~RendererService();
+
+		virtual bool Init(Engine& engine);
+		virtual void Uninit();
+
+		static void OnInit(Engine& engine);
+		static void OnUninit();
+
+		const char* name;
+		I32 order;
+
+	protected:
+		RendererService(const char* name_, I32 order_ = 0);
+		bool initialized = false;
 	};
 
 	namespace Renderer
@@ -33,26 +56,15 @@ namespace VulkanTest
 		void BindCameraCB(const CameraComponent& camera, GPU::CommandList& cmd);
 		void BindFrameCB(GPU::CommandList& cmd);
 
-		Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera);
-		GPU::DeviceVulkan* GetDevice();
-		GPU::Shader* PreloadShader(GPU::ShaderStage stage, const char* path, const GPU::ShaderVariantMap& defines = {});
 		const GPU::BlendState& GetBlendState(BlendStateTypes type);
 		const GPU::RasterizerState& GetRasterizerState(RasterizerStateTypes type);
 		const GPU::DepthStencilState& GetDepthStencilState(DepthStencilStateType type);
 		ResPtr<Shader> GetShader(ShaderType type);
 
-		void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd);
-		void DebugDrawBox(const FMat4x4& boxMatrix, const F32x4& color = F32x4(1.0f));
-
-		enum class RenderQueueType
-		{
-			Opaque = 1 << 0,
-			Transparent = 1 << 1,
-			All = Opaque | Transparent
-		};
-
-		void DrawScene(GPU::CommandList& cmd, const Visibility& vis, RENDERPASS pass);
-
+		// Scene
+		Ray GetPickRay(const F32x2& screenPos, const CameraComponent& camera);
+		void DrawScene(const Visibility& vis, RENDERPASS pass, GPU::CommandList& cmd);
+		void DrawSky(RenderScene& scene, GPU::CommandList& cmd);
 		I32 ComputeModelLOD(const Model* model, F32x3 eye, F32x3 pos, F32 radius);
 
 		// Visibiliry

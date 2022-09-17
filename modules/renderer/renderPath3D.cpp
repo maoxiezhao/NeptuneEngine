@@ -8,6 +8,7 @@
 #include "passes\visibilityPass.h"
 #include "passes\lightPass.h"
 #include "passes\opaquePass.h"
+#include "passes\transparentPass.h"
 
 namespace VulkanTest
 {
@@ -17,6 +18,7 @@ namespace VulkanTest
 		passArray.push_back(VisibilityPass::Instance());
 		passArray.push_back(LightPass::Instance());
 		passArray.push_back(OpaquePass::Instance());
+		passArray.push_back(TransparentPass::Instance());
 	}
 
 	void RenderPath3D::Update(float dt)

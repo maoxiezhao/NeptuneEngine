@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core\common.h"
-#include "core\memory\object.h"
+#include "core\types\object.h"
 #include "core\collections\array.h"
 #include "jobsystem.h"
 

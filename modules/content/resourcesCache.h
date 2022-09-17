@@ -2,7 +2,7 @@
 
 #include "core\common.h"
 #include "core\collections\hashMap.h"
-#include "core\utils\guid.h"
+#include "core\types\guid.h"
 #include "resource.h"
 #include "resourceInfo.h"
 #include "storage\storageManager.h"

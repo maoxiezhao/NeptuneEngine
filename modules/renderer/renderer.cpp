@@ -4,20 +4,21 @@
 #include "shaderInterop_postprocess.h"
 #include "gpu\vulkan\wsi.h"
 #include "core\profiler\profiler.h"
-#include "content\resourceManager.h"
-#include "content\binaryResource.h"
 #include "renderScene.h"
 #include "renderPath3D.h"
+#include "textureHelper.h"
+#include "imageUtil.h"
+#include "debugDraw.h"
+#include "render2D\fontResource.h"
+#include "render2D\render2D.h"
+#include "render2D\fontManager.h"
+#include "math\vMath_impl.hpp"
+
+#include "content\resourceManager.h"
+#include "content\binaryResource.h"
 #include "content\resources\model.h"
 #include "content\resources\material.h"
 #include "content\resources\texture.h"
-#include "textureHelper.h"
-#include "imageUtil.h"
-#include "renderer\render2D\fontResource.h"
-#include "renderer\render2D\render2D.h"
-#include "renderer\render2D\fontManager.h"
-
-#include "math\vMath_impl.hpp"
 
 namespace VulkanTest
 {
@@ -29,6 +30,74 @@ struct ShaderToCompile
 	GPU::ShaderTemplateProgram* shaderTemplate;
 	U64 hash = 0;
 };
+
+RendererService::~RendererService()
+{
+}
+
+RendererService::RenderingServicesArray& RendererService::GetRenderingServices()
+{
+	static RenderingServicesArray Services;
+	return Services;
+}
+
+void RendererService::Sort()
+{
+	auto& services = GetRenderingServices();
+	std::sort(services.begin(), services.end(), [](RendererService* a, RendererService* b) {
+		return a->order < b->order;
+		});
+}
+
+RendererService::RendererService(const char* name_, I32 order_) :
+	name(name_),
+	order(order_)
+{
+	GetRenderingServices().push_back(this);
+}
+
+bool RendererService::Init(Engine& engine)
+{
+	return true;
+}
+
+void RendererService::OnInit(Engine& engine)
+{
+	// Sort services first
+	Sort();
+
+	// Init services from front to back
+	auto& services = GetRenderingServices();
+	for (I32 i = 0; i < (I32)services.size(); i++)
+	{
+		const auto service = services[i];
+		Logger::Info("Initialize renderer sevice %s...", service->name);
+		service->initialized = true;
+		if (!service->Init(engine))
+		{
+			Logger::Error("Failed to initialize %s.", service->name);
+			return;
+		}
+	}
+}
+
+void RendererService::Uninit()
+{
+}
+
+void RendererService::OnUninit()
+{
+	auto& services = GetRenderingServices();
+	for (I32 i = (I32)services.size() - 1; i >= 0; i--)
+	{
+		const auto service = services[i];
+		if (service->initialized)
+		{
+			service->initialized = false;
+			service->Uninit();
+		}
+	}
+}
 
 struct RendererPluginImpl : public RendererPlugin
 {
@@ -43,11 +112,6 @@ public:
 	void Initialize() override
 	{
 		Renderer::Initialize(engine);
-	}
-
-	GPU::DeviceVulkan* GetDevice() override
-	{
-		return engine.GetWSI().GetDevice();
 	}
 
 	RenderScene* GetScene() override
@@ -244,6 +308,18 @@ namespace Renderer
 		rs.conservativeRasterizationEnable = false;
 		stockRasterizerState[RSTYPE_DOUBLE_SIDED] = rs;
 
+		rs.fillMode = GPU::FILL_SOLID;
+		rs.cullMode = VK_CULL_MODE_BACK_BIT;
+		rs.frontCounterClockwise = true;
+		rs.depthBias = 0;
+		rs.depthBiasClamp = 0;
+		rs.slopeScaledDepthBias = 0;
+		rs.depthClipEnable = false;
+		rs.multisampleEnable = false;
+		rs.antialiasedLineEnable = false;
+		rs.conservativeRasterizationEnable = false;
+		stockRasterizerState[RSTYPE_SKY] = rs;
+
 		// DepthStencilStates
 		GPU::DepthStencilState dsd;
 		dsd.depthEnable = true;
@@ -269,15 +345,15 @@ namespace Renderer
 		dsd.depthFunc = VK_COMPARE_OP_EQUAL;
 		depthStencilStates[DSTYPE_READEQUAL] = dsd;
 
+		dsd.depthEnable = true;
+		dsd.stencilEnable = false;
+		dsd.depthWriteMask = GPU::DEPTH_WRITE_MASK_ZERO;
+		dsd.depthFunc = VK_COMPARE_OP_GREATER_OR_EQUAL;
+		depthStencilStates[DSTYPE_READ] = dsd;
+
 		dsd.depthEnable = false;
 		dsd.stencilEnable = false;
 		depthStencilStates[DSTYPE_DISABLED] = dsd;
-	}
-
-	GPU::Shader* PreloadShader(GPU::ShaderStage stage, const char* path, const GPU::ShaderVariantMap& defines)
-	{
-		GPU::DeviceVulkan& device = *GetDevice();
-		return device.GetShaderManager().LoadShader(stage, path, defines);
 	}
 
 	void LoadShaders()
@@ -290,6 +366,7 @@ namespace Renderer
 		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResource<Shader>(Path("shaders/blurGaussian.shd"));
 		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = resManager.LoadResource<Shader>(Path("shaders/lightCulling.shd"));
 		shaders[SHADERTYPE_MESHLET] = resManager.LoadResource<Shader>(Path("shaders/meshlet.shd"));
+		shaders[SHADERTYPE_SKY] = resManager.LoadResource<Shader>(Path("shaders/sky.shd"));
 	}
 
 	void InitializeFactories(Engine& engine)
@@ -329,7 +406,7 @@ namespace Renderer
 		LoadShaders();
 
 		// Create builtin constant buffers
-		auto device = GetDevice();
+		auto device = GPU::GPUDevice::Instance;
 		GPU::BufferCreateInfo info = {};
 		info.domain = GPU::BufferDomain::Device;
 		info.size = sizeof(FrameCB);
@@ -346,15 +423,8 @@ namespace Renderer
 		device->SetName(*shaderLightBuffer, "ShaderLightBuffer");
 		shaderLightBufferBindless = device->CreateBindlessStroageBuffer(*shaderLightBuffer, 0, shaderLightBuffer->GetCreateInfo().size);
 
-		ResourceManager& resManager = engine.GetResourceManager();
-		// Initialize image util
-		ImageUtil::Initialize(resManager);
-
-		// Initialize texture helper
-		TextureHelper::Initialize(&resManager);
-
-		// Initialize render2D
-		Render2D::Initialize(&resManager);
+		// Initialize renderer services
+		RendererService::OnInit(engine);
 	}
 
 	void Renderer::Uninitialize()
@@ -363,15 +433,9 @@ namespace Renderer
 		for (int i = 0; i < ARRAYSIZE(shaders); i++)
 			shaders[i].reset();
 
-		// Uninitialize render2D
-		Render2D::Uninitialize();
+		// Uninitialize renderder services
+		RendererService::OnUninit();
 
-		// Uninitialize image util
-		ImageUtil::Uninitialize();
-
-		// Uninitialize texture helper
-		TextureHelper::Uninitialize();
-		
 		// Release frame buffer
 		frameBuffer.reset();
 
@@ -384,12 +448,6 @@ namespace Renderer
 
 		rendererPlugin = nullptr;
 		Logger::Info("Render uninitialized");
-	}
-
-	GPU::DeviceVulkan* GetDevice()
-	{
-		ASSERT(rendererPlugin != nullptr);
-		return rendererPlugin->GetDevice();
 	}
 
 	const GPU::BlendState& GetBlendState(BlendStateTypes type)
@@ -410,14 +468,6 @@ namespace Renderer
 	ResPtr<Shader> GetShader(ShaderType type)
 	{
 		return shaders[type];
-	}
-
-	void DrawDebugObjects(const RenderScene& scene, const CameraComponent& camera, GPU::CommandList& cmd)
-	{
-	}
-
-	void DrawBox(const FMat4x4& boxMatrix, const F32x4& color)
-	{
 	}
 
 	void UpdateFrameData(const Visibility& visible, RenderScene& scene, F32 delta, FrameCB& frameCB)
@@ -635,7 +685,7 @@ namespace Renderer
 		cmd.EndEvent();
 	}
 
-	void DrawScene(GPU::CommandList& cmd, const Visibility& vis, RENDERPASS pass)
+	void DrawScene(const Visibility& vis, RENDERPASS pass, GPU::CommandList& cmd)
 	{
 		RenderScene* scene = vis.scene;
 		if (!scene)
@@ -675,6 +725,21 @@ namespace Renderer
 			DrawMeshes(cmd, queue, vis, pass, 0);
 		}
 
+		cmd.EndEvent();
+	}
+
+	void DrawSky(RenderScene& scene, GPU::CommandList& cmd)
+	{
+		// TODO Use DrawSky to replace this function
+		cmd.BeginEvent("DrawSky");
+		cmd.SetBlendState(GetBlendState(BSTYPE_OPAQUE));
+		cmd.SetDepthStencilState(GetDepthStencilState(DSTYPE_READ));
+		cmd.SetRasterizerState(GetRasterizerState(RSTYPE_SKY));
+		cmd.SetProgram(
+			Renderer::GetShader(ShaderType::SHADERTYPE_SKY)->GetVS("VS"),
+			Renderer::GetShader(ShaderType::SHADERTYPE_SKY)->GetPS("PS_Sky")
+		);
+		cmd.Draw(3);
 		cmd.EndEvent();
 	}
 

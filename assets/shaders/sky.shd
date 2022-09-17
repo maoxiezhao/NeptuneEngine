@@ -1,0 +1,41 @@
+#include "common/global.hlsli"
+
+struct VertexToPixel
+{
+    float4 pos : SV_POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+inline void FullScreenTriangle(in uint vertexID, out float4 pos)
+{
+	pos.x = (float)(vertexID / 2) * 4.0 - 1.0;
+	pos.y = (float)(vertexID % 2) * 4.0 - 1.0;
+	pos.z = 0;
+	pos.w = 1;
+}
+
+META_VS(true)
+VertexToPixel VS(uint vID : SV_VERTEXID)
+{
+    VertexToPixel Out;
+    FullScreenTriangle(vID, Out.pos);
+    Out.uv = Out.pos.xy;
+    return Out;
+}
+
+float3 GetSkyDynamicColor(in float3 V)
+{
+    float3 sky = 0;
+
+    return sky;
+}
+
+META_PS(true)
+float4 PS_Sky(VertexToPixel input) : SV_TARGET
+{
+    float4 worldPos = mul(GetCamera().invViewProjection, float4(input.uv, 0, 1));
+    worldPos.xyz /= worldPos.w;
+    const float3 V = normalize(worldPos.xyz - GetCamera().position);
+    float4 skyColor = float4(GetSkyDynamicColor(V), 1);
+	return skyColor;
+}

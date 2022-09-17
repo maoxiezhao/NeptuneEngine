@@ -31,6 +31,72 @@ namespace Render2D
 	GPU::PipelineStateDesc psFont;
 	ResPtr<Shader> fontShader;
 
+	class Render2DService : public RendererService
+	{
+	public:
+		Render2DService() :
+			RendererService("Render2D", -600)
+		{}
+
+		bool Init(Engine& engine) override
+		{
+			auto& resManager = engine.GetResourceManager();
+			fontShader = resManager.LoadResource<Shader>(Path("shaders/font.shd"));
+			if (fontShader == nullptr)
+			{
+				Logger::Error("Failed to load font shader");
+				return false;
+			}
+
+			// Rasterizer states
+			GPU::RasterizerState rs;
+			rs.fillMode = GPU::FILL_SOLID;
+			rs.cullMode = VK_CULL_MODE_NONE;
+			rs.frontCounterClockwise = true;
+			rs.depthBias = 0;
+			rs.depthBiasClamp = 0;
+			rs.slopeScaledDepthBias = 0;
+			rs.depthClipEnable = false;
+			rs.multisampleEnable = false;
+			rs.antialiasedLineEnable = false;
+			rs.conservativeRasterizationEnable = false;
+			psFont.rasterizerState = rs;
+
+			// Blend states
+			GPU::BlendState bd;
+			bd.renderTarget[0].blendEnable = true;
+			bd.renderTarget[0].srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+			bd.renderTarget[0].destBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			bd.renderTarget[0].blendOp = VK_BLEND_OP_ADD;
+			bd.renderTarget[0].srcBlendAlpha = VK_BLEND_FACTOR_ONE;
+			bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
+			bd.renderTarget[0].renderTargetWriteMask = GPU::COLOR_WRITE_ENABLE_ALL;
+			bd.alphaToCoverageEnable = false;
+			bd.independentBlendEnable = false;
+			psFont.blendState = bd;
+
+			// Depth stencil state
+			GPU::DepthStencilState dsd;
+			dsd.depthEnable = false;
+			dsd.stencilEnable = false;
+			psFont.depthStencilState = dsd;
+
+			// Topology
+			psFont.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+	
+			initialized = true;
+			return true;
+		}
+
+		void Uninit() override
+		{
+			fontShader.reset();
+			initialized = false;
+		}
+	};
+	Render2DService Render2DServiceInstance;
+
 	void ParseText(Font* font, const String& text, const TextParmas& params, F32x2& textSize)
 	{
 		fontVertexList.clear();
@@ -140,7 +206,7 @@ namespace Render2D
 
 	void DrawText(Font* font, const String& text, const TextParmas& params, GPU::CommandList& cmd)
 	{
-		GPU::DeviceVulkan* device = Renderer::GetDevice();
+		GPU::DeviceVulkan* device = GPU::GPUDevice::Instance;
 		if (font == nullptr || text.empty() || device == nullptr)
 			return;
 
@@ -207,58 +273,6 @@ namespace Render2D
 			cmd.DrawInstanced(4, drawcall.count, 0, drawcall.startIndex);
 			cmd.EndEvent();
 		}
-	}
-
-	void Initialize(ResourceManager* resourceManager)
-	{
-		fontShader = resourceManager->LoadResource<Shader>(Path("shaders/font.shd"));
-		if (fontShader == nullptr)
-		{
-			Logger::Error("Failed to load font shader");
-			return;
-		}
-
-		// Rasterizer states
-		GPU::RasterizerState rs;
-		rs.fillMode = GPU::FILL_SOLID;
-		rs.cullMode = VK_CULL_MODE_NONE;
-		rs.frontCounterClockwise = true;
-		rs.depthBias = 0;
-		rs.depthBiasClamp = 0;
-		rs.slopeScaledDepthBias = 0;
-		rs.depthClipEnable = false;
-		rs.multisampleEnable = false;
-		rs.antialiasedLineEnable = false;
-		rs.conservativeRasterizationEnable = false;
-		psFont.rasterizerState = rs;
-
-		// Blend states
-		GPU::BlendState bd;
-		bd.renderTarget[0].blendEnable = true;
-		bd.renderTarget[0].srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
-		bd.renderTarget[0].destBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		bd.renderTarget[0].blendOp = VK_BLEND_OP_ADD;
-		bd.renderTarget[0].srcBlendAlpha = VK_BLEND_FACTOR_ONE;
-		bd.renderTarget[0].destBlendAlpha = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		bd.renderTarget[0].blendOpAlpha = VK_BLEND_OP_ADD;
-		bd.renderTarget[0].renderTargetWriteMask = GPU::COLOR_WRITE_ENABLE_ALL;
-		bd.alphaToCoverageEnable = false;
-		bd.independentBlendEnable = false;
-		psFont.blendState = bd;
-
-		// Depth stencil state
-		GPU::DepthStencilState dsd;
-		dsd.depthEnable = false;
-		dsd.stencilEnable = false;
-		psFont.depthStencilState = dsd;
-
-		// Topology
-		psFont.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	}
-
-	void Uninitialize()
-	{
-		fontShader.reset();
 	}
 }
 }

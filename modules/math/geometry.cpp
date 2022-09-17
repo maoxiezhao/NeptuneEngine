@@ -88,7 +88,7 @@ namespace VulkanTest
 		return std::max(std::max(width.x, width.y), width.z);
 	}
 
-	MATRIX AABB::GetCenterAsMatrix() const
+	MATRIX AABB::GetAsMatrix() const
 	{
 		F32x3 ext = GetHalfWidth();
 		MATRIX sca = XMMatrixScaling(ext.x, ext.y, ext.z);

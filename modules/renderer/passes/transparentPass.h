@@ -5,11 +5,9 @@
 
 namespace VulkanTest
 {
-	class OpaquePass : public RenderGraphPass<OpaquePass>
+	class TransparentPass : public RenderGraphPass<TransparentPass>
 	{
 	public:
 		void Setup(RenderGraph& renderGraph, RenderPath3D& renderPath) override;
-
-		static const String RtOpaqueRes;
 	};
 }

@@ -91,6 +91,7 @@ namespace Editor
 			return false;
 
 		char srcDir[MAX_PATH_LENGTH];
+		memset(srcDir, 0, sizeof(srcDir));
 		CopyString(Span(srcDir), Path::GetDir(filename));
 
 		std::string objErrors;

@@ -1,8 +1,6 @@
 #pragma once
 
-#include "core\common.h"
-#include "gpu\vulkan\device.h"
-#include "enums.h"
+#include "rendererCommon.h"
 
 namespace VulkanTest {
 	class ResourceManager;
@@ -48,7 +46,5 @@ namespace VulkanTest::ImageUtil
 		constexpr void EnableFullScreen() { flags |= FULLSCREEN; }
     };
 
-    void Initialize(ResourceManager& resManager);
-	void Uninitialize();
     void Draw(GPU::Image* image, Params params, GPU::CommandList& cmd);
 }

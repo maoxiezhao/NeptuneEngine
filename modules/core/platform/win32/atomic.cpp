@@ -85,7 +85,7 @@ namespace VulkanTest
 	// I64
 	//////////////////////////////////////////////////////////////////////////
 
-	I32 AtomicStore(volatile I64* pw, I64 val)
+	I64 AtomicStore(volatile I64* pw, I64 val)
 	{
 		return InterlockedExchange64((LONGLONG volatile*)pw, val);
 	}

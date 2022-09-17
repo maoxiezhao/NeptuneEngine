@@ -1,4 +1,5 @@
 #include "textureHelper.h"
+#include "renderer.h"
 #include "core\platform\sync.h"
 #include "core\collections\hashMap.h"
 #include "content\resourceManager.h"
@@ -9,16 +10,28 @@ namespace VulkanTest
 	HashMap<U32, ResPtr<Texture>> colorTextures;
 	SpinLock colorlock;
 
-	void TextureHelper::Initialize(ResourceManager* resourceManager_)
+	class TextureHelperService : public RendererService
 	{
-		resourceManager = resourceManager_;
-	}
+	public:
+		TextureHelperService() :
+			RendererService("TextureHelper", -700)
+		{}
 
-	void TextureHelper::Uninitialize()
-	{
-		colorTextures.clear();
-		resourceManager = nullptr;
-	}
+		bool Init(Engine& engine) override
+		{
+			resourceManager = &engine.GetResourceManager();
+			initialized = true;
+			return true;
+		}
+
+		void Uninit() override
+		{
+			colorTextures.clear();
+			resourceManager = nullptr;
+			initialized = false;
+		}
+	};
+	TextureHelperService TextureHelperServiceInstance;
 
 	Texture* TextureHelper::GetColor(const Color4& color)
 	{

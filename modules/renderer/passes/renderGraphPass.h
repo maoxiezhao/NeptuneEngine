@@ -1,7 +1,7 @@
 #pragma once
 
 #include "renderGraph.h"
-#include "core\memory\object.h"
+#include "core\types\object.h"
 #include "core\utils\singleton.h"
 
 namespace VulkanTest

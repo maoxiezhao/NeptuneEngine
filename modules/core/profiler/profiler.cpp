@@ -236,7 +236,7 @@ namespace Profiler
 
 		FiberSwitchData switchData;
 		switchData.id = block->id;
-		switchData.count = thread->blockStack.size();
+		switchData.count = (U32)thread->blockStack.size();
 		switchData.thread = thread;
 		ASSERT(switchData.count < (U32)ARRAYSIZE(switchData.blocks));
 		memcpy(switchData.blocks, thread->blockStack.data(), std::min(switchData.count, (U32)ARRAYSIZE(switchData.blocks)) * sizeof(I32));
@@ -270,7 +270,7 @@ namespace Profiler
 
 		switchData.thread->EndFiberWait(switchData.id);
 
-		for (I32 i = 0; i < switchData.count; i++)
+		for (U32 i = 0; i < switchData.count; i++)
 		{
 			if (i < ARRAYSIZE(switchData.blocks))
 				ContinueBlock(switchData.blocks[i], switchData.thread);

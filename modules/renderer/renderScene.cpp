@@ -767,7 +767,7 @@ namespace VulkanTest
                     }
                 }
       
-                FMat4x4 meshMatrix = StoreFMat4x4(aabb.GetCenterAsMatrix() * mat);
+                FMat4x4 meshMatrix = StoreFMat4x4(aabb.GetAsMatrix() * mat);
                 objComp.center = meshMatrix.vec[3].xyz();
             }
 

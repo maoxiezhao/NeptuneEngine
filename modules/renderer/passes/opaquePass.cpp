@@ -5,17 +5,20 @@
 
 namespace VulkanTest
 {
+	const String OpaquePass::RtOpaqueRes = "rtOpaque";
+
 	void OpaquePass::Setup(RenderGraph& renderGraph, RenderPath3D& renderPath)
 	{
 		AttachmentInfo rtAttachment = renderPath.GetAttachmentRT();
 		AttachmentInfo depthAttachment = renderPath.GetAttachmentDepth();
 
 		auto& pass = renderGraph.AddRenderPass("Opaue", RenderGraphQueueFlag::Graphics);
-		pass.WriteColor("rtOpaque", rtAttachment, "rtOpaque");
-		pass.SetClearColorCallback(DefaultClearColorFunc);
-		pass.AddProxyOutput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
+		pass.WriteColor(RtOpaqueRes, rtAttachment, RtOpaqueRes);
 		pass.ReadDepthStencil(renderPath.GetDepthStencil());
 		pass.ReadStorageBufferReadonly(LightPass::LightTileRes);
+
+		// OpaquePass submit before the transparentPass
+		pass.AddProxyOutput("opaque", VK_PIPELINE_STAGE_NONE_KHR);
 
 		pass.SetBuildCallback([rtAttachment, &renderPath, &renderGraph](GPU::CommandList& cmd) {
 
@@ -25,9 +28,10 @@ namespace VulkanTest
 			cmd.SetViewport(viewport);
 
 			Renderer::BindCameraCB(*renderPath.camera, cmd);
-			Renderer::DrawScene(cmd, renderPath.visibility, RENDERPASS_MAIN);
+			Renderer::DrawScene(renderPath.visibility, RENDERPASS_MAIN, cmd);
+			Renderer::DrawSky(*renderPath.GetScene(), cmd);
 		});
 
-		renderPath.SetRenderResult3D("rtOpaque");
+		renderPath.SetRenderResult3D(RtOpaqueRes);
 	}
 }

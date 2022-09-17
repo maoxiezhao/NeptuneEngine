@@ -74,7 +74,7 @@ namespace VulkanTest
     void EngineService::OnUninit()
     {
         auto& services = GetServices();
-        for (I32 i = services.size() - 1; i >= 0; i--)
+        for (I32 i = (I32)services.size() - 1; i >= 0; i--)
         {
             const auto service = services[i];
             if (service->initialized)

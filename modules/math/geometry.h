@@ -4,6 +4,17 @@
 
 namespace VulkanTest
 {
+	struct Sphere
+	{
+	public:
+		F32x3 center;
+		F32 radius;
+
+	public:
+		Sphere() : center(F32x3(0.0f)), radius(0.0f) {}
+		Sphere(const F32x3& center_, F32 radius_) : center(center_), radius(radius_) {}
+	};
+
 	struct Rectangle
 	{
 	public:
@@ -138,7 +149,7 @@ namespace VulkanTest
 		F32x3 GetCenter() const;
 		F32x3 GetHalfWidth() const;
 		F32 GetRadius()const;
-		MATRIX GetCenterAsMatrix() const;
+		MATRIX GetAsMatrix() const;
 
 		constexpr bool IsValid() const
 		{

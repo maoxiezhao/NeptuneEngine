@@ -59,7 +59,7 @@ namespace VulkanTest
 		if (bufferPos > 0)
 		{
 			size_t written;
-			file->Write(buffer, bufferPos, written) != 0;
+			file->Write(buffer, bufferPos, written);
 			bufferPos = 0;
 		}
 	}

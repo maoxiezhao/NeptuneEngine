@@ -26,7 +26,7 @@ namespace VulkanTest
 			cmd.SetViewport(viewport);
 
 			Renderer::BindCameraCB(*renderPath.camera, cmd);
-			Renderer::DrawScene(cmd, renderPath.visibility, RENDERPASS_PREPASS);
+			Renderer::DrawScene(renderPath.visibility, RENDERPASS_PREPASS, cmd);
 		});
 
 		renderPath.SetDepthStencil("depth");

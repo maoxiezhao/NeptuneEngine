@@ -92,9 +92,7 @@ namespace VulkanTest
 			if (!Create(width, height, format, nullptr))
 				Logger::Warning("Failed to initialize font altas texture.");
 
-			auto device = Renderer::GetDevice();
-			ASSERT(device != nullptr);
-			device->SetName(*handle, "FontAltas");
+			GPU::GPUDevice::Instance->SetName(*handle, "FontAltas");
 		}
 	}
 

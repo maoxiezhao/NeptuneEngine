@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core\memory\object.h"
-#include "core\utils\guid.h"
+#include "core\types\object.h"
+#include "core\types\guid.h"
 
 namespace VulkanTest
 {

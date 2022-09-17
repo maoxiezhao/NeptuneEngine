@@ -11,7 +11,7 @@ namespace VulkanTest
 
 	void Shader::ShaderContainer::Clear()
 	{
-		//GPU::DeviceVulkan* device = Renderer::GetDevice();
+		// TODO: GPU device release shader
 		//if (device != nullptr)
 		//{
 		//	for (auto shader : shaders)

@@ -30,9 +30,6 @@ namespace Render2D
 		const MATRIX* customRotation = nullptr;
 	};
 
-	void Initialize(ResourceManager* resourceManager);
-	void Uninitialize();
-
 	void DrawText(Font* font, const String& text, const TextParmas& params, GPU::CommandList& cmd);
 }
 }

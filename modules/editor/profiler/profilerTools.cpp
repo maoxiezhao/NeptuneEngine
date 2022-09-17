@@ -25,7 +25,7 @@ namespace Editor
 		mainStats.updateTimes = editor.GetUpdateTime();
 		mainStats.drawTimes = editor.GetDrawTime();
 		mainStats.memoryCPU = Platform::GetProcessMemoryStats().usedPhysicalMemory;
-		mainStats.memoryGPU = Renderer::GetDevice()->GetMemoryUsage().usage;
+		mainStats.memoryGPU = GPU::GPUDevice::Instance->GetMemoryUsage().usage;
 		ProfilerGPU::GetLastFrameData(mainStats.drawTimesGPU);
 
 		// Get cpu profiler blocks
