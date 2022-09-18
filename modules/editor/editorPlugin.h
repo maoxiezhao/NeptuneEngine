@@ -17,11 +17,14 @@ namespace VulkanTest
 {
 namespace Editor
 {
+    struct WorldView;
+
     struct EditorPlugin
     {
         virtual ~EditorPlugin() {}
         virtual void Initialize() = 0;
         virtual const char* GetName()const = 0;
+        virtual bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) = 0;
     };
 
     struct EditorWidget

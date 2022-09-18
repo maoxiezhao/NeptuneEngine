@@ -1,12 +1,11 @@
 #include "sceneView.h"
 #include "editor\editor.h"
 #include "editor\widgets\gizmo.h"
-#include "math\vMath_impl.hpp"
 #include "renderer\renderScene.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
 #include "renderer\render2D\render2D.h"
-#include "renderer\debugDraw.h"
+#include "math\vMath_impl.hpp"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -335,6 +334,11 @@ namespace Editor
 		{
 			return camera;
 		}
+
+		World* GetWorld()const override
+		{
+			return worldEditor.GetWorld();
+		}
 	};
 
 	SceneView::SceneView(EditorApp& app_) :
@@ -368,6 +372,7 @@ namespace Editor
 	void SceneView::Init()
 	{
 		worldView = CJING_NEW(WorldViewImpl)(*this, app);
+		worldEditor.SetView(*worldView);
 
 		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>(app, *this);
 		editorRenderer->SetWSI(&app.GetEngine().GetWSI());
@@ -487,46 +492,6 @@ namespace Editor
 
 	void SceneView::Render()
 	{
-		// Debug draw for selected entities
-		const auto& selected = worldEditor.GetSelectedEntities();
-		if (!selected.empty())
-		{
-			auto world = worldEditor.GetWorld();
-			auto entity = selected[0];
-			entity.Each([&](ECS::EntityID compID) {
-				if (compID == world->GetComponentID<LightComponent>())
-				{
-					const LightComponent* light = entity.Get<LightComponent>();
-					switch (light->type)
-					{
-					case LightComponent::DIRECTIONAL:
-					{
-						F32 dist = std::max(Distance(light->position, worldView->GetCamera().eye) * 0.5f, 0.0001f);
-						F32x3 start = light->position;
-						F32x3 end = light->position + light->direction * -dist;
-						DebugDraw::DrawLine(start, end);
-					}
-					break;
-					case LightComponent::POINT:
-					{
-						Sphere sphere;
-						sphere.center = light->position;
-						sphere.radius = light->range;
-						DebugDraw::DrawSphere(sphere, F32x4(0.5f));
-					}
-					break;
-					default:
-						break;
-					}					
-				}
-				else if (compID == world->GetComponentID<ObjectComponent>())
-				{
-					const ObjectComponent* obj = entity.Get<ObjectComponent>();
-					DebugDraw::DrawBox(StoreFMat4x4(obj->aabb.GetAsMatrix()), F32x4(0.5f));
-				}
-			});
-		}
-
 		if (shouldRender)
 			editorRenderer->Render();
 	}

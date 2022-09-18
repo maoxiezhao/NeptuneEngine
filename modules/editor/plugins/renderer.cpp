@@ -7,6 +7,8 @@
 #include "content\resources\model.h"
 #include "renderer\render2D\fontResource.h"
 #include "gpu\vulkan\typeToString.h"
+#include "math\vMath_impl.hpp"
+#include "renderer\debugDraw.h"
 #include "imgui-docking\imgui.h"
 
 #include "editor\importers\resourceImportingManager.h"
@@ -382,6 +384,71 @@ namespace Editor
 		}
 	};
 
+	struct AddLightComponentPlugin final : IAddComponentPlugin
+	{
+	public:
+		EditorApp& editor;
+
+	public:
+		explicit AddLightComponentPlugin(EditorApp& editor_) :
+			editor(editor_)
+		{}
+
+		virtual void OnGUI(bool createEntity, bool fromFilter, WorldEditor& editor) override
+		{
+			ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
+			auto CreateLight = [&]()->LightComponent* {
+				if (createEntity)
+				{
+					ECS::Entity entity = editor.AddEmptyEntity();
+					editor.SelectEntities(Span(&entity, 1), false);
+				}
+				const auto& selectedEntities = editor.GetSelectedEntities();
+				if (selectedEntities.empty())
+					return nullptr;
+
+				editor.AddComponent(selectedEntities[0], editor.GetWorld()->GetComponentID<LightComponent>());
+				return selectedEntities[0].GetMut<LightComponent>();
+			};
+
+			if (ImGui::BeginMenu("Lights"))
+			{
+				if (ImGui::MenuItem("DirectionalLight"))
+				{
+					auto light = CreateLight();
+					if (light != nullptr)
+					{
+						light->type = LightComponent::DIRECTIONAL;
+						light->intensity = 10.0f;
+					}
+				}
+				if (ImGui::MenuItem("PointLight"))
+				{
+					auto light = CreateLight();
+					if (light != nullptr)
+					{
+						light->type = LightComponent::POINT;
+						light->intensity = 20.0f;
+					}
+				}
+				if (ImGui::MenuItem("SpotLight"))
+				{
+					auto light = CreateLight();
+					if (light != nullptr)
+					{
+						light->type = LightComponent::SPOT;
+						light->intensity = 50.0f;
+					}
+				}
+				ImGui::EndMenu();
+			}
+		}
+
+		const char* GetLabel() const override {
+			return "Lights";
+		}
+	};
+
 	struct RenderPlugin : EditorPlugin
 	{
 	private:
@@ -447,9 +514,72 @@ namespace Editor
 			assetBrowser.AddPlugin(shaderPlugin);
 			assetBrowser.AddPlugin(materialPlugin);
 
+			// Add AddComponentPlugins
+			auto world = app.GetWorldEditor().GetWorld();
+			AddLightComponentPlugin* addLightsPlugin = CJING_NEW(AddLightComponentPlugin)(app);
+			app.RegisterComponent(ICON_FA_LIGHTBULB, world->GetComponentID<LightComponent>(), addLightsPlugin);
+
 			// Add widget for editor
 			app.AddWidget(sceneView);
 			sceneView.Init();
+		}
+
+		bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) override
+		{
+			auto world = worldView.GetWorld();
+			if (compID == world->GetComponentID<LightComponent>())
+			{
+				const LightComponent* light = entity.Get<LightComponent>();
+				switch (light->type)
+				{
+				case LightComponent::DIRECTIONAL:
+				{
+					F32 dist = std::max(Distance(light->position, worldView.GetCamera().eye) * 0.5f, 0.0001f);
+					F32x3 start = light->position;
+					F32x3 end = light->position + light->direction * -dist;
+					DebugDraw::DrawLine(start, end);
+				}
+				break;
+				case LightComponent::POINT:
+				{
+					Sphere sphere;
+					sphere.center = light->position;
+					sphere.radius = light->range;
+					DebugDraw::DrawSphere(sphere, F32x4(0.5f));
+				}
+				break;
+				case LightComponent::SPOT:
+				{
+					F32x3 start = light->position;
+					F32x3 end = light->position + light->direction * -light->range;
+
+					auto rotMat = MatrixRotationQuaternion(LoadF32x4(light->rotation));
+					const U32 segments = 16;
+					const F32 range = light->range * std::sinf(light->outerConeAngle);
+					for (I32 i = 0; i < segments; i++)
+					{
+						const F32 angleA = F32(i) / F32(segments) * MATH_2PI;
+						const F32 angleB = F32(i + 1) / F32(segments) * MATH_2PI;
+
+						F32x3 pointA = StoreF32x3(Vector3TransformNormal(LoadF32x3(F32x3(range * std::sinf(angleA), 0.0f, range * std::cosf(angleA))), rotMat)) + end;
+						F32x3 pointB = StoreF32x3(Vector3TransformNormal(LoadF32x3(F32x3(range * std::sinf(angleB), 0.0f, range * std::cosf(angleB))), rotMat)) + end;
+						DebugDraw::DrawLine(pointA, pointB);
+
+						if (i % 4 == 0)
+							DebugDraw::DrawLine(start, pointA);
+					}
+				}
+				break;
+				default:
+					break;
+				}
+			}
+			else if (compID == world->GetComponentID<ObjectComponent>())
+			{
+				const ObjectComponent* obj = entity.Get<ObjectComponent>();
+				DebugDraw::DrawBox(StoreFMat4x4(obj->aabb.GetAsMatrix()), F32x4(0.5f));
+			}
+			return true;
 		}
 
 		const char* GetName()const override

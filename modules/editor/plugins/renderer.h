@@ -4,9 +4,9 @@
 
 namespace VulkanTest
 {
-namespace Editor
-{
-	class EditorApp;
-	extern "C" EditorPlugin* SetupPluginRenderer(EditorApp& app);
+	namespace Editor
+	{
+		class EditorApp;
+		extern "C" EditorPlugin * SetupPluginRenderer(EditorApp & app);
+	}
 }
-} 

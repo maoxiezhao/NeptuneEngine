@@ -120,6 +120,7 @@ namespace Editor
         EditorApp& editor;
         Engine& engine;
         World* world = nullptr;
+        WorldView* view = nullptr;
         LocalPtr<EntityFolder> entityFolder;
         Array<ECS::Entity> selectedEntities;
 
@@ -203,6 +204,16 @@ namespace Editor
         {
             UniquePtr<AddComponentCommand> command = CJING_MAKE_UNIQUE<AddComponentCommand>(*this, entity, compID);
             ExecuteCommand(std::move(command));
+        }
+
+        WorldView& GetView() override
+        {
+            return *view;
+        }
+       
+        virtual void SetView(WorldView& view_) override
+        {
+            view = &view_;
         }
 
         static void FastRemoveDuplicates(Array<ECS::Entity>& entities)

@@ -24,7 +24,6 @@ namespace DebugDraw
 	I32 wireSphereIndices = 0;
 
 	GPU::PipelineStateDesc debugPSO;
-	GPU::PipelineStateDesc debugLinePSO;
 
 	struct DebugDrawData
 	{
@@ -72,9 +71,6 @@ namespace DebugDraw
 			state.rasterizerState = rs;
 			state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 			debugPSO = state;
-
-			state.depthStencilState = Renderer::GetDepthStencilState(DSTYPE_DISABLED);
-			debugLinePSO = state;
 
 			initialized = true;
 			return true;
@@ -199,7 +195,7 @@ namespace DebugDraw
 		if (!debugDrawData.renderableLines.empty())
 		{
 			cmd.BeginEvent("DebugLines");
-			cmd.SetPipelineState(debugLinePSO);
+			cmd.SetPipelineState(debugPSO);
 			cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
 			cmd.SetVertexAttribute(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(F32x4));
 			cmd.SetProgram(

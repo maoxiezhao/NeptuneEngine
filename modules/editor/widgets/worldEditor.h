@@ -29,6 +29,7 @@ namespace Editor
         virtual bool IsMouseClick(Platform::MouseButton button) const = 0;
         virtual F32x2 GetMousePos() const = 0;
         virtual const CameraComponent& GetCamera()const = 0;
+        virtual World* GetWorld()const = 0;
     };
 
     class VULKAN_EDITOR_API WorldEditor : public EditorWidget
@@ -45,6 +46,8 @@ namespace Editor
         virtual ECS::Entity AddEmptyEntity() = 0;
         virtual ECS::Entity DeleteEntity(ECS::Entity entity) = 0;
         virtual void AddComponent(ECS::Entity entity, ECS::EntityID compID) = 0;
+        virtual WorldView& GetView() = 0;
+        virtual void SetView(WorldView& view_) = 0;
 
         virtual void ClearSelectEntities() = 0;
         virtual void SelectEntities(Span<const ECS::Entity> entities, bool toggle) = 0;

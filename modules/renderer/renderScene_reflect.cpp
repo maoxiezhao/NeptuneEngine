@@ -10,12 +10,11 @@ namespace VulkanTest
         builder.Component<ObjectComponent, &RenderScene::CreateObject, &RenderScene::DestroyEntity>("Object");
         builder.Component<MaterialComponent, &RenderScene::CreateMaterial, &RenderScene::DestroyEntity>("Material");
         builder.Component<MeshComponent, &RenderScene::CreateMesh, &RenderScene::DestroyEntity>("Mesh");
-        builder.Component<LightComponent, &RenderScene::CreateDirectionLight, &RenderScene::DestroyEntity>("DirectionalLight")
+        builder.Component<LightComponent, &RenderScene::CreateDirectionLight, &RenderScene::DestroyEntity>("Light")
             .VarProp<LightComponent, &LightComponent::color>("color").ColorAttribute()
-            .VarProp<LightComponent, &LightComponent::intensity>("intensity");
-        //builder.Component<LightComponent, &RenderScene::CreatePointLight, &RenderScene::DestroyEntity>("PointLight")
-        //    .VarProp<LightComponent, &LightComponent::color>("color").ColorAttribute()
-        //    .VarProp<LightComponent, &LightComponent::intensity>("intensity")
-        //    .VarProp<LightComponent, &LightComponent::range>("range");
+            .VarProp<LightComponent, &LightComponent::intensity>("intensity")
+            .VarProp<LightComponent, &LightComponent::range>("range")
+            .VarProp<LightComponent, &LightComponent::innerConeAngle>("innerConeAngle")
+            .VarProp<LightComponent, &LightComponent::outerConeAngle>("outerConeAngle");
     }
 }

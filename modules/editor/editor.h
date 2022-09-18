@@ -12,6 +12,7 @@ namespace VulkanTest
 {
 namespace Editor
 {
+    class EditorApp;
     namespace Gizmo { struct Config; }
 
     struct IAddComponentPlugin
@@ -51,6 +52,7 @@ namespace Editor
         virtual void SetCursorCaptured(bool capture) = 0;
         virtual void SaveSettings() = 0;
         virtual void SetRenderInterace(RenderInterface* renderInterface_) = 0;
+        virtual void RegisterComponent(const char* icon, ECS::EntityID compID, IAddComponentPlugin* plugin) = 0;
 
         virtual EditorPlugin* GetPlugin(const char* name) = 0;
         virtual Utils::Action* GetAction(const char* name) = 0;

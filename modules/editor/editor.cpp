@@ -416,6 +416,9 @@ namespace Editor
             for (auto widget : widgets)
                 widget->Render();
 
+            // Draw debug gizmo for selected components
+            ShowComponentGizmo();
+
             ImGuiRenderer::Render();
 #else
   
@@ -859,6 +862,23 @@ namespace Editor
             }
         }
 
+        void RegisterComponent(const char* icon, ECS::EntityID compID, IAddComponentPlugin* plugin) override
+        {
+            componentLabels.insert(compID, plugin->GetLabel());
+            if (icon && icon[0])
+                componentIcons.insert(compID, icon);
+
+            U32 index = 0;
+            while (index < addCompPlugins.size() && compareString(plugin->GetLabel(), addCompPlugins[index]->GetLabel()) > 0)
+                index++;
+            addCompPlugins.Insert(index, plugin);
+
+            auto node = CJING_NEW(AddComponentTreeNode);
+            CopyString(node->label, plugin->GetLabel());
+            node->plugin = plugin;
+            InsertAddComponentTreeNode(addCompTreeNodeRoot, node);
+        }
+
         void RegisterComponent(const char* icon, const char* label, ECS::EntityID compID)
         {
             componentLabels.insert(compID, label);
@@ -978,6 +998,20 @@ namespace Editor
                 }
             }
             return font;
+        }
+
+        void ShowComponentGizmo()
+        {
+            // Debug draw for selected entities
+            const auto& selected = worldEditor->GetSelectedEntities();
+            if (!selected.empty())
+            {
+                auto entity = selected[0];
+                entity.Each([&](ECS::EntityID compID) {
+                    for (auto plugin : plugins)
+                        plugin->ShowComponentGizmo(worldEditor->GetView(), entity, compID);
+                });
+            }
         }
 
         template<void (EditorAppImpl::*Func)()>
