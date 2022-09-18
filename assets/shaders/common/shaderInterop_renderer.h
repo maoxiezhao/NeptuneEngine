@@ -197,6 +197,11 @@ struct ShaderLight
 	uint2 direction;
 	uint2 color;
 
+	uint angles;
+	float coneAngleCos;
+	uint padding2;
+	uint padding3;
+
 #ifndef __cplusplus
 	inline uint GetType() {
 		return type16_range16 & 0xffff;
@@ -224,6 +229,22 @@ struct ShaderLight
 		ret.w = f16tof32(color.y >> 16u);
 		return ret;
 	}
+
+	inline float GetConeAngleCos()
+	{
+		return coneAngleCos;
+	}
+
+	inline float GetAngleScale()
+	{
+		return f16tof32(angles);
+	}
+
+	inline float GetAngleOffset()
+	{
+		return f16tof32(angles >> 16u);
+	}
+
 #else
 	inline void SetType(uint type) {
 		type16_range16 |= type & 0xffff;
@@ -246,6 +267,21 @@ struct ShaderLight
 		color.x |= VulkanTest::ConvertFloatToHalf(value.y) << 16u;
 		color.y |= VulkanTest::ConvertFloatToHalf(value.z);
 		color.y |= VulkanTest::ConvertFloatToHalf(value.w) << 16u;
+	}
+
+	inline void SetConeAngleCos(float value)
+	{
+		coneAngleCos = value;
+	}
+
+	inline void SetAngleScale(float value)
+	{
+		angles |= VulkanTest::ConvertFloatToHalf(value);
+	}
+
+	inline void SetAngleOffset(float value)
+	{
+		angles |= VulkanTest::ConvertFloatToHalf(value) << 16u;
 	}
 
 #endif

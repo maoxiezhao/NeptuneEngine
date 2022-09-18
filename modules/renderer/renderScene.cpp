@@ -359,6 +359,16 @@ namespace VulkanTest
             return CreateLight(entity, LightComponent::LightType::POINT);
         }
 
+        ECS::Entity CreateDirectionLight(ECS::Entity entity) override
+        {
+            return CreateLight(entity, LightComponent::LightType::DIRECTIONAL);
+        }
+
+        ECS::Entity CreateSpotLight(ECS::Entity entity) override
+        {
+            return CreateLight(entity, LightComponent::LightType::SPOT);
+        }
+
         ECS::Entity CreateLight(
             ECS::Entity entity,
             LightComponent::LightType type = LightComponent::LightType::POINT,

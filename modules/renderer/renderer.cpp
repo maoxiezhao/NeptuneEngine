@@ -525,6 +525,17 @@ namespace Renderer
 			case LightComponent::POINT:
 				break;
 			case LightComponent::SPOT:
+			{
+				// https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_lights_punctual#inner-and-outer-cone-angles
+				F32 outerConeAngleCos = std::cos(light->outerConeAngle);
+				F32 lightAngleScale = 1.0f / std::max(0.001f, std::cos(light->innerConeAngle) - outerConeAngleCos);
+				F32 lightAngleOffset = -outerConeAngleCos * lightAngleScale;
+
+				shaderLight.SetConeAngleCos(outerConeAngleCos);
+				shaderLight.SetAngleOffset(lightAngleOffset);
+				shaderLight.SetAngleScale(lightAngleScale);
+				shaderLight.SetDirection(light->direction);
+			}
 				break;
 			default:
 				ASSERT(false);

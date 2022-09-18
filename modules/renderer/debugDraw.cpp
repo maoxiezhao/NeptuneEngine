@@ -10,20 +10,31 @@ namespace DebugDraw
 		F32x4 col;
 	};
 
+	struct RenderableLine
+	{
+		F32x3 start;
+		F32x3 end;
+		F32x4 color;
+	};
+
 	GPU::BufferPtr wireCubeVB;
 	GPU::BufferPtr wireCubeIB;
 	GPU::BufferPtr wireSphereVB;
 	GPU::BufferPtr wireSphereIB;
 	I32 wireSphereIndices = 0;
+
 	GPU::PipelineStateDesc debugPSO;
+	GPU::PipelineStateDesc debugLinePSO;
 
 	struct DebugDrawData
 	{
+		Array<RenderableLine> renderableLines;
 		Array<Pair<FMat4x4, F32x4>> renderableBoxes;
 		Array<Pair<Sphere, F32x4>> renderableSpheres;
 
 		void Release()
 		{
+			renderableLines.resize(0);
 			renderableBoxes.resize(0);
 			renderableSpheres.resize(0);
 		}
@@ -60,8 +71,11 @@ namespace DebugDraw
 			state.blendState = Renderer::GetBlendState(BSTYPE_TRANSPARENT);
 			state.rasterizerState = rs;
 			state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-
 			debugPSO = state;
+
+			state.depthStencilState = Renderer::GetDepthStencilState(DSTYPE_DISABLED);
+			debugLinePSO = state;
+
 			initialized = true;
 			return true;
 		}
@@ -181,6 +195,53 @@ namespace DebugDraw
 	{
 		cmd.BeginEvent("DrawDebug");
 
+		// Draw lines
+		if (!debugDrawData.renderableLines.empty())
+		{
+			cmd.BeginEvent("DebugLines");
+			cmd.SetPipelineState(debugLinePSO);
+			cmd.SetVertexAttribute(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+			cmd.SetVertexAttribute(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(F32x4));
+			cmd.SetProgram(
+				Renderer::GetShader(ShaderType::SHADERTYPE_VERTEXCOLOR)->GetVS("VS"),
+				Renderer::GetShader(ShaderType::SHADERTYPE_VERTEXCOLOR)->GetPS("PS")
+			);
+
+			DebugConstant cb;
+			cb.pos = StoreFMat4x4(camera.GetViewProjection());
+			cb.col = F32x4(1.0f);
+			cmd.BindConstant<DebugConstant>(cb, 0, 0);
+
+			struct LineSegment
+			{
+				F32x4 pointA;
+				F32x4 colorA;
+				F32x4 pointB;
+				F32x4 colorB;
+			};
+			LineSegment* vertMem = static_cast<LineSegment*>(cmd.AllocateVertexBuffer(0, 
+				sizeof(LineSegment) * debugDrawData.renderableLines.size(),
+				sizeof(F32x4) + sizeof(F32x4),
+				VK_VERTEX_INPUT_RATE_VERTEX));
+
+			I32 numSegments = 0;
+			for (const auto& line : debugDrawData.renderableLines)
+			{
+				LineSegment segment;
+				segment.pointA = F32x4(line.start, 1);
+				segment.pointB = F32x4(line.end, 1);
+				segment.colorA = line.color;
+				segment.colorB = line.color;
+		
+				memcpy(vertMem + numSegments, &segment, sizeof(LineSegment));
+				numSegments++;
+			}
+
+			cmd.Draw(numSegments * 2);
+			debugDrawData.renderableLines.clear();
+			cmd.EndEvent();
+		}
+
 		// Draw boxes
 		if (!debugDrawData.renderableBoxes.empty())
 		{
@@ -246,6 +307,11 @@ namespace DebugDraw
 		}
 
 		cmd.EndEvent();
+	}
+
+	void DrawLine(const F32x3 p1, const F32x3 p2, const F32x4& color)
+	{
+		debugDrawData.renderableLines.push_back({p1, p2, color});
 	}
 
 	void DrawBox(const FMat4x4& boxMatrix, const F32x4& color)

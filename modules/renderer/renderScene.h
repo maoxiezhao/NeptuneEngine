@@ -44,6 +44,8 @@ namespace VulkanTest
 
 		// Light
 		virtual ECS::Entity CreatePointLight(ECS::Entity entity) = 0;
+		virtual ECS::Entity CreateDirectionLight(ECS::Entity entity) = 0;
+		virtual ECS::Entity CreateSpotLight(ECS::Entity entity) = 0;
 		virtual ECS::Entity CreateLight(
 			ECS::Entity entity,
 			LightComponent::LightType type = LightComponent::LightType::POINT,

@@ -499,6 +499,14 @@ namespace Editor
 					const LightComponent* light = entity.Get<LightComponent>();
 					switch (light->type)
 					{
+					case LightComponent::DIRECTIONAL:
+					{
+						F32 dist = std::max(Distance(light->position, worldView->GetCamera().eye) * 0.5f, 0.0001f);
+						F32x3 start = light->position;
+						F32x3 end = light->position + light->direction * -dist;
+						DebugDraw::DrawLine(start, end);
+					}
+					break;
 					case LightComponent::POINT:
 					{
 						Sphere sphere;

@@ -351,6 +351,27 @@ void CS_LightCulling(uint3 Gid : SV_GroupID, uint groupIndex : SV_GroupIndex, ui
         break;
         case SHADER_LIGHT_TYPE_SPOTLIGHT:
         {
+            // Tighter bounding sphere around cone
+            // https://simoncoenen.com/blog/programming/graphics/SpotlightCulling
+            float3 posView = mul(GetCamera().view, float4(light.position, 1)).xyz;
+            float3 dirView = mul((float3x3)GetCamera().view, light.GetDirection());
+            const float angleCos = light.GetConeAngleCos();
+            const float r = light.GetRange() * 0.5f / (angleCos * angleCos);
+            Sphere sphere = {posView + -dirView * r, r};    // PS: the direction of the light is flip
+            if (SphereInsideFrustum(sphere, frustum, nearClipView, maxDepthView))
+            {
+                // Check AABB
+                if (SphereInsideAABB(sphere, tileAABB))
+                {
+                    // Check depth mask
+                    // depthMask & lightMask > 0 means the light is affect, append it
+                    uint lightMask = GetDepthMaskFromSphere(minDepthView, depthRangeRcp, sphere);
+                    if (depthMask & lightMask)
+                    {
+                        AppendEntity(i);
+                    }
+                }
+            }
         }
         break;
         }

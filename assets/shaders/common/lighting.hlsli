@@ -38,6 +38,21 @@ inline void ApplyLighting(in Surface surface, in Lighting lighting, inout float4
     color.rgb = surface.albedo * diffuse + specular;
 }
 
+// Directional light lighting
+inline void LightDirectional(in ShaderLight light, in Surface surface, inout Lighting lighting)
+{
+    float3 l = light.GetDirection();
+    LightSurface lightSurface;
+    lightSurface.Create(surface, l);
+    [branch]
+    if (any(lightSurface.NdotL))
+    {
+        float3 lightColor = light.GetColor().rgb;   
+        lighting.direct.diffuse = mad(lightColor, BRDF_GetDiffuse(surface, lightSurface), lighting.direct.diffuse);
+        lighting.direct.specular = mad(lightColor, BRDF_GetSpecular(surface, lightSurface), lighting.direct.specular);
+    }
+}
+
 inline float CalculatePointLightAttenuation(in float dist, in float dist2, in float range, in float range2)
 {
 	// GLTF recommendation: https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_lights_punctual#range-property
@@ -76,6 +91,55 @@ inline void LightPoint(in ShaderLight light, in Surface surface, inout Lighting 
     }
 }
 
+inline float CalculateSpotLightAttenuation(in float factor, in float dist, in float dist2, in float range, in float range2, in float angleScale, in float angleOffset)
+{
+    // Angle attenutation
+    // https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_lights_punctual#inner-and-outer-cone-angles
+    float angleAttenuation = saturate(mad(factor, angleScale, angleOffset));
+    angleAttenuation *= angleAttenuation;
+
+    // Use the point light attenuation as the range attenutation 
+    float attenuation = CalculatePointLightAttenuation(dist, dist2, range, range2);
+    attenuation *= angleAttenuation;
+    return attenuation;
+}
+
+// Spot light lighting
+inline void LightSpot(in ShaderLight light, in Surface surface, inout Lighting lighting)
+{
+    float3 l = light.position - surface.P;
+    const float dist2 = dot(l, l);
+    const float range = light.GetRange();
+    const float range2 = range * range;
+
+    [branch]
+    if (dist2 < range2)
+    {
+        float dist = sqrt(dist2);
+        l /= dist;
+        LightSurface lightSurface;
+        lightSurface.Create(surface, l);
+
+        [branch]
+        if (any(lightSurface.NdotL))
+        {
+            float factor = dot(l, light.GetDirection());
+            float cutoff = light.GetConeAngleCos();
+
+            [branch]
+            if (factor > cutoff)
+            {
+                float attenuation = CalculateSpotLightAttenuation(factor, dist, dist2, range, range2, light.GetAngleScale(), light.GetAngleOffset());
+                float3 lightColor = light.GetColor().rgb * attenuation;
+
+                lighting.direct.diffuse = mad(lightColor, BRDF_GetDiffuse(surface, lightSurface), lighting.direct.diffuse);
+                lighting.direct.specular = mad(lightColor, BRDF_GetSpecular(surface, lightSurface), lighting.direct.specular);
+            } 
+        }
+    }
+}
+
+
 inline void ForwardLighting(inout Surface surface, inout Lighting lighting, uint tileBucketStart)
 {
     [branch]
@@ -109,13 +173,13 @@ inline void ForwardLighting(inout Surface surface, inout Lighting lighting, uint
                     switch(light.GetType())
                     {
                     case SHADER_LIGHT_TYPE_DIRECTIONALLIGHT:
-                        LightPoint(light, surface, lighting);
+                        LightDirectional(light, surface, lighting);
                         break;
                     case SHADER_LIGHT_TYPE_POINTLIGHT:
                         LightPoint(light, surface, lighting);
                         break;
                     case SHADER_LIGHT_TYPE_SPOTLIGHT:
-                        LightPoint(light, surface, lighting);
+                        LightSpot(light, surface, lighting);
                         break;
                     }
                 }

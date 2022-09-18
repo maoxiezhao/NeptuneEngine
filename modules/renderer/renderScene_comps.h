@@ -113,6 +113,8 @@ namespace VulkanTest
 		F32x3 color = F32x3(1.0f);
 		F32 intensity = 1.0f;
 		F32 range = 10.0f;
+		F32 innerConeAngle = 0.0f;
+		F32 outerConeAngle = MATH_PIDIV4;
 		AABB aabb;
 	};
 
