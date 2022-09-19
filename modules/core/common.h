@@ -65,7 +65,7 @@ typedef VulkanTest::I32 intptr;
 	{                                                            \
 		if (!bool(x))                                            \
 		{                                                        \
-			Logger::Error("Error at %s:%d.\n", __FILE__, __LINE__); \
+			VulkanTest::Logger::Error("Error at %s:%d.\n", __FILE__, __LINE__); \
 			abort();                                             \
 		}                                                        \
 	} while (0)

@@ -75,6 +75,30 @@ namespace VulkanTest
 			}
 		}
 	};
+
+	template<class T>
+	inline T* New()
+	{
+		T* ptr = (T*)Memory::Alloc(sizeof(T), __FILE__, __LINE__);
+		new (ptr) T();
+		return ptr;
+	}
+
+	template<class T, class... Args>
+	inline T* New(Args&&...args)
+	{
+		T* ptr = (T*)Memory::Alloc(sizeof(T), __FILE__, __LINE__);
+		new(ptr) T(std::forward<Args>(args)...);
+		return ptr;
+	}
+
+	template<class T>
+	inline void Delete(T* ptr)
+	{
+		Memory::ObjectConstruct(ptr); 
+		Memory::Free(ptr);
+	}
+
 }
 
 inline void* operator new(size_t size, VulkanTest::NewPlaceHolder, void* ptr) { return ptr; }

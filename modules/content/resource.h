@@ -135,6 +135,7 @@ namespace VulkanTest
 		virtual bool Load() = 0;
 		virtual void Unload() = 0;
 
+		Path path;
 		State desiredState;
 		U32 failedDepCount;
 		U32 emptyDepCount;
@@ -161,7 +162,6 @@ namespace VulkanTest
 		void OnStateChanged(State oldState, State newState, Resource& res);
 
 	private:
-		Path path;
 		bool hooked = false;
 		bool isTemporary = false;
 		State currentState;

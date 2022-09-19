@@ -250,6 +250,7 @@ namespace VulkanTest
 				resourceRegistry.erase(it);
 				isDirty = true;
 				ret = true;
+				Logger::Info("Delete resource %d %d %s", resInfo->guid.GetHash(), resInfo->type.GetHashValue(), path.c_str());
 				break;
 			}
 		}
@@ -269,6 +270,8 @@ namespace VulkanTest
 			resourceRegistry.erase(it);
 			isDirty = true;
 			ret = true;
+			Logger::Info("Delete resource %d %d %s", resInfo->guid.GetHash(), resInfo->type.GetHashValue(), path.c_str());
+
 		}
 		return ret;
 	}

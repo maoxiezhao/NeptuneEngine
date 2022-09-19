@@ -13,6 +13,7 @@
 #include "renderer\render2D\font.h"
 
 #include "plugins\renderer.h"
+#include "plugins\level.h"
 
 #include "widgets\assetBrowser.h"
 #include "widgets\assetCompiler.h"
@@ -797,6 +798,11 @@ namespace Editor
             // TODO:
             {
                 EditorPlugin* plugin = SetupPluginRenderer(*this);
+                if (plugin != nullptr)
+                    AddPlugin(*plugin);
+            }
+            {
+                EditorPlugin* plugin = SetupPluginLevel(*this);
                 if (plugin != nullptr)
                     AddPlugin(*plugin);
             }

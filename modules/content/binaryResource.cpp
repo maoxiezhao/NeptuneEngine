@@ -188,6 +188,10 @@ namespace VulkanTest
 
 	ContentLoadingTask* BinaryResource::CreateLoadingTask()
 	{
+		// Task pipeline
+		// ----------------------------------------------------------
+		// Load storage file -> Preload data chunks -> LoadResource
+		// ----------------------------------------------------------
 		auto task = Resource::CreateLoadingTask();
 		ASSERT(task);
 

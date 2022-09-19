@@ -1,6 +1,8 @@
 #include "client\app\app.h"
 #include "editor\editor.h"
 
+#include "core\serialization\jsonWriteStream.h"
+
 namespace VulkanTest
 {
     App* CreateApplication(int, char**)

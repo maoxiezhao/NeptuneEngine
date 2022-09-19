@@ -387,8 +387,8 @@ namespace ImGuiRenderer
 
 				// Apply scissor/clipping rectangle
 				VkRect2D scissor;
-				scissor.offset.x = (I32)(clipMin.x);
-				scissor.offset.y = (I32)(clipMin.y);
+				scissor.offset.x = std::max((I32)(clipMin.x), 0);
+				scissor.offset.y = std::max((I32)(clipMin.y), 0);
 				scissor.extent.width = (I32)(clipMax.x - clipMin.x);
 				scissor.extent.height = (I32)(clipMax.y - clipMin.y);
 				cmd->SetScissor(scissor);

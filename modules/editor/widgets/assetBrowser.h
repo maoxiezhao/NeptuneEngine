@@ -22,6 +22,16 @@ namespace Editor
             virtual void OnResourceUnloaded(Resource* resource) {};
             virtual void Update() {}
             virtual ResourceType GetResourceType() const = 0;
+
+            virtual bool CreateResource(const Path& path, const char* name) {
+                return false;
+            }
+            virtual bool CreateResourceEnable()const {
+                return false;
+            }
+            virtual const char* GetResourceName() const {
+                return nullptr;
+            }
         };
 
         static UniquePtr<AssetBrowser> Create(EditorApp& app);

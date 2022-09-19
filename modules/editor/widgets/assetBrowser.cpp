@@ -42,7 +42,7 @@ namespace Editor
         float thumbnailSize = 1.f;
 
         Array<ResPtr<Resource>> selectedResources;
-        I32 contextResource = -1;
+        I32 popupCtxResource = -1;
         char filter[128];
         MaxPathString curDir;
         Array<MaxPathString> subdirs;
@@ -56,6 +56,7 @@ namespace Editor
             bool isLoading = false;
         };
         Array<FileInfo> fileInfos;  // All file infos in the current directory
+        bool hasResInClipboard = false;
 
         CodeEditor codeEditor;
         HashMap<U64, IPlugin*> plugins;
@@ -247,6 +248,13 @@ namespace Editor
             fileInfos.push_back(info);
         }
 
+        void DeleteResTile(I32 index)
+        {
+            auto& fs = editor.GetEngine().GetFileSystem();
+            editor.GetEngine().GetResourceManager().DeleteResource(Path(fileInfos[index].filepath.c_str()));
+            fs.DeleteFile(fileInfos[index].filepath.c_str());
+        }
+
         void OnDetailsGUI()
         {
             if (!isOpen)
@@ -368,6 +376,69 @@ namespace Editor
             ImGui::NewLine();
         }
 
+        void ShowCommonPopup()
+        {
+            if (ImGui::MenuItem("Copy", nullptr, false, popupCtxResource >= 0))
+            {
+            }
+
+            if (ImGui::MenuItem("Paste", nullptr, false, hasResInClipboard))
+            {
+            }
+
+            static char tmp[MAX_PATH_LENGTH] = "";
+            ImGui::Separator();
+            auto& fs = editor.GetEngine().GetFileSystem();
+            const char* basePath = fs.GetBasePath();
+            ImGui::Checkbox("Thumbnails", &showThumbnails);
+
+            if (ImGui::MenuItem("View in explorer")) 
+            {
+                StaticString<MAX_PATH_LENGTH> fullPath(basePath, "/", curDir);
+                Platform::OpenExplorer(fullPath.c_str());     
+            }
+            if (ImGui::BeginMenu("New folder")) 
+            {
+                ImGui::InputTextWithHint("##dirname", "New directory name", tmp, sizeof(tmp));
+                ImGui::SameLine();
+                if (ImGui::Button("Create")) 
+                {
+                    StaticString<MAX_PATH_LENGTH> fullPath(basePath, "/", curDir, "/", tmp);
+                    if (!Platform::MakeDir(fullPath))
+                        Logger::Error("Failed to create directory %s", fullPath.c_str());
+
+                    SetCurrentDir(curDir);  // Refresh
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Create"))
+            {
+                for (auto plugin : plugins)
+                {
+                    if (!plugin->CreateResourceEnable())
+                        continue;
+
+                    if (ImGui::BeginMenu(plugin->GetResourceName()))
+                    {
+                        ImGui::InputTextWithHint("##name", "Name", tmp, sizeof(tmp));
+                        ImGui::SameLine();
+                        if (ImGui::Button("Create")) 
+                        {
+                            plugin->CreateResource(Path(curDir), tmp);
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::EndMenu();
+                    }
+                }
+            ImGui::EndMenu();
+            }
+
+            if (ImGui::MenuItem("Refresh"))
+                SetCurrentDir(curDir);
+        }
+
         void OnFileColumnGUI()
         {
             ImGui::BeginChild("file_col");
@@ -391,7 +462,10 @@ namespace Editor
                     if (ImGui::IsMouseReleased(0))
                         SelectResource(Path(tile.filepath));
                     else if (ImGui::IsMouseReleased(1))
-                        contextResource = idx;
+                    {
+                        popupCtxResource = idx;
+                        ImGui::OpenPopup("itemCtx");
+                    }
                 }
             };
 
@@ -439,6 +513,66 @@ namespace Editor
                         HandleResource(tile, j);
                     }
                 }
+            }
+
+            // Popup menu
+            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            bool openDeletePopup = false;
+            if (ImGui::BeginPopup("itemCtx"))
+            {
+                ImGui::Text("%s", fileInfos[popupCtxResource].filename.data);
+                ImGui::Separator();
+                if (ImGui::MenuItem("Open"))
+                {
+                    // TODO Open a resource viewer
+                }
+
+                if (ImGui::MenuItem(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
+                    OpenInExternalEditor(fileInfos[popupCtxResource].filepath);
+
+                if (ImGui::BeginMenu("Rename"))
+                {
+                    static char tmp[MAX_PATH_LENGTH] = "";
+                    ImGui::InputTextWithHint("##New name", "New name", tmp, sizeof(tmp));
+                    if (ImGui::Button("Rename", ImVec2(100, 0)))
+                    {
+                        PathInfo pathInfo(fileInfos[popupCtxResource].filepath);
+                        StaticString<MAX_PATH_LENGTH> newPath(pathInfo.dir, tmp, ".", pathInfo.extension);
+                        fs.MoveFile(fileInfos[popupCtxResource].filepath.c_str(), newPath.c_str());
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndMenu();
+                }
+
+                if (ImGui::MenuItem("Delete"))
+                    openDeletePopup = true;
+
+                ImGui::Separator();
+                ShowCommonPopup();
+                ImGui::EndPopup();
+            }
+            else if (ImGui::BeginPopupContextWindow("context")) 
+            {
+                popupCtxResource = -1;
+                ShowCommonPopup();
+                ImGui::EndPopup();
+            }
+
+            // Open delete popup
+            if (openDeletePopup) 
+                ImGui::OpenPopup("Delete_file");
+            if (ImGui::BeginPopupModal("Delete_file", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Are you sure to delete %s? This can not be undone.", fileInfos[popupCtxResource].filename.c_str());
+                if (ImGui::Button("Yes", ImVec2(100, 0))) 
+                {           
+                    DeleteResTile(popupCtxResource);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine(ImGui::GetWindowWidth() - 100 - ImGui::GetStyle().WindowPadding.x);
+                if (ImGui::Button("Cancel", ImVec2(100, 0)))
+                    ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
             }
 
             ImGui::EndChild();
