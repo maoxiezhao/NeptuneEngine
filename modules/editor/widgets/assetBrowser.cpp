@@ -459,7 +459,9 @@ namespace Editor
                 }
                 else if (ImGui::IsItemHovered())
                 {
-                    if (ImGui::IsMouseReleased(0))
+                    if (ImGui::IsMouseDoubleClicked(0))
+                        DoubleClickResource(Path(tile.filepath));
+                    else if (ImGui::IsMouseReleased(0))
                         SelectResource(Path(tile.filepath));
                     else if (ImGui::IsMouseReleased(1))
                     {
@@ -721,6 +723,12 @@ namespace Editor
                 UnloadSelectedResources();
                 selectedResources.push_back(std::move(res));
             }
+        }
+
+        void DoubleClickResource(const Path& path)
+        {
+            for (auto plugin : plugins)
+                plugin->DoubleClick(path);
         }
 
         void UnloadSelectedResources()

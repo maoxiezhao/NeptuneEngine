@@ -379,8 +379,6 @@ namespace Editor
 		editorRenderer->DisableSwapchain();
 
 		auto world = worldEditor.GetWorld();
-		ASSERT(world);
-
 		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
 		ASSERT(scene);
 		editorRenderer->SetScene(scene);
@@ -390,7 +388,6 @@ namespace Editor
 	{
 		PROFILE_FUNCTION();
 		worldView->Update(dt);
-
 		Manipulate();
 
 		if (ImGui::IsAnyItemActive()) return;
@@ -473,9 +470,6 @@ namespace Editor
 			// Handle input events 
 			HandleEvents();
 
-			// Maybe should call it in SceneView::Update()
-			editorRenderer->Update(worldView->deltaTime);
-
 			shouldRender = true;
 		}
 		else
@@ -490,10 +484,25 @@ namespace Editor
 		ImGui::PopStyleVar();
 	}
 
+	void SceneView::LateUpdate()
+	{
+		if (shouldRender)
+		{
+			// Maybe should call it in SceneView::Update()
+			editorRenderer->Update(worldView->deltaTime);
+		}
+	}
+
 	void SceneView::Render()
 	{
 		if (shouldRender)
 			editorRenderer->Render();
+	}
+
+	void SceneView::OnWorldChanged(World* world)
+	{
+		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
+		editorRenderer->SetScene(scene);
 	}
 
 	const char* SceneView::GetName()

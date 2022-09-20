@@ -1,7 +1,7 @@
 #include "client\app\app.h"
 #include "editor\editor.h"
 
-#include "core\serialization\jsonWriteStream.h"
+#include "core\serialization\jsonWriter.h"
 
 namespace VulkanTest
 {

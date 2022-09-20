@@ -34,10 +34,15 @@ namespace VulkanTest
 
 		bool IsReady()const;
 
+		ISerializable::DeserializeStream* GetData() {
+			return data;
+		}
+
 	protected:
 		JsonResourceBase(const ResourceInfo& info);
 
 		bool LoadResource() override;
+		bool Load()override;
 		void Unload() override;
 
 	private:

@@ -27,7 +27,6 @@
 
 #include "imgui-docking\imgui.h"
 
-
 namespace VulkanTest
 {
 namespace Editor
@@ -393,6 +392,10 @@ namespace Editor
 
             // Update gui
             OnGUI();
+
+            // LateUpdate editor widgets
+            for (auto widget : widgets)
+                widget->LateUpdate();
 
             // End imgui frame
             ImGui::PopFont();
@@ -941,6 +944,12 @@ namespace Editor
             CopyString(node->label, plugin->GetLabel());
             node->plugin = plugin;
             InsertAddComponentTreeNode(addCompTreeNodeRoot, node);
+        }
+
+        void OnWorldChanged(World* world) override
+        {
+            for (auto plugin : plugins)
+                plugin->OnWorldChanged(world);
         }
 
         void InitReflection()

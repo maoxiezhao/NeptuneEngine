@@ -580,6 +580,11 @@ namespace Editor
 			return true;
 		}
 
+		void OnWorldChanged(World* world) override
+		{
+			sceneView.OnWorldChanged(world);
+		}
+
 		const char* GetName()const override
 		{
 			return "renderer";

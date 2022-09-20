@@ -25,6 +25,7 @@ namespace Editor
         virtual void Initialize() = 0;
         virtual const char* GetName()const = 0;
         virtual bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) = 0;
+        virtual void OnWorldChanged(World* world) = 0;
     };
 
     struct EditorWidget
@@ -33,6 +34,7 @@ namespace Editor
 
         virtual void InitFinished() {};
         virtual void Update(F32 dt) {}
+        virtual void LateUpdate() {}
         virtual void EndFrame() {}
         virtual void OnGUI() = 0;
         virtual void Render() {};

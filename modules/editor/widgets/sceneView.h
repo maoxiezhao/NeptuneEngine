@@ -57,7 +57,9 @@ namespace Editor
         void Update(F32 dt);
         void EndFrame() override;
         void OnGUI() override;
+        void LateUpdate()override;
         void Render() override;
+        void OnWorldChanged(World* world);
         const char* GetName();
 
         I32x2 GetScreenSize()const {

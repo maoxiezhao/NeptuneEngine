@@ -49,6 +49,10 @@ namespace Editor
         virtual WorldView& GetView() = 0;
         virtual void SetView(WorldView& view_) = 0;
 
+        // TODO use the scene to replace the world
+        virtual bool CanChangeScene() = 0;
+        virtual void LoadScene(const Guid& guid) = 0;
+
         virtual void ClearSelectEntities() = 0;
         virtual void SelectEntities(Span<const ECS::Entity> entities, bool toggle) = 0;
 

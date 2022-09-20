@@ -78,6 +78,11 @@ namespace VulkanTest
 		return true;
 	}
 
+	bool JsonResourceBase::Load()
+	{
+		return true;
+	}
+
 	void JsonResourceBase::Unload()
 	{
 		ISerializable::SerializeDocument tmp;
@@ -114,7 +119,7 @@ namespace VulkanTest
 
 	bool JsonResource::CreateInstance()
 	{
-		return false;
+		return true;
 	}
 
 	void JsonResource::DeleteInstance()

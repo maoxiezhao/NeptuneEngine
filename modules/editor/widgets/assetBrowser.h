@@ -22,6 +22,7 @@ namespace Editor
             virtual void OnResourceUnloaded(Resource* resource) {};
             virtual void Update() {}
             virtual ResourceType GetResourceType() const = 0;
+            virtual void DoubleClick(const Path& path) {}
 
             virtual bool CreateResource(const Path& path, const char* name) {
                 return false;

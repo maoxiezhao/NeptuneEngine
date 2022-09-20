@@ -3,6 +3,7 @@
 #include "editor\editor.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
+#include "editor\widgets\worldEditor.h"
 #include "editor\importers\resourceImportingManager.h"
 #include "core\serialization\json.h"
 
@@ -72,7 +73,7 @@ namespace Editor
 
 			// Write scene file
 			{
-				StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), path.c_str(), "/", name, ".scene");
+				StaticString<MAX_PATH_LENGTH> fullPath(path.c_str(), "/", name, ".scene");
 				auto file = fs.OpenFile(fullPath, FileFlags::DEFAULT_WRITE);
 				if (!file->IsValid())
 				{
@@ -85,12 +86,27 @@ namespace Editor
 				file->Close();
 			}
 
-			Logger::Info("Create new scene %s/%s", path.c_str(), name);
-
 		ResFini:
 			CJING_SAFE_DELETE(scene);
 			engine.DestroyWorld(world);
 			return ret;
+		}
+
+		void DoubleClick(const Path& path) override
+		{
+			const ResourceType resType = app.GetAssetCompiler().GetResourceType(path.c_str());
+			if (resType == SceneResource::ResType)
+			{
+				auto& worldEditor = app.GetWorldEditor();
+				if (!worldEditor.CanChangeScene())
+					return;
+
+				auto resource = ResourceManager::LoadResource<SceneResource>(path);
+				if (!resource)
+					return;
+				
+				worldEditor.LoadScene(resource->GetGUID());
+			}
 		}
 
 		bool CreateResourceEnable()const {
@@ -139,6 +155,10 @@ namespace Editor
 		bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) override
 		{
 			return false;
+		}
+
+		void OnWorldChanged(World* world) override
+		{
 		}
 
 		const char* GetName()const override

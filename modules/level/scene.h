@@ -20,7 +20,17 @@ namespace VulkanTest
 			return world;
 		}
 
+		String GetName()const {
+			return name;
+		}
+
+		void SetName(const char* name_) {
+			name = name_;
+		}
+
 	private:
 		World& world;
+		String name;
+
 	};
 }
