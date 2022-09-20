@@ -11,6 +11,6 @@ namespace VulkanTest
 	{
 	public:
 		static ResourceStorageRef TryGetStorage(const Path& path, bool isCompiled = true);
-		static ResourceStorageRef GetStorage(const Path& path, ResourceManager& resManager, bool doLoad = false, bool isCompiled = true);
+		static ResourceStorageRef GetStorage(const Path& path, bool doLoad = false, bool isCompiled = true);
 	};
 }

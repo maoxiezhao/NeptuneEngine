@@ -20,8 +20,7 @@ namespace VulkanTest::ImageUtil
 
         bool Init(Engine& engine) override
         {
-            auto& resManager = engine.GetResourceManager();
-            shader = resManager.LoadResource<Shader>(Path("shaders/image.shd"));
+            shader = ResourceManager::LoadResource<Shader>(Path("shaders/image.shd"));
 
             GPU::BlendState blendStates[BLENDMODE_COUNT] = {};
             GPU::RasterizerState rasterizerState = {};

@@ -202,8 +202,8 @@ namespace VulkanTest
 		meshes.clear();
 	}
 
-	Model::Model(const ResourceInfo& info, ResourceManager& resManager) :
-		BinaryResource(info, resManager),
+	Model::Model(const ResourceInfo& info) :
+		BinaryResource(info),
 		StreamableResource(StreamingHandlers::Instance()->Model()),
 		header()
 	{
@@ -333,7 +333,6 @@ namespace VulkanTest
 			return false;
 		materialSlots.resize(materialCount);
 
-		auto& resManager = GetResourceManager();
 		for (I32 i = 0; i < materialCount; i++)
 		{
 			// Mateiral guid
@@ -347,7 +346,7 @@ namespace VulkanTest
 			matName[nameLenght] = 0;
 			input.Read(matName, nameLenght);
 
-			ResPtr<Material> material = resManager.LoadResource<Material>(matGuid);
+			ResPtr<Material> material = ResourceManager::LoadResource<Material>(matGuid);
 			if (!material)
 			{
 				Logger::Error("Faield to load material of model %s", matName);

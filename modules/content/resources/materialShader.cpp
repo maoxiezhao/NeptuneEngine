@@ -10,7 +10,7 @@ namespace VulkanTest
 	{
 	}
 
-	MaterialShader* MaterialShader::Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info, ResourceManager& resManager)
+	MaterialShader* MaterialShader::Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info)
 	{
 		MaterialShader* ret = nullptr;
 		switch (info.domain)
@@ -23,7 +23,7 @@ namespace VulkanTest
 			break;
 		}
 
-		if (!ret->Load(mem, info, resManager))
+		if (!ret->Load(mem, info))
 		{
 			CJING_DELETE(ret);
 			return nullptr;
@@ -52,10 +52,10 @@ namespace VulkanTest
 	{
 	}
 
-	bool MaterialShader::Load(InputMemoryStream& mem, const MaterialInfo& info_, ResourceManager& resManager)
+	bool MaterialShader::Load(InputMemoryStream& mem, const MaterialInfo& info_)
 	{
 		ASSERT(isLoaded == false);
-		auto factory = resManager.GetFactory(Shader::ResType);
+		auto factory = ResourceManager::GetFactory(Shader::ResType);
 		ASSERT(factory);
 
 		info = info_;
@@ -71,7 +71,7 @@ namespace VulkanTest
 			if (info_.shaderPath[0] == 0)
 				return false;
 
-			shader = resManager.LoadResource<Shader>(Path(info.shaderPath));
+			shader = ResourceManager::LoadResource<Shader>(Path(info.shaderPath));
 			if (!shader)
 				return false;
 		}

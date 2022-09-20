@@ -22,4 +22,9 @@ namespace VulkanTest
 		}
 	};
 	LevelServiceImpl LevelServiceImplInstance;
+
+	bool Level::SaveScene(Scene* scene, rapidjson_flax::StringBuffer& outData)
+	{
+		return false;
+	}
 }

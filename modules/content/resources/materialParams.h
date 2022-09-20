@@ -70,7 +70,7 @@ namespace VulkanTest
 			return params;
 		}
 
-		bool Load(U64 size, const U8* mem, ResourceManager& resManager);
+		bool Load(U64 size, const U8* mem);
 		void Save(OutputMemoryStream& mem);
 		void Unload();
 	

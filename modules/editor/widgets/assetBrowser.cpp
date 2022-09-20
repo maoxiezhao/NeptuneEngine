@@ -251,7 +251,7 @@ namespace Editor
         void DeleteResTile(I32 index)
         {
             auto& fs = editor.GetEngine().GetFileSystem();
-            editor.GetEngine().GetResourceManager().DeleteResource(Path(fileInfos[index].filepath.c_str()));
+            ResourceManager::DeleteResource(Path(fileInfos[index].filepath.c_str()));
             fs.DeleteFile(fileInfos[index].filepath.c_str());
         }
 
@@ -688,7 +688,7 @@ namespace Editor
                             renderInterface->DestroyTexture(info.tex);
                             info.tex = nullptr;
                         }
-                        editor.GetEngine().GetResourceManager().DeleteResource(Path(path));
+                        ResourceManager::DeleteResource(Path(path));
                         break;
                     default:
                         break;
@@ -714,9 +714,8 @@ namespace Editor
 
         void SelectResource(const Path& path)
         {
-            auto& resManager = editor.GetEngine().GetResourceManager();
             const ResourceType resType = editor.GetAssetCompiler().GetResourceType(path.c_str());
-            ResPtr<Resource> res = resManager.LoadResource(resType, path);
+            ResPtr<Resource> res = ResourceManager::LoadResource(resType, path);
             if (res)
             {
                 UnloadSelectedResources();

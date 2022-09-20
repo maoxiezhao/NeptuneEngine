@@ -9,8 +9,7 @@ namespace Editor
 {
 	bool MaterialImporter::Import(EditorApp& app, const Path& path)
 	{
-		auto& resMangaer = app.GetEngine().GetResourceManager();
-		auto srcStorage = StorageManager::GetStorage(path, resMangaer, true, false);
+		auto srcStorage = StorageManager::GetStorage(path, true, false);
 		if (!srcStorage)
 		{
 			Logger::Error("failed to read file:%s", path.c_str());

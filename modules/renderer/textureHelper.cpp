@@ -6,7 +6,6 @@
 
 namespace VulkanTest
 {
-	ResourceManager* resourceManager = nullptr;
 	HashMap<U32, ResPtr<Texture>> colorTextures;
 	SpinLock colorlock;
 
@@ -19,7 +18,6 @@ namespace VulkanTest
 
 		bool Init(Engine& engine) override
 		{
-			resourceManager = &engine.GetResourceManager();
 			initialized = true;
 			return true;
 		}
@@ -27,7 +25,6 @@ namespace VulkanTest
 		void Uninit() override
 		{
 			colorTextures.clear();
-			resourceManager = nullptr;
 			initialized = false;
 		}
 	};
@@ -35,9 +32,6 @@ namespace VulkanTest
 
 	Texture* TextureHelper::GetColor(const Color4& color)
 	{
-		if (resourceManager == nullptr)
-			return nullptr;
-
 		colorlock.Lock();
 		auto it = colorTextures.find(color.GetRGBA());
 		colorlock.Unlock();
@@ -54,14 +48,14 @@ namespace VulkanTest
 			data[i + 3] = color.GetA();
 		}
 
-		Texture* texture = CJING_NEW(Texture)(ResourceInfo::Temporary(Texture::ResType), *resourceManager);
+		Texture* texture = CJING_NEW(Texture)(ResourceInfo::Temporary(Texture::ResType));
 		if (!texture->Create(1, 1, VK_FORMAT_R8G8B8A8_UNORM, data))
 		{
 			Logger::Error("Failed to create helper color texture.");
 			CJING_SAFE_DELETE(texture);
 			return nullptr;
 		}
-		resourceManager->AddTemporaryResource(texture);
+		ResourceManager::AddTemporaryResource(texture);
 		
 		colorlock.Lock();
 		colorTextures.insert(color.GetRGBA(), texture);

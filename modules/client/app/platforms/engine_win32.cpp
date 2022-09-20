@@ -20,7 +20,6 @@ namespace VulkanTest
 		UniquePtr<InputSystem> inputSystem;
 		UniquePtr<PluginManager> pluginManager;
 		UniquePtr<FileSystem> fileSystem;
-		UniquePtr<ResourceManager> resourceManager;
 		UniquePtr<TaskGraph> taskGraph;
 		WSIPlatform* platform;
 		WSI wsi;
@@ -44,9 +43,6 @@ namespace VulkanTest
 			// Init task graph
 			taskGraph = CJING_MAKE_UNIQUE<TaskGraph>();
 
-			// Init engine services
-			EngineService::OnInit(*this);
-
 			// Init lua system
 			luaState = luaL_newstate();
 			luaL_openlibs(luaState);
@@ -62,6 +58,9 @@ namespace VulkanTest
 				fileSystem = FileSystem::Create(currentDir);
 			}
 
+			// Init engine services
+			EngineService::OnInit(*this);
+
 			// Init wsi
 			wsi.SetPlatform(&app.GetPlatform());
 			GPU::SystemHandles systemHandles;
@@ -69,10 +68,6 @@ namespace VulkanTest
 			I32 wsiThreadCount = std::clamp((I32)(Platform::GetCPUsCount() * 0.5f), 1, 12);
 			bool ret = wsi.Initialize(systemHandles, wsiThreadCount);
 			ASSERT(ret);
-
-			// Init resource manager
-			resourceManager = CJING_MAKE_UNIQUE<ResourceManager>();
-			resourceManager->Initialize(*fileSystem);
 
 			// Init input system
 			inputSystem = InputSystem::Create(*this);
@@ -89,17 +84,15 @@ namespace VulkanTest
 
 			pluginManager.Reset();
 			inputSystem.Reset();
-			resourceManager->Uninitialzie();
-			resourceManager.Reset();
+
+			EngineService::OnUninit();
+			taskGraph.Reset();
 
 			lua_close(luaState);
 
 			wsi.Uninitialize();
 			fileSystem.Reset();
 			platform = nullptr;
-
-			EngineService::OnUninit();
-			taskGraph.Reset();
 
 			Logger::Info("Game engine released.");
 		}
@@ -183,9 +176,6 @@ namespace VulkanTest
 			// Update input system
 			inputSystem->Update(dt);
 
-			// Update resource manager
-			resourceManager->Update(dt);
-
 			// Update task graph
 			taskGraph->Execute();
 
@@ -195,8 +185,6 @@ namespace VulkanTest
 
 		void LateUpdate(World& world)override
 		{
-			resourceManager->LateUpdate();
-
 			EngineService::OnLateUpdate();
 		}
 
@@ -217,11 +205,6 @@ namespace VulkanTest
 		FileSystem& GetFileSystem() override
 		{
 			return *fileSystem.Get();
-		}
-
-		ResourceManager& GetResourceManager() override
-		{
-			return *resourceManager;
 		}
 
 		PluginManager& GetPluginManager() override

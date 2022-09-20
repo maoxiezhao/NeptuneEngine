@@ -213,11 +213,10 @@ namespace VulkanTest
 			FontAltasTexture* altas = CJING_NEW(FontAltasTexture)(
 				VK_FORMAT_R8_UNORM, 
 				FontAltasTexture::PadWithZero,  
-				altasIndex,
-				fontRes->GetResourceManager()
+				altasIndex
 			);
 			altas->Init(512, 512);
-			fontRes->GetResourceManager().AddTemporaryResource(altas);
+			ResourceManager::AddTemporaryResource(altas);
 			fontAtlases.push_back(altas);
 
 			packSlot = altas->AddCharacter(glyphWidth, glyphHeight, glyphData);

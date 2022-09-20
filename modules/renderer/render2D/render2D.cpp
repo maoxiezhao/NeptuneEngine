@@ -40,8 +40,7 @@ namespace Render2D
 
 		bool Init(Engine& engine) override
 		{
-			auto& resManager = engine.GetResourceManager();
-			fontShader = resManager.LoadResource<Shader>(Path("shaders/font.shd"));
+			fontShader = ResourceManager::LoadResource<Shader>(Path("shaders/font.shd"));
 			if (fontShader == nullptr)
 			{
 				Logger::Error("Failed to load font shader");

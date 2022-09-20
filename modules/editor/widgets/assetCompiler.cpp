@@ -147,8 +147,7 @@ namespace Editor
             }
 
             // Set load hook of the resource manager
-            ResourceManager& resManager = engine.GetResourceManager();
-            resManager.SetLoadHook(&lookHook);
+            ResourceManager::SetLoadHook(&lookHook);
         }
 
         ~AssetCompilerImpl()
@@ -204,8 +203,7 @@ namespace Editor
             semaphore.Signal();
             compilerTask.Destroy();
 
-            ResourceManager& resManager = engine.GetResourceManager();
-            resManager.SetLoadHook(nullptr);
+            ResourceManager::SetLoadHook(nullptr);
         }
 
         void InitFinished() override
@@ -235,7 +233,6 @@ namespace Editor
             if (!fs.FileExists(EXPORT_RESOURCE_LIST))
                 return;
 
-            auto& resManager = editor.GetEngine().GetResourceManager();
             OutputMemoryStream mem;
             if (fs.LoadContext(EXPORT_RESOURCE_LIST, mem))
             {
@@ -252,7 +249,7 @@ namespace Editor
                         return;
 
                     resMutex.Lock();
-                    LuaUtils::ForEachArrayItem<Path>(l, -1, "resource list expected", [this, &fs, &resManager](const Path& p) {
+                    LuaUtils::ForEachArrayItem<Path>(l, -1, "resource list expected", [this, &fs](const Path& p) {
                         ResourceType resType = GetResourceType(p.c_str());
                         if (resType != ResourceType::INVALID_TYPE)
                         {
@@ -267,7 +264,7 @@ namespace Editor
                             else
                             {
                                 // Remove the export file if the original dose not exist
-                                resManager.DeleteResource(p);
+                                ResourceManager::DeleteResource(p);
                             }
                         }
                     });
@@ -345,7 +342,7 @@ namespace Editor
                     }
 
                     if (res->IsReady() || res->IsFailure())
-                        res->GetResourceManager().ReloadResource(res->GetPath());
+                        ResourceManager::ReloadResource(res->GetPath());
                     else if (res->IsHooked())
                         lookHook.ContinueLoad(*res);
                 }
@@ -402,7 +399,7 @@ namespace Editor
                                 return false;
                             return true;
                         });
-                        editor.GetEngine().GetResourceManager().DeleteResource(targetPath);
+                        ResourceManager::DeleteResource(targetPath);
                         onListChanged.Invoke(targetPath);
                     }
                 }
@@ -455,7 +452,7 @@ namespace Editor
                                 return false;
                             return true;
                         });
-                        editor.GetEngine().GetResourceManager().DeleteResource(targetPath);
+                        ResourceManager::DeleteResource(targetPath);
                         onListChanged.Invoke(targetPath);
                     }
                 }
@@ -564,9 +561,7 @@ namespace Editor
 
         Resource* GetResource(const Path& path)
         {
-            Resource* ret = nullptr;
-            ResourceManager& resManager = editor.GetEngine().GetResourceManager();
-            return resManager.GetResource(path);
+            return ResourceManager::GetResource(path);
         }
 
         bool Compile(const Path& path, Guid guid)override

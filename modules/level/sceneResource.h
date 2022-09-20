@@ -10,7 +10,7 @@ namespace VulkanTest
 	public:
 		DECLARE_RESOURCE(SceneResource);
 
-		SceneResource(const ResourceInfo& info, ResourceManager& resManager);
+		SceneResource(const ResourceInfo& info);
 		virtual ~SceneResource();
 
 	protected:

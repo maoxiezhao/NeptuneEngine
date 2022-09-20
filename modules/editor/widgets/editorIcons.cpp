@@ -11,7 +11,7 @@ namespace Editor
 	EditorIcons::EditorIcons(EditorApp& editor_) :
 		worldEditor(editor_.GetWorldEditor())
 	{
-		iconFontRes = editor_.GetEngine().GetResourceManager().LoadResource<FontResource>(Path("editor/fonts/fa-solid-900.ttf"));
+		iconFontRes = ResourceManager::LoadResource<FontResource>(Path("editor/fonts/fa-solid-900.ttf"));
 
 		auto world = worldEditor.GetWorld();
 		world->SetComponenetOnAdded<LightComponent>([&](ECS::Entity entity, LightComponent& model) { AddIcons(entity, IconType::PointLight); });

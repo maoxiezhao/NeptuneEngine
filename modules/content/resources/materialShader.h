@@ -34,7 +34,7 @@ namespace VulkanTest
 	public:
 		virtual ~MaterialShader();
 
-		static MaterialShader* Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info, ResourceManager& resManager);
+		static MaterialShader* Create(const String& name, InputMemoryStream& mem, const MaterialInfo& info);
 
 		bool IsReady()const;
 		const Shader* GetShader()const;
@@ -49,7 +49,7 @@ namespace VulkanTest
 
 	protected:
 		MaterialShader(const String& name_);
-		bool Load(InputMemoryStream& mem, const MaterialInfo& info_, ResourceManager& resManager);
+		bool Load(InputMemoryStream& mem, const MaterialInfo& info_);
 
 		virtual bool OnLoaded() = 0;
 

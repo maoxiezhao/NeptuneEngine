@@ -5,8 +5,8 @@ namespace VulkanTest
 {
 	DEFINE_RESOURCE(Material);
 
-	Material::Material(const ResourceInfo& info, ResourceManager& resManager) :
-		BinaryResource(info, resManager)
+	Material::Material(const ResourceInfo& info) :
+		BinaryResource(info)
 	{
 	}
 
@@ -72,7 +72,7 @@ namespace VulkanTest
 		if (shaderChunk && shaderChunk->IsLoaded())
 			shaderStream = InputMemoryStream(shaderChunk->Data(), shaderChunk->Size());
 
-		materialShader = MaterialShader::Create(String(GetPath().c_str()), shaderStream, header.materialInfo, GetResourceManager());
+		materialShader = MaterialShader::Create(String(GetPath().c_str()), shaderStream, header.materialInfo);
 		if (materialShader == nullptr)
 		{
 			Logger::Warning("Failed to create material shader %s", GetPath().c_str());
@@ -83,7 +83,7 @@ namespace VulkanTest
 		const auto paramsChunk = GetChunk(MATERIAL_CHUNK_PARAMS);
 		if (paramsChunk != nullptr && paramsChunk->IsLoaded())
 		{
-			if (!params.Load(paramsChunk->Size(), paramsChunk->Data(), GetResourceManager()))
+			if (!params.Load(paramsChunk->Size(), paramsChunk->Data()))
 			{
 				Logger::Warning("Failed to load material params %s", GetPath().c_str());
 				return false;

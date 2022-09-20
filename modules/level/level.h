@@ -7,6 +7,7 @@ namespace VulkanTest
 {
 	class VULKAN_TEST_API Level
 	{
-
+	public:
+		static bool SaveScene(Scene* scene, rapidjson_flax::StringBuffer& outData);
 	};
 }

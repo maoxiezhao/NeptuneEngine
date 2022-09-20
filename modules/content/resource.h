@@ -21,6 +21,7 @@ namespace VulkanTest
 		friend class ResourceFactory;
 		friend class ResourceManager;
 		friend class ResourceStorage;
+		friend class ResourceManagerServiceImpl;
 
 		virtual ~Resource();
 		virtual ResourceType GetType()const = 0;
@@ -105,8 +106,6 @@ namespace VulkanTest
 		// Called by ObjectService
 		void OnDelete()override;
 
-		ResourceManager& GetResourceManager();
-
 		using EventCallback = DelegateList<void(Resource*)>;
 		EventCallback OnLoadedCallback;
 		EventCallback OnReloadingCallback;
@@ -115,7 +114,7 @@ namespace VulkanTest
 	protected:
 		friend class LoadResourceTask;
 
-		Resource(const ResourceInfo& info, ResourceManager& resManager_);
+		Resource(const ResourceInfo& info);
 	
 		void DoLoad();
 		void CheckState();
@@ -141,7 +140,6 @@ namespace VulkanTest
 		U32 emptyDepCount;
 		U64 resSize;
 
-		ResourceManager& resManager;
 		ContentLoadingTask* loadingTask;
 		volatile I64 refCount;
 		Mutex mutex;
@@ -173,4 +171,6 @@ namespace VulkanTest
 
 #define DEFINE_RESOURCE(CLASS_NAME)																\
 	const ResourceType CLASS_NAME::ResType(#CLASS_NAME);
+
+	extern VULKAN_TEST_API Resource* LoadResource(ResourceType type, const Guid& guid);
 }

@@ -54,7 +54,7 @@ namespace VulkanTest
 		static const U32 FILE_MAGIC;
 		static const U32 FILE_VERSION;
 
-		Model(const ResourceInfo& info, ResourceManager& resManager);
+		Model(const ResourceInfo& info);
 		virtual ~Model();
 	
 		// Residency

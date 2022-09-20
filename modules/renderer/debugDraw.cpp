@@ -49,8 +49,6 @@ namespace DebugDraw
 
 		bool Init(Engine& engine) override
 		{
-			auto& resManager = engine.GetResourceManager();
-
 			// Rasterizer states
 			GPU::RasterizerState rs;
 			rs.fillMode = GPU::FILL_WIREFRAME;

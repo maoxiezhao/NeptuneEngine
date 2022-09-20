@@ -25,7 +25,7 @@ namespace VulkanTest
 			I32 chunkIndex[MAX_RESOURCE_DATA_CHUNKS];
 		};
 
-		ResourceStorage(const Path& path_, bool isCompiled_, ResourceManager& resManager_);
+		ResourceStorage(const Path& path_, bool isCompiled_);
 		virtual ~ResourceStorage();
 
 		bool Load();
@@ -132,7 +132,6 @@ namespace VulkanTest
 		FileReadStream* LoadContent();
 
 		Path path;
-		ResourceManager& resManager;
 		ResourceEntry entry;
 		Array<DataChunk*> chunks;
 		ThreadLocalObject<FileReadStream> file;

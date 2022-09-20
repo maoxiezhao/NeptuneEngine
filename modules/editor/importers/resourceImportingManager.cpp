@@ -69,10 +69,9 @@ namespace Editor
 			guid = Guid::New();
 
 		auto& fs = editor.GetEngine().GetFileSystem();
-		auto& resManager = editor.GetEngine().GetResourceManager();
-
+	
 		// Use the same guid if resource is loaded
-		ResPtr<Resource> res = resManager.GetResource(path);
+		ResPtr<Resource> res = ResourceManager::GetResource(path);
 		if (res != nullptr)
 		{
 			guid = res->GetGUID();
@@ -83,7 +82,7 @@ namespace Editor
 			if (fs.FileExists(storagePath.c_str()))
 			{
 				// Load target resource and get the guid
-				auto storage = StorageManager::GetStorage(storagePath, resManager, true, isCompiled);
+				auto storage = StorageManager::GetStorage(storagePath, true, isCompiled);
 				if (storage)
 				{
 					auto entry = storage->GetResourceEntry();
@@ -113,7 +112,7 @@ namespace Editor
 			}
 
 			// Register if resource is compiled
-			resManager.GetCache().Register(ctx.initData.header.guid, ctx.initData.header.type, path);
+			ResourceManager::GetCache().Register(ctx.initData.header.guid, ctx.initData.header.type, path);
 
 			const auto endTime = Timer::GetTimeSeconds();
 			Logger::Info("Create resource %s in %.3f s", path.c_str(), endTime - startTime);

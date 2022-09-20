@@ -2,11 +2,53 @@
 #include "loading\resourceLoading.h"
 #include "core\filesystem\filesystem.h"
 #include "core\profiler\profiler.h"
+#include "core\engine.h"
 
 namespace VulkanTest
 {
-	ResourceFactory::ResourceFactory() :
-		resManager(nullptr)
+	namespace
+	{
+		bool isExit = false;
+		class FileSystem* fileSystem = nullptr;
+		Mutex factoryMutex;
+		ResourceManager::FactoryTable factoryTable;
+		F32 lastUnloadCheckTime = 0.0f;
+		Timer timer;
+		ResourcesCache cache;
+		ResourceManager::LoadHook* loadHook = nullptr;
+
+		// All resources
+		Mutex resourceMutex;
+		HashMap<Guid, Resource*> resources;
+
+		// Loading resources
+		Mutex loadingResourcesMutex;
+		Array<Guid> loadingResources;
+
+		// To removed resources
+		Mutex toRemovedLock;
+		Array<Resource*> toRemoved;
+
+		// Onloaded resources
+		Mutex loadedResLock;
+		Array<Resource*> onLoadedResources;
+	}
+
+	class ResourceManagerServiceImpl : public EngineService
+	{
+	public:
+		ResourceManagerServiceImpl() :
+			EngineService("ResourceManagerService", -500)
+		{}
+
+		bool Init(Engine& engine) override;
+		void Update() override;
+		void LateUpdate() override;
+		void Uninit() override;
+	};
+	ResourceManagerServiceImpl ResourceManagerServiceImplInstance;
+
+	ResourceFactory::ResourceFactory()
 	{
 	}
 
@@ -14,67 +56,16 @@ namespace VulkanTest
 	{
 	}
 
-	void ResourceFactory::Initialize(ResourceType type, ResourceManager& resManager_)
+	void ResourceFactory::Initialize(ResourceType type)
 	{
-		resManager_.RegisterFactory(type, this);
+		ResourceManager::RegisterFactory(type, this);
 		resType = type;
-		resManager = &resManager_;
 	}
 
 	void ResourceFactory::Uninitialize()
 	{
 		exiting = true;
-		resManager->UnregisterFactory(resType);
-		resManager = nullptr;
-	}
-
-	ResourceManager::ResourceManager() : cache(*this)
-	{
-	}
-
-	ResourceManager::~ResourceManager() = default;
-
-	void ResourceManager::Initialize(FileSystem& fileSystem_)
-	{
-		ASSERT(isInitialized == false);
-		fileSystem = &fileSystem_;
-
-		// Init resource cache
-		cache.Initialize();
-
-		// Init resource loading
-		ContentLoadingManager::Initialize();
-
-		isInitialized = true;
-	}
-
-	void ResourceManager::Uninitialzie()
-	{
-		ASSERT(isInitialized == true);
-		isInitialized = false;
-
-		// Save resources cache
-		cache.Save();
-
-		// Uninit resource loading
-		ContentLoadingManager::Uninitialize();
-
-		// Flush pending objects
-		ObjectService::FlushNow();
-
-		// Unload remaining resources
-		{
-			ScopedMutex lock(resourceMutex);
-			Array<Resource*> toDeleteResources;
-			for (auto res : resources)
-				toDeleteResources.push_back(res);
-
-			for (auto res : toDeleteResources)
-				res->DeleteObjectNow();
-		}
-
-		// Flush pending objects
-		ObjectService::FlushNow();
+		ResourceManager::UnregisterFactory(resType);
 	}
 
 	Resource* ResourceManager::LoadResource(ResourceType type, const Guid& guid)
@@ -205,7 +196,6 @@ namespace VulkanTest
 
 	Resource* ResourceManager::LoadResource(ResourceType type, const Path& path)
 	{
-		ASSERT(isInitialized);
 		ASSERT(!path.IsEmpty());
 
 #if CJING3D_EDITOR
@@ -403,61 +393,6 @@ namespace VulkanTest
 			fileSystem->DeleteFile(storagePath.c_str());
 	}
 
-	void ResourceManager::Update(F32 dt)
-	{
-		ASSERT(isInitialized);
-		PROFILE_FUNCTION();
-
-		// Refresh state of resoruces
-		{
-			ScopedMutex lock(resourceMutex);
-			for (auto res : resources)
-			{
-				if (res->IsStateDirty())
-					res->CheckState();
-			}
-		}
-		// Broadcast OnLoaded 
-		{
-			ScopedMutex lock(loadedResLock);
-			for (auto res : onLoadedResources)
-				res->OnLoadedMainThread();
-			onLoadedResources.clear();
-		}
-	}
-
-	static F32 UnloadCheckInterval = 0.5f;
-	void ResourceManager::LateUpdate()
-	{
-		ASSERT(isInitialized);
-		PROFILE_FUNCTION();
-
-		// Remove unreferenced
-		// Keep a time interval, resources may be loaded immediately after unloading
-		const F32 now = timer.GetTimeSinceStart();
-		if (now - lastUnloadCheckTime >= UnloadCheckInterval)
-		{
-			lastUnloadCheckTime = now;
-
-			ScopedMutex lock(resourceMutex);
-			for (auto& res : resources)
-			{
-				if (res->GetReference() <= 0)
-					toRemoved.push_back(res);
-			}
-
-			for (auto res : toRemoved)
-			{
-				if (res->GetReference() <= 0)
-					UnloadResoruce(res);
-			}
-			toRemoved.clear();
-		}
-
-		// Update resources cache
-		cache.Save();
-	}
-
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)
 	{
 		ScopedMutex lock(factoryMutex);
@@ -474,14 +409,20 @@ namespace VulkanTest
 
 	void ResourceManager::RegisterFactory(ResourceType type, ResourceFactory* factory)
 	{
-		ASSERT(isInitialized);
 		factoryTable[type.GetHashValue()] = factory;
 	}
 
 	void ResourceManager::UnregisterFactory(ResourceType type)
 	{
-		ASSERT(isInitialized);
 		factoryTable.erase(type.GetHashValue());
+	}
+
+	FileSystem* ResourceManager::GetFileSystem() {
+		return fileSystem;
+	}
+
+	ResourcesCache& ResourceManager::GetCache() {
+		return cache;
 	}
 
 	void ResourceManager::SetLoadHook(LoadHook* hook)
@@ -496,7 +437,7 @@ namespace VulkanTest
 
 	ResourceStorageRef ResourceManager::GetStorage(const Path& path)
 	{
-		return StorageManager::GetStorage(path, *this);
+		return StorageManager::GetStorage(path);
 	}
 
 	bool ResourceManager::GetResourceInfo(const Guid& guid, ResourceInfo& info)
@@ -538,7 +479,7 @@ namespace VulkanTest
 		res.RemoveReference();
 		res.SetHooked(false);
 		res.desiredState = Resource::State::EMPTY;
-		res.GetResourceManager().ContinueLoadResource(res.GetType(), res.GetGUID());
+		ResourceManager::ContinueLoadResource(res.GetType(), res.GetGUID());
 	}
 
 	void ResourceManager::OnResourceLoaded(Resource* res)
@@ -562,13 +503,116 @@ namespace VulkanTest
 
 	void ResourceManager::OnResourceUnload(Resource* res)
 	{
-		if (isInitialized != false)
+		if (isExit == false)
 			resourceMutex.Lock();
 
 		resources.erase(res->GetGUID());
 		onLoadedResources.erase(res);
 
-		if (isInitialized != false)
+		if (isExit == false)
 			resourceMutex.Unlock();
+	}
+
+	VULKAN_TEST_API Resource* LoadResource(ResourceType type, const Guid& guid)
+	{
+		return ResourceManager::LoadResource(type, guid);
+	}
+
+	bool ResourceManagerServiceImpl::Init(Engine& engine)
+	{
+		fileSystem = &engine.GetFileSystem();
+
+		// Init resource cache
+		cache.Initialize();
+
+		// Init resource loading
+		ContentLoadingManager::Initialize();
+
+		initialized = true;
+		return true;
+	}
+
+	void ResourceManagerServiceImpl::Update()
+	{
+		PROFILE_FUNCTION();
+
+		// Refresh state of resoruces
+		{
+			ScopedMutex lock(resourceMutex);
+			for (auto res : resources)
+			{
+				if (res->IsStateDirty())
+					res->CheckState();
+			}
+		}
+		// Broadcast OnLoaded 
+		{
+			ScopedMutex lock(loadedResLock);
+			for (auto res : onLoadedResources)
+				res->OnLoadedMainThread();
+			onLoadedResources.clear();
+		}
+	}
+
+	static F32 UnloadCheckInterval = 0.5f;
+	void ResourceManagerServiceImpl::LateUpdate()
+	{
+		PROFILE_FUNCTION();
+
+		// Remove unreferenced
+		// Keep a time interval, resources may be loaded immediately after unloading
+		const F32 now = timer.GetTimeSinceStart();
+		if (now - lastUnloadCheckTime >= UnloadCheckInterval)
+		{
+			lastUnloadCheckTime = now;
+
+			ScopedMutex lock(resourceMutex);
+			for (auto& res : resources)
+			{
+				if (res->GetReference() <= 0)
+					toRemoved.push_back(res);
+			}
+
+			for (auto res : toRemoved)
+			{
+				if (res->GetReference() <= 0)
+					ResourceManager::UnloadResoruce(res);
+			}
+			toRemoved.clear();
+		}
+
+		// Update resources cache
+		cache.Save();
+	}
+
+	void ResourceManagerServiceImpl::Uninit()
+	{
+		// Mark is exit
+		isExit = true;
+
+		// Save resources cache
+		cache.Save();
+
+		// Uninit resource loading
+		ContentLoadingManager::Uninitialize();
+
+		// Flush pending objects
+		ObjectService::FlushNow();
+
+		// Unload remaining resources
+		{
+			ScopedMutex lock(resourceMutex);
+			Array<Resource*> toDeleteResources;
+			for (auto res : resources)
+				toDeleteResources.push_back(res);
+
+			for (auto res : toDeleteResources)
+				res->DeleteObjectNow();
+		}
+
+		// Flush pending objects
+		ObjectService::FlushNow();
+
+		initialized = false;
 	}
 }

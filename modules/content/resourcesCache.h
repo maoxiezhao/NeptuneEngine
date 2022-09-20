@@ -21,7 +21,7 @@ namespace VulkanTest
 			ResourceInfo info;
 		};
 
-		ResourcesCache(ResourceManager& resManager_);
+		ResourcesCache();
 		~ResourcesCache();
 
 		void Initialize();
@@ -38,7 +38,6 @@ namespace VulkanTest
 		static bool Save(FileSystem* fs, const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<U64, Guid>& pathMapping);
 
 	private:
-		ResourceManager& resManager;
 		HashMap<Guid, Entry> resourceRegistry;
 		HashMap<U64, Guid> pathHashMapping;
 		Mutex mutex;

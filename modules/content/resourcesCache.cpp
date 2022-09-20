@@ -9,8 +9,7 @@ namespace VulkanTest
 {
 	const U32 ResourcesCache::FILE_VERSION = 0x01;
 
-	ResourcesCache::ResourcesCache(ResourceManager& resManager_) :
-		resManager(resManager_)
+	ResourcesCache::ResourcesCache()
 	{
 	}
 
@@ -20,7 +19,7 @@ namespace VulkanTest
 
 	void ResourcesCache::Initialize()
 	{
-		auto fs = resManager.GetFileSystem();
+		auto fs = ResourceManager::GetFileSystem();
 		const char* basePath = fs->GetBasePath();
 		StaticString<MAX_PATH_LENGTH> resDir(basePath, ".export/resources");
 		if (!Platform::DirExists(resDir))
@@ -90,7 +89,7 @@ namespace VulkanTest
 	bool ResourcesCache::Save()
 	{
 #ifdef CJING3D_EDITOR
-		auto fs = resManager.GetFileSystem();
+		auto fs = ResourceManager::GetFileSystem();
 		if (!isDirty && fs->FileExists(path.c_str()))
 			return false;
 

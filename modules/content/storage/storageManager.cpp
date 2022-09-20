@@ -71,7 +71,7 @@ namespace VulkanTest
 		return storage;
 	}
 
-	ResourceStorageRef StorageManager::GetStorage(const Path& path, ResourceManager& resManager, bool doLoad, bool isCompiled)
+	ResourceStorageRef StorageManager::GetStorage(const Path& path, bool doLoad, bool isCompiled)
 	{
 		auto& impl = StorageServiceImplInstance;
 		impl.mutex.Lock();
@@ -80,7 +80,7 @@ namespace VulkanTest
 		auto it = impl.storageMap.find(contentPath.GetHashValue());
 		if (!it.isValid())
 		{
-			auto newStorage = CJING_NEW(ResourceStorage)(path, isCompiled, resManager);
+			auto newStorage = CJING_NEW(ResourceStorage)(path, isCompiled);
 			impl.storageMap.insert(contentPath.GetHashValue(), newStorage);
 			ret = newStorage;
 		}

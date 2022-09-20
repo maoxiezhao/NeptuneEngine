@@ -507,7 +507,7 @@ namespace VulkanTest
             }
             else
             {
-                ResPtr<Model> model = engine.GetResourceManager().LoadResource<Model>(path);
+                ResPtr<Model> model = ResourceManager::LoadResource<Model>(path);
                 LoadModelResource(entity, std::move(model));
             }
         }

@@ -349,8 +349,7 @@ namespace Editor
 			if (it.isValid())
 				return it.value()->GetImage();
 
-			auto& resManager = app.GetEngine().GetResourceManager();
-			ResPtr<Texture> texture = resManager.LoadResource<Texture>(path);
+			ResPtr<Texture> texture = ResourceManager::LoadResource<Texture>(path);
 			texture->WaitForLoaded();
 			textures.insert(texture->GetImage(), texture);
 			pathMapping.insert(texture->GetPath().GetHashValue(), texture.get());
@@ -359,8 +358,7 @@ namespace Editor
 		
 		virtual void* CreateTexture(const char* name, const void* pixels, int w, int h) override
 		{
-			auto& resManager = app.GetEngine().GetResourceManager();
-			Texture* texture = CJING_NEW(Texture)(ResourceInfo::Temporary(Texture::ResType), resManager);
+			Texture* texture = CJING_NEW(Texture)(ResourceInfo::Temporary(Texture::ResType));
 			if (!texture->Create(w, h, VK_FORMAT_R8G8B8A8_UNORM, pixels))
 			{
 				Logger::Error("Failed to create the texture.");

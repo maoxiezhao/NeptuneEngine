@@ -20,12 +20,8 @@ namespace VulkanTest
 		ResourceFactory();
 		virtual ~ResourceFactory();
 
-		virtual void Initialize(ResourceType type, ResourceManager& resManager_);
+		virtual void Initialize(ResourceType type);
 		virtual void Uninitialize();
-
-		ResourceManager& GetResourceManager() {
-			return *resManager;
-		}
 
 	protected:
 		virtual Resource* NewResource(const ResourceInfo& info) = 0;
@@ -34,7 +30,6 @@ namespace VulkanTest
 
 	protected:
 		ResourceType resType;
-		ResourceManager* resManager;
 		bool exiting = false;
 	};
 
@@ -55,92 +50,53 @@ namespace VulkanTest
 			void ContinueLoad(Resource& res);
 		};
 
-		ResourceManager();
-		virtual ~ResourceManager();
-
-		void Initialize(class FileSystem& fileSystem_);
-		void Uninitialzie();
-		void Update(F32 dt);
-		void LateUpdate();
-
 		template<typename T>
-		T* LoadResource(const Path& path)
+		static T* LoadResource(const Path& path)
 		{
 			return static_cast<T*>(LoadResource(T::ResType, path));
 		}
 
 		template<typename T>
-		T* LoadResource(const Guid& guid)
+		static T* LoadResource(const Guid& guid)
 		{
 			return static_cast<T*>(LoadResource(T::ResType, guid));
 		}
 
-		Resource* LoadResource(ResourceType type, const Guid& guid);
-		Resource* LoadResource(ResourceType type, const Path& path);
-		void UnloadResoruce(Resource* res);
-		void ReloadResource(const Path& path);
-		Resource* CreateTemporaryResource(ResourceType type);
-		void AddTemporaryResource(Resource* res);
-		void DeleteResource(Resource* res);
-		void DeleteResource(const Path& path);
+		static Resource* LoadResource(ResourceType type, const Guid& guid);
+		static Resource* LoadResource(ResourceType type, const Path& path);
+		static void UnloadResoruce(Resource* res);
+		static void ReloadResource(const Path& path);
+		static Resource* CreateTemporaryResource(ResourceType type);
+		static void AddTemporaryResource(Resource* res);
+		static void DeleteResource(Resource* res);
+		static void DeleteResource(const Path& path);
 
-		ResourceStorageRef GetStorage(const Path& path);
-		bool GetResourceInfo(const Guid& guid, ResourceInfo& info);
-		bool GetResourceInfo(const Path& path, ResourceInfo& info);
-		Resource* GetResource(const Path& path);
-		Resource* GetResource(const Guid& guid);
+		static ResourceStorageRef GetStorage(const Path& path);
+		static bool GetResourceInfo(const Guid& guid, ResourceInfo& info);
+		static bool GetResourceInfo(const Path& path, ResourceInfo& info);
+		static Resource* GetResource(const Path& path);
+		static Resource* GetResource(const Guid& guid);
 
 		// Resource factory
-		ResourceFactory* GetFactory(ResourceType type);
-		FactoryTable& GetAllFactories();
-		void RegisterFactory(ResourceType type, ResourceFactory* factory);
-		void UnregisterFactory(ResourceType type);
+		static ResourceFactory* GetFactory(ResourceType type);
+		static FactoryTable& GetAllFactories();
+		static void RegisterFactory(ResourceType type, ResourceFactory* factory);
+		static void UnregisterFactory(ResourceType type);
 
-		class FileSystem* GetFileSystem() {
-			return fileSystem;
-		}
+		static class FileSystem* GetFileSystem();
+		static ResourcesCache& GetCache();
 
-		ResourcesCache& GetCache() {
-			return cache;
-		}
-
-		void SetLoadHook(LoadHook* hook);
-		LoadHook::Action OnBeforeLoad(Resource& res);
-
-	private:
-		Resource* LoadResourceImpl(ResourceType type, const Guid& guid);
-		Resource* ContinueLoadResource(ResourceType type, const Guid& guid);
-
-		void OnResourceLoaded(Resource* res);
-		void TryCallOnResourceLoaded(Resource* res);
-		void OnResourceUnload(Resource* res);
+		static void SetLoadHook(LoadHook* hook);
+		static LoadHook::Action OnBeforeLoad(Resource& res);
 
 	private:
 		friend class Resource;
 
-		class FileSystem* fileSystem = nullptr;
-		Mutex factoryMutex;
-		FactoryTable factoryTable;
-		F32 lastUnloadCheckTime = 0.0f;
-		Timer timer;
-		ResourcesCache cache;
-		LoadHook* loadHook = nullptr;
-		bool isInitialized = false;
+		static Resource* LoadResourceImpl(ResourceType type, const Guid& guid);
+		static Resource* ContinueLoadResource(ResourceType type, const Guid& guid);
 
-		// All resources
-		Mutex resourceMutex;
-		HashMap<Guid, Resource*> resources;
-
-		// Loading resources
-		Mutex loadingResourcesMutex;
-		Array<Guid> loadingResources;
-
-		// To removed resources
-		Mutex toRemovedLock;
-		Array<Resource*> toRemoved;
-
-		// Onloaded resources
-		Mutex loadedResLock;
-		Array<Resource*> onLoadedResources;
+		static void OnResourceLoaded(Resource* res);
+		static void TryCallOnResourceLoaded(Resource* res);
+		static void OnResourceUnload(Resource* res);
 	};
 }

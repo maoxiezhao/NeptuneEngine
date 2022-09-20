@@ -23,7 +23,7 @@ namespace VulkanTest
 	protected:
 		virtual Resource* CreateResource(const ResourceInfo& info) override
 		{
-			return CJING_NEW(T)(info, GetResourceManager());
+			return CJING_NEW(T)(info);
 		}
 	};
 
@@ -35,7 +35,7 @@ namespace VulkanTest
 		bool IsReady()const;
 
 	protected:
-		JsonResourceBase(const ResourceInfo& info, ResourceManager& resManager_);
+		JsonResourceBase(const ResourceInfo& info);
 
 		bool LoadResource() override;
 		void Unload() override;
@@ -52,7 +52,7 @@ namespace VulkanTest
 		virtual ~JsonResource();
 
 	protected:
-		JsonResource(const ResourceInfo& info, ResourceManager& resManager_);
+		JsonResource(const ResourceInfo& info);
 
 		bool LoadResource() override;
 		void Unload() override;

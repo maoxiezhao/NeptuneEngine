@@ -1,11 +1,13 @@
 #include "level.h"
 #include "importers\resourceCreator.h"
 #include "editor\editor.h"
-#include "imgui-docking\imgui.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
-#include "level\sceneResource.h"
 #include "editor\importers\resourceImportingManager.h"
+#include "core\serialization\json.h"
+
+#include "imgui-docking\imgui.h"
+#include "level\level.h"
 
 namespace VulkanTest
 {
@@ -52,9 +54,43 @@ namespace Editor
 			return SceneResource::ResType;
 		}
 
-		bool CreateResource(const Path& path, const char* name) {
-			Logger::Info("Create new scene %s", name);
-			return true;
+		bool CreateResource(const Path& path, const char* name) 
+		{
+			bool ret = true;
+			Engine& engine = app.GetEngine();
+			auto& fs = engine.GetFileSystem();
+			auto& world = engine.CreateWorld();
+			auto scene = CJING_NEW(Scene)(world);
+
+			rapidjson_flax::StringBuffer outData;
+			if (!Level::SaveScene(scene, outData))
+			{
+				Logger::Warning("Failed to save scene %s/%s", path.c_str(), name);
+				ret = false;
+				goto ResFini;
+			}
+
+			// Write scene file
+			{
+				StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), path.c_str(), "/", name, ".scene");
+				auto file = fs.OpenFile(fullPath, FileFlags::DEFAULT_WRITE);
+				if (!file->IsValid())
+				{
+					Logger::Error("Failed to create the scene resource file");
+					ret = false;
+					goto ResFini;
+				}
+
+				file->Write(outData.GetString(), outData.GetSize());
+				file->Close();
+			}
+
+			Logger::Info("Create new scene %s/%s", path.c_str(), name);
+
+		ResFini:
+			CJING_SAFE_DELETE(scene);
+			engine.DestroyWorld(world);
+			return ret;
 		}
 
 		bool CreateResourceEnable()const {

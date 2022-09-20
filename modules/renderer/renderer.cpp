@@ -222,7 +222,7 @@ namespace Renderer
 	protected:
 		virtual Resource* CreateResource(const ResourceInfo& info) override
 		{
-			return CJING_NEW(T)(info, GetResourceManager());
+			return CJING_NEW(T)(info);
 		}
 	};
 
@@ -358,25 +358,23 @@ namespace Renderer
 
 	void LoadShaders()
 	{
-		auto& resManager = rendererPlugin->GetEngine().GetResourceManager();
-		shaders[SHADERTYPE_OBJECT] = resManager.LoadResource<Shader>(Path("shaders/object.shd"));
-		shaders[SHADERTYPE_VERTEXCOLOR] = resManager.LoadResource<Shader>(Path("shaders/vertexColor.shd"));
-		shaders[SHADERTYPE_VISIBILITY] = resManager.LoadResource<Shader>(Path("shaders/visibility.shd"));
-		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = resManager.LoadResource<Shader>(Path("shaders/outline.shd"));
-		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = resManager.LoadResource<Shader>(Path("shaders/blurGaussian.shd"));
-		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = resManager.LoadResource<Shader>(Path("shaders/lightCulling.shd"));
-		shaders[SHADERTYPE_MESHLET] = resManager.LoadResource<Shader>(Path("shaders/meshlet.shd"));
-		shaders[SHADERTYPE_SKY] = resManager.LoadResource<Shader>(Path("shaders/sky.shd"));
+		shaders[SHADERTYPE_OBJECT] = ResourceManager::LoadResource<Shader>(Path("shaders/object.shd"));
+		shaders[SHADERTYPE_VERTEXCOLOR] = ResourceManager::LoadResource<Shader>(Path("shaders/vertexColor.shd"));
+		shaders[SHADERTYPE_VISIBILITY] = ResourceManager::LoadResource<Shader>(Path("shaders/visibility.shd"));
+		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = ResourceManager::LoadResource<Shader>(Path("shaders/outline.shd"));
+		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = ResourceManager::LoadResource<Shader>(Path("shaders/blurGaussian.shd"));
+		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = ResourceManager::LoadResource<Shader>(Path("shaders/lightCulling.shd"));
+		shaders[SHADERTYPE_MESHLET] = ResourceManager::LoadResource<Shader>(Path("shaders/meshlet.shd"));
+		shaders[SHADERTYPE_SKY] = ResourceManager::LoadResource<Shader>(Path("shaders/sky.shd"));
 	}
 
 	void InitializeFactories(Engine& engine)
 	{
-		ResourceManager& resManager = engine.GetResourceManager();
-		shaderFactory.Create(); shaderFactory->Initialize(Shader::ResType, resManager);
-		textureFactory.Create(); textureFactory->Initialize(Texture::ResType, resManager);
-		modelFactory.Create(); modelFactory->Initialize(Model::ResType, resManager);
-		materialFactory.Create(); materialFactory->Initialize(Material::ResType, resManager);
-		fontFactory.Create(); fontFactory->Initialize(FontResource::ResType, resManager);
+		shaderFactory.Create(); shaderFactory->Initialize(Shader::ResType);
+		textureFactory.Create(); textureFactory->Initialize(Texture::ResType);
+		modelFactory.Create(); modelFactory->Initialize(Model::ResType);
+		materialFactory.Create(); materialFactory->Initialize(Material::ResType);
+		fontFactory.Create(); fontFactory->Initialize(FontResource::ResType);
 	}
 
 	void UninitializeFactories()

@@ -2,7 +2,7 @@
 
 namespace VulkanTest
 {
-	bool MaterialParams::Load(U64 size, const U8* mem, ResourceManager& resManager)
+	bool MaterialParams::Load(U64 size, const U8* mem)
 	{
 		if (size <= 0)
 			return false;
@@ -43,7 +43,7 @@ namespace VulkanTest
 			case MaterialParameterType::Texture:
 			{
 				String path = stream.ReadStringWithLength();
-				param.asTexture = resManager.LoadResource<Texture>(Path(path.c_str()));
+				param.asTexture = ResourceManager::LoadResource<Texture>(Path(path.c_str()));
 			}
 				break;
 			default:

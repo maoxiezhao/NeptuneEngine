@@ -19,9 +19,8 @@ namespace VulkanTest
 
 	ResourceStorage::StorageLock ResourceStorage::StorageLock::Invalid(nullptr);
 
-	ResourceStorage::ResourceStorage(const Path& path_, bool isCompiled_, ResourceManager& resManager_) :
+	ResourceStorage::ResourceStorage(const Path& path_, bool isCompiled_) :
 		path(path_),
-		resManager(resManager_),
 		chunksLock(0),
 		refCount(0),
 		lastRefLoseTime(0.0f),
@@ -415,7 +414,7 @@ namespace VulkanTest
 				int a = 0;
 
 			Path contentPath = GetContentPath(path, isCompiled);
-			auto file_ = resManager.GetFileSystem()->OpenFile(contentPath.c_str(), FileFlags::DEFAULT_READ);
+			auto file_ = ResourceManager::GetFileSystem()->OpenFile(contentPath.c_str(), FileFlags::DEFAULT_READ);
 			if (!file_ || !file_->IsValid())
 			{
 				Logger::Error("Cannot open compiled resource content %s", contentPath.c_str());
@@ -437,7 +436,7 @@ namespace VulkanTest
 		{
 			// Storage can be locked by some streaming tasks
 			auto entry = GetResourceEntry();
-			auto res = resManager.GetResource(entry.guid);
+			auto res = ResourceManager::GetResource(entry.guid);
 			if (res != nullptr)
 				res->CancelStreaming();
 		}

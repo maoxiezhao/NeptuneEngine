@@ -23,7 +23,7 @@ namespace VulkanTest
 			}
 		};
 
-		FontAltasTexture(VkFormat format_, PaddingStyle paddingStyle_, I32 index_, ResourceManager& resManager);
+		FontAltasTexture(VkFormat format_, PaddingStyle paddingStyle_, I32 index_);
 		~FontAltasTexture();
 
 		void Init(U32 width_, U32 height_);

@@ -78,6 +78,12 @@ namespace VulkanTest
 			return resource == other;
 		}
 
+		FORCE_INLINE ResourceReference& operator=(const Guid& id)
+		{
+			OnSet(LoadResource(T::ResType, id));
+			return *this;
+		}
+
 		FORCE_INLINE bool operator==(const ResourceReference& other)
 		{
 			return resource == other.resource;

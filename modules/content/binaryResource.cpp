@@ -106,7 +106,7 @@ namespace VulkanTest
 
 	Resource* BinaryResourceFactory::NewResource(const ResourceInfo& info)
 	{
-		auto storage = GetResourceManager().GetStorage(info.path);
+		auto storage = ResourceManager::GetStorage(info.path);
 		if (!storage)
 		{
 			Logger::Warning("Missing resource storage %s", info.path.c_str());
@@ -155,8 +155,8 @@ namespace VulkanTest
 		return res;
 	}
 
-	BinaryResource::BinaryResource(const ResourceInfo& info, ResourceManager& resManager_) :
-		Resource(info, resManager_),
+	BinaryResource::BinaryResource(const ResourceInfo& info) :
+		Resource(info),
 		header(),
 		storage(nullptr),
 		storageRef(nullptr)

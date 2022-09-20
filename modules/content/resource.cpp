@@ -71,7 +71,7 @@ namespace VulkanTest
 		if (IsLoaded())
 		{
 			if (IsInMainThread())
-				GetResourceManager().TryCallOnResourceLoaded(this);
+				ResourceManager::TryCallOnResourceLoaded(this);
 			return true;
 		}
 
@@ -150,7 +150,7 @@ namespace VulkanTest
 
 
 		if (IsInMainThread() && IsLoaded())
-			GetResourceManager().TryCallOnResourceLoaded(this);
+			ResourceManager::TryCallOnResourceLoaded(this);
 
 		return isLoaded;
 	}
@@ -217,7 +217,7 @@ namespace VulkanTest
 		OnUnLoadedMainThread();
 
 		// Remove it from resources pool
-		GetResourceManager().OnResourceUnload(this);
+		ResourceManager::OnResourceUnload(this);
 
 		// Unload real resource content
 		mutex.Lock();
@@ -235,21 +235,15 @@ namespace VulkanTest
 		mutex.Unlock();
 
 #if CJING3D_EDITOR
-		ResourceManager* resManager = &GetResourceManager();
 		if (wasMarkedToDelete)
-			resManager->DeleteResource(GetPath());
+			ResourceManager::DeleteResource(GetPath());
 #endif
 
 		// Delete self
 		Object::OnDelete();
 	}
 
-	ResourceManager& Resource::GetResourceManager()
-	{
-		return resManager;
-	}
-
-	Resource::Resource(const ResourceInfo& info, ResourceManager& resManager_) :
+	Resource::Resource(const ResourceInfo& info) :
 		ScriptingObject(ScriptingObjectParams(info.guid)),
 		emptyDepCount(1),
 		failedDepCount(0),
@@ -258,8 +252,7 @@ namespace VulkanTest
 		resSize(0),
 		path(info.path),
 		loadingTask(nullptr),
-		refCount(0),
-		resManager(resManager_)
+		refCount(0)
 	{
 	}
 
@@ -375,7 +368,7 @@ namespace VulkanTest
 
 		// Fire onLoaded event
 		if (isLoaded)
-			GetResourceManager().OnResourceLoaded(this);
+			ResourceManager::OnResourceLoaded(this);
 
 		return isLoaded;
 	}

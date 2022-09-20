@@ -26,7 +26,7 @@ namespace VulkanTest
 		};
 #pragma pack()
 
-		FontResource(const ResourceInfo& info, ResourceManager& resManager);
+		FontResource(const ResourceInfo& info);
 		virtual ~FontResource();
 
 		Font* GetFont(I32 size);

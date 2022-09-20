@@ -64,7 +64,6 @@ namespace VulkanTest
 
 		virtual class InputSystem& GetInputSystem() = 0;
 		virtual class FileSystem& GetFileSystem() = 0;
-		virtual class ResourceManager& GetResourceManager() = 0;
 		virtual class PluginManager& GetPluginManager() = 0;
 		virtual class TaskGraph& GetTaskGraph() = 0;
 		virtual class WSI& GetWSI() = 0;

@@ -39,7 +39,7 @@ namespace VulkanTest
 	protected:
 		friend class BinaryResourceFactory;
 
-		BinaryResource(const ResourceInfo& info, ResourceManager& resManager_);
+		BinaryResource(const ResourceInfo& info);
 
 		bool LoadResource() override;
 		ContentLoadingTask* CreateLoadingTask()override;

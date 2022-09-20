@@ -39,8 +39,8 @@ namespace VulkanTest
 		return hash.Get();
 	}
 
-	Shader::Shader(const ResourceInfo& info, ResourceManager& resManager) :
-		BinaryResource(info, resManager)
+	Shader::Shader(const ResourceInfo& info) :
+		BinaryResource(info)
 	{
 	}
 

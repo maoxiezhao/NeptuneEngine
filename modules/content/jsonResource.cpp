@@ -16,8 +16,8 @@ namespace VulkanTest
 		return CreateResource(info);
 	}
 
-	JsonResourceBase::JsonResourceBase(const ResourceInfo& info, ResourceManager& resManager_) :
-		Resource(info, resManager_),
+	JsonResourceBase::JsonResourceBase(const ResourceInfo& info) :
+		Resource(info),
 		data(nullptr)
 	{
 	}
@@ -34,12 +34,12 @@ namespace VulkanTest
 	bool JsonResourceBase::LoadResource()
 	{
 #ifdef CJING3D_EDITOR
-		auto fs = resManager.GetFileSystem();
+		auto fs = ResourceManager::GetFileSystem();
 		OutputMemoryStream mem;
 		if (!fs->LoadContext(path.c_str(), mem))
 			return false;
 #else
-		auto storage = StorageManager::GetStorage(path, resManager, true);
+		auto storage = StorageManager::GetStorage(path, true);
 		if (!storage)
 			return false;
 
@@ -85,8 +85,8 @@ namespace VulkanTest
 		data = nullptr;
 	}
 
-	JsonResource::JsonResource(const ResourceInfo& info, ResourceManager& resManager_) :
-		JsonResourceBase(info, resManager_)
+	JsonResource::JsonResource(const ResourceInfo& info) :
+		JsonResourceBase(info)
 	{
 	}
 
