@@ -58,9 +58,6 @@ namespace VulkanTest
 				fileSystem = FileSystem::Create(currentDir);
 			}
 
-			// Init engine services
-			EngineService::OnInit(*this);
-
 			// Init wsi
 			wsi.SetPlatform(&app.GetPlatform());
 			GPU::SystemHandles systemHandles;
@@ -68,6 +65,9 @@ namespace VulkanTest
 			I32 wsiThreadCount = std::clamp((I32)(Platform::GetCPUsCount() * 0.5f), 1, 12);
 			bool ret = wsi.Initialize(systemHandles, wsiThreadCount);
 			ASSERT(ret);
+
+			// Init engine services
+			EngineService::OnInit(*this);
 
 			// Init input system
 			inputSystem = InputSystem::Create(*this);
