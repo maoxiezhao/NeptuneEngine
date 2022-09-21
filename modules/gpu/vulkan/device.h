@@ -370,6 +370,7 @@ public:
     BindlessDescriptorPtr CreateBindlessStroageBuffer(const Buffer& buffer, VkDeviceSize offset = 0, VkDeviceSize range = 0);
     BindlessDescriptorPtr CreateBindlessSampledImage(const ImageView& imageView, VkImageLayout imageLayout);
     BindlessDescriptorPtr CreateBindlessUniformTexelBuffer(const Buffer& buffer, const BufferView& view);
+    BindlessDescriptorPtr CreateBindlessSampler(const Sampler& sampler);
 
     void ReleaseFrameBuffer(VkFramebuffer buffer);
     void ReleaseImage(VkImage image);
@@ -490,12 +491,14 @@ private:
         BindlessDescriptorHeap bindlessStorageBuffers;
         BindlessDescriptorHeap bindlessSampledImages;
         BindlessDescriptorHeap bindlessUniformTexelBuffers;
+        BindlessDescriptorHeap bindlessSamplers;
 
         ~BindlessHandler()
         {
             bindlessStorageBuffers.Destroy();
             bindlessSampledImages.Destroy();
             bindlessUniformTexelBuffers.Destroy();
+            bindlessSamplers.Destroy();
         }
     }
     bindlessHandler;

@@ -73,6 +73,13 @@ namespace VulkanTest
 		AttachmentInfo rtAttachment;
 		AttachmentInfo depthAttachment;
 
+		constexpr float GetExposure() const { 
+			return exposure; 
+		}
+
+	private:
+		float exposure = 1.0f;
+
 	protected:
 		Array<RenderGraphPassBase*> passArray;
 	};

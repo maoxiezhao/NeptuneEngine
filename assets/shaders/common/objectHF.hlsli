@@ -37,6 +37,9 @@ inline ShaderMaterial GetMaterial()
     return LoadMaterial(push.materialIndex);
 }
 
+// Bindless sampler
+#define sampler_object bindless_samplers[GetFrame().objectSamplerIndex]
+
 // Bindless textures
 #define texture_basecolormap bindless_textures[GetMaterial().texture_basecolormap_index]
 #define texture_normalmap bindless_textures[GetMaterial().texture_normalmap_index]

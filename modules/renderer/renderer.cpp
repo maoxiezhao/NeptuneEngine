@@ -71,7 +71,7 @@ void RendererService::OnInit(Engine& engine)
 	for (I32 i = 0; i < (I32)services.size(); i++)
 	{
 		const auto service = services[i];
-		Logger::Info("Initialize renderer sevice %s...", service->name);
+		Logger::Info("Initialize renderer service %s...", service->name);
 		service->initialized = true;
 		if (!service->Init(engine))
 		{
@@ -239,6 +239,7 @@ namespace Renderer
 	GPU::BufferPtr frameBuffer;
 	GPU::BufferPtr shaderLightBuffer;
 	GPU::BindlessDescriptorPtr shaderLightBufferBindless;
+	GPU::SamplerPtr samplers[SAMPLERTYPE_COUNT] = {};
 	bool isObjectPipelineStatesInited = false;
 
 	RendererPlugin* rendererPlugin = nullptr;
@@ -354,6 +355,21 @@ namespace Renderer
 		dsd.depthEnable = false;
 		dsd.stencilEnable = false;
 		depthStencilStates[DSTYPE_DISABLED] = dsd;
+
+		// Samplers
+		GPU::SamplerCreateInfo samplerInfo = {};
+		samplerInfo.minLod = 0;
+		samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+		samplerInfo.maxAnisotropy = 16.0f;
+		samplerInfo.anisotropyEnable = true;
+		samplerInfo.compareEnable = false;
+		samplerInfo.magFilter = VK_FILTER_LINEAR;
+		samplerInfo.minFilter = VK_FILTER_LINEAR;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplers[SAMPLERTYPE_OBJECT] = GPU::GPUDevice::Instance->RequestSampler(samplerInfo);
 	}
 
 	void LoadShaders()
@@ -366,6 +382,7 @@ namespace Renderer
 		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = ResourceManager::LoadResource<Shader>(Path("shaders/lightCulling.shd"));
 		shaders[SHADERTYPE_MESHLET] = ResourceManager::LoadResource<Shader>(Path("shaders/meshlet.shd"));
 		shaders[SHADERTYPE_SKY] = ResourceManager::LoadResource<Shader>(Path("shaders/sky.shd"));
+		shaders[SHADERTYPE_TONEMAP] = ResourceManager::LoadResource<Shader>(Path("shaders/tonemap.shd"));
 	}
 
 	void InitializeFactories(Engine& engine)
@@ -441,6 +458,10 @@ namespace Renderer
 		shaderLightBuffer.reset();
 		shaderLightBufferBindless.reset();
 
+		// Release samplers
+		for (int i = 0; i < ARRAYSIZE(samplers); i++)
+			samplers[i].reset();
+
 		// Uninitialize resource factories
 		UninitializeFactories();
 
@@ -475,6 +496,7 @@ namespace Renderer
 		frameCB.lightOffset = 0;
 		frameCB.lightCount = (uint)visible.lights.size();
 		frameCB.bufferShaderLightsIndex = shaderLightBufferBindless->GetIndex();
+		frameCB.objectSamplerIndex = samplers[SAMPLERTYPE_OBJECT]->GetOrCreateBindlesssIndex();
 	}
 
 	void UpdateRenderData(const Visibility& visible, const FrameCB& frameCB, GPU::CommandList& cmd)

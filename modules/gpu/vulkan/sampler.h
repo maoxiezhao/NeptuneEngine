@@ -28,6 +28,8 @@ namespace GPU
     public:
         ~Sampler();
 
+        I32 GetOrCreateBindlesssIndex();
+
         VkSampler GetSampler()const
         {
             return sampler;
@@ -50,6 +52,7 @@ namespace GPU
         VkSampler sampler;
         SamplerCreateInfo createInfo;
         bool isImmutable;
+        BindlessDescriptorPtr bindless;
     };
     using SamplerPtr = IntrusivePtr<Sampler>;
 

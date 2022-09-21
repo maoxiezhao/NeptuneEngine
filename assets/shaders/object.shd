@@ -88,7 +88,7 @@ float4 PS(PixelInput input) : SV_Target
     [branch]
     if (GetMaterial().texture_basecolormap_index >= 0)
     {
-        float4 baseColorMap = texture_basecolormap.Sample(samLinearClamp, input.uvsets.xy);
+        float4 baseColorMap = texture_basecolormap.Sample(sampler_object, input.uvsets.xy);
         baseColorMap.rgb = DEGAMMA(baseColorMap.rgb);
         color *= baseColorMap;
     }
@@ -107,7 +107,7 @@ float4 PS(PixelInput input) : SV_Target
     if (GetMaterial().texture_normalmap_index >= 0)
     {
         const float3 N = surface.N;
-        float3 normalMap = float3(texture_normalmap.Sample(samLinearClamp, input.uvsets.xy).rg, 1);
+        float3 normalMap = float3(texture_normalmap.Sample(sampler_object, input.uvsets.xy).rg, 1);
         float3 bumpColor = normalMap.rgb * 2 - 1;
         surface.N = normalize(lerp(N, mul(bumpColor, TBN), 1.0f));
     }

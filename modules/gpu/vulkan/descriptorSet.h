@@ -50,6 +50,7 @@ namespace GPU
 		void SetTexture(int binding, const ImageView& iamgeView, VkImageLayout imageLayout);
 		void SetBuffer(int binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
 		void SetUniformTexelBuffer(int binding, VkBufferView bufferView);
+		void SetSampler(int binding, VkSampler sampler);
 		
 	private:
 		friend class DeviceVulkan;

@@ -1,5 +1,5 @@
 #include "scene.h"
-#include "core\serialization\jsonWriteStream.h"
+#include "core\serialization\jsonWriter.h"
 
 namespace VulkanTest
 {

@@ -189,6 +189,22 @@ namespace GPU
 		vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
 	}
 
+	void BindlessDescriptorPool::SetSampler(int binding, VkSampler sampler)
+	{
+		VkDescriptorImageInfo imageInfo = {};
+		imageInfo.sampler = sampler;
+
+		VkWriteDescriptorSet write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+		write.dstBinding = 0;
+		write.dstArrayElement = binding;
+		write.descriptorCount = 1;
+		write.dstSet = set;
+		write.pImageInfo = &imageInfo;
+
+		vkUpdateDescriptorSets(device.device, 1, &write, 0, nullptr);
+	}
+
 	BindlessDescriptorPool::BindlessDescriptorPool(DeviceVulkan& device_, VkDescriptorPool pool_, DescriptorSetAllocator* allocator_, U32 totalSets_, U32 totalDescriptors_) :
 		device(device_),
 		pool(pool_),

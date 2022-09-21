@@ -64,7 +64,7 @@ struct FrameCB
 	uint lightCount;
 
 	int bufferShaderLightsIndex;
-	int padding;
+	int objectSamplerIndex;
 };
 CONSTANTBUFFER(g_xFrame, FrameCB, CBSLOT_RENDERER_FRAME);
 

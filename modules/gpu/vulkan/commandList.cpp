@@ -418,6 +418,9 @@ void CommandList::SetGlobalBindlessSets()
         case DESCRIPTOR_SET_TYPE_UNIFORM_TEXEL_BUFFER:
             heap = device.GetBindlessDescriptorHeap(BindlessReosurceType::UniformTexelBuffer);
             break;
+        case DESCRIPTOR_SET_TYPE_SAMPLER:
+            heap = device.GetBindlessDescriptorHeap(BindlessReosurceType::Sampler);
+            break;
         default:
             break;
         }

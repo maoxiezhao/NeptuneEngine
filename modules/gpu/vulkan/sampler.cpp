@@ -30,6 +30,17 @@ namespace GPU
 	{
 	}
 
+	I32 Sampler::GetOrCreateBindlesssIndex()
+	{
+		ASSERT(sampler != VK_NULL_HANDLE);
+		if (!bindless)
+		{
+			bindless = device.CreateBindlessSampler(*this);
+			ASSERT(bindless);
+		}
+		return bindless->GetIndex();
+	}
+
 	ImmutableSampler::ImmutableSampler(DeviceVulkan& device_, const SamplerCreateInfo& createInfo_) :
 		device(device_)
 	{

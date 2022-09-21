@@ -439,15 +439,17 @@ PipelineLayout::~PipelineLayout()
 	if (pipelineLayout != VK_NULL_HANDLE)
 		vkDestroyPipelineLayout(device.device, pipelineLayout, nullptr);
 
-	for (auto& ut : updateTemplate)
+	for (int i = 0; i < ARRAYSIZE(updateTemplate); i++)
 	{
-		if (ut != VK_NULL_HANDLE)
-			vkDestroyDescriptorUpdateTemplate(device.device, ut, nullptr);
+		if (updateTemplate[i] != VK_NULL_HANDLE)
+			vkDestroyDescriptorUpdateTemplate(device.device, updateTemplate[i], nullptr);
 	}
 }
 
 void PipelineLayout::CreateUpdateTemplates()
 {
+	memset(updateTemplate, 0, sizeof(updateTemplate));
+
 	for (unsigned descSet = 0; descSet < VULKAN_NUM_DESCRIPTOR_SETS; descSet++)
 	{
 		if ((resLayout.descriptorSetMask & (1u << descSet)) == 0)

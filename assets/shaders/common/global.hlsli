@@ -13,6 +13,7 @@ ByteAddressBuffer bindless_buffers[] : register(space1);
 Texture2D bindless_textures[] : register(space2);
 Buffer<uint> bindless_ib[] : register(space3);
 Texture2D<float> bindless_textures_float[] : register(space4);
+SamplerState bindless_samplers[] : register(space5);
 
 // Immutable samplers
 SamplerState samLinearClamp : register(s100);
