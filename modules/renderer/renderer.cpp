@@ -383,6 +383,7 @@ namespace Renderer
 		shaders[SHADERTYPE_MESHLET] = ResourceManager::LoadResource<Shader>(Path("shaders/meshlet.shd"));
 		shaders[SHADERTYPE_SKY] = ResourceManager::LoadResource<Shader>(Path("shaders/sky.shd"));
 		shaders[SHADERTYPE_TONEMAP] = ResourceManager::LoadResource<Shader>(Path("shaders/tonemap.shd"));
+		shaders[SHADERTYPE_FXAA] = ResourceManager::LoadResource<Shader>(Path("shaders/fxaa.shd"));
 	}
 
 	void InitializeFactories(Engine& engine)

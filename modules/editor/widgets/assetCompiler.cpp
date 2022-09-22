@@ -712,16 +712,13 @@ namespace Editor
         {
             ScopedMutex lock(compiledMutex);
             if (compiledJobs.empty())
-            {
-                AtomicStore(&batchRemainningCount, 0);
                 return {};
-            }
 
             CompileJob compiled = compiledJobs.back();
             compiledJobs.pop_back();
 
-            AtomicDecrement(&batchRemainningCount);
-            if (AtomicRead(&batchRemainningCount) == 0)
+            I32 remainingCount = AtomicDecrement(&batchRemainningCount);
+            if (remainingCount <= 1)
                 batchCompileCount = 0;
 
             return compiled;

@@ -10,6 +10,6 @@ namespace VulkanTest
 	public:
 		void Setup(RenderGraph& renderGraph, RenderPath3D& renderPath) override;
 
-		static const String RtPostprocess;
+		static String RtPostprocess;
 	};
 }

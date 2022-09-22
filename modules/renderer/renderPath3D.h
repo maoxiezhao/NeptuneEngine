@@ -77,8 +77,13 @@ namespace VulkanTest
 			return exposure; 
 		}
 
+		constexpr bool GetFXAAEnabled()const {
+			return fxaaEnable;
+		}
+
 	private:
 		float exposure = 1.0f;
+		bool fxaaEnable = true;
 
 	protected:
 		Array<RenderGraphPassBase*> passArray;
