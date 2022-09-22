@@ -167,7 +167,7 @@ namespace VulkanTest::ImageUtil
         cmd.SetPipelineState(pipelineStates[params.blendFlag][params.stencilMode]);
         cmd.SetProgram(shader->GetVS("VS"), shader->GetPS("PS"));
         cmd.SetTexture(0, 0, image->GetImageView());
-        cmd.SetSampler(0, 0, GPU::StockSampler::NearestClamp);
+        cmd.SetSampler(0, 0, GPU::StockSampler::LinearClamp);
         cmd.Draw(3);
     }
 }

@@ -21,6 +21,22 @@ namespace VulkanTest
 		passArray.push_back(OpaquePass::Instance());
 		passArray.push_back(TransparentPass::Instance());
 		passArray.push_back(PostprocessingPass::Instance());
+
+		for (I32 i = 0; i < passArray.size(); i++)
+		{
+			if (!passArray[i]->Init())
+			{
+				Logger::Error("Failed to intialize render pass.");
+				passArray.clear();
+				return;
+			}
+		}
+	}
+
+	RenderPath3D::~RenderPath3D()
+	{
+		for (I32 i = 0; i < passArray.size(); i++)
+			passArray[i]->Dispose();
 	}
 
 	void RenderPath3D::Update(float dt)

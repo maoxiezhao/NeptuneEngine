@@ -2,18 +2,12 @@
 
 #include "resource.h"
 #include "storage\resourceStorage.h"
+#include "binaryResourceFactory.h"
 #include "resourceManager.h"
 
 namespace VulkanTest
 {
 	typedef U16 AssetChunksFlag;
-
-	class VULKAN_TEST_API BinaryResourceFactory : public ResourceFactory
-	{
-	protected:
-		Resource* NewResource(const ResourceInfo& info) override;
-		Resource* CreateTemporaryResource(const ResourceInfo& info) override;
-	};
 
 	class VULKAN_TEST_API BinaryResource : public Resource
 	{
@@ -33,28 +27,26 @@ namespace VulkanTest
 			return header.chunks[index] != nullptr && header.chunks[index]->IsLoaded();
 		}
 
+	public:
 		// Real resourceStorage pointer from storageRef
 		ResourceStorage* storage;
 
 	protected:
-		friend class BinaryResourceFactory;
+		friend class BinaryResourceFactoryBase;
 
 		BinaryResource(const ResourceInfo& info);
 
 		bool LoadResource() override;
 		ContentLoadingTask* CreateLoadingTask()override;
+		void OnStorageReloaded(ResourceStorage* storage_, bool ret);
 
-		virtual bool Init(ResourceInitData& initData) 
-		{
+		virtual bool Init(ResourceInitData& initData) {
 			return true;
 		}
 
-		virtual AssetChunksFlag GetChunksToPreload() const 
-		{
+		virtual AssetChunksFlag GetChunksToPreload()const {
 			return GET_CHUNK_FLAG(0);
 		}
-
-		void OnStorageReloaded(ResourceStorage* storage_, bool ret);
 
 	private:
 		ResourceStorageRef storageRef;

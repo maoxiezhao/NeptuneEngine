@@ -3,7 +3,7 @@
 
 namespace VulkanTest
 {
-	DEFINE_RESOURCE(Material);
+	REGISTER_BINARY_RESOURCE(Material);
 
 	Material::Material(const ResourceInfo& info) :
 		BinaryResource(info)

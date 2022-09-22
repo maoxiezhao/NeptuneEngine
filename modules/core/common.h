@@ -96,6 +96,8 @@ static_assert(sizeof(I32) == 4, "Incorrect size of i32");
 static_assert(sizeof(I16) == 2, "Incorrect size of i16");
 static_assert(sizeof(I8) == 1, "Incorrect size of i8");
 
+#define _INTERNAL_CONCAT_MACROS(a, b) a ## b
+#define CONCAT_MACROS(a, b) _INTERNAL_CONCAT_MACROS(a, b)
 
 template<typename ENUM>
 constexpr inline bool FLAG_ALL(ENUM value, ENUM Flags)

@@ -10,6 +10,19 @@ namespace VulkanTest
 	String PostprocessingPass::RtPostprocess = "";
 	String rtTonemap = "rtTonemap";
 
+	bool PostprocessingPass::Init()
+	{
+		shaderTonemap = ResourceManager::LoadResource<Shader>(Path("shaders/tonemap.shd"));
+		shaderFxaa = ResourceManager::LoadResource<Shader>(Path("shaders/fxaa.shd"));
+		return true;
+	}
+
+	void PostprocessingPass::Dispose()
+	{
+		shaderTonemap.reset();
+		shaderFxaa.reset();
+	}
+
 	void PostprocessingPass::Setup(RenderGraph& renderGraph, RenderPath3D& renderPath)
 	{
 		AttachmentInfo rtAttachment = renderPath.GetAttachmentRT();
@@ -24,7 +37,7 @@ namespace VulkanTest
 				auto& textureOutput = renderGraph.GetPhysicalTexture(outptuTex);
 				cmd.SetTexture(0, 0, textureInput);
 				cmd.SetStorageTexture(0, 0, textureOutput);
-				cmd.SetProgram(Renderer::GetShader(SHADERTYPE_TONEMAP)->GetCS("CS"));
+				cmd.SetProgram(shaderTonemap->GetCS("CS"));
 
 				TonemapPushConstants push;
 				push.resolution_rcp = {
@@ -58,7 +71,7 @@ namespace VulkanTest
 				auto& textureOutput = renderGraph.GetPhysicalTexture(outptuTex);
 				cmd.SetTexture(0, 0, textureInput);
 				cmd.SetStorageTexture(0, 0, textureOutput);
-				cmd.SetProgram(Renderer::GetShader(SHADERTYPE_FXAA)->GetCS("CS"));
+				cmd.SetProgram(shaderFxaa->GetCS("CS"));
 
 				PostprocessPushConstants push;
 				push.resolution = { (U32)rtAttachment.sizeX, (U32)rtAttachment.sizeY };

@@ -2,6 +2,7 @@
 #include "editor\editor.h"
 #include "editor\widgets\gizmo.h"
 #include "editor\widgets\entityList.h"
+#include "core\utils\stateMachine.h"
 #include "level\level.h"
 
 namespace VulkanTest

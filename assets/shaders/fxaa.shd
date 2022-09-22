@@ -20,7 +20,7 @@ META_CS(true)
 [numthreads(POSTPROCESS_BLOCKSIZE, POSTPROCESS_BLOCKSIZE, 1)]
 void CS(uint3 DTid : SV_DispatchThreadID)
 {
-    float2 uv = (DTid.xy + 0.5f) * push.resolution_rcp;
+    const float2 uv = (DTid.xy + 0.5f) * push.resolution_rcp;
     FxaaTex tex = { samLinearClamp, input };
     output[DTid.xy] = FxaaPixelShader(uv, 0, tex, tex, tex, push.resolution_rcp, 0, 0, 0, fxaaSubpix, fxaaEdgeThreshold, fxaaEdgeThresholdMin, 0, 0, 0, 0);
 }

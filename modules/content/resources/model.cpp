@@ -7,7 +7,7 @@
 
 namespace VulkanTest
 {
-	DEFINE_RESOURCE(Model);
+	REGISTER_BINARY_RESOURCE(Model);
 
 	const U32 Model::FILE_MAGIC = 0x5f4c4d4f;
 	const U32 Model::FILE_VERSION = 0x01;

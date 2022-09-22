@@ -2784,34 +2784,38 @@ void DeviceVulkan::InitStockSamplers()
 void DeviceVulkan::InitStockSampler(StockSampler type)
 {
     SamplerCreateInfo info = {};
+    info.minLod = 0;
     info.maxLod = VK_LOD_CLAMP_NONE;
-    info.maxAnisotropy = 1.0f;
-    info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    info.mipLodBias = 0;
+    info.maxAnisotropy = 0.0f;
     info.compareEnable = false;
+    info.anisotropyEnable = false;
 
     switch (type)
     {
-    case GPU::StockSampler::NearestClamp:
-    case GPU::StockSampler::NearestWrap:
+    case GPU::StockSampler::LinearClamp:
+    case GPU::StockSampler::LinearWrap:
         info.magFilter = VK_FILTER_LINEAR;
         info.minFilter = VK_FILTER_LINEAR;
+        info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
         break;
     case GPU::StockSampler::PointClamp:
     case GPU::StockSampler::PointWrap:
         info.magFilter = VK_FILTER_NEAREST;
         info.minFilter = VK_FILTER_NEAREST;
+        info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
         break;
     }
 
     switch (type)
     {
-    case GPU::StockSampler::NearestClamp:
+    case GPU::StockSampler::LinearClamp:
     case GPU::StockSampler::PointClamp:
         info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         break;
-    case GPU::StockSampler::NearestWrap:
+    case GPU::StockSampler::LinearWrap:
     case GPU::StockSampler::PointWrap:
         info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;

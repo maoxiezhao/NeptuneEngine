@@ -216,22 +216,6 @@ namespace Renderer
 		Array<RenderBatch> batches;
 	};
 
-	template <typename T>
-	struct RenderResourceFactory : public BinaryResourceFactory
-	{
-	protected:
-		virtual Resource* CreateResource(const ResourceInfo& info) override
-		{
-			return CJING_NEW(T)(info);
-		}
-	};
-
-	LocalPtr<RenderResourceFactory<Shader>> shaderFactory;
-	LocalPtr<RenderResourceFactory<Texture>> textureFactory;
-	LocalPtr<RenderResourceFactory<Model>> modelFactory;
-	LocalPtr<RenderResourceFactory<Material>> materialFactory;
-	LocalPtr<RenderResourceFactory<FontResource>> fontFactory;
-
 	GPU::BlendState stockBlendStates[BSTYPE_COUNT] = {};
 	GPU::RasterizerState stockRasterizerState[RSTYPE_COUNT] = {};
 	GPU::DepthStencilState depthStencilStates[DSTYPE_COUNT] = {};
@@ -376,46 +360,16 @@ namespace Renderer
 	{
 		shaders[SHADERTYPE_OBJECT] = ResourceManager::LoadResource<Shader>(Path("shaders/object.shd"));
 		shaders[SHADERTYPE_VERTEXCOLOR] = ResourceManager::LoadResource<Shader>(Path("shaders/vertexColor.shd"));
-		shaders[SHADERTYPE_VISIBILITY] = ResourceManager::LoadResource<Shader>(Path("shaders/visibility.shd"));
 		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = ResourceManager::LoadResource<Shader>(Path("shaders/outline.shd"));
 		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = ResourceManager::LoadResource<Shader>(Path("shaders/blurGaussian.shd"));
 		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = ResourceManager::LoadResource<Shader>(Path("shaders/lightCulling.shd"));
 		shaders[SHADERTYPE_MESHLET] = ResourceManager::LoadResource<Shader>(Path("shaders/meshlet.shd"));
 		shaders[SHADERTYPE_SKY] = ResourceManager::LoadResource<Shader>(Path("shaders/sky.shd"));
-		shaders[SHADERTYPE_TONEMAP] = ResourceManager::LoadResource<Shader>(Path("shaders/tonemap.shd"));
-		shaders[SHADERTYPE_FXAA] = ResourceManager::LoadResource<Shader>(Path("shaders/fxaa.shd"));
-	}
-
-	void InitializeFactories(Engine& engine)
-	{
-		shaderFactory.Create(); shaderFactory->Initialize(Shader::ResType);
-		textureFactory.Create(); textureFactory->Initialize(Texture::ResType);
-		modelFactory.Create(); modelFactory->Initialize(Model::ResType);
-		materialFactory.Create(); materialFactory->Initialize(Material::ResType);
-		fontFactory.Create(); fontFactory->Initialize(FontResource::ResType);
-	}
-
-	void UninitializeFactories()
-	{
-		materialFactory->Uninitialize();
-		modelFactory->Uninitialize();
-		textureFactory->Uninitialize();
-		shaderFactory->Uninitialize();
-		fontFactory->Uninitialize();
-
-		materialFactory.Destroy();
-		modelFactory.Destroy();
-		textureFactory.Destroy();
-		shaderFactory.Destroy();
-		fontFactory.Destroy();
 	}
 
 	void Renderer::Initialize(Engine& engine)
 	{
 		Logger::Info("Render initialized");
-
-		// Initialize resource factories
-		InitializeFactories(engine);
 
 		// Load builtin states
 		InitStockStates();
@@ -462,9 +416,6 @@ namespace Renderer
 		// Release samplers
 		for (int i = 0; i < ARRAYSIZE(samplers); i++)
 			samplers[i].reset();
-
-		// Uninitialize resource factories
-		UninitializeFactories();
 
 		rendererPlugin = nullptr;
 		Logger::Info("Render uninitialized");

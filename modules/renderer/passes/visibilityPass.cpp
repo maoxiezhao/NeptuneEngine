@@ -7,6 +7,17 @@ namespace VulkanTest
 	const String VisibilityPass::DepthCopy = "depthCopy";
 	const String VisibilityPass::DepthLinear = "depthLinear";
 
+	bool VisibilityPass::Init()
+	{
+		shader = ResourceManager::LoadResource<Shader>(Path("shaders/visibility.shd"));
+		return true;
+	}
+
+	void VisibilityPass::Dispose()
+	{
+		shader.reset();
+	}
+
 	void VisibilityPass::Setup(RenderGraph& renderGraph, RenderPath3D& renderPath)
 	{
 		// Calculate visibility tile count
@@ -33,7 +44,7 @@ namespace VulkanTest
 				cmd.SetStorageTexture(0, 1, *textureDepthCopy);
 				cmd.SetStorageTexture(0, 2, *textureDepthLinear);
 
-				cmd.SetProgram(Renderer::GetShader(SHADERTYPE_VISIBILITY)->GetCS("CS_Resolve"));
+				cmd.SetProgram(shader->GetCS("CS_Resolve"));
 				cmd.Dispatch(
 					tileCount.x,
 					tileCount.y,

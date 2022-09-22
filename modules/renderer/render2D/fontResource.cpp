@@ -8,7 +8,7 @@
 
 namespace VulkanTest
 {
-	DEFINE_RESOURCE(FontResource);
+	REGISTER_BINARY_RESOURCE(FontResource);
 
 	FontResource::FontResource(const ResourceInfo& info) :
 		BinaryResource(info),

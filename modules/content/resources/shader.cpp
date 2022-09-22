@@ -4,7 +4,7 @@
 
 namespace VulkanTest
 {
-	DEFINE_RESOURCE(Shader);
+	REGISTER_BINARY_RESOURCE(Shader);
 
 	const U32 Shader::FILE_MAGIC = 0x5f3cfd1f;
 	const U32 Shader::FILE_VERSION = 0x01;

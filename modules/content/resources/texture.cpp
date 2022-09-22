@@ -5,7 +5,7 @@
 
 namespace VulkanTest
 {
-	DEFINE_RESOURCE(Texture);
+	REGISTER_BINARY_RESOURCE(Texture);
 
 	Texture::Texture(const ResourceInfo& info) :
 		BinaryResource(info)

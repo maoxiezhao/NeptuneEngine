@@ -11,6 +11,7 @@ namespace VulkanTest
 	{
 	public:
 		RenderPath3D();
+		virtual ~RenderPath3D();
 
 		void Update(float dt) override;
 

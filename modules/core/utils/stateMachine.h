@@ -19,6 +19,7 @@ namespace VulkanTest
 		virtual bool CanExit(State* next)const {
 			return true;
 		}
+		bool IsActive()const;
 
 		virtual void OnEnter() {};
 		virtual void OnExit() {};
@@ -35,8 +36,6 @@ namespace VulkanTest
 		StateMachine();
 		~StateMachine();
 
-		void SwitchState(State* next);
-
 		State* CurrentState() {
 			return currState;
 		}
@@ -45,7 +44,13 @@ namespace VulkanTest
 			return currState;
 		}
 
+		void GoToState(State* state);
+
 	protected:
+		friend class State;
+
+		void SwitchState(State* next);
+
 		Array<State*> states;
 		State* currState = nullptr;
 	};
