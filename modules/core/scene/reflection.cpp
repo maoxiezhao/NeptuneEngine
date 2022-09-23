@@ -9,9 +9,8 @@ namespace Reflection
 	{
 		SceneMeta* firstScene = nullptr;
 		Array<RegisteredComponent> comps;
-		HashMap<ECS::EntityID, RegisteredComponent*> compMap;
 
-		void Clear()
+		~Context()
 		{
 			SceneMeta* cur = nullptr;
 			SceneMeta* next = firstScene;
@@ -24,12 +23,28 @@ namespace Reflection
 			}
 			firstScene = nullptr;
 		}
-
-		~Context()
-		{
-			Clear();
-		}
 	};
+
+	static Context& GetContext()
+	{
+		static Context ctx;
+		return ctx;
+	}
+
+	ComponentType GetComponentType(const char* id)
+	{
+		auto& ctx = GetContext();
+		const RuntimeHash nameHash(id);
+		for (I32 i = 0; i < ctx.comps.size(); i++)
+		{
+			if (ctx.comps[i].name == nameHash)
+				return { i };
+		}
+
+		auto& newComp = ctx.comps.emplace();
+		newComp.name = nameHash;
+		return { (I32)ctx.comps.size() - 1 };
+	}
 
 	SceneMeta::~SceneMeta()
 	{
@@ -54,37 +69,24 @@ namespace Reflection
 			prop->Visit(visitor);
 	}
 
-	static Context& GetContext() 
-	{
-		static Context ctx;
-		return ctx;
-	}
-
-	Builder BuildScene(World* world, const char* name)
+	Builder BuildScene(const char* name)
 	{
 		Builder builder = {};
 		Context& ctx = GetContext();
-		builder.world = world;
 		builder.scene->next = ctx.firstScene;
 		ctx.firstScene = builder.scene;
 		builder.scene->name = name;
 		return builder;
 	}
 
-	ComponentMeta* GetComponent(ECS::EntityID compID)
+	ComponentMeta* GetComponent(ComponentType compType)
 	{
-		auto it = GetContext().compMap.find(compID);
-		return it.isValid() ? it.value()->meta : nullptr;
+		return GetContext().comps[compType.index].meta;
 	}
 
 	Span<const RegisteredComponent> GetComponents()
 	{
 		return Span(GetContext().comps.data(), GetContext().comps.size());
-	}
-
-	void ClearReflections()
-	{
-		GetContext().Clear();
 	}
 
 	Builder::Builder()
@@ -101,14 +103,11 @@ namespace Reflection
 
 	void Builder::RegisterCmp(ComponentMeta* cmp)
 	{
+		GetContext().comps[cmp->compType.index].meta = cmp;
+		GetContext().comps[cmp->compType.index].name = RuntimeHash(cmp->name);
+		GetContext().comps[cmp->compType.index].scene = RuntimeHash(scene->name);
 		lastComp = cmp;
 		scene->cmps.push_back(cmp);
-
-		auto& meta = GetContext().comps.emplace();
-		meta.meta = cmp;
-		meta.name = StringID(cmp->name);
-		meta.scene = StringID(scene->name);
-		GetContext().compMap.insert(cmp->compID, &meta);
 	}
 
 	void Builder::AddProp(PropertyMetaBase* p)

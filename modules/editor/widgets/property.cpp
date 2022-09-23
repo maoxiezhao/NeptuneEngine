@@ -221,16 +221,25 @@ namespace Editor
 		ImGui::TreePop();
 	}
 
+	ComponentType ConvertToCompType(World* world, ECS::EntityID compID)
+	{
+		return INVALID_COMPONENT_TYPE;
+	}
+
 	void PropertyWidget::ShowComponentProperties(ECS::Entity entity, ECS::EntityID compID)
 	{
-		auto compMeta = Reflection::GetComponent(compID);
+		auto compType = ConvertToCompType(editor.GetWorldEditor().GetWorld(), compID);
+		if (compType == INVALID_COMPONENT_TYPE)
+			return;
+
+		auto compMeta = Reflection::GetComponent(compType);
 		if (compMeta == nullptr)
 			return;
 
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowItemOverlap;
 		ImGui::Separator();
-		const char* name = editor.GetComponentTypeName(compID);
-		const char* icon = editor.GetComponentIcon(compID);
+		const char* name = editor.GetComponentTypeName(compType);
+		const char* icon = editor.GetComponentIcon(compType);
 		ImGui::PushFont(editor.GetBoldFont());
 		bool isOpen = ImGui::TreeNodeEx((void*)(U64)compID, flags, "%s%s", icon, name);
 		ImGui::PopFont();
@@ -259,7 +268,7 @@ namespace Editor
 		if (!scene)
 			return;
 	
-		const auto meta = Reflection::GetComponent(compID);
+		const auto meta = Reflection::GetComponent(compType);
 		if (meta == nullptr)
 		{
 			ImGui::TreePop();

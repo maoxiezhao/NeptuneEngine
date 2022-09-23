@@ -12,6 +12,18 @@ namespace VulkanTest
 {
 	class World;
 
+	struct ComponentType
+	{
+		enum { MAX_TYPES_COUNT = 64 };
+
+		I32 index;
+		bool operator==(const ComponentType& rhs) const { return rhs.index == index; }
+		bool operator<(const ComponentType& rhs) const { return rhs.index < index; }
+		bool operator>(const ComponentType& rhs) const { return rhs.index > index; }
+		bool operator!=(const ComponentType& rhs) const { return rhs.index != index; }
+	};
+	const ComponentType INVALID_COMPONENT_TYPE = { -1 };
+
 	struct VULKAN_TEST_API IScene
 	{
 		virtual ~IScene() {}
@@ -27,7 +39,7 @@ namespace VulkanTest
 	class VULKAN_TEST_API World : public ECS::World
 	{
 	public:
-		explicit World(Engine* engine_);
+		World();
 		virtual ~World();
 
 		static void SetupWorld();
@@ -43,7 +55,6 @@ namespace VulkanTest
 		DelegateList<void(ECS::Entity)>& EntityDestroyed() { return entityDestroyed; }
 
 	private:
-		Engine* engine;
 		std::vector<UniquePtr<IScene>> scenes;
 
 		DelegateList<void(ECS::Entity)> entityCreated;

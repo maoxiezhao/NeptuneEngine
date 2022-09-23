@@ -124,7 +124,7 @@ namespace VulkanTest
 
 		World& CreateWorld() override
 		{
-			World* world = CJING_NEW(World)(this);
+			World* world = CJING_NEW(World)();
 			const auto& plugins = pluginManager->GetPlugins();
 			
 			// Create scenes from plugins

@@ -371,6 +371,9 @@ namespace Renderer
 	{
 		Logger::Info("Render initialized");
 
+		// Reflect render scene
+		RenderScene::Reflect();
+
 		// Load builtin states
 		InitStockStates();
 		LoadShaders();

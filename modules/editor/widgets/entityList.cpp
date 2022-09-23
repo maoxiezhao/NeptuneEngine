@@ -224,7 +224,7 @@ namespace Editor
 
 				if (filter[0] == '\0')
 				{
-					EntityFolder& folder = worldEditor.GetEntityFolder();
+					EntityFolder& folder = *worldEditor.GetEntityFolder();
 					OnFolderUI(folder, folder.GetRoot(), -1, true);
 				}
 			}
@@ -508,7 +508,7 @@ namespace Editor
 
 		if (ImGui::MenuItem("CreateEmpty"))
 		{
-			auto& folder = worldEditor.GetEntityFolder();
+			auto& folder = *worldEditor.GetEntityFolder();
 			folder.SelectFolder(folderID);
 
 			ECS::Entity entity = worldEditor.AddEmptyEntity();
@@ -535,14 +535,14 @@ namespace Editor
 	EntityFolder::FolderID EntityListWidget::CreateFolder(EntityFolder::FolderID folderID)
 	{
 		// TODO: use EditorCommand
-		EntityFolder& folder = worldEditor.GetEntityFolder();
-		return folder.EmplaceFolder(folderID);
+		EntityFolder* folder = worldEditor.GetEntityFolder();
+		return folder->EmplaceFolder(folderID);
 	}
 
 	void EntityListWidget::RenameEntityFolder(EntityFolder::FolderID folderID, const char* name)
 	{
 		// TODO: use EditorCommand
-		EntityFolder::Folder& folder = worldEditor.GetEntityFolder().GetFolder(folderID);
+		EntityFolder::Folder& folder = worldEditor.GetEntityFolder()->GetFolder(folderID);
 		CopyString(folder.name, name);
 	}
 }

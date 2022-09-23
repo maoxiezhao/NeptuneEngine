@@ -7,6 +7,8 @@ namespace VulkanTest
 {
 namespace Reflection
 {
+	VULKAN_TEST_API ComponentType GetComponentType(const char* id);
+
 	template <typename T> struct ResultOf;
 	template <typename R, typename C, typename... Args> struct ResultOf<R(C::*)(Args...)> { using Type = R; };
 	template <typename R, typename C, typename... Args> struct ResultOf<R(C::*)(Args...) const> { using Type = R; };
@@ -84,8 +86,8 @@ namespace Reflection
 
 	struct RegisteredComponent 
 	{
-		StringID name;
-		StringID scene;
+		RuntimeHash name;
+		RuntimeHash scene;
 		struct ComponentMeta* meta = nullptr;
 	};
 
@@ -96,7 +98,7 @@ namespace Reflection
 	{
 		const char* name;
 		const char* icon = "";
-		ECS::EntityID compID;
+		ComponentType compType;
 		CreateComponent creator;
 		DestroyComponent destroyer;
 
@@ -120,7 +122,6 @@ namespace Reflection
 	struct VULKAN_TEST_API Builder
 	{
 	public:
-		World* world = nullptr;
 		SceneMeta* scene = nullptr;
 
 		Builder();
@@ -133,7 +134,7 @@ namespace Reflection
 		
 			ComponentMeta* cmp = CJING_NEW(ComponentMeta)();
 			cmp->name = name;
-			cmp->compID = world->GetComponentID<C>();
+			cmp->compType = GetComponentType(name);
 			cmp->creator = creator;
 			cmp->destroyer = destroyer;
 			RegisterCmp(cmp);
@@ -218,9 +219,8 @@ namespace Reflection
 		PropertyMetaBase* lastProp = nullptr;
 	};
 
-	VULKAN_TEST_API Builder BuildScene(World* world, const char* name);
-	VULKAN_TEST_API ComponentMeta* GetComponent(ECS::EntityID compID);
+	VULKAN_TEST_API Builder BuildScene(const char* name);
+	VULKAN_TEST_API ComponentMeta* GetComponent(ComponentType compType);
 	VULKAN_TEST_API Span<const RegisteredComponent> GetComponents();
-	VULKAN_TEST_API void ClearReflections();
 }
 }

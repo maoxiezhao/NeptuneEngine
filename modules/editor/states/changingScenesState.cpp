@@ -11,6 +11,13 @@ namespace Editor
 	{
 	}
 
+	ChangingScenesState::~ChangingScenesState()
+	{
+		toUnloadScenes.resize(0);
+		toLoadScenes.resize(0);
+		EditorState::~EditorState();
+	}
+
 	void ChangingScenesState::OnSceneEventCallback(Scene* scene, const Guid& sceneID)
 	{
 		if (sceneID == lastRequestScene)
@@ -63,6 +70,15 @@ namespace Editor
 		toLoadScenes.clear();
 		toUnloadScenes.clear();
 		toLoadScenes.push_back(guid);
+		TryEnter();
+	}
+
+	void ChangingScenesState::UnloadScene(Scene* scene)
+	{
+		ASSERT(scene != nullptr);
+		toLoadScenes.clear();
+		toUnloadScenes.clear();
+		toUnloadScenes.push_back(scene);
 		TryEnter();
 	}
 

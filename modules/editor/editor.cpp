@@ -149,6 +149,9 @@ namespace Editor
             // Load settings again for actions
             LoadSettings();
 
+            // Init reflection
+            InitReflection();
+
             // Notify initFinished
             stateMachine.GetLoadingState()->InitFinished();
         }
@@ -354,15 +357,15 @@ namespace Editor
             return profilerTools;
         }
 
-        const char* GetComponentIcon(ECS::EntityID compID) const override
+        const char* GetComponentIcon(ComponentType compType) const override
         {
-            auto it = componentIcons.find(compID);
+            auto it = componentIcons.find(compType.index);
             return it.isValid() ? it.value().c_str() : "";
         }
 
-        const char* GetComponentTypeName(ECS::EntityID compID) const override
+        const char* GetComponentTypeName(ComponentType compType) const override
         {
-            auto it = componentLabels.find(compID);
+            auto it = componentLabels.find(compType.index);
             return it.isValid() ? it.value().c_str() : "Unknown";
         }
 
@@ -401,8 +404,14 @@ namespace Editor
 
         void FrameEnd() override
         {
+            // Widgets frame end
+            worldEditor->EndFrame();
+
+            for (auto widget : widgets)
+                widget->EndFrame();
+
             // Update profiler
-             profilerTools.Update();
+            profilerTools.Update();
         }
 
         void Render() override
@@ -699,7 +708,7 @@ namespace Editor
                 return;
 
             if (!ImGui::BeginMenu("Entity")) return;
-            auto folderID = worldEditor->GetEntityFolder().GetSelectedFolder();
+            auto folderID = worldEditor->GetEntityFolder()->GetSelectedFolder();
             entityListWidget->ShowCreateEntityGUI(folderID);
             ImGui::EndMenu();
         }
@@ -887,11 +896,11 @@ namespace Editor
             }
         }
 
-        void RegisterComponent(const char* icon, ECS::EntityID compID, IAddComponentPlugin* plugin) override
+        void RegisterComponent(const char* icon, ComponentType compType, IAddComponentPlugin* plugin) override
         {
-            componentLabels.insert(compID, plugin->GetLabel());
+            componentLabels.insert(compType.index, plugin->GetLabel());
             if (icon && icon[0])
-                componentIcons.insert(compID, icon);
+                componentIcons.insert(compType.index, icon);
 
             U32 index = 0;
             while (index < addCompPlugins.size() && compareString(plugin->GetLabel(), addCompPlugins[index]->GetLabel()) > 0)
@@ -904,11 +913,11 @@ namespace Editor
             InsertAddComponentTreeNode(addCompTreeNodeRoot, node);
         }
 
-        void RegisterComponent(const char* icon, const char* label, ECS::EntityID compID)
+        void RegisterComponent(const char* icon, const char* label, ComponentType compType)
         {
-            componentLabels.insert(compID, label);
+            componentLabels.insert(compType.index, label);
             if (icon && icon[0])
-                componentIcons.insert(compID, icon);
+                componentIcons.insert(compType.index, icon);
 
             // Create and add AddcomponentPlugin
             struct Plugin final : IAddComponentPlugin
@@ -934,7 +943,7 @@ namespace Editor
                         if (selectedEntities.empty())
                             return;
 
-                        editor.AddComponent(selectedEntities[0], compID);
+                        editor.AddComponent(selectedEntities[0], compType);
                     }
                 }
 
@@ -942,12 +951,12 @@ namespace Editor
                     return label;
                 }
 
-                ECS::EntityID compID;
+                ComponentType compType;
                 char label[64];
             };
         
             Plugin* plugin = CJING_NEW(Plugin);
-            plugin->compID = compID;
+            plugin->compType = compType;
             CopyString(plugin->label, label);
 
             U32 index = 0;
@@ -975,14 +984,6 @@ namespace Editor
 
         void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) override
         {
-            ClearWorld();
-
-            if (newScene != nullptr)
-            {
-                // Init reflection
-                InitReflection();
-            }
-
             for (auto plugin : plugins)
                 plugin->OnEditingSceneChanged(newScene, prevScene);
         }
@@ -993,12 +994,12 @@ namespace Editor
 
             for (const auto& cmp : Reflection::GetComponents())
             {
-                ASSERT(cmp.meta->compID != ECS::INVALID_ENTITY);
+                ASSERT(cmp.meta->compType != INVALID_COMPONENT_TYPE);
                 const auto meta = cmp.meta;
-                if (componentLabels.find(meta->compID).isValid())
+                if (componentLabels.find(meta->compType.index).isValid())
                     continue;
 
-                RegisterComponent(meta->icon, meta->name, meta->compID);
+                RegisterComponent(meta->icon, meta->name, meta->compType);
             }
         }
 
@@ -1163,8 +1164,8 @@ namespace Editor
         UniquePtr<ProfilerWidget> profilerWidget;
 
         // Reflection
-        HashMap<ECS::EntityID, String> componentLabels;
-        HashMap<ECS::EntityID, StaticString<5>> componentIcons;
+        HashMap<I32, String> componentLabels;
+        HashMap<I32, StaticString<5>> componentIcons;
         AddComponentTreeNode addCompTreeNodeRoot;
         Array<IAddComponentPlugin*> addCompPlugins;
         

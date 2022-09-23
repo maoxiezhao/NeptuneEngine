@@ -108,16 +108,7 @@ namespace Editor
 		{
 			const ResourceType resType = app.GetAssetCompiler().GetResourceType(path.c_str());
 			if (resType == SceneResource::ResType)
-			{
-				if (!app.GetStateMachine().CurrentState()->CanChangeScene())
-					return;
-
-				auto resource = ResourceManager::LoadResource<SceneResource>(path);
-				if (!resource)
-					return;
-				
-				app.GetStateMachine().GetChangingScenesState()->LoadScene(resource->GetGUID());
-			}
+				OpenScene(path);
 		}
 
 		bool CreateResourceEnable()const {
@@ -126,6 +117,35 @@ namespace Editor
 
 		const char* GetResourceName() const {
 			return "Scene";
+		}
+
+	public:
+		void OpenScene(const Path& path)
+		{
+			if (!app.GetStateMachine().CurrentState()->CanChangeScene())
+				return;
+
+			auto resource = ResourceManager::LoadResource<SceneResource>(path);
+			if (!resource)
+				return;
+
+			app.GetStateMachine().GetChangingScenesState()->LoadScene(resource->GetGUID());
+		}
+
+		void CloseScene(Scene* scene)
+		{
+			if (!app.GetStateMachine().CurrentState()->CanChangeScene())
+				return;
+
+			if (!CheckSaveBeforeClose())
+				return;
+
+			app.GetStateMachine().GetChangingScenesState()->UnloadScene(scene);
+		}
+
+		bool CheckSaveBeforeClose()
+		{
+			return true;
 		}
 
 		void OnSceneLoaded(Scene* scene, const Guid& sceneID)
@@ -139,20 +159,20 @@ namespace Editor
 		}
 	};
 
-	struct LevelPlugin : EditorPlugin
+	struct LevelPluginImpl : LevelPlugin
 	{
 	private:
 		EditorApp& app;
 		ScenePlugin scenePlugin;
 
 	public:
-		LevelPlugin(EditorApp& app_) :
+		LevelPluginImpl(EditorApp& app_) :
 			app(app_),
 			scenePlugin(app_)
 		{
 		}
 
-		virtual ~LevelPlugin()
+		virtual ~LevelPluginImpl()
 		{
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.RemovePlugin(scenePlugin);
@@ -172,15 +192,20 @@ namespace Editor
 			assetBrowser.AddPlugin(scenePlugin);
 		}
 
+		void CloseScene(Scene* scene)override
+		{
+			scenePlugin.CloseScene(scene);
+		}
+
 		const char* GetName()const override
 		{
-			return "scene";
+			return "level";
 		}
 	};
 
 	EditorPlugin* SetupPluginLevel(EditorApp& app)
 	{
-		return CJING_NEW(LevelPlugin)(app);
+		return CJING_NEW(LevelPluginImpl)(app);
 	}
 }
 }

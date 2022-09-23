@@ -22,20 +22,24 @@ namespace VulkanTest
 
 	void Scene::Start()
 	{
+#ifndef CJING3D_EDITOR
 		if (!isPlaying)
 		{
 			Engine::Instance->Start(world);
 			isPlaying = true;
 		}
+#endif
 	}
 
 	void Scene::Stop()
 	{
+#ifndef CJING3D_EDITOR
 		if (isPlaying)
 		{
 			Engine::Instance->Stop(world);
 			isPlaying = false;
 		}
+#endif
 	}
 
 	void Scene::Serialize(SerializeStream& stream, const void* otherObj)

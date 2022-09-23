@@ -1,6 +1,7 @@
 #include "sceneView.h"
 #include "editor\editor.h"
 #include "editor\widgets\gizmo.h"
+#include "editor\plugins\level.h"
 #include "renderer\renderScene.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
@@ -439,24 +440,36 @@ namespace Editor
 						OnSceneGUI();
 						ImGui::EndTabItem();
 					}
-					ImGui::EndTabBar();
 				}
 				else
 				{
 					for (auto scene : scenes)
 					{
 						ImGuiTabItemFlags flags = 0;
-						if (scene == editingScene)
-							flags |= ImGuiTabItemFlags_SetSelected;
-
-						if (ImGui::BeginTabItem(scene->GetName(), nullptr, flags))
+						bool isOpen = true;
+						if (ImGui::BeginTabItem(scene->GetName(), &isOpen, flags))
 						{
+							if (scene != editingScene)
+								editingScene = scene;
+
 							OnSceneGUI();
 							ImGui::EndTabItem();
 						}
-						ImGui::EndTabBar();
+					
+						// Want to close current scene
+						if (isOpen == false)
+						{
+							auto plugin = (LevelPlugin*)app.GetPlugin("level");
+							if (plugin)
+								plugin->CloseScene(scene);
+						}
 					}
+
+					if (editingScene != worldEditor.GetEditingScene())
+						worldEditor.SetEditingScene(editingScene);
 				}
+
+				ImGui::EndTabBar();
 			}
 		}
 		else

@@ -12,7 +12,7 @@ namespace VulkanTest
 		using EntityMap = std::unordered_map<T, ECS::Entity>;
 
 		static UniquePtr<RenderScene> CreateScene(RendererPlugin& rendererPlugin, Engine& engine, World& world);
-		static void Reflect(World* world);
+		static void Reflect();
 
 		virtual void UpdateVisibility(struct Visibility& vis) = 0;
 		virtual void UpdateRenderData(GPU::CommandList& cmd) = 0;
@@ -20,7 +20,7 @@ namespace VulkanTest
 
 		virtual PickResult CastRayPick(const Ray& ray, U32 mask = ~0) = 0;
 
-		virtual void CreateComponent(ECS::Entity entity, ECS::EntityID compID) = 0;
+		virtual void CreateComponent(ECS::Entity entity, ComponentType compType) = 0;
 
 		// Entity
 		virtual ECS::Entity CreateEntity(const char* name) = 0;

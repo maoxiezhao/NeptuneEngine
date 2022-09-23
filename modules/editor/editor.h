@@ -53,7 +53,7 @@ namespace Editor
         virtual void SetCursorCaptured(bool capture) = 0;
         virtual void SaveSettings() = 0;
         virtual void SetRenderInterace(RenderInterface* renderInterface_) = 0;
-        virtual void RegisterComponent(const char* icon, ECS::EntityID compID, IAddComponentPlugin* plugin) = 0;
+        virtual void RegisterComponent(const char* icon, ComponentType compType, IAddComponentPlugin* plugin) = 0;
         virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) = 0;
 
         virtual EditorPlugin* GetPlugin(const char* name) = 0;
@@ -71,8 +71,8 @@ namespace Editor
         virtual const AddComponentTreeNode* GetAddComponentTreeNodeRoot()const = 0;
         virtual class ProfilerTools& GetProfilerTools() = 0;
 
-        virtual const char* GetComponentIcon(ECS::EntityID compID) const = 0;
-        virtual const char* GetComponentTypeName(ECS::EntityID compID) const = 0;
+        virtual const char* GetComponentIcon(ComponentType compType) const = 0;
+        virtual const char* GetComponentTypeName(ComponentType compType) const = 0;
     };
 }   
 } 

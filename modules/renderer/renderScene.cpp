@@ -156,9 +156,6 @@ namespace VulkanTest
             geometryBuffer("GeometryBuffer"),
             materialBuffer("MaterialBuffer")
         {
-            // Reflect render scene
-            RenderScene::Reflect(&world);
-
             cullingSystem = CullingSystem::Create();
 
             objectQuery = world.CreateQuery<ObjectComponent>().Build();
@@ -290,15 +287,14 @@ namespace VulkanTest
             return ret;
         }
 
-        void CreateComponent(ECS::Entity entity, ECS::EntityID compID) override
+        void CreateComponent(ECS::Entity entity, ComponentType compType) override
         {
-            auto compMeta = Reflection::GetComponent(compID);
+            auto compMeta = Reflection::GetComponent(compType);
             if (compMeta == nullptr)
             {
-                Logger::Error("Unregistered component type %d to create", compID);
+                Logger::Error("Unregistered component type %d to create", compType.index);
                 return;
             }
-
             compMeta->creator(this, entity);
         }
 

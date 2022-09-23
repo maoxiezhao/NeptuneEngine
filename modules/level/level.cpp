@@ -117,7 +117,7 @@ namespace VulkanTest
 				PROFILE_BLOCK("SceneBegin");
 				ScopedMutex lock(scenesMutex);
 				scenes.push_back(scene);
-				// scene->Start();
+				scene->Start();
 			}
 
 			FireSceneEvent(SceneEventType::OnSceneLoaded, scene, sceneID);
@@ -142,8 +142,8 @@ namespace VulkanTest
 
 			PROFILE_BLOCK("Unload scene");
 	
-			//if (scene->IsPlaying())
-			//	scene->Stop();
+			if (scene->IsPlaying())
+				scene->Stop();
 
 			scenes.erase(scene);
 			scene->DeleteObject();
@@ -155,8 +155,9 @@ namespace VulkanTest
 
 		void UnloadAllScenesImpl()
 		{
-			for (int i = 0; i < scenes.size(); i++)
-				UnloadSceneImpl(scenes[i]);
+			auto toUnloadScenes = scenes.copy();
+			for (int i = 0; i < toUnloadScenes.size(); i++)
+				UnloadSceneImpl(toUnloadScenes[i]);
 		}
 
 		bool SaveSceneImpl(Scene* scene, rapidjson_flax::StringBuffer& outData)

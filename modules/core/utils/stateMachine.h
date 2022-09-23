@@ -11,7 +11,7 @@ namespace VulkanTest
 	{
 	public:
 		State(StateMachine* machine);
-		~State();
+		virtual ~State();
 	
 		virtual bool CanEnter()const {
 			return true;

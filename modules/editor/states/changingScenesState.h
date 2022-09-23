@@ -17,11 +17,13 @@ namespace Editor
 		const char* GetName() const override;
 
 		void LoadScene(const Guid& guid);
+		void UnloadScene(Scene* scene);
 		void TryEnter();
 
 	protected:
 		ChangingScenesState(EditorStateMachine& machine, EditorApp& editor_);
-		
+		virtual ~ChangingScenesState();
+
 		void OnSceneEventCallback(Scene* scene, const Guid& sceneID);
 
 	private:

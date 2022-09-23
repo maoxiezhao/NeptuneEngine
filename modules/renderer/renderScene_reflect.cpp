@@ -4,9 +4,13 @@
 
 namespace VulkanTest
 {
-    void RenderScene::Reflect(World* world)
+    static bool isInitialized = false;
+    void RenderScene::Reflect()
     {
-        Reflection::Builder builder = Reflection::BuildScene(world, "RenderScene");
+        if (isInitialized == true)
+            return;
+
+        Reflection::Builder builder = Reflection::BuildScene("RenderScene");
         builder.Component<ObjectComponent, &RenderScene::CreateObject, &RenderScene::DestroyEntity>("Object");
         builder.Component<MaterialComponent, &RenderScene::CreateMaterial, &RenderScene::DestroyEntity>("Material");
         builder.Component<MeshComponent, &RenderScene::CreateMesh, &RenderScene::DestroyEntity>("Mesh");
@@ -16,5 +20,7 @@ namespace VulkanTest
             .VarProp<LightComponent, &LightComponent::range>("range")
             .VarProp<LightComponent, &LightComponent::innerConeAngle>("innerConeAngle")
             .VarProp<LightComponent, &LightComponent::outerConeAngle>("outerConeAngle");
+
+        isInitialized = true;
     }
 }

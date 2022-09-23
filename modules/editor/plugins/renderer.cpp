@@ -6,6 +6,7 @@
 #include "editor\widgets\sceneView.h"
 #include "content\resources\model.h"
 #include "renderer\render2D\fontResource.h"
+#include "core\scene\reflection.h"
 #include "gpu\vulkan\typeToString.h"
 #include "math\vMath_impl.hpp"
 #include "renderer\debugDraw.h"
@@ -405,7 +406,8 @@ namespace Editor
 				if (selectedEntities.empty())
 					return nullptr;
 
-				editor.AddComponent(selectedEntities[0], editor.GetWorld()->GetComponentID<LightComponent>());
+				auto compType = Reflection::GetComponentType("Light");
+				editor.AddComponent(selectedEntities[0], compType);
 				return selectedEntities[0].GetMut<LightComponent>();
 			};
 
@@ -580,7 +582,8 @@ namespace Editor
 			if (newScene != nullptr)
 			{
 				AddLightComponentPlugin* addLightsPlugin = CJING_NEW(AddLightComponentPlugin)(app);
-				app.RegisterComponent(ICON_FA_LIGHTBULB, newScene->GetWorld()->GetComponentID<LightComponent>(), addLightsPlugin);
+				auto compType = Reflection::GetComponentType("Light");
+				app.RegisterComponent(ICON_FA_LIGHTBULB, compType, addLightsPlugin);
 			}
 
 			sceneView.OnEditingSceneChanged(newScene, prevScene);

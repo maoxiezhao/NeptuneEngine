@@ -60,9 +60,8 @@ namespace VulkanTest
 			CatString(out, "_");
 	}
 
-	World::World(Engine* engine_) :
-		ECS::World(),
-		engine(engine_)
+	World::World() :
+		ECS::World()
 	{
 		I32 count = std::clamp((I32)(Platform::GetCPUsCount() * 0.5f), 1, 12);
 		Logger::Info("Create ecs stage count %d", count);

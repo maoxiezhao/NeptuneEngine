@@ -33,7 +33,7 @@ namespace Editor
             ECS::Entity prev = ECS::INVALID_ENTITY;
         };
 
-        EntityFolder(World& world_);
+        EntityFolder(World& world);
         ~EntityFolder();
 
         void MoveToFolder(ECS::Entity e, FolderID folderID);
@@ -54,8 +54,6 @@ namespace Editor
         void OnEntityCreated(ECS::Entity e);
         void OnEntityDestroyed(ECS::Entity e);
 
-        World& world;
-
         struct FreeList
         {
             Array<Folder> data;
@@ -72,6 +70,7 @@ namespace Editor
             }
         };
         FreeList folderPool;
+        World& world;
         HashMap<ECS::Entity, EntityItem> entities;
         FolderID selectedFolder;
     };

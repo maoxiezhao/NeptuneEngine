@@ -76,28 +76,24 @@ namespace Editor
 
         struct AddComponentCommand final : public IEditorCommand
         {
-            AddComponentCommand(WorldEditor& worldEditor_, ECS::Entity entity_, ECS::EntityID compID_) :
+            AddComponentCommand(WorldEditor& worldEditor_, ECS::Entity entity_, ComponentType compType_) :
                 worldEditor(worldEditor_),
-                entity(ECS::INVALID_ENTITY),
-                compID(compID_)
+                entity(entity_),
+                compType(compType_)
             {
-                if (!entity_.Has(compID))
-                    entity = entity_;
             }
 
             bool Execute() override
             {
                 ASSERT(entity != ECS::INVALID_ENTITY);
-                ASSERT(compID != ECS::INVALID_ENTITY);
-                ASSERT(!entity.Has(compID));
+                ASSERT(compType != INVALID_COMPONENT_TYPE);
 
                 RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
                 if (!scene)
                     return false;
 
-                scene->CreateComponent(entity, compID);
-
-                return entity.Has(compID);
+                scene->CreateComponent(entity, compType);
+                return true;
             }
 
             void Undo() override
@@ -111,7 +107,7 @@ namespace Editor
         private:
             WorldEditor& worldEditor;
             ECS::Entity entity;
-            ECS::EntityID compID;
+            ComponentType compType;
         };
     }
 
@@ -122,8 +118,9 @@ namespace Editor
         Engine& engine;
         Array<Scene*> scenes;
         Scene* editingScene = nullptr;
+        Scene* nextEditingScene = nullptr;
         WorldView* view = nullptr;
-        LocalPtr<EntityFolder> entityFolder;
+        HashMap<Guid, EntityFolder*> entityFolderMap;
         Array<ECS::Entity> selectedEntities;
 
     public:
@@ -135,6 +132,8 @@ namespace Editor
 
         ~WorldEditorImpl()
         {
+            for (auto folder : entityFolderMap)
+                CJING_SAFE_DELETE(folder);
         }
 
         void Update(F32 dt)override
@@ -145,6 +144,11 @@ namespace Editor
 
         void EndFrame()override
         {
+            if (nextEditingScene != nullptr)
+            {
+                SetEditingSceneImpl(nextEditingScene);
+                nextEditingScene = nullptr;
+            }
         }
 
         void OnGUI()override
@@ -166,27 +170,27 @@ namespace Editor
             return editingScene;
         }
 
-        void SetEditingScene(Scene* scene_)override
+        void SetEditingSceneImpl(Scene* scene_)
         {
             if (scene_ == editingScene)
                 return;
 
             if (editingScene != nullptr)
-            {
-                entityFolder.Destroy();
                 selectedEntities.clear();
-            }
 
             Scene* prevScene = editingScene;
             editingScene = scene_;
 
-            if (editingScene != nullptr)
-            {
-                entityFolder.Create(*editingScene->GetWorld());
-            }
-
             // Notify editing scene changed
             editor.OnEditingSceneChanged(scene_, prevScene);
+        }
+
+        void SetEditingScene(Scene* scene_)override
+        {
+            if (scene_ == editingScene)
+                return;
+
+            nextEditingScene = scene_;
         }
 
         Array<Scene*>& GetScenes() override
@@ -205,7 +209,11 @@ namespace Editor
                     return;
                 }
             }
+
             scenes.push_back(scene_);
+            EntityFolder* folder = CJING_NEW(EntityFolder)(*scene_->GetWorld());
+            entityFolderMap.insert(scene_->GetGUID(), folder);
+            
             SetEditingScene(scene_);
         }
         
@@ -213,8 +221,17 @@ namespace Editor
         {
             ASSERT(scene_);
             scenes.erase(scene_);
-            if (editingScene == scene_)
-                SetEditingScene(scenes.empty() ? nullptr : scenes.back());
+            auto it = entityFolderMap.find(scene_->GetGUID());
+            if (it.isValid())
+            {
+                CJING_SAFE_DELETE(it.value());
+                entityFolderMap.erase(it);
+            }
+
+            if (editingScene == scene_ && !scenes.empty())
+                SetEditingScene(scenes.back());
+            else
+                SetEditingSceneImpl(nullptr);
         }
 
         void ExecuteCommand(UniquePtr<IEditorCommand>&& command) override
@@ -240,9 +257,9 @@ namespace Editor
             return entity;
         }
 
-        void AddComponent(ECS::Entity entity, ECS::EntityID compID) override
+        void AddComponent(ECS::Entity entity, ComponentType compType) override
         {
-            UniquePtr<AddComponentCommand> command = CJING_MAKE_UNIQUE<AddComponentCommand>(*this, entity, compID);
+            UniquePtr<AddComponentCommand> command = CJING_MAKE_UNIQUE<AddComponentCommand>(*this, entity, compType);
             ExecuteCommand(std::move(command));
         }
 
@@ -297,9 +314,15 @@ namespace Editor
             FastRemoveDuplicates(selectedEntities);
         }
 
-        EntityFolder& GetEntityFolder()override
+        EntityFolder* GetEntityFolder()override
         {
-            return *entityFolder;
+            if (editingScene != nullptr)
+            {
+                auto it = entityFolderMap.find(editingScene->GetGUID());
+                if (it.isValid())
+                    return it.value();
+            }
+            return nullptr;
         }
 
         const Array<ECS::Entity>& GetSelectedEntities() const override
