@@ -31,6 +31,7 @@ namespace VulkanTest
 	bool EndsWith(const char* str, const char* substr);
 	bool FromCString(Span<const char> input, I32& value);
 	bool FromCString(Span<const char> input, U32& value);
+	bool FromHexString(Span<const char> input, U32& value);
 	bool ToCString(I32 value, Span<char> output);
 	bool ToCString(I64 value, Span<char> output);
 	bool ToCString(U32 value, Span<char> output);

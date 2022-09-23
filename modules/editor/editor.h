@@ -36,6 +36,7 @@ namespace Editor
     public:
         static EditorApp* Create();
         static void Destroy(EditorApp* app);
+        virtual void InitFinished() = 0;
 
         virtual void AddPlugin(EditorPlugin& plugin) = 0;
         virtual void AddWidget(EditorWidget& widget) = 0;
@@ -53,7 +54,7 @@ namespace Editor
         virtual void SaveSettings() = 0;
         virtual void SetRenderInterace(RenderInterface* renderInterface_) = 0;
         virtual void RegisterComponent(const char* icon, ECS::EntityID compID, IAddComponentPlugin* plugin) = 0;
-        virtual void OnWorldChanged(World* world) = 0;
+        virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) = 0;
 
         virtual EditorPlugin* GetPlugin(const char* name) = 0;
         virtual Utils::Action* GetAction(const char* name) = 0;
@@ -63,6 +64,7 @@ namespace Editor
         virtual class AssetBrowser& GetAssetBrowser() = 0;
         virtual class EntityListWidget& GetEntityList() = 0;
         virtual class WorldEditor& GetWorldEditor() = 0;
+        virtual class EditorStateMachine& GetStateMachine() = 0;
         virtual Gizmo::Config& GetGizmoConfig() = 0;
         virtual ImFont* GetBigIconFont() = 0;
         virtual ImFont* GetBoldFont() = 0;

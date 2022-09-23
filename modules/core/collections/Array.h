@@ -274,6 +274,8 @@ namespace VulkanTest
             {
                 size_t newSize = newCapacity * sizeof(T);
                 data_ = static_cast<T*>(CJING_REMALLOC_ALIGN(data_, newCapacity * sizeof(T), alignof(T)));
+                if (newCapacity * sizeof(T) == 64)
+                    std::cout << (void*)data_ << std::endl;
             }
             else
             {

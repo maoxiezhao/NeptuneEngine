@@ -221,5 +221,6 @@ namespace Reflection
 	VULKAN_TEST_API Builder BuildScene(World* world, const char* name);
 	VULKAN_TEST_API ComponentMeta* GetComponent(ECS::EntityID compID);
 	VULKAN_TEST_API Span<const RegisteredComponent> GetComponents();
+	VULKAN_TEST_API void ClearReflections();
 }
 }

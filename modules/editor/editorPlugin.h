@@ -3,6 +3,7 @@
 #include "editor\common.h"
 #include "content\resourceHeader.h"
 #include "core\filesystem\filesystem.h"
+#include "level\scene.h"
 
 #ifdef STATIC_PLUGINS
 #define VULKAN_EDITOR_ENTRY(plugin_name) \
@@ -24,8 +25,8 @@ namespace Editor
         virtual ~EditorPlugin() {}
         virtual void Initialize() = 0;
         virtual const char* GetName()const = 0;
-        virtual bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) = 0;
-        virtual void OnWorldChanged(World* world) = 0;
+        virtual bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) { return false; }
+        virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) {};
     };
 
     struct EditorWidget
@@ -39,6 +40,7 @@ namespace Editor
         virtual void OnGUI() = 0;
         virtual void Render() {};
         virtual bool HasFocus() { return false; }
+        virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) {}
         virtual const char* GetName() = 0;
 
         bool IsOpen()const {

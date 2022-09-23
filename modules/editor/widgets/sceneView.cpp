@@ -252,6 +252,13 @@ namespace Editor
 		void OnMouseUp(int x, int y, Platform::MouseButton button)
 		{
 			isMouseDown[(int)button] = false;
+			
+			if (worldEditor.GetWorld() == nullptr)
+			{
+				mouseMode = MouseMode::NONE;
+				return;
+			}
+			
 			if (mouseMode == MouseMode::SELECT)
 			{
 				RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
@@ -378,15 +385,18 @@ namespace Editor
 		editorRenderer->SetWSI(&app.GetEngine().GetWSI());
 		editorRenderer->DisableSwapchain();
 
-		auto world = worldEditor.GetWorld();
-		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
-		ASSERT(scene);
-		editorRenderer->SetScene(scene);
+		//auto world = worldEditor.GetWorld();
+		//RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
+		//ASSERT(scene);
+		//editorRenderer->SetScene(scene);
 	}
 
 	void SceneView::Update(F32 dt)
 	{
 		PROFILE_FUNCTION();
+		if (worldEditor.GetWorld() == nullptr)
+			return;
+
 		worldView->Update(dt);
 		Manipulate();
 
@@ -414,63 +424,40 @@ namespace Editor
 		shouldRender = false;
 
 		ImVec2 viewPos;
-		ImGuiWindowFlags flags =
-			ImGuiWindowFlags_NoCollapse |
-			ImGuiWindowFlags_NoMove;
+		ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove;
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		if (ImGui::Begin("Scene View", nullptr, flags))
 		{
-			ImGui::Dummy(ImVec2(2, 2));
-			OnToolbarGUI();
-			worldView->InputFrame();
-
-			const ImVec2 size = ImGui::GetContentRegionAvail();
-			if (size.x <= 0 || size.y <= 0)
+			if (ImGui::BeginTabBar("Scenes"))
 			{
-				ImGui::End();
-				ImGui::PopStyleVar();
-				return;
-			}
-
-			editorRenderer->SetCamera(&worldView->camera);
-
-			ImVec2 mouseScreenPos = ImGui::GetCursorScreenPos();
-			screenPos.x = I32(mouseScreenPos.x);
-			screenPos.y = I32(mouseScreenPos.y);
-			screenSize.x = (I32)size.x;
-			screenSize.y = (I32)size.y;
-
-			U32x2 viewportSize = editorRenderer->GetViewportSize();
-			if ((U32)size.x != viewportSize.x || (U32)size.y != viewportSize.y)
-			{
-				editorRenderer->SetViewportSize((U32)size.x, (U32)size.y);
-				editorRenderer->ResizeBuffers();
-			}
-		
-			auto& graph = editorRenderer->GetRenderGraph();
-			auto& backRes = graph.GetOrCreateTexture("back");
-			auto backTex = graph.TryGetPhysicalTexture(&backRes);
-			if (backTex)
-				ImGui::Image(graph.GetPhysicalTexture(backRes).GetImage(), size);
-
-			// process drop target
-			if (ImGui::BeginDragDropTarget()) 
-			{
-				if (auto* payload = ImGui::AcceptDragDropPayload("ResPath")) 
+				auto& scenes = worldEditor.GetScenes();
+				auto editingScene = worldEditor.GetEditingScene();
+				if (scenes.empty())
 				{
-					const ImVec2 mousePos = ImGui::GetMousePos();
-					const ImVec2 dropPos = ImVec2(
-						(mousePos.x - mouseScreenPos.x) / size.x,
-						(mousePos.y - mouseScreenPos.y) / size.y );
-					HandleDrop((const char*)payload->Data, dropPos.x, dropPos.y);
+					if (ImGui::BeginTabItem("Null"))
+					{
+						OnSceneGUI();
+						ImGui::EndTabItem();
+					}
+					ImGui::EndTabBar();
 				}
-				ImGui::EndDragDropTarget();
+				else
+				{
+					for (auto scene : scenes)
+					{
+						ImGuiTabItemFlags flags = 0;
+						if (scene == editingScene)
+							flags |= ImGuiTabItemFlags_SetSelected;
+
+						if (ImGui::BeginTabItem(scene->GetName(), nullptr, flags))
+						{
+							OnSceneGUI();
+							ImGui::EndTabItem();
+						}
+						ImGui::EndTabBar();
+					}
+				}
 			}
-
-			// Handle input events 
-			HandleEvents();
-
-			shouldRender = true;
 		}
 		else
 		{
@@ -499,10 +486,16 @@ namespace Editor
 			editorRenderer->Render();
 	}
 
-	void SceneView::OnWorldChanged(World* world)
+	void SceneView::OnEditingSceneChanged(Scene* newScene, Scene* prevScene)
 	{
-		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
-		editorRenderer->SetScene(scene);
+		editorRenderer->SetScene(nullptr);
+
+		if (newScene)
+		{
+			auto world = newScene->GetWorld();
+			RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
+			editorRenderer->SetScene(scene);
+		}
 	}
 
 	const char* SceneView::GetName()
@@ -513,6 +506,68 @@ namespace Editor
 	EditorIcons* SceneView::GetEditorIcons()
 	{
 		return &worldView->editorIcons;
+	}
+
+	void SceneView::OnSceneGUI()
+	{
+		ImGui::Dummy(ImVec2(2, 2));
+		OnToolbarGUI();
+		worldView->InputFrame();
+
+		const ImVec2 size = ImGui::GetContentRegionAvail();
+		if (size.x <= 0 || size.y <= 0)
+		{
+			ImGui::End();
+			ImGui::PopStyleVar();
+			return;
+		}
+
+		ImVec2 mouseScreenPos = ImGui::GetCursorScreenPos();
+		screenPos.x = I32(mouseScreenPos.x);
+		screenPos.y = I32(mouseScreenPos.y);
+		screenSize.x = (I32)size.x;
+		screenSize.y = (I32)size.y;
+
+		U32x2 viewportSize = editorRenderer->GetViewportSize();
+		if ((U32)size.x != viewportSize.x || (U32)size.y != viewportSize.y)
+		{
+			editorRenderer->SetViewportSize((U32)size.x, (U32)size.y);
+			editorRenderer->ResizeBuffers();
+		}
+
+		if (worldEditor.GetWorld() != nullptr)
+		{
+			editorRenderer->SetCamera(&worldView->camera);
+
+			auto& graph = editorRenderer->GetRenderGraph();
+			auto& backRes = graph.GetOrCreateTexture("back");
+			auto backTex = graph.TryGetPhysicalTexture(&backRes);
+			if (backTex)
+				ImGui::Image(graph.GetPhysicalTexture(backRes).GetImage(), size);
+
+			shouldRender = true;
+		}
+		else
+		{
+			ImGuiEx::Rect(size.x, size.y, 0xff000000);
+		}
+
+		// process drop target
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (auto* payload = ImGui::AcceptDragDropPayload("ResPath"))
+			{
+				const ImVec2 mousePos = ImGui::GetMousePos();
+				const ImVec2 dropPos = ImVec2(
+					(mousePos.x - mouseScreenPos.x) / size.x,
+					(mousePos.y - mouseScreenPos.y) / size.y);
+				HandleDrop((const char*)payload->Data, dropPos.x, dropPos.y);
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		// Handle input events 
+		HandleEvents();
 	}
 
 	void SceneView::OnToolbarGUI()

@@ -512,11 +512,6 @@ namespace Editor
 			assetBrowser.AddPlugin(shaderPlugin);
 			assetBrowser.AddPlugin(materialPlugin);
 
-			// Add AddComponentPlugins
-			auto world = app.GetWorldEditor().GetWorld();
-			AddLightComponentPlugin* addLightsPlugin = CJING_NEW(AddLightComponentPlugin)(app);
-			app.RegisterComponent(ICON_FA_LIGHTBULB, world->GetComponentID<LightComponent>(), addLightsPlugin);
-
 			// Add widget for editor
 			app.AddWidget(sceneView);
 			sceneView.Init();
@@ -580,9 +575,15 @@ namespace Editor
 			return true;
 		}
 
-		void OnWorldChanged(World* world) override
+		void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) override
 		{
-			sceneView.OnWorldChanged(world);
+			if (newScene != nullptr)
+			{
+				AddLightComponentPlugin* addLightsPlugin = CJING_NEW(AddLightComponentPlugin)(app);
+				app.RegisterComponent(ICON_FA_LIGHTBULB, newScene->GetWorld()->GetComponentID<LightComponent>(), addLightsPlugin);
+			}
+
+			sceneView.OnEditingSceneChanged(newScene, prevScene);
 		}
 
 		const char* GetName()const override

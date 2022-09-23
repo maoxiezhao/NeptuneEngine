@@ -138,18 +138,20 @@ namespace VulkanTest
 			return *world;
 		}
 
-		void DestroyWorld(World& world)
+		void DestroyWorld(World* world)
 		{
-			// Uninit scenes
-			auto& scenes = world.GetScenes();
-			for (auto& scene : scenes)
-				scene->Uninit();
-			scenes.clear();
+			if (world != nullptr)
+			{
+				auto& scenes = world->GetScenes();
+				for (auto& scene : scenes)
+					scene->Uninit();
+				scenes.clear();
 
-			CJING_DELETE(&world);
+				CJING_DELETE(world);
+			}
 		}
 
-		void Start(World& world) override
+		void Start(World* world) override
 		{
 			ASSERT(isGameRunning == false);
 			isGameRunning = true;
@@ -158,17 +160,18 @@ namespace VulkanTest
 				plugin->OnGameStart();
 		}
 
-		void FixedUpdate(World& world) override
+		void FixedUpdate(World* world) override
 		{
 			pluginManager->FixedUpdatePlugins();
 			EngineService::OnFixedUpdate();
 		}
 
-		void Update(World& world, F32 dt) override
+		void Update(World* world, F32 dt) override
 		{
+			if (world != nullptr)
 			{
 				PROFILE_BLOCK("Update scenes");
-				for (auto& scene : world.GetScenes())
+				for (auto& scene : world->GetScenes())
 					scene->Update(dt, isPaused);
 			}
 			pluginManager->UpdatePlugins(dt);
@@ -183,18 +186,22 @@ namespace VulkanTest
 			EngineService::OnUpdate();
 		}
 
-		void LateUpdate(World& world)override
+		void LateUpdate(World* world)override
 		{
 			EngineService::OnLateUpdate();
 		}
 
-		void Stop(World& world) override
+		void Stop(World* world) override
 		{
 			ASSERT(isGameRunning == true);
 			isGameRunning = false;
 
-			for (auto plugin : pluginManager->GetPlugins())
-				plugin->OnGameStop();
+			// TODO: Plugin is already disposed. There is a conflict between EngineServies and Plugins
+			if (pluginManager)
+			{
+				for (auto plugin : pluginManager->GetPlugins())
+					plugin->OnGameStop();
+			}
 		}
 
 		InputSystem& GetInputSystem() override

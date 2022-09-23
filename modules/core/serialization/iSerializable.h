@@ -5,13 +5,13 @@
 
 namespace VulkanTest
 {
-	class JsonWriteStream;
+	class JsonWriterBase;
 
 	class VULKAN_TEST_API ISerializable
 	{
 	public:
 		using SerializeDocument = rapidjson_flax::Document;
-		using SerializeStream = JsonWriteStream;
+		using SerializeStream = JsonWriterBase;
 		using DeserializeStream = rapidjson_flax::Value;
 
 		virtual ~ISerializable() = default;

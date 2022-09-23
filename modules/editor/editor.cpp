@@ -6,6 +6,7 @@
 #include "editor\renderer\imguiRenderer.h"
 #include "editor\settings.h"
 #include "editor\profiler\profilerTools.h"
+#include "editor\states\editorStateMachine.h"
 #include "renderer\imguiRenderer.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
@@ -36,7 +37,8 @@ namespace Editor
     public:
         EditorAppImpl() :
             settings(*this),
-            profilerTools(*this)
+            profilerTools(*this),
+            stateMachine(*this)
         {
             memset(imguiKeyMap, 0, sizeof(imguiKeyMap));
             imguiKeyMap[(int)Platform::Keycode::CTRL] = ImGuiKey_ModCtrl;
@@ -98,6 +100,7 @@ namespace Editor
             Engine::InitConfig config = {};
             config.windowTitle = GetWindowTitle();
             engine = CreateEngine(config, *this);
+            Engine::Instance = engine.Get();
 
             // Init asset compiler first
             assetCompiler = AssetCompiler::Create(*this);
@@ -146,14 +149,8 @@ namespace Editor
             // Load settings again for actions
             LoadSettings();
 
-            // assetCompiler do InitFinished first
-            assetCompiler->InitFinished();
-            
-            for (auto widget : widgets)
-                widget->InitFinished();
-
-            // Init reflection
-            InitReflection();
+            // Notify initFinished
+            stateMachine.GetLoadingState()->InitFinished();
         }
 
         void Uninitialize() override
@@ -161,11 +158,8 @@ namespace Editor
             // Save editor settings
             SaveSettings();
 
-            // Destroy world
-            worldEditor->DestroyWorld();
-
-            // Clear addComponentTree nodes
-            ClearAddComponentTreeNode(addCompTreeNodeRoot.child);
+            // Clear world
+            ClearWorld();
 
             // Clear widgets
             widgets.clear();
@@ -179,11 +173,6 @@ namespace Editor
             for (Utils::Action* action : actions)
                 CJING_SAFE_DELETE(action);
             actions.clear();
-
-            // Remove add component plugins
-            for (IAddComponentPlugin* plugin : addCompPlugins)
-                CJING_SAFE_DELETE(plugin);
-            addCompPlugins.clear();
 
             // Remove system widgets
             assetBrowser.Reset();
@@ -200,6 +189,7 @@ namespace Editor
 
             // Reset engine
             engine.Reset();
+            Engine::Instance = nullptr;
 
             // Uninit platform
             platform.reset();
@@ -334,6 +324,11 @@ namespace Editor
             return *worldEditor;
         }
 
+        EditorStateMachine& GetStateMachine() override
+        {
+            return stateMachine;
+        }
+
         Gizmo::Config& GetGizmoConfig() override
         {
             return gizmoConfig;
@@ -384,7 +379,7 @@ namespace Editor
             assetCompiler->Update(deltaTime);
             worldEditor->Update(deltaTime);
 
-            engine->Update(*worldEditor->GetWorld(), deltaTime);
+            engine->Update(worldEditor->GetWorld(), deltaTime);
 
             // Update editor widgets
             for (auto widget : widgets)
@@ -457,6 +452,22 @@ namespace Editor
         }
 
     public:
+        void InitFinished()override
+        {
+            Logger::Info("Editor end initialize");
+            stateMachine.SwitchState(EditorStateType::EditingScene);
+
+            // Asset compiler process pending tasks
+            assetCompiler->InitFinished();
+
+            // Init all widgets
+            for (auto widget : widgets)
+                widget->InitFinished();
+
+            // Loading scene if necessary
+            // TODO
+        }
+
         void AddPlugin(EditorPlugin& plugin) override
         {
             plugins.push_back(&plugin);
@@ -684,6 +695,9 @@ namespace Editor
 
         void OnEntityMenu()
         {
+            if (worldEditor->GetWorld() == nullptr)
+                return;
+
             if (!ImGui::BeginMenu("Entity")) return;
             auto folderID = worldEditor->GetEntityFolder().GetSelectedFolder();
             entityListWidget->ShowCreateEntityGUI(folderID);
@@ -948,10 +962,29 @@ namespace Editor
             InsertAddComponentTreeNode(addCompTreeNodeRoot, node);
         }
 
-        void OnWorldChanged(World* world) override
+        void ClearWorld()
         {
+            // Clear addComponentTree nodes
+            ClearAddComponentTreeNode(addCompTreeNodeRoot.child);
+
+            // Remove add component plugins
+            for (IAddComponentPlugin* plugin : addCompPlugins)
+                CJING_SAFE_DELETE(plugin);
+            addCompPlugins.clear();
+        }
+
+        void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) override
+        {
+            ClearWorld();
+
+            if (newScene != nullptr)
+            {
+                // Init reflection
+                InitReflection();
+            }
+
             for (auto plugin : plugins)
-                plugin->OnWorldChanged(world);
+                plugin->OnEditingSceneChanged(newScene, prevScene);
         }
 
         void InitReflection()
@@ -1102,6 +1135,7 @@ namespace Editor
         Array<Utils::Action*> actions;
         Settings settings;
         Gizmo::Config gizmoConfig;
+        EditorStateMachine stateMachine;
 
         // Windows
         Platform::WindowType mainWindow;

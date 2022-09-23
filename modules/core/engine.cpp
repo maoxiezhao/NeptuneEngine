@@ -85,6 +85,8 @@ namespace VulkanTest
         }
     }
 
+    Engine* Engine::Instance = nullptr;
+
     void Engine::RequestExit(I32 exitCode)
     {
         Globals::IsRequestingExit = true;

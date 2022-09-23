@@ -4,6 +4,7 @@
 #include "editor\editorPlugin.h"
 #include "core\scene\world.h"
 #include "renderer\renderScene.h"
+#include "level\level.h"
 
 namespace VulkanTest
 {
@@ -40,19 +41,17 @@ namespace Editor
         virtual ~WorldEditor() {};
 
         virtual World* GetWorld() = 0;
-        virtual void NewWorld() = 0;
-        virtual void DestroyWorld() = 0;
+        virtual Scene* GetEditingScene() = 0;
+        virtual Array<Scene*>& GetScenes() = 0;
+        virtual void SetEditingScene(Scene* scene) = 0;
+        virtual void OpenScene(Scene* scene) = 0;
+        virtual void CloseScene(Scene* scene) = 0;
         virtual void ExecuteCommand(UniquePtr<IEditorCommand>&& command) = 0;
         virtual ECS::Entity AddEmptyEntity() = 0;
         virtual ECS::Entity DeleteEntity(ECS::Entity entity) = 0;
         virtual void AddComponent(ECS::Entity entity, ECS::EntityID compID) = 0;
         virtual WorldView& GetView() = 0;
         virtual void SetView(WorldView& view_) = 0;
-
-        // TODO use the scene to replace the world
-        virtual bool CanChangeScene() = 0;
-        virtual void LoadScene(const Guid& guid) = 0;
-
         virtual void ClearSelectEntities() = 0;
         virtual void SelectEntities(Span<const ECS::Entity> entities, bool toggle) = 0;
 

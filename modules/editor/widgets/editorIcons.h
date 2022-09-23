@@ -43,6 +43,8 @@ namespace Editor
 		Hit  CastRayPick(const Ray& ray, U32 mask = ~0);
 		void RenderIcons(GPU::CommandList& cmd, CameraComponent& camera);
 
+		void OnEditingSceneChanged(Scene* newScene, Scene* prevScene);
+
 	private:
 		WorldEditor& worldEditor;
 		ResPtr<FontResource> iconFontRes;

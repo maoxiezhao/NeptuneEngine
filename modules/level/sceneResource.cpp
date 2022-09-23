@@ -2,7 +2,7 @@
 
 namespace VulkanTest
 {
-	DEFINE_RESOURCE(SceneResource);
+	REGISTER_JSON_RESOURCE(SceneResource);
 
 	SceneResource::SceneResource(const ResourceInfo& info) :
 		JsonResource(info)

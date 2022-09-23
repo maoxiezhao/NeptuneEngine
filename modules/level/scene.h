@@ -10,13 +10,23 @@ namespace VulkanTest
 	class VULKAN_TEST_API Scene : public ScriptingObject, public ISerializable
 	{
 	public:
-		Scene(World& world);
-		Scene(World& world, const ScriptingObjectParams& params);
+		Scene();
+		Scene(const ScriptingObjectParams& params);
+		~Scene();
+
+		void Start();
+		void Stop();
+		bool IsPlaying()const {
+			return isPlaying;
+		}
 
 		void Serialize(SerializeStream& stream, const void* otherObj) override;
 		void Deserialize(DeserializeStream& stream) override;
 
-		World& GetWorld()const {
+		World* GetWorld() {
+			return world;
+		}
+		const World* GetWorld()const {
 			return world;
 		}
 
@@ -29,8 +39,8 @@ namespace VulkanTest
 		}
 
 	private:
-		World& world;
+		World* world;
 		String name;
-
+		bool isPlaying = false;
 	};
 }

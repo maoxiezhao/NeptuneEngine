@@ -59,7 +59,7 @@ namespace Editor
         void OnGUI() override;
         void LateUpdate()override;
         void Render() override;
-        void OnWorldChanged(World* world);
+        void OnEditingSceneChanged(Scene* newScene, Scene* prevScene)override;
         const char* GetName();
 
         I32x2 GetScreenSize()const {
@@ -73,6 +73,7 @@ namespace Editor
         struct EditorIcons* GetEditorIcons();
 
     private:
+        void OnSceneGUI();
         void OnToolbarGUI();
         void HandleEvents();
         void CaptureMouse(bool capture);

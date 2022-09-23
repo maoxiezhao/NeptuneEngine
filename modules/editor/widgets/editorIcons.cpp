@@ -12,11 +12,6 @@ namespace Editor
 		worldEditor(editor_.GetWorldEditor())
 	{
 		iconFontRes = ResourceManager::LoadResource<FontResource>(Path("editor/fonts/fa-solid-900.ttf"));
-
-		auto world = worldEditor.GetWorld();
-		world->SetComponenetOnAdded<LightComponent>([&](ECS::Entity entity, LightComponent& model) { AddIcons(entity, IconType::PointLight); });
-		world->SetComponenetOnRemoved<LightComponent>([&](ECS::Entity entity, LightComponent& model) { RemoveIcon(entity); });
-		world->EntityDestroyed().Bind<&EditorIcons::RemoveIcon>(this);
 	}
 
 	EditorIcons::~EditorIcons()
@@ -130,6 +125,28 @@ namespace Editor
 		}
 
 		cmd.EndEvent();
+	}
+
+	void EditorIcons::OnEditingSceneChanged(Scene* newScene, Scene* prevScene)
+	{
+		if (prevScene)
+		{
+			auto world = prevScene->GetWorld();
+			// TODO use delegate to replace the SetComponenetOnAdded
+			//world->SetComponenetOnAdded<LightComponent>([&](ECS::Entity entity, LightComponent& model) { AddIcons(entity, IconType::PointLight); });
+			//world->SetComponenetOnRemoved<LightComponent>([&](ECS::Entity entity, LightComponent& model) { RemoveIcon(entity); });
+			world->EntityDestroyed().Unbind<&EditorIcons::RemoveIcon>(this);
+			icons.clear();
+		}
+
+		if (newScene)
+		{
+			auto world = newScene->GetWorld();
+			// TODO use delegate to replace the SetComponenetOnAdded
+			world->SetComponenetOnAdded<LightComponent>([&](ECS::Entity entity, LightComponent& model) { AddIcons(entity, IconType::PointLight); });
+			world->SetComponenetOnRemoved<LightComponent>([&](ECS::Entity entity, LightComponent& model) { RemoveIcon(entity); });
+			world->EntityDestroyed().Bind<&EditorIcons::RemoveIcon>(this);
+		}
 	}
 }
 }

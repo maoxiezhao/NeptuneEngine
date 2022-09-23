@@ -65,4 +65,14 @@ namespace VulkanTest
 		virtual bool CreateInstance();
 		void DeleteInstance();
 	};
+
+#define REGISTER_JSON_RESOURCE(type)	\
+	DEFINE_RESOURCE(type);	\
+	class CONCAT_MACROS(ResourceFactory, type) : public JsonResourceFactory<type> \
+	{ \
+	public: \
+		CONCAT_MACROS(ResourceFactory, type)() { Initialize(type::ResType); } \
+		~CONCAT_MACROS(ResourceFactory, type)() { Uninitialize(); } \
+	}; \
+	static CONCAT_MACROS(ResourceFactory, type) CONCAT_MACROS(CResourceFactory, type)
 }

@@ -3,7 +3,6 @@
 #include "editor\widgets\gizmo.h"
 #include "editor\widgets\entityList.h"
 #include "core\utils\stateMachine.h"
-#include "level\level.h"
 
 namespace VulkanTest
 {
@@ -121,25 +120,21 @@ namespace Editor
     private:
         EditorApp& editor;
         Engine& engine;
-        World* world = nullptr;
+        Array<Scene*> scenes;
+        Scene* editingScene = nullptr;
         WorldView* view = nullptr;
         LocalPtr<EntityFolder> entityFolder;
         Array<ECS::Entity> selectedEntities;
-        Array<Guid> toLoadScenes;
-        Guid lastRequestScene = Guid::Empty;
 
     public:
         WorldEditorImpl(EditorApp& editor_) :
             editor(editor_),
             engine(editor_.GetEngine())
         {
-            NewWorld();
         }
 
         ~WorldEditorImpl()
         {
-            if (world != nullptr)
-                DestroyWorld();
         }
 
         void Update(F32 dt)override
@@ -163,24 +158,63 @@ namespace Editor
 
         World* GetWorld()override
         {
-            return world;
+            return editingScene != nullptr ? editingScene->GetWorld() : nullptr;
         }
 
-        void NewWorld()override
+        Scene* GetEditingScene()override
         {
-            ASSERT(world == nullptr);           
-            world = &engine.CreateWorld();
-            entityFolder.Create(*world);
-            editor.OnWorldChanged(world);
+            return editingScene;
         }
 
-        void DestroyWorld()override
+        void SetEditingScene(Scene* scene_)override
         {
-            ASSERT(world != nullptr);
-            entityFolder.Destroy();
-            engine.DestroyWorld(*world);
-            selectedEntities.clear();
-            world = nullptr;
+            if (scene_ == editingScene)
+                return;
+
+            if (editingScene != nullptr)
+            {
+                entityFolder.Destroy();
+                selectedEntities.clear();
+            }
+
+            Scene* prevScene = editingScene;
+            editingScene = scene_;
+
+            if (editingScene != nullptr)
+            {
+                entityFolder.Create(*editingScene->GetWorld());
+            }
+
+            // Notify editing scene changed
+            editor.OnEditingSceneChanged(scene_, prevScene);
+        }
+
+        Array<Scene*>& GetScenes() override
+        {
+            return scenes;
+        }
+
+        void OpenScene(Scene* scene_) override
+        {
+            ASSERT(scene_);
+            for (auto scene : scenes)
+            {
+                if (scene == scene_)
+                {
+                    SetEditingScene(scene);
+                    return;
+                }
+            }
+            scenes.push_back(scene_);
+            SetEditingScene(scene_);
+        }
+        
+        void CloseScene(Scene* scene_) override
+        {
+            ASSERT(scene_);
+            scenes.erase(scene_);
+            if (editingScene == scene_)
+                SetEditingScene(scenes.empty() ? nullptr : scenes.back());
         }
 
         void ExecuteCommand(UniquePtr<IEditorCommand>&& command) override
@@ -220,60 +254,6 @@ namespace Editor
         virtual void SetView(WorldView& view_) override
         {
             view = &view_;
-        }
-
-        bool CanChangeScene() override
-        {
-            return true;
-        }
-
-        // TODO
-        // Use state machine to manager scenes
-
-        void SetWorldTest(World* world_)
-        {
-            DestroyWorld();
-            world = world_;
-            editor.OnWorldChanged(world);
-        }
-
-        void TryEnterScene()
-        {
-            // Skip loaded scenes
-            for (int i = 0; i < toLoadScenes.size(); i++)
-            {
-                if (Level::FindScene(toLoadScenes[i]) != nullptr)
-                {
-                    toLoadScenes.swapAndPopItem(toLoadScenes[i]);
-                    if (toLoadScenes.size() == 0)
-                        break;
-                    i--;
-                }
-            }
-
-            // Load scenes
-            for (const auto& sceneID : toLoadScenes)
-            {
-                if (Level::LoadScene(sceneID))
-                    lastRequestScene = sceneID;
-            }
-
-            if (lastRequestScene == Guid::Empty)
-            {
-                Logger::Warning("Cannot open scene %d", lastRequestScene);
-                return;
-            }
-
-            // Test
-            DestroyWorld();
-            NewWorld();
-        }
-
-        void LoadScene(const Guid& guid) override
-        {
-            toLoadScenes.clear();
-            toLoadScenes.push_back(guid);
-            TryEnterScene();
         }
 
         static void FastRemoveDuplicates(Array<ECS::Entity>& entities)

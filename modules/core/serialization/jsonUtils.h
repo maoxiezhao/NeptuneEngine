@@ -14,6 +14,8 @@ namespace VulkanTest
 		using Document = rapidjson_flax::Document ;
 		using Value = rapidjson_flax::Value ;
 
+        static Guid GetGuid(const Value& value);
+
         FORCE_INLINE static bool GetBool(const Value& node, const char* name, const bool defaultValue)
         {
             auto member = node.FindMember(name);
@@ -44,5 +46,11 @@ namespace VulkanTest
 			auto member = node.FindMember(name);
 			return member != node.MemberEnd() ? String(member->value.GetString()) : String::EMPTY;
 		}
+
+        FORCE_INLINE static Guid GetGuid(const Value& node, const char* name)
+        {
+            auto member = node.FindMember(name);
+            return member != node.MemberEnd() ? GetGuid(member->value) : Guid::Empty;
+        }
 	};
 }

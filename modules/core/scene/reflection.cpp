@@ -11,7 +11,7 @@ namespace Reflection
 		Array<RegisteredComponent> comps;
 		HashMap<ECS::EntityID, RegisteredComponent*> compMap;
 
-		~Context()
+		void Clear()
 		{
 			SceneMeta* cur = nullptr;
 			SceneMeta* next = firstScene;
@@ -22,6 +22,12 @@ namespace Reflection
 
 				CJING_DELETE(cur);
 			}
+			firstScene = nullptr;
+		}
+
+		~Context()
+		{
+			Clear();
 		}
 	};
 
@@ -74,6 +80,11 @@ namespace Reflection
 	Span<const RegisteredComponent> GetComponents()
 	{
 		return Span(GetContext().comps.data(), GetContext().comps.size());
+	}
+
+	void ClearReflections()
+	{
+		GetContext().Clear();
 	}
 
 	Builder::Builder()

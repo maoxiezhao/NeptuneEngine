@@ -4,6 +4,7 @@
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\worldEditor.h"
+#include "editor\states\editorStateMachine.h"
 #include "editor\importers\resourceImportingManager.h"
 #include "core\serialization\json.h"
 
@@ -24,6 +25,15 @@ namespace Editor
 			app(app_)
 		{
 			app_.GetAssetCompiler().RegisterExtension("scene", SceneResource::ResType);
+
+			Level::SceneLoaded.Bind<&ScenePlugin::OnSceneLoaded>(this);
+			Level::SceneUnloaded.Bind<&ScenePlugin::OnSceneUnloaded>(this);
+		}
+
+		~ScenePlugin()
+		{
+			Level::SceneLoaded.Unbind<&ScenePlugin::OnSceneLoaded>(this);
+			Level::SceneUnloaded.Unbind<&ScenePlugin::OnSceneUnloaded>(this);
 		}
 
 		bool Compile(const Path& path, Guid guid)override
@@ -60,8 +70,8 @@ namespace Editor
 			bool ret = true;
 			Engine& engine = app.GetEngine();
 			auto& fs = engine.GetFileSystem();
-			auto& world = engine.CreateWorld();
-			auto scene = CJING_NEW(Scene)(world);
+			auto scene = CJING_NEW(Scene)();
+			scene->SetName(name);
 
 			rapidjson_flax::StringBuffer outData;
 			if (!Level::SaveScene(scene, outData))
@@ -84,11 +94,13 @@ namespace Editor
 
 				file->Write(outData.GetString(), outData.GetSize());
 				file->Close();
+			
+				// Register scene resource
+				ResourceManager::GetCache().Register(scene->GetGUID(), SceneResource::ResType, Path(fullPath));
 			}
 
 		ResFini:
 			CJING_SAFE_DELETE(scene);
-			engine.DestroyWorld(world);
 			return ret;
 		}
 
@@ -97,15 +109,14 @@ namespace Editor
 			const ResourceType resType = app.GetAssetCompiler().GetResourceType(path.c_str());
 			if (resType == SceneResource::ResType)
 			{
-				auto& worldEditor = app.GetWorldEditor();
-				if (!worldEditor.CanChangeScene())
+				if (!app.GetStateMachine().CurrentState()->CanChangeScene())
 					return;
 
 				auto resource = ResourceManager::LoadResource<SceneResource>(path);
 				if (!resource)
 					return;
 				
-				worldEditor.LoadScene(resource->GetGUID());
+				app.GetStateMachine().GetChangingScenesState()->LoadScene(resource->GetGUID());
 			}
 		}
 
@@ -116,13 +127,22 @@ namespace Editor
 		const char* GetResourceName() const {
 			return "Scene";
 		}
+
+		void OnSceneLoaded(Scene* scene, const Guid& sceneID)
+		{
+			app.GetWorldEditor().OpenScene(scene);
+		}
+
+		void OnSceneUnloaded(Scene* scene, const Guid& sceneID)
+		{
+			app.GetWorldEditor().CloseScene(scene);
+		}
 	};
 
 	struct LevelPlugin : EditorPlugin
 	{
 	private:
 		EditorApp& app;
-
 		ScenePlugin scenePlugin;
 
 	public:
@@ -150,15 +170,6 @@ namespace Editor
 			// Add plugins for asset browser
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.AddPlugin(scenePlugin);
-		}
-
-		bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) override
-		{
-			return false;
-		}
-
-		void OnWorldChanged(World* world) override
-		{
 		}
 
 		const char* GetName()const override

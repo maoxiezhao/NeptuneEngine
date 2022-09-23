@@ -49,18 +49,20 @@ namespace VulkanTest
 
 		virtual ~Engine() {}
 
+		static Engine* Instance;
+
 		static void RequestExit(I32 exitCode = 0);
 		static bool ShouldExit();
 
 		virtual class World& CreateWorld() = 0;
-		virtual void DestroyWorld(World& world) = 0;
+		virtual void DestroyWorld(World* world) = 0;
 
 		virtual void LoadPlugins() = 0;
-		virtual void Start(World& world) {};
-		virtual void Update(World& world, F32 dt) {};
-		virtual void LateUpdate(World& world) {};
-		virtual void FixedUpdate(World& world) {};
-		virtual void Stop(World& world) {};
+		virtual void Start(World* world) {};
+		virtual void Update(World* world, F32 dt) {};
+		virtual void LateUpdate(World* world) {};
+		virtual void FixedUpdate(World* world) {};
+		virtual void Stop(World* world) {};
 
 		virtual class InputSystem& GetInputSystem() = 0;
 		virtual class FileSystem& GetFileSystem() = 0;

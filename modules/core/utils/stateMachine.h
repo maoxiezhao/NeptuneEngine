@@ -44,12 +44,18 @@ namespace VulkanTest
 			return currState;
 		}
 
+		void GoToState(I32 stateIndex) 
+		{
+			ASSERT(stateIndex >= 0 && stateIndex < (I32)states.size());
+			GoToState(states[stateIndex]);
+		}
+
 		void GoToState(State* state);
 
 	protected:
 		friend class State;
 
-		void SwitchState(State* next);
+		virtual void SwitchState(State* next);
 
 		Array<State*> states;
 		State* currState = nullptr;

@@ -84,6 +84,7 @@ void App::Initialize()
     Engine::InitConfig config = {};
     config.windowTitle = GetWindowTitle();
     engine = CreateEngine(config, *this);
+    Engine::Instance = engine.Get();
 
     // Load plugins
     engine->LoadPlugins();
@@ -96,14 +97,15 @@ void App::Initialize()
     ASSERT(renderer != nullptr);
 
     // Start game
-    engine->Start(*world);
+    engine->Start(world);
 }
 
 void App::Uninitialize()
 {
-    engine->Stop(*world);
-    engine->DestroyWorld(*world);
+    engine->Stop(world);
+    engine->DestroyWorld(world);
     engine.Reset();
+    Engine::Instance = nullptr;
     world = nullptr;
     platform.reset();
 }
@@ -153,7 +155,7 @@ void App::ActivePath(RenderPath* renderPath_)
 void App::Update(F32 deltaTime)
 {
     PROFILE_BLOCK("Update");
-    engine->Update(*world, deltaTime);
+    engine->Update(world, deltaTime);
 
     if (GetActivePath()) {
         GetActivePath()->Update(deltaTime);
@@ -163,12 +165,12 @@ void App::Update(F32 deltaTime)
 void App::LateUpate()
 {
     PROFILE_BLOCK("LateUpate");
-    engine->LateUpdate(*world);
+    engine->LateUpdate(world);
 }
 
 void App::FixedUpdate()
 {
-    engine->FixedUpdate(*world);
+    engine->FixedUpdate(world);
 
     if (GetActivePath()) {
         GetActivePath()->FixedUpdate();

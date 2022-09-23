@@ -203,6 +203,8 @@ namespace Editor
 			World* world = worldEditor.GetWorld();
 			if (world == nullptr)
 			{
+				ImGui::Text("No scene");
+				ImGui::Text("Open from the content browser");
 				ImGui::End();
 				return;
 			}
@@ -501,6 +503,9 @@ namespace Editor
 
 	void EntityListWidget::ShowCreateEntityGUI(EntityFolder::FolderID folderID)
 	{
+		if (worldEditor.GetWorld() == nullptr)
+			return;
+
 		if (ImGui::MenuItem("CreateEmpty"))
 		{
 			auto& folder = worldEditor.GetEntityFolder();

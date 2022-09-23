@@ -63,6 +63,14 @@ namespace VulkanTest
 			return false;
 		}
 
+		auto guid = GetGUID();
+		const Guid resID = JsonUtils::GetGuid(document, "ID");
+		if (resID != guid)
+		{
+			Logger::Warning("Invalid json resource id");
+			return false;
+		}
+
 		// Get typename
 		typeName = JsonUtils::GetString(document, "Typename");
 
