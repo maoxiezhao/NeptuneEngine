@@ -226,9 +226,6 @@ namespace VulkanTest
 
         void ForEachEntity(std::function<void(ECS::Entity, RenderComponentTag&)> func)override
         {
-            if (!IsSceneValid())
-                return;
-
             if (allEntitiesQuery.Valid())
                 allEntitiesQuery.ForEach(func);
         }
@@ -326,7 +323,8 @@ namespace VulkanTest
             if (entity == ECS::INVALID_ENTITY)
                 entity = CreateEntity(nullptr);
 
-            return entity.Add<TransformComponent>()
+            return entity.Add<RenderComponentTag>()
+                .Add<TransformComponent>()
                 .Add<ObjectComponent>();
         }
 
@@ -352,7 +350,8 @@ namespace VulkanTest
             if (entity == ECS::INVALID_ENTITY)
                 entity = CreateEntity(nullptr);
 
-            return entity.Add<MeshComponent>();
+            return entity.Add<RenderComponentTag>()
+                .Add<MeshComponent>();
         }
 
         ECS::Entity CreateMaterial(ECS::Entity entity) override
@@ -360,7 +359,8 @@ namespace VulkanTest
             if (entity == ECS::INVALID_ENTITY)
                 entity = CreateEntity(nullptr);
 
-            return entity.Add<MaterialComponent>();
+            return entity.Add<RenderComponentTag>()
+                .Add<MaterialComponent>();
         }
 
         ECS::Entity CreatePointLight(ECS::Entity entity)override
@@ -389,7 +389,8 @@ namespace VulkanTest
             if (entity == ECS::INVALID_ENTITY)
                 entity = CreateEntity(nullptr);
      
-            entity.Add<TransformComponent>()
+            entity.Add<RenderComponentTag>()
+                .Add<TransformComponent>()
                 .Add<LightComponent>();
 
             TransformComponent* transform = entity.GetMut<TransformComponent>();
@@ -408,9 +409,6 @@ namespace VulkanTest
 
         void ForEachLights(std::function<void(ECS::Entity, LightComponent&)> func) override
         {
-            if (!IsSceneValid())
-                return;
-
             if (lightQuery.Valid())
                 lightQuery.ForEach(func);
         }
