@@ -6,6 +6,7 @@
 #include "core\memory\memory.h"
 #include "core\utils\delegate.h"
 #include "core\collections\hashMap.h"
+#include "core\serialization\iSerializable.h"
 #include "ecs\ecs\ecs.hpp"
 
 namespace VulkanTest
@@ -24,7 +25,7 @@ namespace VulkanTest
 	};
 	const ComponentType INVALID_COMPONENT_TYPE = { -1 };
 
-	struct VULKAN_TEST_API IScene
+	struct VULKAN_TEST_API IScene : public ISerializable
 	{
 		virtual ~IScene() {}
 

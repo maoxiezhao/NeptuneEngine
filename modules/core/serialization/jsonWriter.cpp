@@ -21,4 +21,53 @@ namespace VulkanTest
 		}
 		String(buffer, 32);
 	}
+
+	void JsonWriterBase::Entity(const ECS::Entity& entity)
+	{
+		StartObject();
+		JKEY("Path");
+		auto path = entity.GetPath();
+		String(path.c_str(), path.length());
+		JKEY("Label");
+		auto name = entity.GetName();
+		String(name, StringLength(name));
+		EndObject();
+	}
+
+
+	void JsonWriterBase::Float2(const F32x2& value)
+	{
+		StartObject();
+		JKEY("X");
+		Float(value.x);
+		JKEY("Y");
+		Float(value.y);
+		EndObject();
+	}
+
+	void JsonWriterBase::Float3(const F32x3& value)
+	{
+		StartObject();
+		JKEY("X");
+		Float(value.x);
+		JKEY("Y");
+		Float(value.y);
+		JKEY("Z");
+		Float(value.z);
+		EndObject();
+	}
+
+	void JsonWriterBase::Float4(const F32x4& value)
+	{
+		StartObject();
+		JKEY("X");
+		Float(value.x);
+		JKEY("Y");
+		Float(value.y);
+		JKEY("Z");
+		Float(value.z);
+		JKEY("W");
+		Float(value.w);
+		EndObject();
+	}
 }

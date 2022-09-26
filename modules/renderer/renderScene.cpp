@@ -124,6 +124,7 @@ namespace VulkanTest
         U32 instanceArraySize = 0;
 
         // Component query
+        ECS::Query<RenderComponentTag> allEntitiesQuery;
         ECS::Query<ObjectComponent> objectQuery;
         ECS::Query<MeshComponent> meshQuery;
         ECS::Query<MaterialComponent> materialQuery;
@@ -158,6 +159,7 @@ namespace VulkanTest
         {
             cullingSystem = CullingSystem::Create();
 
+            allEntitiesQuery = world.CreateQuery<RenderComponentTag>().Build();
             objectQuery = world.CreateQuery<ObjectComponent>().Build();
             meshQuery = world.CreateQuery<MeshComponent>().Build();
             materialQuery = world.CreateQuery<MaterialComponent>().Build();
@@ -212,12 +214,23 @@ namespace VulkanTest
 
         ECS::Entity CreateEntity(const char* name) override
         {
-            return world.CreateEntity(name);
+            ECS::Entity ret = world.CreateEntity(name);
+            ret.Add<RenderComponentTag>();
+            return ret;
         }
 
         void DestroyEntity(ECS::Entity entity)override
         {
             world.DeleteEntity(entity);
+        }
+
+        void ForEachEntity(std::function<void(ECS::Entity, RenderComponentTag&)> func)override
+        {
+            if (!IsSceneValid())
+                return;
+
+            if (allEntitiesQuery.Valid())
+                allEntitiesQuery.ForEach(func);
         }
 
         void AddSystem(const ECS::System& system)
@@ -311,7 +324,7 @@ namespace VulkanTest
         ECS::Entity CreateObject(ECS::Entity entity)override
         {
             if (entity == ECS::INVALID_ENTITY)
-                entity = world.CreateEntity(nullptr);
+                entity = CreateEntity(nullptr);
 
             return entity.Add<TransformComponent>()
                 .Add<ObjectComponent>();
@@ -337,7 +350,7 @@ namespace VulkanTest
         ECS::Entity CreateMesh(ECS::Entity entity) override
         {
             if (entity == ECS::INVALID_ENTITY)
-                entity = world.CreateEntity(nullptr);
+                entity = CreateEntity(nullptr);
 
             return entity.Add<MeshComponent>();
         }
@@ -345,7 +358,7 @@ namespace VulkanTest
         ECS::Entity CreateMaterial(ECS::Entity entity) override
         {
             if (entity == ECS::INVALID_ENTITY)
-                entity = world.CreateEntity(nullptr);
+                entity = CreateEntity(nullptr);
 
             return entity.Add<MaterialComponent>();
         }
@@ -374,7 +387,7 @@ namespace VulkanTest
             F32 range = 10.0f)override
         {
             if (entity == ECS::INVALID_ENTITY)
-                entity = world.CreateEntity(nullptr);
+                entity = CreateEntity(nullptr);
      
             entity.Add<TransformComponent>()
                 .Add<LightComponent>();
@@ -496,7 +509,7 @@ namespace VulkanTest
 
         void LoadModel(const char* name, const Path& path) override
         {
-            ECS::Entity entity = world.CreateEntity(name).Add<LoadModelComponent>();
+            ECS::Entity entity = CreateEntity(name).Add<LoadModelComponent>();
             if (path.IsEmpty())
             {
                 LoadModelResource(entity, ResPtr<Model>());

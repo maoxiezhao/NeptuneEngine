@@ -2,6 +2,8 @@
 
 #include "serializationFwd.h"
 #include "core\utils\string.h"
+#include "core\scene\world.h"
+#include "math\color.h"
 
 namespace VulkanTest
 {
@@ -49,6 +51,8 @@ namespace Serialization
 			FromCString(Span(stream.GetString(), StringLength(stream.GetString())), result);
 		return result;
 	}
+
+	void DeserializeEntity(ISerializable::DeserializeStream& stream, World* world, ECS::Entity* entityOut);
 
 	template<typename T>
 	struct SerializeTypeBase
@@ -140,6 +144,78 @@ namespace Serialization
 		static void Deserialize(ISerializable::DeserializeStream& stream, T& v)
 		{
 			v = (T)DeserializeInt(stream);
+		}
+	};
+
+	template<>
+	struct SerializeTypeNormalMapping<F32x2>
+	{
+		static void Serialize(ISerializable::SerializeStream& stream, const F32x2& v, const void* otherObj)
+		{
+			stream.Float2(v);
+		}
+
+		static void Deserialize(ISerializable::DeserializeStream& stream, F32x2& v)
+		{
+			const auto x = SERIALIZE_FIND_MEMBER(stream, "X");
+			const auto y = SERIALIZE_FIND_MEMBER(stream, "Y");
+			v.x = x != stream.MemberEnd() ? x->value.GetFloat() : 0.0f;
+			v.y = y != stream.MemberEnd() ? y->value.GetFloat() : 0.0f;
+		}
+
+		static bool ShouldSerialize(const F32x2& v, const void* obj)
+		{
+			return !obj;
+		}
+	};
+
+	template<>
+	struct SerializeTypeNormalMapping<F32x3>
+	{
+		static void Serialize(ISerializable::SerializeStream& stream, const F32x3& v, const void* otherObj)
+		{
+			stream.Float3(v);
+		}
+
+		static void Deserialize(ISerializable::DeserializeStream& stream, F32x3& v)
+		{
+			const auto x = SERIALIZE_FIND_MEMBER(stream, "X");
+			const auto y = SERIALIZE_FIND_MEMBER(stream, "Y");
+			const auto z = SERIALIZE_FIND_MEMBER(stream, "Z");
+			v.x = x != stream.MemberEnd() ? x->value.GetFloat() : 0.0f;
+			v.y = y != stream.MemberEnd() ? y->value.GetFloat() : 0.0f;
+			v.z = z != stream.MemberEnd() ? z->value.GetFloat() : 0.0f;
+		}
+
+		static bool ShouldSerialize(const F32x3& v, const void* obj)
+		{
+			return !obj;
+		}
+	};
+
+	template<>
+	struct SerializeTypeNormalMapping<F32x4> : SerializeTypeBase<F32x4>
+	{
+		static void Serialize(ISerializable::SerializeStream& stream, const F32x4& v, const void* otherObj)
+		{
+			stream.Float4(v);
+		}
+
+		static void Deserialize(ISerializable::DeserializeStream& stream, F32x4& v)
+		{
+			const auto x = SERIALIZE_FIND_MEMBER(stream, "X");
+			const auto y = SERIALIZE_FIND_MEMBER(stream, "Y");
+			const auto z = SERIALIZE_FIND_MEMBER(stream, "Z");
+			const auto w = SERIALIZE_FIND_MEMBER(stream, "W");
+			v.x = x != stream.MemberEnd() ? x->value.GetFloat() : 0.0f;
+			v.y = y != stream.MemberEnd() ? y->value.GetFloat() : 0.0f;
+			v.z = z != stream.MemberEnd() ? z->value.GetFloat() : 0.0f;
+			v.w = w != stream.MemberEnd() ? w->value.GetFloat() : 0.0f;
+		}
+
+		static bool ShouldSerialize(const F32x4& v, const void* obj)
+		{
+			return !obj;
 		}
 	};
 

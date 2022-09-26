@@ -7,6 +7,8 @@
 
 namespace VulkanTest
 {
+	const I32 LEVEL_VERSION_BUILD = 0;
+
 	// Scene callbacks
 	Level::SceneCallback Level::SceneLoading;
 	Level::SceneCallback Level::SceneLoaded;
@@ -97,6 +99,13 @@ namespace VulkanTest
 				return false;
 			}
 
+			auto version = JsonUtils::GetInt(sceneValue, "Version", 0);
+			if (version != LEVEL_VERSION_BUILD)
+			{
+				Logger::Error("Invalid scene version");
+				return false;
+			}
+
 			// Check if scene is already loaded
 			if (Level::FindScene(sceneID) != nullptr)
 			{
@@ -110,7 +119,29 @@ namespace VulkanTest
 
 			FireSceneEvent(SceneEventType::OnSceneLoading, scene, sceneID);
 
+			// Load prefabs first before the scene serialization
+
 			// Deserialize
+			{
+				PROFILE_BLOCK("Deserialize");
+				auto it = data->FindMember("PluginScenes");
+				if (it != data->MemberEnd())
+				{
+					auto& scenesData = it->value;
+					auto world = scene->GetWorld();
+					for (auto& pluginScene : world->GetScenes())
+					{
+						const char* name = pluginScene->GetPlugin().GetName();
+						auto it = scenesData.FindMember(name);
+						if (it == scenesData.MemberEnd())
+						{
+							Logger::Info("Failed to deserialize scene because of the invalid scene plugin %s", name);
+							return false;
+						}
+						pluginScene->Deserialize(it->value);
+					}
+				}
+			}
 
 			// Init scene
 			{
@@ -173,6 +204,8 @@ namespace VulkanTest
 				writer.Guid(sceneID);
 				writer.JKEY("Typename");
 				writer.String("SceneResource");
+				writer.JKEY("Version");
+				writer.Int(LEVEL_VERSION_BUILD);
 
 				// Data
 				writer.JKEY("Data");
@@ -182,21 +215,67 @@ namespace VulkanTest
 					writer.JKEY("Scene");
 					scene->Serialize(writer, nullptr);
 
-					// Entities
-					writer.JKEY("Entities");
-					writer.StartArray();
-					writer.EndArray();
-
 					// Scene plugins
-					writer.JKEY("Scenes");
-					writer.StartArray();
-					writer.EndArray();
+					writer.JKEY("PluginScenes");
+					writer.StartObject();
+					{
+						auto world = scene->GetWorld();
+						for (auto& pluginScene : world->GetScenes())
+						{
+							const char* name = pluginScene->GetPlugin().GetName();
+							writer.Key(name, StringLength(name));
+							pluginScene->Serialize(writer, nullptr);
+						}
+					}
+					writer.EndObject();
 				}
 				writer.EndObject();
 
 			}
 			writer.EndObject();
 			return true;
+		}
+
+		bool SaveSceneImpl(Scene* scene, const Path& path)
+		{
+			Logger::Info("Saving scene to %s", path.c_str());
+			F64 beginTime = Timer::GetTimeSeconds();
+
+			rapidjson_flax::StringBuffer buffer;
+			if (!SaveSceneImpl(scene, buffer) && buffer.GetSize() > 0)
+			{
+				FireSceneEvent(SceneEventType::OnSceneSaveError, scene, scene->GetGUID());
+				return false;
+			}
+		
+			auto& fs = Engine::Instance->GetFileSystem();
+			auto file = fs.OpenFile(path.c_str(), FileFlags::DEFAULT_WRITE);
+			if (!file->IsValid())
+			{
+				Logger::Error("Failed to save the scene resource file");
+				return false;
+			}
+			file->Write(buffer.GetString(), buffer.GetSize());
+			file->Close();
+
+			FireSceneEvent(SceneEventType::OnSceneLoaded, scene, scene->GetGUID());
+			Logger::Info("Scene saved! Time %f s", Timer::GetTimeSeconds() - beginTime);
+			return true;
+		}
+
+		bool SaveSceneImpl(Scene* scene)
+		{
+#ifdef CJING3D_EDITOR
+			const Path path = scene->GetPath();
+			if (path.IsEmpty())
+			{
+				Logger::Error("Invalid scene path");
+				return false;
+			}
+			return SaveSceneImpl(scene, path);
+#endif
+			Logger::Error("Cannot save scene to the compiled resource");
+			return false;
 		}
 	}
 
@@ -224,7 +303,26 @@ namespace VulkanTest
 				FireSceneEvent(SceneEventType::OnSceneLoadError, nullptr, sceneID);
 				return false;
 			}
+			return true;
+		}
+	};
 
+	struct SaveSceneAction : public SceneAction
+	{
+		Scene* targetScene;
+
+		SaveSceneAction(Scene* scene) :
+			targetScene(scene)
+		{
+		}
+
+		bool Do() override
+		{
+			if (!SaveSceneImpl(targetScene))
+			{
+				Logger::Error("Failed to save scene %s", targetScene->GetName());
+				return false;
+			}
 			return true;
 		}
 	};
@@ -403,6 +501,12 @@ namespace VulkanTest
 		UnloadAllScenesImpl();
 	}
 
+	bool Level::SaveScene(Scene* scene)
+	{
+		ScopedMutex lcok(actionsMutex);
+		return SaveSceneAction(scene).Do();
+	}
+
 	bool Level::SaveScene(Scene* scene, rapidjson_flax::StringBuffer& outData)
 	{
 		ScopedMutex lock(actionsMutex);
@@ -416,5 +520,11 @@ namespace VulkanTest
 
 		Logger::Info("Scene saved! Time %f s", Timer::GetTimeSeconds() - beginTime);
 		return true;
+	}
+
+	void Level::SaveSceneAsync(Scene* scene)
+	{
+		ScopedMutex lcok(actionsMutex);
+		actions.push_back(CJING_NEW(SaveSceneAction)(scene));
 	}
 }

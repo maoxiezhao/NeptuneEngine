@@ -4,6 +4,7 @@
 #include "stream.h"
 #include "core\types\guid.h"
 #include "core\utils\string.h"
+#include "core\scene\world.h"
 
 namespace VulkanTest
 {
@@ -46,8 +47,12 @@ namespace VulkanTest
         }
 
         void Guid(const Guid& guid);
-	};
+        void Entity(const ECS::Entity& entity);
 
+        void Float2(const F32x2& value);
+        void Float3(const F32x3& value);
+        void Float4(const F32x4& value);
+    };
 
     template<typename WriterType>
     class JsonWriterType : public JsonWriterBase

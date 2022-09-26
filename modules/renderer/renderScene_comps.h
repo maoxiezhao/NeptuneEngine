@@ -9,6 +9,8 @@ namespace VulkanTest
 {
 	struct RendererPlugin;
 
+	struct RenderComponentTag {};
+
 	struct TransformComponent
 	{
 		Transform transform;

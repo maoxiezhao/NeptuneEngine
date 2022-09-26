@@ -221,8 +221,18 @@ namespace Editor
 		ImGui::TreePop();
 	}
 
+	// TODO find a better way to do the reflection of the scenes
 	ComponentType ConvertToCompType(World* world, ECS::EntityID compID)
 	{
+		if (compID == world->GetComponentID<LightComponent>())
+			return Reflection::GetComponentType("Light");
+		else if (compID == world->GetComponentID<ObjectComponent>())
+			return Reflection::GetComponentType("Object");
+		else if (compID == world->GetComponentID<MaterialComponent>())
+			return Reflection::GetComponentType("Material");
+		else if (compID == world->GetComponentID<MeshComponent>())
+			return Reflection::GetComponentType("Mesh");
+
 		return INVALID_COMPONENT_TYPE;
 	}
 

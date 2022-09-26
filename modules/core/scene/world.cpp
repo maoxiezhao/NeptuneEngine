@@ -54,6 +54,23 @@ namespace VulkanTest
 		CJING_FREE(ptr);
 	}
 
+
+	static char* EcsSystemAPIStrdup(const char* str)
+	{
+		if (str)
+		{
+			int len = strlen(str);
+			char* result = (char*)CJING_MALLOC(len + 1);
+			ECS_ASSERT(result != NULL);
+			strcpy_s(result, len + 1, str);
+			return result;
+		}
+		else
+		{
+			return NULL;
+		}
+	}
+
 	void GetValidEntityName(World* world, char(&out)[64])
 	{
 		while (world->FindEntity(out) != ECS::INVALID_ENTITYID)
@@ -81,6 +98,7 @@ namespace VulkanTest
 		api.free_ = ECSFree;
 		api.thread_run_ = ECSRunJob;
 		api.thread_sync_ = ECSWaitJob;
+		api.strdup_ = EcsSystemAPIStrdup;
 		ECS::SetSystemAPI(api);
 	}
 

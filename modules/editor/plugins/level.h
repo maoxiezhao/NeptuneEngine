@@ -10,6 +10,7 @@ namespace VulkanTest
 
 		struct LevelPlugin : EditorPlugin
 		{
+			virtual void SaveScene(Scene* scene) = 0;
 			virtual void CloseScene(Scene* scene) = 0;
 		};
 		extern "C" EditorPlugin * SetupPluginLevel(EditorApp & app);

@@ -27,6 +27,13 @@ namespace VulkanTest
 		Serialization::Serialize(stream, member, other ? &other->member : nullptr); \
 	}
 
+#define SERIALIZE_OBJECT_MEMBER(name, obj, member) \
+    if (Serialization::ShouldSerialize(obj.member, other ? &other->member : nullptr)) \
+	{ \
+		stream.JKEY(#name); \
+		Serialization::Serialize(stream, obj.member, other ? &other->member : nullptr); \
+	}
+
 #define DESERIALIZE(name)  \
     { \
         const auto e = SERIALIZE_FIND_MEMBER(stream, #name); \

@@ -132,6 +132,11 @@ namespace Editor
 			app.GetStateMachine().GetChangingScenesState()->LoadScene(resource->GetGUID());
 		}
 
+		void SaveScene(Scene* scene)
+		{
+			Level::SaveSceneAsync(scene);
+		}
+
 		void CloseScene(Scene* scene)
 		{
 			if (!app.GetStateMachine().CurrentState()->CanChangeScene())
@@ -190,6 +195,11 @@ namespace Editor
 			// Add plugins for asset browser
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.AddPlugin(scenePlugin);
+		}
+
+		void SaveScene(Scene* scene) override
+		{
+			scenePlugin.SaveScene(scene);
 		}
 
 		void CloseScene(Scene* scene)override

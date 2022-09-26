@@ -385,11 +385,6 @@ namespace Editor
 		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>(app, *this);
 		editorRenderer->SetWSI(&app.GetEngine().GetWSI());
 		editorRenderer->DisableSwapchain();
-
-		//auto world = worldEditor.GetWorld();
-		//RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
-		//ASSERT(scene);
-		//editorRenderer->SetScene(scene);
 	}
 
 	void SceneView::Update(F32 dt)
@@ -412,10 +407,6 @@ namespace Editor
 		if (moveBackAction.IsActive()) worldView->OnCameraMove(-1.0f, 0, 0, speed);
 		if (moveLeftAction.IsActive()) worldView->OnCameraMove(0.0f, -1.0f, 0, speed);
 		if (moveRightAction.IsActive()) worldView->OnCameraMove(0.0f, 1.0f, 0, speed);
-	}
-
-	void SceneView::EndFrame()
-	{
 	}
 
 	void SceneView::OnGUI()
@@ -447,7 +438,7 @@ namespace Editor
 					{
 						ImGuiTabItemFlags flags = 0;
 						bool isOpen = true;
-						if (ImGui::BeginTabItem(scene->GetName(), &isOpen, flags))
+						if (ImGui::BeginTabItem(scene->GetPath().c_str(), &isOpen, flags))
 						{
 							if (scene != editingScene)
 								editingScene = scene;

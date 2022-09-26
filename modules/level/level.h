@@ -24,6 +24,8 @@ namespace VulkanTest
 		static bool UnloadScene(Scene* scene);
 		static bool UnloadSceneAsync(Scene* scene);
 		static void UnloadAllScenes();
+		static bool SaveScene(Scene* scene);
 		static bool SaveScene(Scene* scene, rapidjson_flax::StringBuffer& outData);
+		static void SaveSceneAsync(Scene* scene);
 	};
 }

@@ -670,9 +670,11 @@ namespace Editor
                 OnHelpMenu();
                 ImGui::PopStyleVar(2);
 
-                //float w = (ImGui::GetWindowContentRegionMax().x - ImGui::GetWindowContentRegionMin().x) * 0.5f - 30 - ImGui::GetCursorPosX();
-                //ImGui::Dummy(ImVec2(w, ImGui::GetTextLineHeightWithSpacing()));
-                //GetAction("ToggleGameMode")->ToolbarButton(bigIconFont);
+                float w = (ImGui::GetWindowContentRegionMax().x - ImGui::GetWindowContentRegionMin().x) * 0.5f - 30 - ImGui::GetCursorPosX();
+                ImGui::Dummy(ImVec2(w, ImGui::GetTextLineHeightWithSpacing()));
+                GetAction("SaveEditingSecne")->ToolbarButton(bigIconFont);
+                GetAction("SaveAllSecnes")->ToolbarButton(bigIconFont);
+                GetAction("ToggleGameMode")->ToolbarButton(bigIconFont);
 
                 auto rect = Platform::GetClientBounds(mainWindow);
                 StaticString<128> fpsTxt("");
@@ -811,7 +813,8 @@ namespace Editor
         {
             // File menu item actions
             AddAction<&EditorAppImpl::Exit>("Exit");
-
+            AddAction<&EditorAppImpl::SaveEditingSecne>("SaveEditingSecne", ICON_FA_SAVE, "Save editing scene");
+            AddAction<&EditorAppImpl::SaveAllSecnes>("SaveAllSecnes", ICON_FA_SAVE, "Save all scenes");
             AddAction<&EditorAppImpl::ToggleGameMode>("ToggleGameMode", ICON_FA_PLAY, "Toggle game mode");
             AddAction<&EditorAppImpl::SetTranslateGizmoMode>("SetTranslateGizmoMode", ICON_FA_ARROWS_ALT, "Set translate mode").
                 isSelected.Bind<&Gizmo::Config::IsTranslateMode>(&gizmoConfig);
@@ -1108,6 +1111,16 @@ namespace Editor
         void Exit()
         {
             Engine::RequestExit();
+        }
+
+        void SaveEditingSecne()
+        {
+            worldEditor->SaveEditingScene();
+        }
+
+        void SaveAllSecnes()
+        {
+            worldEditor->SaveAllScenes();
         }
 
         void ToggleGameMode()

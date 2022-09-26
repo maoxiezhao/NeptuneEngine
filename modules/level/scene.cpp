@@ -56,4 +56,17 @@ namespace VulkanTest
 	{
 		DESERIALIZE_MEMBER(Name, name);
 	}
+
+#ifdef CJING3D_EDITOR
+	Path Scene::GetPath()const
+	{
+		ResourceInfo resInfo;
+		if (!ResourceManager::GetResourceInfo(GetGUID(), resInfo))
+		{
+			Logger::Warning("Unregister scene resource");
+			return Path();
+		}
+		return resInfo.path;
+	}
+#endif
 }

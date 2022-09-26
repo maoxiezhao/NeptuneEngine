@@ -55,7 +55,6 @@ namespace Editor
 
         void Init();
         void Update(F32 dt);
-        void EndFrame() override;
         void OnGUI() override;
         void LateUpdate()override;
         void Render() override;

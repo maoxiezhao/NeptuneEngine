@@ -25,6 +25,7 @@ namespace VulkanTest
 		// Entity
 		virtual ECS::Entity CreateEntity(const char* name) = 0;
 		virtual void DestroyEntity(ECS::Entity entity) = 0;
+		virtual void ForEachEntity(std::function<void(ECS::Entity, RenderComponentTag&)> func) = 0;
 
 		// Camera
 		virtual CameraComponent* GetMainCamera() = 0;
@@ -54,5 +55,8 @@ namespace VulkanTest
 			F32 intensity = 1.0f, 
 			F32 range = 10.0f) = 0;
 		virtual void ForEachLights(std::function<void(ECS::Entity, LightComponent&)> func) = 0;
+
+		void Serialize(SerializeStream& stream, const void* otherObj) override;
+		void Deserialize(DeserializeStream& stream) override;
 	};
 }

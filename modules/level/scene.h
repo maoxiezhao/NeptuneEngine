@@ -38,6 +38,10 @@ namespace VulkanTest
 			name = name_;
 		}
 
+#ifdef CJING3D_EDITOR
+		Path GetPath()const;
+#endif
+
 	private:
 		World* world;
 		String name;
