@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\scene\world.h"
 #include "json.h"
 
 #include "core\types\guid.h"
@@ -15,6 +16,7 @@ namespace VulkanTest
 		using Value = rapidjson_flax::Value ;
 
         static Guid GetGuid(const Value& value);
+        static ECS::Entity GetEntity(World* world, const Value& value);
 
         FORCE_INLINE static bool GetBool(const Value& node, const char* name, const bool defaultValue)
         {
@@ -34,6 +36,12 @@ namespace VulkanTest
             return member != node.MemberEnd() && member->value.IsInt() ? member->value.GetInt() : defaultValue;
         }
 
+        FORCE_INLINE static U32 GetUint(const Value& node, const char* name, const U32 defaultValue)
+        {
+            auto member = node.FindMember(name);
+            return member != node.MemberEnd() && member->value.IsUint() ? member->value.GetUint() : defaultValue;
+        }
+
         template<class T>
         FORCE_INLINE static T GetEnum(const Value& node, const char* name, const T defaultValue)
         {
@@ -51,6 +59,12 @@ namespace VulkanTest
         {
             auto member = node.FindMember(name);
             return member != node.MemberEnd() ? GetGuid(member->value) : Guid::Empty;
+        }
+
+        FORCE_INLINE static ECS::Entity GetEntity(const Value& node, const char* name, World* world)
+        {
+            auto member = node.FindMember(name);
+            return member != node.MemberEnd() ? GetEntity(world, member->value) : ECS::INVALID_ENTITY;
         }
 	};
 }

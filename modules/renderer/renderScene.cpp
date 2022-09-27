@@ -124,7 +124,6 @@ namespace VulkanTest
         U32 instanceArraySize = 0;
 
         // Component query
-        ECS::Query<RenderComponentTag> allEntitiesQuery;
         ECS::Query<ObjectComponent> objectQuery;
         ECS::Query<MeshComponent> meshQuery;
         ECS::Query<MaterialComponent> materialQuery;
@@ -159,7 +158,6 @@ namespace VulkanTest
         {
             cullingSystem = CullingSystem::Create();
 
-            allEntitiesQuery = world.CreateQuery<RenderComponentTag>().Build();
             objectQuery = world.CreateQuery<ObjectComponent>().Build();
             meshQuery = world.CreateQuery<MeshComponent>().Build();
             materialQuery = world.CreateQuery<MaterialComponent>().Build();
@@ -222,12 +220,6 @@ namespace VulkanTest
         void DestroyEntity(ECS::Entity entity)override
         {
             world.DeleteEntity(entity);
-        }
-
-        void ForEachEntity(std::function<void(ECS::Entity, RenderComponentTag&)> func)override
-        {
-            if (allEntitiesQuery.Valid())
-                allEntitiesQuery.ForEach(func);
         }
 
         void AddSystem(const ECS::System& system)

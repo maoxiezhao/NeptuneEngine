@@ -3,6 +3,7 @@
 #include "editor\common.h"
 #include "editor\editorPlugin.h"
 #include "editor\widgets\worldEditor.h"
+#include "core\serialization\iSerializable.h"
 
 namespace VulkanTest
 {
@@ -11,7 +12,7 @@ namespace Editor
     class EditorApp;
     class WorldEditor;
 
-    struct VULKAN_EDITOR_API EntityFolder
+    struct VULKAN_EDITOR_API EntityFolder : public ISerializable
     {
         using FolderID = U16;
         static constexpr FolderID INVALID_FOLDER = 0xffFF;
@@ -49,6 +50,9 @@ namespace Editor
         Folder& GetRootFolder() {
             return GetFolder(0);
         }
+
+        void Serialize(SerializeStream& stream, const void* otherObj) override;
+        void Deserialize(DeserializeStream& stream) override;
 
     private:
         void OnEntityCreated(ECS::Entity e);

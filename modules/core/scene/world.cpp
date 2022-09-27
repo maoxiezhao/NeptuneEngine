@@ -61,6 +61,8 @@ namespace VulkanTest
 		{
 			int len = strlen(str);
 			char* result = (char*)CJING_MALLOC(len + 1);
+			if (len == 29)
+				std::cout << (void*)result << std::endl;
 			ECS_ASSERT(result != NULL);
 			strcpy_s(result, len + 1, str);
 			return result;

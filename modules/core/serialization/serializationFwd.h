@@ -47,4 +47,11 @@ namespace VulkanTest
         if (e != stream.MemberEnd()) \
             Serialization::Deserialize(e->value, member); \
     }
+
+#define DESERIALIZE_MEMBER_WITH(name, member, stream) \
+    { \
+        const auto e = SERIALIZE_FIND_MEMBER(stream, #name); \
+        if (e != stream.MemberEnd()) \
+            Serialization::Deserialize(e->value, member); \
+    }
 }

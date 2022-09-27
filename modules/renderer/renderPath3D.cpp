@@ -6,6 +6,7 @@
 
 #include "passes\preDepthPass.h"
 #include "passes\visibilityPass.h"
+#include "passes\shadowPass.h"
 #include "passes\lightPass.h"
 #include "passes\opaquePass.h"
 #include "passes\transparentPass.h"
@@ -17,6 +18,7 @@ namespace VulkanTest
 	{
 		passArray.push_back(PreDepthPass::Instance());
 		passArray.push_back(VisibilityPass::Instance());
+		passArray.push_back(ShadowPass::Instance());
 		passArray.push_back(LightPass::Instance());
 		passArray.push_back(OpaquePass::Instance());
 		passArray.push_back(TransparentPass::Instance());

@@ -8,12 +8,21 @@ namespace VulkanTest
 	class VULKAN_TEST_API Level
 	{
 	public:
+		// Scene event callbacks
 		using SceneCallback = DelegateList<void(Scene*, const Guid&)>;
 		static SceneCallback SceneLoading;
 		static SceneCallback SceneLoaded;
 		static SceneCallback SceneUnloading;
 		static SceneCallback SceneUnloaded;
 		static SceneCallback SceneLoadError;
+		
+		// Serialize callback
+		using SceneSerializingCallback = DelegateList<void(ISerializable::SerializeStream& data, Scene* scene)>;
+		static SceneSerializingCallback SceneSerializing;
+
+		// Deserialize callback
+		using SceneDeserializingCallback = DelegateList<void(ISerializable::DeserializeStream* data, Scene* scene)>;
+		static SceneDeserializingCallback sceneDeserializing;
 
 	public:
 		static Array<Scene*>& GetScenes();

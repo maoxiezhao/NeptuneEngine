@@ -21,4 +21,13 @@ namespace VulkanTest
 		FromHexString(Span(d, 8), ret.D);
 		return ret;
 	}
+
+	ECS::Entity JsonUtils::GetEntity(World* world, const Value& value)
+	{
+		const char* path = value.GetString();
+		if (!path || StringLength(path) <= 0)
+			return ECS::INVALID_ENTITY;
+
+		return world->Entity(path);
+	}
 }

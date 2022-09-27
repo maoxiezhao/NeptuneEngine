@@ -113,7 +113,7 @@ namespace VulkanTest
 		F32x3 scale = F32x3(1.f, 1.f, 1.f);
 		FMat4x4 world = IDENTITY_MATRIX;
 		bool isDirty = false;
-		bool SetDiryt() {
+		void SetDirty() {
 			isDirty = true;
 		}
 

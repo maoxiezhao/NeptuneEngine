@@ -106,6 +106,34 @@ namespace Serialization
 	};
 
 	template<>
+	struct SerializeTypeNormalMapping<U16> : SerializeTypeBase<U16>
+	{
+		static void Serialize(ISerializable::SerializeStream& stream, const U16& v, const void* otherObj)
+		{
+			stream.Uint((U32)v);
+		}
+
+		static void Deserialize(ISerializable::DeserializeStream& stream, U16& v)
+		{
+			v = (U16)stream.GetUint();
+		}
+	};
+
+	template<>
+	struct SerializeTypeNormalMapping<U32> : SerializeTypeBase<U32>
+	{
+		static void Serialize(ISerializable::SerializeStream& stream, const U32& v, const void* otherObj)
+		{
+			stream.Uint(v);
+		}
+
+		static void Deserialize(ISerializable::DeserializeStream& stream, U32& v)
+		{
+			v = stream.GetUint();
+		}
+	};
+
+	template<>
 	struct SerializeTypeNormalMapping<F64> : SerializeTypeBase<F64>
 	{
 		static void Serialize(ISerializable::SerializeStream& stream, const F64& v, const void* otherObj)

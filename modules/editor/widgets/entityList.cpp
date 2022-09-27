@@ -1,5 +1,8 @@
 #include "entityList.h"
 #include "editor\editor.h"
+#include "core\serialization\jsonWriter.h"
+#include "core\serialization\jsonUtils.h"
+#include "core\serialization\serialization.h"
 #include "imgui-docking\imgui.h"
 #include "imgui-docking\imgui_internal.h"
 
@@ -23,6 +26,119 @@ namespace Editor
 	{
 		world.EntityCreated().Unbind<&EntityFolder::OnEntityCreated>(this);
 		world.EntityDestroyed().Unbind<&EntityFolder::OnEntityDestroyed>(this);
+	}
+
+	void EntityFolder::Serialize(SerializeStream& stream, const void* otherObj)
+	{
+		stream.StartObject();
+		stream.JKEY("Entities");
+		{
+			stream.StartArray();
+			for (auto it = entities.begin(); it != entities.end(); ++it)
+			{
+				if (it.key() == ECS::INVALID_ENTITY)
+					continue;
+
+				auto& item = it.value();
+				stream.StartObject();
+				stream.JKEY("Entity");
+				stream.String(it.key().GetPath());
+				stream.JKEY("FolderID");
+				stream.Uint((U32)item.folder);
+
+				if (item.next != ECS::INVALID_ENTITY)
+				{
+					stream.JKEY("Next");
+					stream.String(item.next.GetPath());
+				}
+				
+				if (item.prev != ECS::INVALID_ENTITY)
+				{
+					stream.JKEY("Prev");
+					stream.String(item.prev.GetPath());
+				}
+
+				stream.EndObject();
+			}
+			stream.EndArray();
+		}
+
+		stream.JKEY("FolderPool");
+		{
+			SERIALIZE_GET_OTHER_OBJ(Folder);
+			stream.StartObject();
+			stream.JKEY("FirstFree");
+			stream.Int(folderPool.firstFree);
+			stream.JKEY("Data");
+			stream.StartArray();
+			for (const auto& folder : folderPool.data)
+			{
+				stream.StartObject();
+				stream.JKEY("Name");
+				stream.String(folder.name);
+				SERIALIZE_OBJECT_MEMBER("Parent", folder, parentFolder);
+				SERIALIZE_OBJECT_MEMBER("Child", folder, childFolder);
+				SERIALIZE_OBJECT_MEMBER("Next", folder, nextFolder);
+				SERIALIZE_OBJECT_MEMBER("Prev", folder, prevFolder);
+				stream.JKEY("FirstEntity");
+				stream.String(folder.firstEntity != ECS::INVALID_ENTITY ? folder.firstEntity.GetName() : "");
+				stream.EndObject();
+			}
+			stream.EndArray();
+			stream.EndObject();
+		}
+
+		stream.EndObject();
+	}
+
+	void EntityFolder::Deserialize(DeserializeStream& stream)
+	{
+		auto entitiesDataIt = stream.FindMember("Entities");
+		if (entitiesDataIt != stream.MemberEnd())
+		{
+			auto& entitiesData = entitiesDataIt->value;
+			for (int i = 0; i < entitiesData.Size(); i++)
+			{
+				auto& entityData = entitiesData[i];
+				auto entityPath = JsonUtils::GetString(entityData, "Entity");
+				auto entity = world.Entity(entityPath);
+				if (entity == ECS::INVALID_ENTITY)
+					continue;
+
+				EntityItem entityItem = {};
+				entityItem.folder = (U16)JsonUtils::GetUint(entityData, "FolderID", 0);
+				entityItem.next = JsonUtils::GetEntity(entityData, "Next", &world);
+				entityItem.prev = JsonUtils::GetEntity(entityData, "Prev", &world);
+				entities.insert(entity, entityItem);
+			}
+		}
+
+		auto folderPoolDataIt = stream.FindMember("FolderPool");
+		if (folderPoolDataIt != stream.MemberEnd())
+		{
+			auto& folderPoolData = folderPoolDataIt->value;
+			folderPool.firstFree = JsonUtils::GetInt(folderPoolData, "FirstFree", -1);
+
+			auto folderDatasIt = folderPoolData.FindMember("Data");
+			if (folderDatasIt != folderPoolData.MemberEnd())
+			{
+				auto& folderDatas = folderDatasIt->value;
+				folderPool.data.resize(folderDatas.Size());
+				for (int i = 0; i < folderDatas.Size(); i++)
+				{
+					auto& folderData = folderDatas[i];
+					Folder& Folder = folderPool.data[i];
+					DESERIALIZE_MEMBER_WITH("Parent", Folder.parentFolder, folderData);
+					DESERIALIZE_MEMBER_WITH("Child", Folder.childFolder, folderData);
+					DESERIALIZE_MEMBER_WITH("Next", Folder.nextFolder, folderData);
+					DESERIALIZE_MEMBER_WITH("Prev", Folder.prevFolder, folderData);
+					Folder.firstEntity = JsonUtils::GetEntity(folderData, "FirstEntity", &world);
+					String name = JsonUtils::GetString(folderData, "Name");
+					memset(Folder.name, 0, sizeof(Folder.name));
+					memcpy(Folder.name, name.c_str(), name.size());
+				}
+			}
+		}
 	}
 
 	void EntityFolder::OnEntityCreated(ECS::Entity e)

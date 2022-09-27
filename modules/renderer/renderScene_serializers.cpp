@@ -15,10 +15,18 @@ namespace VulkanTest
 			static void Serialize(ISerializable::SerializeStream& stream, const TransformComponent& v, const void* otherObj)
 			{
 				SERIALIZE_GET_OTHER_OBJ(TransformComponent);	
+				SERIALIZE_OBJECT_MEMBER("Scale", v, transform.scale);
+				SERIALIZE_OBJECT_MEMBER("Rotation", v, transform.rotation);
+				SERIALIZE_OBJECT_MEMBER("Translation", v, transform.translation);
 			}
 
 			static void Deserialize(ISerializable::DeserializeStream& stream, TransformComponent& v)
 			{
+				DESERIALIZE_MEMBER("Scale", v.transform.scale);
+				DESERIALIZE_MEMBER("Rotation", v.transform.rotation);
+				DESERIALIZE_MEMBER("Translation", v.transform.translation);
+				v.transform.SetDirty();
+				v.transform.UpdateTransform();
 			}
 		};
 
@@ -42,75 +50,117 @@ namespace VulkanTest
 				DESERIALIZE_MEMBER("Range", v.range);
 			}
 		};
-	}
 
-	template<typename T>
-	inline void SerializeComponent(ISerializable::SerializeStream& stream, ECS::Entity entity, T& comp)
-	{
-		stream.StartObject();
-		stream.Key("Entity");
-		stream.String(entity.GetPath());
-		stream.Key("Component");
-		stream.StartObject();
-		Serialization::Serialize(stream, comp, nullptr);
-		stream.EndObject();
-		stream.EndObject();
-	}
-
-	template<typename T>
-	inline void SerializeComponents(ISerializable::SerializeStream& stream, const char* name)
-	{
-		stream.StartObject();
+		template<>
+		struct SerializeTypeNormalMapping<MaterialComponent> : SerializeTypeBase<MaterialComponent>
 		{
-			stream.Key(name);
-			stream.StartArray();
-			
+			static void Serialize(ISerializable::SerializeStream& stream, const MaterialComponent& v, const void* otherObj)
+			{
+				SERIALIZE_GET_OTHER_OBJ(MaterialComponent);
+			}
 
+			static void Deserialize(ISerializable::DeserializeStream& stream, MaterialComponent& v)
+			{
+			}
+		};
 
-			stream.EndArray();
-		}
-		stream.EndObject();
+		template<>
+		struct SerializeTypeNormalMapping<MeshComponent> : SerializeTypeBase<MeshComponent>
+		{
+			static void Serialize(ISerializable::SerializeStream& stream, const MeshComponent& v, const void* otherObj)
+			{
+				SERIALIZE_GET_OTHER_OBJ(MeshComponent);
+			}
+
+			static void Deserialize(ISerializable::DeserializeStream& stream, MeshComponent& v)
+			{
+			}
+		};
+
+		template<>
+		struct SerializeTypeNormalMapping<ObjectComponent> : SerializeTypeBase<ObjectComponent>
+		{
+			static void Serialize(ISerializable::SerializeStream& stream, const ObjectComponent& v, const void* otherObj)
+			{
+				SERIALIZE_GET_OTHER_OBJ(ObjectComponent);
+			}
+
+			static void Deserialize(ISerializable::DeserializeStream& stream, ObjectComponent& v)
+			{
+			}
+		};
 	}
 
 	template<typename T>
-	inline void DeserializeComponent(ISerializable::DeserializeStream& stream, World* world)
+	inline void SerializeComponents(ISerializable::SerializeStream& stream, World* world, const char* name)
 	{
-		auto path = JsonUtils::GetString(stream, "Entity");
-		auto entity = world->Entity(path);
-		entity.Add<T>();
-		auto comp = entity.GetMut<T>();
-		if (comp != nullptr)
-			Serialization::Deserialize(stream, *comp);
+		stream.Key(name);
+		stream.StartArray();
+		world->Each<T>([&](ECS::Entity entity, T& comp)
+		{
+			stream.StartObject();
+			stream.Key("Entity");
+			stream.String(entity.GetPath());
+			stream.Key("Component");
+			stream.StartObject();
+			Serialization::Serialize(stream, comp, nullptr);
+			stream.EndObject();
+			stream.EndObject();
+		});
+		stream.EndArray();
 	}
 
 	template<typename T>
 	inline void DeserializeComponents(ISerializable::DeserializeStream& stream, World* world, const char* name)
 	{
-		auto compIt = stream.FindMember("Lights");
+		auto compIt = stream.FindMember(name);
 		if (compIt != stream.MemberEnd())
 		{
 			auto& compDatas = compIt->value;
 			for (int i = 0; i < (I32)compDatas.Size(); i++)
-				DeserializeComponent<T>(compDatas[i], world);
+			{
+				auto path = JsonUtils::GetString(compDatas[i], "Entity");
+				if (path.empty())
+					continue;
+
+				auto compData = compDatas[i].FindMember("Component");
+				if (compData != compDatas[i].MemberEnd())
+				{
+					auto entity = world->Entity(path);
+					entity.Add<T>();
+					auto comp = entity.GetMut<T>();
+					if (comp != nullptr)
+						Serialization::Deserialize(compData->value, *comp);
+				}
+			}
 		}
 	}
 
 	void RenderScene::Serialize(SerializeStream& stream, const void* otherObj)
 	{
+		auto world = &GetWorld();
+		ASSERT(world != nullptr);
+
 		stream.StartObject();
 
 		// Entities
 		stream.JKEY("Entities");
 		stream.StartArray();
-		ForEachEntity([&](ECS::Entity entity, RenderComponentTag& comp){
+		world->Each<RenderComponentTag>([&](ECS::Entity entity, RenderComponentTag& comp) {
 			stream.Entity(entity);
 		});
 		stream.EndArray();
 
 		// Components
 		stream.JKEY("Components");
-		SerializeComponents<TransformComponent>(stream, "Transforms");
-		SerializeComponents<LightComponent>(stream, "Lights");
+		stream.StartObject();
+		SerializeComponents<TransformComponent>(stream, world, "Transforms");
+		SerializeComponents<MaterialComponent>(stream, world, "Materials");
+		SerializeComponents<MeshComponent>(stream, world, "Meshes");
+		SerializeComponents<ObjectComponent>(stream, world, "Objects");
+		SerializeComponents<LightComponent>(stream, world, "Lights");
+		stream.EndObject();
+
 		stream.EndObject();
 	}
 
@@ -146,6 +196,9 @@ namespace VulkanTest
 				return;
 
 			DeserializeComponents<TransformComponent>(it->value, world, "Transforms");
+			DeserializeComponents<MaterialComponent>(it->value, world, "Materials");
+			DeserializeComponents<MeshComponent>(it->value, world, "Meshes");
+			DeserializeComponents<ObjectComponent>(it->value, world, "Objects");
 			DeserializeComponents<LightComponent>(it->value, world, "Lights");
 		}
 	}

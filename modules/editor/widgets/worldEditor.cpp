@@ -4,6 +4,8 @@
 #include "editor\widgets\entityList.h"
 #include "editor\plugins\level.h"
 #include "core\utils\stateMachine.h"
+#include "core\serialization\jsonWriter.h"
+#include "core\serialization\jsonUtils.h"
 
 namespace VulkanTest
 {
@@ -129,6 +131,8 @@ namespace Editor
             editor(editor_),
             engine(editor_.GetEngine())
         {
+            Level::SceneSerializing.Bind<&WorldEditorImpl::OnSceneSerializing>(this);
+            Level::sceneDeserializing.Bind<&WorldEditorImpl::OnSceneDeserializing>(this);
         }
 
         ~WorldEditorImpl()
@@ -169,6 +173,31 @@ namespace Editor
         Scene* GetEditingScene()override
         {
             return editingScene;
+        }
+
+        void OnSceneSerializing(ISerializable::SerializeStream& data, Scene* scene)
+        {
+            auto it = entityFolderMap.find(scene->GetGUID());
+            if (!it.isValid())
+                return;
+
+            data.JKEY("EntityFolders");
+            it.value()->Serialize(data, nullptr);
+        }
+
+        void OnSceneDeserializing(ISerializable::DeserializeStream* data, Scene* scene)
+        {
+            auto dataIt = data->FindMember("EntityFolders");
+            if (dataIt == data->MemberEnd())
+                return;
+
+            auto it = entityFolderMap.find(scene->GetGUID());
+            if (!it.isValid())
+            {
+                EntityFolder* folder = CJING_NEW(EntityFolder)(*scene->GetWorld());
+                entityFolderMap.insert(scene->GetGUID(), folder);
+                folder->Deserialize(dataIt->value);
+            }
         }
 
         void SetEditingSceneImpl(Scene* scene_)
@@ -212,8 +241,13 @@ namespace Editor
             }
 
             scenes.push_back(scene_);
-            EntityFolder* folder = CJING_NEW(EntityFolder)(*scene_->GetWorld());
-            entityFolderMap.insert(scene_->GetGUID(), folder);
+
+            auto it = entityFolderMap.find(scene_->GetGUID());
+            if (!it.isValid())
+            {
+                EntityFolder* folder = CJING_NEW(EntityFolder)(*scene_->GetWorld());
+                entityFolderMap.insert(scene_->GetGUID(), folder);
+            }
             
             SetEditingScene(scene_);
         }

@@ -25,7 +25,6 @@ namespace VulkanTest
 		// Entity
 		virtual ECS::Entity CreateEntity(const char* name) = 0;
 		virtual void DestroyEntity(ECS::Entity entity) = 0;
-		virtual void ForEachEntity(std::function<void(ECS::Entity, RenderComponentTag&)> func) = 0;
 
 		// Camera
 		virtual CameraComponent* GetMainCamera() = 0;

@@ -15,6 +15,8 @@ namespace VulkanTest
 	Level::SceneCallback Level::SceneUnloading;
 	Level::SceneCallback Level::SceneUnloaded;
 	Level::SceneCallback Level::SceneLoadError;
+	Level::SceneSerializingCallback Level::SceneSerializing;
+	Level::SceneDeserializingCallback Level::sceneDeserializing;
 
 	// Scene events
 	enum class SceneEventType
@@ -141,6 +143,9 @@ namespace VulkanTest
 						pluginScene->Deserialize(it->value);
 					}
 				}
+
+				// Other serializable datas
+				Level::sceneDeserializing.Invoke(data, scene);
 			}
 
 			// Init scene
@@ -228,6 +233,9 @@ namespace VulkanTest
 						}
 					}
 					writer.EndObject();
+
+					// Other serializable datas
+					Level::SceneSerializing.Invoke(writer, scene);
 				}
 				writer.EndObject();
 
