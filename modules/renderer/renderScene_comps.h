@@ -71,10 +71,12 @@ namespace VulkanTest
 		struct MeshInfo
 		{
 			Mesh* mesh = nullptr;
+			I32 meshIndex = 0;
 			AABB aabb;
+			ECS::Entity material = ECS::INVALID_ENTITY;
+
 			U32 meshletCount = 0;
 			U32 geometryOffset = 0;
-			ECS::Entity material = ECS::INVALID_ENTITY;
 		};
 
 		ResPtr<Model> model;
@@ -88,11 +90,11 @@ namespace VulkanTest
 		AABB aabb;
 		U8 stencilRef = 0;
 		ECS::Entity mesh = ECS::INVALID_ENTITY;
+
+		// Runtime
 		F32x3 center = F32x3(0, 0, 0);
 		F32 radius = 0.0f;
 		I32 lodIndex = 0;
-
-		// Runtime
 		U32 instanceOffset = 0;
 		FMat4x4 worldMat = IDENTITY_MATRIX;
 	};

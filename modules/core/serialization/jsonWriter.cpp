@@ -70,4 +70,14 @@ namespace VulkanTest
 		Float(value.w);
 		EndObject();
 	}
+
+	void JsonWriterBase::WriteAABB(const AABB& aabb)
+	{
+		StartObject();
+		JKEY("Min");
+		Float3(aabb.min);
+		JKEY("Max");
+		Float3(aabb.max);
+		EndObject();
+	}
 }

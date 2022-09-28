@@ -4,11 +4,21 @@
 #include "core\utils\string.h"
 #include "core\scene\world.h"
 #include "math\color.h"
+#include "math\geometry.h"
 
 namespace VulkanTest
 {
 namespace Serialization
 {
+#define DESERIALIZE_HELPER(stream, name, var, defaultValue) \
+    { \
+        const auto m = SERIALIZE_FIND_MEMBER(stream, name); \
+        if (m != stream.MemberEnd()) \
+            Serialization::Deserialize(m->value, var); \
+        else \
+            var = defaultValue;\
+    }
+
 	template<typename T, typename ENABLED = void>
 	struct SerializeTypeNormalMapping;
 
@@ -40,6 +50,30 @@ namespace Serialization
 		SerializeTypeNormalMapping<typename std::decay<T>::type>>::type
 	{};
 
+	template<typename T>
+	static void Serialize(ISerializable::SerializeStream& stream, const T& v, const void* otherObj)
+	{
+		SerializeType<T>::Serialize(stream, v, otherObj);
+	}
+
+	template<typename T>
+	static void Deserialize(ISerializable::DeserializeStream& stream, T& v)
+	{
+		SerializeType<T>::Deserialize(stream, v);
+	}
+
+	template<typename T>
+	static void Deserialize(ISerializable::DeserializeStream& stream, T& v, World* world)
+	{
+		SerializeType<T>::Deserialize(stream, v, world);
+	}
+
+	template<typename T>
+	static bool ShouldSerialize(const T& v, const void* obj)
+	{
+		return SerializeType<T>::ShouldSerialize(v, obj);
+	}
+
 	inline I32 DeserializeInt(ISerializable::DeserializeStream& stream)
 	{
 		I32 result = 0;
@@ -52,7 +86,9 @@ namespace Serialization
 		return result;
 	}
 
-	void DeserializeEntity(ISerializable::DeserializeStream& stream, World* world, ECS::Entity* entityOut);
+	Guid DeserializeGuid(ISerializable::DeserializeStream& value);
+	void SerializeEntity(ISerializable::SerializeStream& stream, ECS::Entity entity);
+	ECS::Entity DeserializeEntity(ISerializable::DeserializeStream& stream, World* world);
 
 	template<typename T>
 	struct SerializeTypeBase
@@ -102,6 +138,20 @@ namespace Serialization
 		static void Deserialize(ISerializable::DeserializeStream& stream, F32& v)
 		{
 			v = stream.GetFloat();
+		}
+	};
+
+	template<>
+	struct SerializeTypeNormalMapping<U8> : SerializeTypeBase<U8>
+	{
+		static void Serialize(ISerializable::SerializeStream& stream, const U8& v, const void* otherObj)
+		{
+			stream.Uint((U32)v);
+		}
+
+		static void Deserialize(ISerializable::DeserializeStream& stream, U8& v)
+		{
+			v = (U8)stream.GetUint();
 		}
 	};
 
@@ -158,6 +208,25 @@ namespace Serialization
 		static void Deserialize(ISerializable::DeserializeStream& stream, String& v)
 		{
 			v = stream.GetString();
+		}
+	};
+
+	template<>
+	struct SerializeTypeNormalMapping<Guid> : SerializeTypeBase<Guid>
+	{
+		static void Serialize(ISerializable::SerializeStream& stream, const Guid& v, const void* otherObj)
+		{
+			stream.Guid(v);
+		}
+
+		static void Deserialize(ISerializable::DeserializeStream& stream, Guid& v)
+		{
+			v = DeserializeGuid(stream);
+		}
+
+		static bool ShouldSerialize(const Guid& v, const void* obj)
+		{
+			return v.IsValid();
 		}
 	};
 
@@ -247,22 +316,24 @@ namespace Serialization
 		}
 	};
 
-	template<typename T>
-	static void Serialize(ISerializable::SerializeStream& stream, const T& v, const void* otherObj)
+	template<>
+	struct SerializeTypeNormalMapping<AABB>
 	{
-		SerializeType<T>::Serialize(stream, v, otherObj);
-	}
+		static void Serialize(ISerializable::SerializeStream& stream, const AABB& v, const void* otherObj)
+		{
+			stream.WriteAABB(v);
+		}
 
-	template<typename T>
-	static void Deserialize(ISerializable::DeserializeStream& stream, T& v)
-	{
-		SerializeType<T>::Deserialize(stream, v);
-	}
+		static void Deserialize(ISerializable::DeserializeStream& stream, AABB& v)
+		{
+			DESERIALIZE_HELPER(stream, "Min", v.min, F32x3(0.0f));
+			DESERIALIZE_HELPER(stream, "Max", v.max, F32x3(0.0f));
+		}
 
-	template<typename T>
-	static bool ShouldSerialize(const T& v, const void* obj)
-	{
-		return SerializeType<T>::ShouldSerialize(v, obj);
-	}
+		static bool ShouldSerialize(const AABB& v, const void* obj)
+		{
+			return !obj;
+		}
+	};
 }
 }

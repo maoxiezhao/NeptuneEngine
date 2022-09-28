@@ -2,6 +2,7 @@
 
 #include "resource.h"
 #include "core\collections\hashMap.h"
+#include "core\serialization\serialization.h"
 
 namespace VulkanTest
 {
@@ -112,6 +113,11 @@ namespace VulkanTest
 		FORCE_INLINE T* operator->() const
 		{
 			return (T*)resource;
+		}
+
+		FORCE_INLINE Guid GetGuid()const 
+		{
+			return resource ? resource->GetGUID() : Guid::Empty;
 		}
 
 		FORCE_INLINE T* get() const
@@ -272,4 +278,26 @@ namespace VulkanTest
 			return key.GetHashValue();
 		}
 	};
+
+	namespace Serialization
+	{
+		template<typename T>
+		struct SerializeTypeNormalMapping<ResourceReference<T>>
+		{
+			static void Serialize(ISerializable::SerializeStream& stream, const ResourceReference<T>& v, const void* otherObj)
+			{
+				stream.Guid(v.GetGuid());
+			}
+
+			static void Deserialize(ISerializable::DeserializeStream& stream, ResourceReference<T>& v)
+			{
+				v = DeserializeGuid(stream);
+			}
+
+			static bool ShouldSerialize(const ResourceReference<T>& v, const void* obj)
+			{
+				return !obj || v.get() != ((ResourceReference<T>*)obj)->get();
+			}
+		};
+	}
 }

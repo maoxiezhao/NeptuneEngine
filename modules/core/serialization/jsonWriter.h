@@ -5,6 +5,7 @@
 #include "core\types\guid.h"
 #include "core\utils\string.h"
 #include "core\scene\world.h"
+#include "math\geometry.h"
 
 namespace VulkanTest
 {
@@ -52,6 +53,7 @@ namespace VulkanTest
         void Float2(const F32x2& value);
         void Float3(const F32x3& value);
         void Float4(const F32x4& value);
+        void WriteAABB(const AABB& aabb);
     };
 
     template<typename WriterType>

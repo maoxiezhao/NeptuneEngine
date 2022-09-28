@@ -481,6 +481,7 @@ namespace VulkanTest
                     info.aabb = mesh.aabb;
                     info.mesh = &mesh;
                     info.material = materialEntity;
+                    info.meshIndex = meshIndex;
                     meshCmp->meshes[lodIndex].push_back(info);
                     meshCmp->meshCount++;
                 }
@@ -610,7 +611,8 @@ namespace VulkanTest
                         for (auto& meshInfo : meshComp.meshes[lodIndex])
                         {
                             meshInfo.geometryOffset = geometryArraySize;
-                            geometryArraySize += meshInfo.mesh->subsets.size();
+                            if (meshInfo.mesh != nullptr)
+                                geometryArraySize += meshInfo.mesh->subsets.size();
                         }
                     }
                 });
@@ -668,10 +670,6 @@ namespace VulkanTest
             .MultiThread(true)
             .ForEach([&](ECS::Entity entity, MeshComponent& meshComp) {
 
-            auto geometryMapped = scene.geometryMapped;
-            if (!geometryMapped)
-                return;
-
             if (!meshComp.model || !meshComp.model->IsReady())
                 return;
 
@@ -683,7 +681,13 @@ namespace VulkanTest
                     // Reset meshlet count
                     meshInfo.meshletCount = 0;
 
+                    if (meshInfo.mesh == nullptr && meshInfo.meshIndex >= 0)
+                        meshInfo.mesh = meshComp.model->GetMesh(lodIndex, meshInfo.meshIndex);
+
                     auto mesh = meshInfo.mesh;
+                    if (mesh == nullptr)
+                        continue;
+
                     ShaderGeometry geometry;
                     geometry.vbPosNor = mesh->vbPosNor.srv->GetIndex();
                     geometry.vbUVs = mesh->vbUVs.srv ? mesh->vbUVs.srv->GetIndex() : -1;
@@ -698,7 +702,10 @@ namespace VulkanTest
                         geometry.meshletCount = TriangleCountToMeshletCount(subset.indexCount);
                         meshInfo.meshletCount += geometry.meshletCount;
 
-                        memcpy(geometryMapped + meshInfo.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                        auto geometryMapped = scene.geometryMapped;
+                        if (geometryMapped)
+                            memcpy(geometryMapped + meshInfo.geometryOffset + subsetIndex, &geometry, sizeof(ShaderGeometry));
+                        
                         subsetIndex++;
                     }
                 }
@@ -753,6 +760,9 @@ namespace VulkanTest
                     for (auto& meshInfo : meshComp->meshes[lodIndex])
                     {
                         auto mesh = meshInfo.mesh;
+                        if (mesh == nullptr)
+                            continue;
+
                         if (lodIndex == 0)
                             aabb.Merge(meshInfo.aabb.Transform(mat));
 

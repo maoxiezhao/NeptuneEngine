@@ -20,7 +20,7 @@ namespace VulkanTest
 				SERIALIZE_OBJECT_MEMBER("Translation", v, transform.translation);
 			}
 
-			static void Deserialize(ISerializable::DeserializeStream& stream, TransformComponent& v)
+			static void Deserialize(ISerializable::DeserializeStream& stream, TransformComponent& v, World* world)
 			{
 				DESERIALIZE_MEMBER("Scale", v.transform.scale);
 				DESERIALIZE_MEMBER("Rotation", v.transform.rotation);
@@ -42,7 +42,7 @@ namespace VulkanTest
 				SERIALIZE_OBJECT_MEMBER("Range", v, range);
 			}
 
-			static void Deserialize(ISerializable::DeserializeStream& stream, LightComponent& v)
+			static void Deserialize(ISerializable::DeserializeStream& stream, LightComponent& v, World* world)
 			{
 				DESERIALIZE_MEMBER("Color", v.color);
 				DESERIALIZE_MEMBER("Type", v.type);
@@ -57,10 +57,25 @@ namespace VulkanTest
 			static void Serialize(ISerializable::SerializeStream& stream, const MaterialComponent& v, const void* otherObj)
 			{
 				SERIALIZE_GET_OTHER_OBJ(MaterialComponent);
+				stream.JKEY("Materials");
+				stream.StartArray();
+				for (const auto& material : v.materials)
+				{
+					Serialization::Serialize(stream, material, other);
+				}
+				stream.EndArray();
 			}
 
-			static void Deserialize(ISerializable::DeserializeStream& stream, MaterialComponent& v)
+			static void Deserialize(ISerializable::DeserializeStream& stream, MaterialComponent& v, World* world)
 			{
+				auto mateiralIt = stream.FindMember("Materials");
+				if (mateiralIt != stream.MemberEnd())
+				{
+					auto& materialData = mateiralIt->value;
+					v.materials.resize(materialData.Size());
+					for (int i = 0; i < materialData.Size(); i++)
+						Serialization::Deserialize(materialData[i], v.materials[i]);
+				}
 			}
 		};
 
@@ -70,10 +85,53 @@ namespace VulkanTest
 			static void Serialize(ISerializable::SerializeStream& stream, const MeshComponent& v, const void* otherObj)
 			{
 				SERIALIZE_GET_OTHER_OBJ(MeshComponent);
+				SERIALIZE_OBJECT_MEMBER("Model", v, model);
+				SERIALIZE_OBJECT_MEMBER("LodsCount", v, lodsCount);
+				SERIALIZE_OBJECT_MEMBER("MeshCount", v, meshCount);
+				stream.JKEY("MeshInfos");
+				stream.StartArray();
+				for (int i = 0; i < v.lodsCount; i++)
+				{
+					stream.StartArray();
+					for (const auto& mesh : v.meshes[i])
+					{
+						SERIALIZE_GET_OTHER_OBJ(MeshComponent::MeshInfo);
+						stream.StartObject();
+						SERIALIZE_OBJECT_MEMBER("MeshIndex", mesh, meshIndex);
+						SERIALIZE_OBJECT_MEMBER("AABB", mesh, aabb);
+						stream.JKEY("Material");
+						Serialization::SerializeEntity(stream, mesh.material);
+						stream.EndObject();
+					}
+					stream.EndArray();
+				}
+				stream.EndArray();
 			}
 
-			static void Deserialize(ISerializable::DeserializeStream& stream, MeshComponent& v)
+			static void Deserialize(ISerializable::DeserializeStream& stream, MeshComponent& v, World* world)
 			{
+				DESERIALIZE_MEMBER("Model", v.model);
+				DESERIALIZE_MEMBER("LodsCount", v.lodsCount);
+				DESERIALIZE_MEMBER("MeshCount", v.meshCount);
+				auto meshInfosIt = stream.FindMember("MeshInfos");
+				if (meshInfosIt != stream.MemberEnd())
+				{
+					for (int lodIndex = 0; lodIndex < meshInfosIt->value.Size(); lodIndex++)
+					{
+						auto& meshInfoDatas = meshInfosIt->value[lodIndex];
+						auto& meshInfos = v.meshes[lodIndex];
+						meshInfos.resize(meshInfoDatas.Size());
+						for (int i = 0; i < meshInfoDatas.Size(); i++)
+						{
+							DESERIALIZE_MEMBER_WITH("MeshIndex", meshInfos[i].meshIndex, meshInfoDatas[i]);
+							DESERIALIZE_MEMBER_WITH("AABB", meshInfos[i].aabb, meshInfoDatas[i]);
+							
+							auto it = meshInfoDatas[i].FindMember("Material");
+							if (it != meshInfoDatas[i].MemberEnd())
+								meshInfos[i].material = Serialization::DeserializeEntity(it->value, world);
+						}
+					}
+				}
 			}
 		};
 
@@ -83,10 +141,19 @@ namespace VulkanTest
 			static void Serialize(ISerializable::SerializeStream& stream, const ObjectComponent& v, const void* otherObj)
 			{
 				SERIALIZE_GET_OTHER_OBJ(ObjectComponent);
+				SERIALIZE_OBJECT_MEMBER("AABB", v, aabb);
+				SERIALIZE_OBJECT_MEMBER("Stencil", v, stencilRef);
+				stream.JKEY("Mesh");
+				Serialization::SerializeEntity(stream, v.mesh);
 			}
 
-			static void Deserialize(ISerializable::DeserializeStream& stream, ObjectComponent& v)
+			static void Deserialize(ISerializable::DeserializeStream& stream, ObjectComponent& v, World* world)
 			{
+				DESERIALIZE_MEMBER("AABB", v.aabb);
+				DESERIALIZE_MEMBER("Stencil", v.stencilRef);
+				auto it = stream.FindMember("Mesh");
+				if (it != stream.MemberEnd())
+					v.mesh = Serialization::DeserializeEntity(it->value, world);
 			}
 		};
 	}
@@ -100,7 +167,7 @@ namespace VulkanTest
 		{
 			stream.StartObject();
 			stream.Key("Entity");
-			stream.String(entity.GetPath());
+			Serialization::SerializeEntity(stream, entity);
 			stream.Key("Component");
 			stream.StartObject();
 			Serialization::Serialize(stream, comp, nullptr);
@@ -130,7 +197,7 @@ namespace VulkanTest
 					entity.Add<T>();
 					auto comp = entity.GetMut<T>();
 					if (comp != nullptr)
-						Serialization::Deserialize(compData->value, *comp);
+						Serialization::Deserialize(compData->value, *comp, world);
 				}
 			}
 		}
@@ -184,11 +251,14 @@ namespace VulkanTest
 				auto& entityData = data[i];
 				if (entityData.IsObject())
 				{
-					Serialization::DeserializeEntity(entityData, world, nullptr);
+					auto pathData = entityData.FindMember("Path");
+					if (pathData != entityData.MemberEnd())
+					{
+						Serialization::DeserializeEntity(pathData->value, world);
+					}		
 				}
 			}
 		}
-
 		// Components
 		{
 			auto it = stream.FindMember("Components");
