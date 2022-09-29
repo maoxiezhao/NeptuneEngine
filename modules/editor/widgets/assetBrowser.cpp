@@ -612,7 +612,7 @@ namespace Editor
             if (!fs.LoadContext(from, mem))
                 return false;
 
-            return ResourceImportingManager::Create(editor, [&](CreateResourceContext& ctx)->CreateResult {
+            return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
                 IMPORT_SETUP(Texture);
 
                 // Texture header

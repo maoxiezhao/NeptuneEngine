@@ -2,30 +2,32 @@
 
 #include "editorPlugin.h"
 #include "content\resources\texture.h"
-#include "loader\tiny_obj_loader.h"
+#include "editor\importers\definition.h"
 #include "math\geometry.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
-	class VULKAN_EDITOR_API OBJImporter
+	class VULKAN_EDITOR_API ModelImporter
 	{
 	public:
-		OBJImporter(class EditorApp& editor_);
-		~OBJImporter();
+		enum class ModelType
+		{
+			Model,
+			Animation
+		};
 
 		struct ImportConfig
 		{
 			F32 scale;
 			U32 autoLodCount = 1;
 			bool autoLODs = false;
+			ModelType type = ModelType::Model;
 		};
 
 		struct ImportMesh
 		{
-			const tinyobj::mesh_t* mesh = nullptr;
-			
 			std::string name;
 			U32 lod = 0;
 			AABB aabb;
@@ -51,6 +53,7 @@ namespace Editor
 
 		struct ImportTexture
 		{
+			Guid guid = Guid::Empty;
 			Texture::TextureType type;
 			bool import = true;
 			bool toDDS = true;
@@ -60,10 +63,13 @@ namespace Editor
 
 		struct ImportMaterial
 		{
-			Guid guid;
-			const tinyobj::material_t* material = nullptr;		
+			Guid guid = Guid::Empty;
+			String name;
 			ImportTexture textures[Texture::TextureType::COUNT];
 			bool import = true;
+			F32x4 color = F32x4(1.0f);
+			F32 metallic = 0.0f;
+			F32 roughness = 1.0f;
 		};
 
 		struct ImportLOD
@@ -72,27 +78,20 @@ namespace Editor
 			I32 lodIndex = 0;
 		};
 
-		bool ImportModel(const char* filename);
-		bool WriteModel(Guid guid, const char* filepath, const ImportConfig& cfg);
+		struct ImportModel
+		{
+			Array<ImportMesh> meshes;
+			Array<ImportLOD> lods;
+			Array<ImportTexture> textures;
+			Array<ImportMaterial> materials;
+		};
+
+	public:
+		static CreateResult Import(CreateResourceContext& ctx);
+		static CreateResult WriteModel(CreateResourceContext& ctx, ImportModel& modelData);
 
 	private:
-		void PostprocessMeshes(const ImportConfig& cfg);
-		void GetImportMeshName(const ImportMesh& mesh, char(&out)[256]);
-		void WriteMesh(OutputMemoryStream& outmem, const ImportMesh& mesh);
-		bool AreIndices16Bit(const ImportMesh& mesh) const;
-		I32  GetAttributeCount(const ImportMesh& mesh)const;
-		bool WriteMaterials(const char* filepath, const ImportConfig& cfg);
-
-	private:
-		EditorApp& editor;
-
-		tinyobj::attrib_t objAttrib;
-		std::vector<tinyobj::shape_t> objShapes;
-		std::vector<tinyobj::material_t> objMaterials;
-
-		Array<ImportMesh> meshes;
-		Array<ImportLOD> lods;
-		Array<ImportMaterial> materials;
+		static bool WriteMesh(OutputMemoryStream& outMem, const ImportMesh& mesh);
 	};
 }
 }

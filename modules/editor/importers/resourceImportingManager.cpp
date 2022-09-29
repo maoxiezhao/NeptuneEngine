@@ -3,7 +3,8 @@
 #include "core\platform\timer.h"
 
 #include "material\createMaterial.h"
-#include "model\objImporter.h"
+#include "model\modelImporter.h"
+#include "texture\textureImporter.h"
 
 namespace VulkanTest
 {
@@ -11,6 +12,7 @@ namespace Editor
 {
 	const String ResourceImportingManager::CreateMaterialTag("Material");
 
+	Array<ResourceImporter> ResourceImportingManager::importers;
 	Array<ResourceCreator> ResourceImportingManager::creators;
 
 	class ResourceImportingManagerServiceImpl : public EngineService
@@ -22,10 +24,25 @@ namespace Editor
 
 		bool Init(Engine& engine) override
 		{
+			// Importers
+			ResourceImporter BuildInImporters[] = {
+
+				// Texture
+				{ "raw",  TextureImporter::Import, true },
+				{ "png",  TextureImporter::Import, true },
+				{ "jpg",  TextureImporter::Import, true },
+				{ "tga",  TextureImporter::Import, true },
+
+				// Model
+				{ "obj",  ModelImporter::Import, true}
+			};
+			for (const auto& importer : BuildInImporters)
+				ResourceImportingManager::importers.push_back(importer);
+
+			// Creators
 			ResourceCreator BuiltInCreators[] = {
 				{ ResourceImportingManager::CreateMaterialTag, CreateMaterial::Create },
 			};
-
 			for (const auto& creator : BuiltInCreators)
 				ResourceImportingManager::creators.push_back(creator);
 
@@ -35,10 +52,21 @@ namespace Editor
 
 		void Uninit() override
 		{
+			ResourceImportingManager::importers.clear();
 			ResourceImportingManager::creators.clear();
 		}
 	};
 	ResourceImportingManagerServiceImpl ResourceImportingManagerServiceImplInstance;
+
+	const ResourceImporter* ResourceImportingManager::GetImporter(const String& extension)
+	{
+		for (auto& importer : importers)
+		{
+			if (importer.extension == extension)
+				return &importer;
+		}
+		return nullptr;
+	}
 
 	const ResourceCreator* ResourceImportingManager::GetCreator(const String& tag)
 	{
@@ -50,7 +78,7 @@ namespace Editor
 		return nullptr;
 	}
 
-	bool ResourceImportingManager::Create(EditorApp& editor, const String& tag, Guid& guid, const Path& path, void* arg, bool isCompiled)
+	bool ResourceImportingManager::Create(const String& tag, Guid& guid, const Path& path, void* arg, bool isCompiled)
 	{
 		const auto creator = GetCreator(tag);
 		if (!creator)
@@ -58,17 +86,17 @@ namespace Editor
 			Logger::Warning("Cannot find resource creator for %s", tag);
 			return false;
 		}
-		return Create(editor, creator->creator, guid, path, arg, isCompiled);
+		return Create(creator->creator, guid, path, arg, isCompiled);
 	}
 
-	bool ResourceImportingManager::Create(EditorApp& editor, CreateResourceFunction createFunc, Guid& guid, const Path& path, void* arg, bool isCompiled)
+	bool ResourceImportingManager::Create(CreateResourceFunction createFunc, Guid& guid, const Path& path, void* arg, bool isCompiled)
 	{
 		const auto startTime = Timer::GetTimeSeconds();
 
 		if (!guid.IsValid())
 			guid = Guid::New();
 
-		auto& fs = editor.GetEngine().GetFileSystem();
+		auto& fs = Engine::Instance->GetFileSystem();
 	
 		// Use the same guid if resource is loaded
 		ResPtr<Resource> res = ResourceManager::GetResource(path);
@@ -95,7 +123,7 @@ namespace Editor
 			}
 		}
 
-		CreateResourceContext ctx(editor, guid, path.c_str(), isCompiled, arg);
+		CreateResourceContext ctx(guid, path.c_str(), isCompiled, arg);
 		const auto result = ctx.Create(createFunc);
 
 		// Remove ref
@@ -123,6 +151,33 @@ namespace Editor
 			Logger::Info("Faield to create resource %s", path.c_str());
 			return false;
 		}
+	}
+
+	bool ResourceImportingManager::Import(const Path& path, Guid& resID, void* arg)
+	{
+		Logger::Info("Importing file %s", path.c_str());
+		auto& fs = Engine::Instance->GetFileSystem();
+		if (!fs.FileExists(path.c_str()))
+		{
+			Logger::Error("Missing file %s", path.c_str());
+			return false;
+		}
+
+		auto extension = Path::GetExtension(path.ToSpan());
+		if (extension.length() <= 0)
+		{
+			Logger::Error("Unknown file extension %s", path.c_str());
+			return false;
+		}
+
+		const auto importer = GetImporter(extension);
+		if (importer == nullptr)
+		{
+			Logger::Error("Unknown file type %s", path.c_str());
+			return false;
+		}
+
+		return Create(importer->callback, path, arg, importer->isCompiled);
 	}
 }
 }

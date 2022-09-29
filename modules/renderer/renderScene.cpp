@@ -795,7 +795,7 @@ namespace VulkanTest
             objComp.worldMat = transform.transform.world;
 
             // Calculate LOD
-            if (meshComp != nullptr)
+            if (meshComp != nullptr && meshComp->model)
             {
                 CameraComponent* camera = scene.GetMainCamera();
                 objComp.lodIndex = meshComp->model->CalculateModelLOD(camera->eye, objComp.center, objComp.radius);

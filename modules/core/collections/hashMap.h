@@ -235,6 +235,11 @@ namespace VulkanTest
 			return true;
 		}
 
+		bool contains(const K& key)
+		{
+			return find(key).isValid();
+		}
+
 		ConstIterator find(const K& key) const
 		{
 			return { this, findPos(key) };

@@ -21,10 +21,22 @@ namespace Editor
 
 	typedef std::function<CreateResult(CreateResourceContext&)> CreateResourceFunction;
 
+	struct ResourceImporter
+	{
+		String extension;
+		CreateResourceFunction callback;
+		bool isCompiled;
+	};
+
+	struct ResourceCreator
+	{
+		String tag;
+		CreateResourceFunction creator;
+	};
+
 	class CreateResourceContext
 	{
 	public:
-		EditorApp& editor;
 		String input;
 		String output;
 		void* customArg;
@@ -34,7 +46,7 @@ namespace Editor
 		Array<DataChunk> chunks;
 
 	public:
-		CreateResourceContext(EditorApp& editor_, Guid guid, const String& output_, bool isCompiled, void* arg_);
+		CreateResourceContext(const Guid& guid, const String& output_, bool isCompiled, void* arg_);
 		~CreateResourceContext();
 
 		CreateResult Create();
@@ -46,12 +58,6 @@ namespace Editor
 		{
 			initData.customData.Write(data_);
 		}
-	};
-
-	struct ResourceCreator
-	{
-		String tag;
-		CreateResourceFunction creator;
 	};
 
 #define IMPORT_SETUP(resType) 	ctx.initData.header.type = resType::ResType;

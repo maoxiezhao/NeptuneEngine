@@ -1,5 +1,4 @@
 #include "renderer.h"
-#include "importers\resourceCreator.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
@@ -13,7 +12,7 @@
 #include "imgui-docking\imgui.h"
 
 #include "editor\importers\resourceImportingManager.h"
-#include "editor\importers\model\objImporter.h"
+#include "editor\importers\model\modelImporter.h"
 #include "editor\importers\shader\shaderCompilation.h"
 #include "editor\importers\texture\textureImporter.h"
 #include "editor\importers\material\materialPlugin.h"
@@ -46,7 +45,7 @@ namespace Editor
 				return false;
 			}
 
-			return ResourceImportingManager::Create(app, [&](CreateResourceContext& ctx)->CreateResult {
+			return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
 				IMPORT_SETUP(FontResource);
 
 				// Write header
@@ -103,10 +102,7 @@ namespace Editor
 			TextureImporter::ImportConfig config;
 			config.compress = meta.compress;
 			config.generateMipmaps = meta.generateMipmaps;
-			if (!TextureImporter::Import(app, guid, path.c_str(), config))
-				return false;
-
-			return true;
+			return ResourceImportingManager::Import(path, guid, &config);
 		}
 
 		TextureMeta GetMeta(const Path& path)const
@@ -176,35 +172,16 @@ namespace Editor
 		}
 
 		bool Compile(const Path& path, Guid guid)override
-		{
-			char ext[5] = {};
-			CopyString(Span(ext), Path::GetExtension(path.ToSpan()));
-			MakeLowercase(Span(ext), ext);
-
-			if (EqualString(ext, "obj"))
-			{
-				Meta meta = GetMeta(path);
-				OBJImporter::ImportConfig cfg = {};
-				cfg.scale = meta.scale;
-
-				OBJImporter objImporter(app);
-				if (!objImporter.ImportModel(path.c_str()))
-					return false;
-
-				objImporter.WriteModel(guid, path.c_str(), cfg);
-				return true;
-			}
-			else
-			{
-				ASSERT(false);
-				return false;
-			}
+		{			
+			Meta meta = GetMeta(path);
+			ModelImporter::ImportConfig cfg = {};
+			cfg.scale = meta.scale;
+			return ResourceImportingManager::Import(path, guid, &cfg);
 		}
 
 		Meta GetMeta(const Path& path)const
 		{
 			Meta meta = {};
-
 			return meta;
 		}
 

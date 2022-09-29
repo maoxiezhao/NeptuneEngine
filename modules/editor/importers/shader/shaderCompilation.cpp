@@ -160,7 +160,7 @@ namespace Editor
 
     bool ShaderCompilation::Write(EditorApp& editor, Guid guid, const Path& path, OutputMemoryStream& mem)
     {
-        return ResourceImportingManager::Create(editor, [&](CreateResourceContext& ctx)->CreateResult {
+        return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
             IMPORT_SETUP(Shader);
             
             // Write header

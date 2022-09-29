@@ -281,16 +281,21 @@ namespace Editor
             return true;
         }
 
-        bool Import(EditorApp& editor, Guid guid, const char* filename, const ImportConfig& config)
+        CreateResult Import(CreateResourceContext& ctx)
         {
+            ImportConfig cfg;
+            if (ctx.customArg != nullptr)
+                cfg = *static_cast<ImportConfig*>(ctx.customArg);
+
+            auto filename = ctx.input;
             ImageType type;
             if (!GetImageType(filename, type))
-                return false;
+                return CreateResult::Error;
 
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
+            FileSystem& fs = Engine::Instance->GetFileSystem();
             OutputMemoryStream mem;
             if (!fs.LoadContext(filename, mem))
-                return false;
+                return CreateResult::Error;
 
             TextureCompressor::Input input;
             switch (type)
@@ -305,13 +310,13 @@ namespace Editor
                 if (is16bit)
                 {
                     Logger::Warning("16bit images not yet supported. Converting to 8bit, %s", filename);
-                    return false;
+                    return CreateResult::Error;
                 }
 
                 int w, h, comps;
                 stbi_uc* stbData = stbi_load_from_memory(mem.Data(), (I32)mem.Size(), &w, &h, &comps, 4);
                 if (!stbData)
-                    return false;
+                    return CreateResult::Error;
 
                 GPU::TextureFormatLayout layout;
                 VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
@@ -328,20 +333,16 @@ namespace Editor
             }
             default:
                 Logger::Warning("Unknown format.");
-                return false;
+                return CreateResult::Error;
             }
 
-            return ResourceImportingManager::Create(editor, [&](CreateResourceContext& ctx)->CreateResult {          
-                IMPORT_SETUP(Texture);
-                
-                TextureCompressor::Options options;
-                options.generateMipmaps = config.generateMipmaps;
-                options.compress = config.compress;
-                if (!TextureCompressor::WriteTexture(input, options, ctx))
-                    return CreateResult::Error;
+            TextureCompressor::Options options;
+            options.generateMipmaps = cfg.generateMipmaps;
+            options.compress = cfg.compress;
+            if (!TextureCompressor::WriteTexture(input, options, ctx))
+                return CreateResult::Error;
 
-                return CreateResult::Ok;
-            }, guid, Path(filename));
+            return CreateResult::Ok;
         }
     }
 }

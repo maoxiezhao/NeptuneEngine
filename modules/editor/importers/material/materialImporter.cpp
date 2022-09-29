@@ -25,7 +25,7 @@ namespace Editor
 			return false;
 
 		// Write compiled resource
-		return ResourceImportingManager::Create(app, [&](CreateResourceContext& ctx)->CreateResult {
+		return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
 		
 			MaterialHeader header;
 			memcpy(&header.materialInfo, initData.customData.Data(), sizeof(MaterialInfo));

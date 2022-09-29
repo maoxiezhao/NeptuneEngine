@@ -1,11 +1,11 @@
-#include "resourceCreator.h"
+#include "definition.h"
 #include "editor\editor.h"
 #include "editor\importers\material\createMaterial.h"
 
 namespace VulkanTest::Editor
 {
-	CreateResourceContext::CreateResourceContext(EditorApp& editor_, Guid guid, const String& output_, bool isCompiled_, void* arg_) :
-		editor(editor_),
+	CreateResourceContext::CreateResourceContext(const Guid& guid, const String& output_, bool isCompiled_, void* arg_) :
+		input(output_),
 		output(output_),
 		isCompiled(isCompiled_),
 		customArg(arg_)
@@ -31,7 +31,7 @@ namespace VulkanTest::Editor
 			return CreateResult::SaveFailed;
 		}
 
-		FileSystem& fs = editor.GetEngine().GetFileSystem();
+		FileSystem& fs = Engine::Instance->GetFileSystem();
 		Path outputPath(output.c_str());
 		auto storage = StorageManager::TryGetStorage(outputPath, isCompiled);
 

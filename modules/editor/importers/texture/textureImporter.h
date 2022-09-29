@@ -1,6 +1,7 @@
 #pragma once
 
 #include "editorPlugin.h"
+#include "editor\importers\definition.h"
 #include "content\resources\texture.h"
 
 namespace VulkanTest
@@ -30,7 +31,7 @@ namespace Editor
             bool compress = false;
         };
 
-        bool Import(EditorApp& editor_, Guid guid, const char* filename, const ImportConfig& options);
+        CreateResult Import(CreateResourceContext& ctx);
     }
 }
 }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "editorPlugin.h"
-#include "editor\importers\resourceCreator.h"
+#include "editor\importers\definition.h"
 #include "content\resources\material.h"
 
 namespace VulkanTest

@@ -1,5 +1,4 @@
 #include "level.h"
-#include "importers\resourceCreator.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetCompiler.h"
@@ -46,7 +45,7 @@ namespace Editor
 				return false;
 			}
 
-			return ResourceImportingManager::Create(app, [&](CreateResourceContext& ctx)->CreateResult {
+			return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
 				IMPORT_SETUP(SceneResource);
 				DataChunk* shaderChunk = ctx.AllocateChunk(0);
 				shaderChunk->mem.Link(mem.Data(), mem.Size());
