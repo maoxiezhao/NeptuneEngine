@@ -85,10 +85,10 @@ namespace Editor
 	void ChangingScenesState::TryEnter()
 	{
 		// Check unload scenes
-		for (int i = 0; i < toUnloadScenes.size(); i++)
+		for (int i = 0; i < (int)toUnloadScenes.size(); i++)
 		{
 			Guid sceneID = toUnloadScenes[i]->GetGUID();
-			for (int j = 0; j < toLoadScenes.size(); i++)
+			for (int j = 0; j < (int)toLoadScenes.size(); i++)
 			{
 				if (toLoadScenes[i] == sceneID)
 				{
@@ -100,7 +100,7 @@ namespace Editor
 		}
 
 		// Skip loaded scenes
-		for (int i = 0; i < toLoadScenes.size(); i++)
+		for (int i = 0; i < (int)toLoadScenes.size(); i++)
 		{
 			if (Level::FindScene(toLoadScenes[i]) != nullptr)
 			{

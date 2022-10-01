@@ -1,0 +1,307 @@
+{
+	"ID": "6c128409445ed249135565b1d90c42de",
+	"Typename": "SceneResource",
+	"Version": 0,
+	"Data": {
+		"Scene": {
+			"ID": "6c128409445ed249135565b1d90c42de",
+			"Name": "Test"
+		},
+		"PluginScenes": {
+			"Renderer": {
+				"Entities": [
+					{
+						"Path": "box",
+						"Label": "box"
+					},
+					{
+						"Path": "box.box_",
+						"Label": "box_",
+						"Parent": "box"
+					}
+				],
+				"Components": {
+					"Transforms": [
+						{
+							"Entity": "PointLight1",
+							"Component": {
+								"\"Scale\"": {
+									"X":1.0,
+									"Y":1.0,
+									"Z":1.0
+								},
+								"\"Rotation\"": {
+									"X":0.0,
+									"Y":0.0,
+									"Z":0.0,
+									"W":1.0
+								},
+								"\"Translation\"": {
+									"X":-0.4470643997192383,
+									"Y":5.331329822540283,
+									"Z":-4.820124626159668
+								}
+							}
+						},
+						{
+							"Entity": "PointLight1.PointLight2",
+							"Component": {
+								"\"Scale\"": {
+									"X":1.0,
+									"Y":1.0,
+									"Z":1.0
+								},
+								"\"Rotation\"": {
+									"X":0.0,
+									"Y":0.0,
+									"Z":0.0,
+									"W":1.0
+								},
+								"\"Translation\"": {
+									"X":1.0,
+									"Y":1.0,
+									"Z":1.0
+								}
+							}
+						},
+						{
+							"Entity": "box",
+							"Component": {
+								"\"Scale\"": {
+									"X":1.0,
+									"Y":1.0,
+									"Z":1.0
+								},
+								"\"Rotation\"": {
+									"X":0.0,
+									"Y":0.0,
+									"Z":0.0,
+									"W":1.0
+								},
+								"\"Translation\"": {
+									"X":-1.0907983779907227,
+									"Y":0.0,
+									"Z":-3.188802719116211
+								}
+							}
+						},
+						{
+							"Entity": "box.box_",
+							"Component": {
+								"\"Scale\"": {
+									"X":1.0,
+									"Y":1.0,
+									"Z":1.0
+								},
+								"\"Rotation\"": {
+									"X":0.0,
+									"Y":0.0,
+									"Z":0.0,
+									"W":1.0
+								},
+								"\"Translation\"": {
+									"X":0.0,
+									"Y":0.0,
+									"Z":-2.5642261505126955
+								}
+							}
+						}
+					],
+					"Materials": [
+						{
+							"Entity": "box",
+							"Component": {
+								"Materials": [
+									"\u0000137a7ba4b226879152a87907bc54298"
+								]
+							}
+						},
+						{
+							"Entity": "box.box_",
+							"Component": {
+								"Materials": [
+									"\u0000137a7ba4b226879152a87907bc54298"
+								]
+							}
+						}
+					],
+					"Meshes": [
+						{
+							"Entity": "box",
+							"Component": {
+								"\"Model\"": "7ab0f5804dbffc5f8715499011406d2a",
+								"\"LodsCount\"": 1,
+								"\"MeshCount\"": 1,
+								"MeshInfos": [
+									[
+										{
+											"\"MeshIndex\"": 0,
+											"\"AABB\"": {
+												"Min": {
+													"X":-1.0,
+													"Y":-0.0,
+													"Z":-1.0000009536743165
+												},
+												"Max": {
+													"X":1.0,
+													"Y":2.0,
+													"Z":1.0000009536743165
+												}
+											},
+											"Material": "box"
+										}
+									]
+								]
+							}
+						},
+						{
+							"Entity": "box.box_",
+							"Component": {
+								"\"Model\"": "7ab0f5804dbffc5f8715499011406d2a",
+								"\"LodsCount\"": 1,
+								"\"MeshCount\"": 1,
+								"MeshInfos": [
+									[
+										{
+											"\"MeshIndex\"": 0,
+											"\"AABB\"": {
+												"Min": {
+													"X":-1.0,
+													"Y":-0.0,
+													"Z":-1.0000009536743165
+												},
+												"Max": {
+													"X":1.0,
+													"Y":2.0,
+													"Z":1.0000009536743165
+												}
+											},
+											"Material": "box.box_"
+										}
+									]
+								]
+							}
+						}
+					],
+					"Objects": [
+						{
+							"Entity": "box",
+							"Component": {
+								"\"AABB\"": {
+									"Min": {
+										"X":-2.0907983779907228,
+										"Y":0.0,
+										"Z":-4.188803672790527
+									},
+									"Max": {
+										"X":-0.09079837799072266,
+										"Y":2.0,
+										"Z":-2.1888017654418947
+									}
+								},
+								"\"Stencil\"": 0,
+								"Mesh": "box"
+							}
+						},
+						{
+							"Entity": "box.box_",
+							"Component": {
+								"\"AABB\"": {
+									"Min": {
+										"X":-2.0907983779907228,
+										"Y":0.0,
+										"Z":-6.753029823303223
+									},
+									"Max": {
+										"X":-0.09079837799072266,
+										"Y":2.0,
+										"Z":-4.75302791595459
+									}
+								},
+								"\"Stencil\"": 0,
+								"Mesh": "box.box_"
+							}
+						}
+					],
+					"Lights": [
+						{
+							"Entity": "PointLight1",
+							"Component": {
+								"\"Color\"": {
+									"X":1.0,
+									"Y":1.0,
+									"Z":1.0
+								},
+								"\"Type\"": 1,
+								"\"Intensity\"":20.0,
+								"\"Range\"":10.0
+							}
+						},
+						{
+							"Entity": "PointLight1.PointLight2",
+							"Component": {
+								"\"Color\"": {
+									"X":1.0,
+									"Y":1.0,
+									"Z":1.0
+								},
+								"\"Type\"": 1,
+								"\"Intensity\"":20.0,
+								"\"Range\"":10.0
+							}
+						}
+					]
+				}
+			}
+		},
+		"EntityFolders": {
+			"Entities": [
+				{
+					"Entity": "box.box_",
+					"FolderID": 0,
+					"Next": "box"
+				},
+				{
+					"Entity": "PointLight1",
+					"FolderID": 1
+				},
+				{
+					"Entity": "429",
+					"FolderID": 65535
+				},
+				{
+					"Entity": "box",
+					"FolderID": 0,
+					"Next": "PointLight1.PointLight2",
+					"Prev": "box.box_"
+				},
+				{
+					"Entity": "PointLight1.PointLight2",
+					"FolderID": 0,
+					"Prev": "box"
+				}
+			],
+			"FolderPool": {
+				"FirstFree": -1,
+				"Data": [
+					{
+						"Name": "root",
+						"\"Parent\"": 65535,
+						"\"Child\"": 1,
+						"\"Next\"": 65535,
+						"\"Prev\"": 65535,
+						"FirstEntity": "box.box_"
+					},
+					{
+						"Name": "Lights",
+						"\"Parent\"": 0,
+						"\"Child\"": 65535,
+						"\"Next\"": 65535,
+						"\"Prev\"": 65535,
+						"FirstEntity": "PointLight1"
+					}
+				]
+			}
+		}
+	}
+}

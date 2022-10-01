@@ -6,6 +6,7 @@ namespace VulkanTest
 {
 namespace Editor
 {
-	bool ImportModelDataObj(const char* path, ModelImporter::ImportModel& modelData, const ModelImporter::ImportConfig& cfg);
+	bool ImportModelDataOBJ(const char* path, ModelImporter::ImportModel& modelData, const ModelImporter::ImportConfig& cfg);
+	bool ImportModelDataGLTF(const char* path, ModelImporter::ImportModel& modelData, const ModelImporter::ImportConfig& cfg);
 }
 }

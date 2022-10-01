@@ -112,6 +112,45 @@ namespace Editor
             ECS::Entity entity;
             ComponentType compType;
         };
+
+        struct MakeParentCommand final : public IEditorCommand
+        {
+            MakeParentCommand(WorldEditor& worldEditor_, ECS::Entity parent_, ECS::Entity child_) :
+                worldEditor(worldEditor_),
+                parent(parent_),
+                child(child_)
+            {
+                oldFolder = worldEditor.GetEntityFolder()->GetFolder(child);
+                oldParent = child_.GetParent();
+            }
+
+            bool Execute() override
+            {
+                ASSERT(child != ECS::INVALID_ENTITY);
+                child.ChildOf(parent);
+                if (parent != ECS::INVALID_ENTITY)
+                {
+                    auto folder = worldEditor.GetEntityFolder()->GetFolder(parent);
+                    worldEditor.GetEntityFolder()->MoveToFolder(child, folder);
+                }
+                return true;
+            }
+
+            void Undo() override
+            {
+            }
+
+            const char* GetType() override {
+                return "MakeParent";
+            }
+
+        private:
+            WorldEditor& worldEditor;
+            ECS::Entity parent;
+            ECS::Entity child;
+            EntityFolder::FolderID oldFolder;
+            ECS::Entity oldParent;
+        };
     }
 
     class WorldEditorImpl : public WorldEditor
@@ -313,6 +352,12 @@ namespace Editor
         void AddComponent(ECS::Entity entity, ComponentType compType) override
         {
             UniquePtr<AddComponentCommand> command = CJING_MAKE_UNIQUE<AddComponentCommand>(*this, entity, compType);
+            ExecuteCommand(std::move(command));
+        }
+
+        void MakeParent(ECS::Entity parent, ECS::Entity child) override
+        {
+            UniquePtr<MakeParentCommand> command = CJING_MAKE_UNIQUE<MakeParentCommand>(*this, parent, child);
             ExecuteCommand(std::move(command));
         }
 

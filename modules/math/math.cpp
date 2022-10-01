@@ -8,11 +8,11 @@ namespace VulkanTest
 		if (isDirty)
 		{
 			isDirty = false;
-			world = StoreFMat4x4(GetMatrix());
+			world = StoreFMat4x4(GetLocalMatrix());
 		}
 	}
 
-	MATRIX Transform::GetMatrix() const
+	MATRIX Transform::GetLocalMatrix() const
 	{
 		VECTOR s = LoadF32x3(scale);
 		VECTOR r = LoadF32x4(rotation);

@@ -68,6 +68,7 @@ namespace Editor
         virtual ECS::Entity AddEmptyEntity() = 0;
         virtual ECS::Entity DeleteEntity(ECS::Entity entity) = 0;
         virtual void AddComponent(ECS::Entity entity, ComponentType compType) = 0;
+        virtual void MakeParent(ECS::Entity parent, ECS::Entity child) = 0;
     };
 }
 }

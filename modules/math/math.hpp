@@ -127,7 +127,7 @@ namespace VulkanTest
 		F32x4 DoTransform(const F32x4& value) const;
 
 		F32x3 GetPosition()const;
-		MATRIX GetMatrix()const;
+		MATRIX GetLocalMatrix()const;
 	};
 
 	//-----------------------------------------------------------------------------

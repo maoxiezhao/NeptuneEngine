@@ -17,7 +17,7 @@
 
 #ifdef _MSC_VER
 #pragma warning( disable :26812)
-#pragma warning( disable :4819 4996 6031)
+#pragma warning( disable :4819 4996 6031 4267)
 #define COMPILER_MSVC 1
 #define NOEXCEPT
 #else

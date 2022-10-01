@@ -251,11 +251,17 @@ namespace VulkanTest
 				auto& entityData = data[i];
 				if (entityData.IsObject())
 				{
+					ECS::Entity entity = ECS::INVALID_ENTITY;
 					auto pathData = entityData.FindMember("Path");
 					if (pathData != entityData.MemberEnd())
+						entity = Serialization::DeserializeEntity(pathData->value, world);
+					
+					if (entity != ECS::INVALID_ENTITY)
 					{
-						Serialization::DeserializeEntity(pathData->value, world);
-					}		
+						auto parentData = entityData.FindMember("Parent");
+						if (parentData != entityData.MemberEnd())
+							entity.ChildOf(Serialization::DeserializeEntity(parentData->value, world));
+					}
 				}
 			}
 		}

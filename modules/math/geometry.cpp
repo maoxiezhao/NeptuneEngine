@@ -85,7 +85,7 @@ namespace VulkanTest
 	F32 AABB::GetRadius()const
 	{
 		F32x3 width = GetHalfWidth();
-		return std::max(std::max(width.x, width.y), width.z);
+		return std::sqrt(std::pow(std::sqrt(std::pow(width.x, 2.0f) + std::pow(width.y, 2.0f)), 2.0f) + std::pow(width.z, 2.0f));
 	}
 
 	MATRIX AABB::GetAsMatrix() const

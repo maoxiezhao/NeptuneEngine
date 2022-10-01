@@ -2,6 +2,7 @@
 
 #include "editorPlugin.h"
 #include "content\resources\texture.h"
+#include "content\resources\material.h"
 #include "editor\importers\definition.h"
 #include "math\geometry.h"
 
@@ -15,7 +16,8 @@ namespace Editor
 		enum class ModelType
 		{
 			Model,
-			Animation
+			Animation,
+			Scene
 		};
 
 		struct ImportConfig
@@ -70,6 +72,9 @@ namespace Editor
 			F32x4 color = F32x4(1.0f);
 			F32 metallic = 0.0f;
 			F32 roughness = 1.0f;
+			bool doubleSided = false;
+			BlendMode blendMode = BlendMode::BLENDMODE_OPAQUE;
+			F32 alphaRef = 1.0f;
 		};
 
 		struct ImportLOD

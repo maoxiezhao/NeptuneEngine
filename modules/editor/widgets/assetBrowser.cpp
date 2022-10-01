@@ -61,6 +61,11 @@ namespace Editor
         CodeEditor codeEditor;
         HashMap<U64, IPlugin*> plugins;
 
+        I32 historyIndex = -1;
+        Array<Path> history;
+        Utils::Action backAction;
+        Utils::Action forwardAction;
+
     public:
         AssetBrowserImpl(EditorApp& editor_) :
             editor(editor_),
@@ -73,6 +78,28 @@ namespace Editor
             StaticString<MAX_PATH_LENGTH> tilePath(path, ".export/resources_tiles");
             if (!Platform::DirExists(tilePath.c_str()))
                 Platform::MakeDir(tilePath.c_str());
+
+            backAction.Init("Move back", "back", "Back in asset history", ICON_FA_ARROW_LEFT);
+            backAction.func.Bind<&AssetBrowserImpl::GoBack>(this);
+
+            forwardAction.Init("Move forward", "forward", "Forward in asset history", ICON_FA_ARROW_RIGHT);
+            forwardAction.func.Bind<&AssetBrowserImpl::GoForward>(this);
+        }
+
+
+        void GoBack()
+        {
+            if (historyIndex < 1) 
+                return;
+            historyIndex = std::max(0, historyIndex - 1);
+            SelectResource(history[historyIndex], false);
+        }
+
+
+        void GoForward()
+        {
+            historyIndex = std::min(historyIndex + 1, (I32)history.size() - 1);
+            SelectResource(history[historyIndex], false);
         }
 
         ~AssetBrowserImpl()
@@ -179,19 +206,52 @@ namespace Editor
 
         void OnResourceListChanged(const Path& path)
         {
-            Span<const char> dir = Path::GetDir(path.c_str());
-            if (dir.length() > 0 && (*(dir.pEnd - 1) == '/' || *(dir.pEnd - 1) == '\\'))
-                --dir.pEnd; // == dir[len - 1] = '\0'
-
-            if (!EqualString(dir, curDir.toSpan()))
-                return;
-
             FileSystem& fs = editor.GetEngine().GetFileSystem();
             const StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), path.c_str());
             if (Platform::DirExists(fullPath.c_str()))
             {
                 SetCurrentDir(curDir);
                 return;
+            }
+
+
+            Span<const char> dir = Path::GetDir(path.c_str());
+            if (dir.length() > 0 && (*(dir.pEnd - 1) == '/' || *(dir.pEnd - 1) == '\\')) {
+                --dir.pEnd;
+            }
+            if (!EqualString(dir, curDir.toSpan()))
+                return;
+
+            auto renderInterface = editor.GetRenderInterface();
+            for (auto& info : fileInfos)
+            {
+                if (info.filepath != path.c_str()) 
+                    continue;
+
+                switch (GetTileState(info, fs))
+                {
+                case TileState::OK:
+                    return;
+                case TileState::OUTDATED:
+                case TileState::NOT_CREATED:
+                    if (info.tex != nullptr)
+                    {
+                        renderInterface->DestroyTexture(info.tex);
+                        info.tex = nullptr;
+                    }
+                    info.isLoading = false;
+                    break;
+                case TileState::DELETED:
+                    if (info.tex != nullptr)
+                    {
+                        renderInterface->DestroyTexture(info.tex);
+                        info.tex = nullptr;
+                    }
+                    ResourceManager::DeleteResource(Path(path));
+                    break;
+                default:
+                    break;
+                }
             }
 
             fileInfos.clear();
@@ -201,6 +261,12 @@ namespace Editor
         void SetCurrentDir(const char* path)
         {
             // Clear file infos
+            auto renderInterface = editor.GetRenderInterface();
+            for (auto& info : fileInfos)
+            {
+                if (info.tex != nullptr)
+                    renderInterface->DestroyTexture(info.tex);
+            }
             fileInfos.clear();
 
             // Remove the '/' or '\\' in last pos when called Path::GetDir
@@ -262,6 +328,18 @@ namespace Editor
 
             if (ImGui::Begin(ICON_FA_IMAGE "Asset inspector##asset_inspector", &isOpen, ImGuiWindowFlags_AlwaysVerticalScrollbar))
             {
+                ImVec2 pos = ImGui::GetCursorScreenPos();
+                if (history.size() > 1) {
+                    if (ImGuiEx::BeginToolbar("asset_browser_toolbar", pos, ImVec2(0, 24)))
+                    {
+                        if (historyIndex > 0) 
+                            backAction.ToolbarButton(editor.GetBigIconFont());
+                        if (historyIndex < history.size() - 1) 
+                            forwardAction.ToolbarButton(editor.GetBigIconFont());
+                    }
+                    ImGuiEx::EndToolbar();
+                }
+
                 if (selectedResources.empty())
                 {
                     ImGui::End();
@@ -462,7 +540,7 @@ namespace Editor
                     if (ImGui::IsMouseDoubleClicked(0))
                         DoubleClickResource(Path(tile.filepath));
                     else if (ImGui::IsMouseReleased(0))
-                        SelectResource(Path(tile.filepath));
+                        SelectResource(Path(tile.filepath), true);
                     else if (ImGui::IsMouseReleased(1))
                     {
                         popupCtxResource = idx;
@@ -714,8 +792,22 @@ namespace Editor
             }
         }
 
-        void SelectResource(const Path& path)
+        void SelectResource(const Path& path, bool recordHistory)
         {
+            if (recordHistory)
+            {
+                while (historyIndex < history.size() - 1)
+                    history.pop_back();
+      
+                historyIndex++;
+                history.push_back(path);
+                if (history.size() > 20)
+                {
+                    --historyIndex;
+                    history.eraseAt(0);
+                }
+            }
+
             const ResourceType resType = editor.GetAssetCompiler().GetResourceType(path.c_str());
             ResPtr<Resource> res = ResourceManager::LoadResource(resType, path);
             if (res)

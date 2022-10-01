@@ -36,6 +36,7 @@ namespace VulkanTest
 		{
 			DIFFUSE,
 			NORMAL,
+			SURFACEMAP,
 			SPECULAR,
 			SHININESS,
 			AMBIENT,

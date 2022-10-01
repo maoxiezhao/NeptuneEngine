@@ -42,6 +42,7 @@ namespace Editor
         FolderID EmplaceFolder(FolderID parent);
         void DestroyFolder(FolderID folderID);
         FolderID GetRoot() const { return 0; }
+        FolderID GetFolder(ECS::Entity e);
         Folder& GetFolder(FolderID folderID);
         const Folder& GetFolder(FolderID folderID) const;
         ECS::Entity GetNextEntity(ECS::Entity e) const;

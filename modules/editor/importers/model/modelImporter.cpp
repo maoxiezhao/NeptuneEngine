@@ -44,8 +44,15 @@ namespace Editor
 		MakeLowercase(Span(ext), ext);
 		if (EqualString(ext, "obj"))
 		{
-			if (!ImportModelDataObj(path.c_str(), modelData, cfg))
+			if (!ImportModelDataOBJ(path.c_str(), modelData, cfg))
 				return false;
+		}
+		else if (EqualString(ext, "gltf") || EqualString(ext, "glb"))
+		{
+			if (!ImportModelDataGLTF(path.c_str(), modelData, cfg))
+				return false;
+
+			cfg.type = ModelImporter::ModelType::Scene;
 		}
 		else
 		{

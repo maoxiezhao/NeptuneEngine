@@ -25,12 +25,23 @@ namespace VulkanTest
 	void JsonWriterBase::Entity(const ECS::Entity& entity)
 	{
 		StartObject();
+
 		JKEY("Path");
 		auto path = entity.GetPath();
 		String(path.c_str(), path.length());
+
 		JKEY("Label");
 		auto name = entity.GetName();
 		String(name, StringLength(name));
+
+		auto parent = entity.GetParent();
+		if (parent != ECS::INVALID_ENTITY)
+		{
+			JKEY("Parent");
+			auto name = parent.GetName();
+			String(name, StringLength(name));
+		}
+
 		EndObject();
 	}
 

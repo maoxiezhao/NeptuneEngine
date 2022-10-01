@@ -186,10 +186,10 @@ namespace Editor
 		ECS::EntityID id = entity;
 		ImGuiEx::Label("ID");
 		ImGui::Text("%d", id);
-		ECS::EntityID parent = entity.GetParent();
+		ECS::Entity parent = entity.GetParent();
 		if (parent != ECS::INVALID_ENTITY)
 		{
-			const char* tmp = entity.GetName();
+			const char* tmp = parent.GetName();
 			ImGuiEx::Label("Parent");
 			ImGui::Text("%s", tmp);
 		}

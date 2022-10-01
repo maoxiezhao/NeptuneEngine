@@ -663,6 +663,33 @@ namespace VulkanTest
         });
     }
 
+    ECS::System HierarchyUpdateSystem(RenderSceneImpl& scene)
+    {
+        return scene.GetWorld().CreateSystem<TransformComponent>()
+            .Kind<RenderingSystem>()
+            .MultiThread(true)
+            .Arg(0).Parent().Cascade()
+            .ForEach([&](ECS::Entity entity, TransformComponent& transComp) {
+
+            auto parent = entity.GetParent();
+            if (parent == ECS::INVALID_ENTITY)
+                return;
+
+            MATRIX worldmatrix = transComp.transform.GetLocalMatrix();
+            while (parent != ECS::INVALID_ENTITYID)
+            {
+                const TransformComponent* parentTransform = parent.Get<TransformComponent>();
+                if (parentTransform != nullptr)
+                    worldmatrix *= parentTransform->transform.GetLocalMatrix();
+              
+                parent = parent.GetParent();
+            }
+
+            transComp.transform.world = StoreFMat4x4(worldmatrix);
+        });
+    }
+
+
     ECS::System MeshUpdateSystem(RenderSceneImpl& scene)
     {
         return scene.GetWorld().CreateSystem<MeshComponent>()
@@ -727,7 +754,7 @@ namespace VulkanTest
             for (int i = 0; i < materialComp.materials.size(); i++)
             {
                 auto& material = materialComp.materials[i];
-                if (material->IsReady())
+                if (material && material->IsReady())
                     material->WriteShaderMaterial(materialMapped + materialComp.materialOffset + i);
             }
          });
@@ -814,7 +841,7 @@ namespace VulkanTest
             .MultiThread(true)
             .ForEach([&](ECS::Entity entity, const TransformComponent& transform, LightComponent& light) {
 
-            MATRIX worldMat = transform.transform.GetMatrix();
+            MATRIX worldMat = LoadFMat4x4(transform.transform.world);
             VECTOR S, R, T;
             XMMatrixDecompose(&S, &R, &T, worldMat);
 
@@ -843,6 +870,7 @@ namespace VulkanTest
     void RenderSceneImpl::InitSystems()
     {
         AddSystem(TransformUpdateSystem(*this));
+        AddSystem(HierarchyUpdateSystem(*this));
         AddSystem(MeshUpdateSystem(*this));
         AddSystem(MaterialUpdateSystem(*this));
         AddSystem(ObjectUpdateSystem(*this));

@@ -81,7 +81,7 @@ namespace Editor
 				SERIALIZE_OBJECT_MEMBER("Next", folder, nextFolder);
 				SERIALIZE_OBJECT_MEMBER("Prev", folder, prevFolder);
 				stream.JKEY("FirstEntity");
-				stream.String(folder.firstEntity != ECS::INVALID_ENTITY ? folder.firstEntity.GetName() : "");
+				stream.String(folder.firstEntity != ECS::INVALID_ENTITY ? folder.firstEntity.GetPath() : "");
 				stream.EndObject();
 			}
 			stream.EndArray();
@@ -210,7 +210,7 @@ namespace Editor
 			if (item.prev != ECS::INVALID_ENTITY)
 				entities[item.prev].next = item.next;
 
-			if (item.prev != ECS::INVALID_ENTITY)
+			if (item.next != ECS::INVALID_ENTITY)
 				entities[item.next].prev = item.prev;
 
 			item.folder = INVALID_FOLDER;
@@ -254,6 +254,15 @@ namespace Editor
 		folderPool.Free(folderID);
 		if (selectedFolder == folderID)
 			folderID = 0;
+	}
+
+	EntityFolder::FolderID EntityFolder::GetFolder(ECS::Entity e)
+	{
+		auto it = entities.find(e);
+		if (!it.isValid())
+			return EntityFolder::INVALID_FOLDER;
+
+		return it.value().folder;
 	}
 
 	EntityFolder::Folder& EntityFolder::GetFolder(FolderID folderID)
@@ -538,6 +547,26 @@ namespace Editor
 
 		if (ImGui::IsItemVisible())
 		{
+			// Drag drop target
+			if (ImGui::BeginDragDropTarget())
+			{
+				auto* payload = ImGui::AcceptDragDropPayload("entity");
+				if (payload != nullptr)
+				{
+					ECS::Entity droppedEntity = *(ECS::Entity*)payload->Data;
+					if (droppedEntity != entity)
+					{
+						worldEditor.MakeParent(entity, droppedEntity);
+						ImGui::EndDragDropTarget();
+						if (nodeOpen)
+							ImGui::TreePop();
+
+						return;
+					}
+				}
+			}
+
+			// Drag drop srouce
 			if (ImGui::BeginDragDropSource())
 			{
 				// Drag source entity

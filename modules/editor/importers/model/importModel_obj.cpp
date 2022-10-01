@@ -67,7 +67,7 @@ namespace Editor
 		std::string basedir;
 	};
 
-	bool ImportModelDataObj(const char* path, ModelImporter::ImportModel& modelData, const ModelImporter::ImportConfig& cfg)
+	bool ImportModelDataOBJ(const char* path, ModelImporter::ImportModel& modelData, const ModelImporter::ImportConfig& cfg)
 	{
 		PROFILE_FUNCTION();
 
@@ -100,7 +100,7 @@ namespace Editor
 		// Gather meshes
 		auto& meshes = modelData.meshes;
 		auto& lods = modelData.lods;
-		meshes.reserve(objShapes.size());
+		meshes.reserve((U32)objShapes.size());
 		for (auto& shape : objShapes)
 		{
 			auto& mesh = meshes.emplace();
@@ -126,7 +126,7 @@ namespace Editor
 
 						auto& subset = mesh.subsets.emplace();
 						subset.materialIndex = materialIndex;
-						subset.indexOffset = i;
+						subset.indexOffset = (U32)i;
 					}
 
 					mesh.subsets.back().indexCount++;
