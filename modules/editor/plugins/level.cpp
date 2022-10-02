@@ -45,13 +45,14 @@ namespace Editor
 				return false;
 			}
 
+			const Path& resPath = ResourceStorage::GetContentPath(path, true);
 			return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
 				IMPORT_SETUP(SceneResource);
 				DataChunk* shaderChunk = ctx.AllocateChunk(0);
 				shaderChunk->mem.Link(mem.Data(), mem.Size());
 
 				return CreateResult::Ok;
-			}, guid, path);
+			}, guid, path, resPath);
 		}
 
 		std::vector<const char*> GetSupportExtensions() {

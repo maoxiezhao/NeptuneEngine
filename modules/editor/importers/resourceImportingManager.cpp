@@ -34,7 +34,9 @@ namespace Editor
 				{ "tga",  TextureImporter::Import, true },
 
 				// Model
-				{ "obj",  ModelImporter::Import, true}
+				{ "obj",  ModelImporter::Import, true},
+				{ "gltf", ModelImporter::Import, true},
+				{ "glb",  ModelImporter::Import, true},
 			};
 			for (const auto& importer : BuildInImporters)
 				ResourceImportingManager::importers.push_back(importer);
@@ -78,7 +80,7 @@ namespace Editor
 		return nullptr;
 	}
 
-	bool ResourceImportingManager::Create(const String& tag, Guid& guid, const Path& path, void* arg, bool isCompiled)
+	bool ResourceImportingManager::Create(const String& tag, Guid& guid, const Path& targetPath, void* arg, bool isCompiled)
 	{
 		const auto creator = GetCreator(tag);
 		if (!creator)
@@ -86,10 +88,10 @@ namespace Editor
 			Logger::Warning("Cannot find resource creator for %s", tag);
 			return false;
 		}
-		return Create(creator->creator, guid, path, arg, isCompiled);
+		return Create(creator->creator, guid, targetPath, targetPath, arg, isCompiled);
 	}
 
-	bool ResourceImportingManager::Create(CreateResourceFunction createFunc, Guid& guid, const Path& path, void* arg, bool isCompiled)
+	bool ResourceImportingManager::Create(CreateResourceFunction createFunc, Guid& guid, const Path& inputPath, const Path& outputPath, void* arg, bool isCompiled)
 	{
 		const auto startTime = Timer::GetTimeSeconds();
 
@@ -99,14 +101,14 @@ namespace Editor
 		auto& fs = Engine::Instance->GetFileSystem();
 	
 		// Use the same guid if resource is loaded
-		ResPtr<Resource> res = ResourceManager::GetResource(path);
+		ResPtr<Resource> res = ResourceManager::GetResource(inputPath);
 		if (res != nullptr)
 		{
 			guid = res->GetGUID();
 		}
 		else
 		{
-			const Path storagePath = ResourceStorage::GetContentPath(path, isCompiled);
+			const Path storagePath = ResourceStorage::GetContentPath(inputPath, isCompiled);
 			if (fs.FileExists(storagePath.c_str()))
 			{
 				// Load target resource and get the guid
@@ -123,7 +125,7 @@ namespace Editor
 			}
 		}
 
-		CreateResourceContext ctx(guid, path.c_str(), isCompiled, arg);
+		CreateResourceContext ctx(guid, inputPath.c_str(), outputPath.c_str(), isCompiled, arg);
 		const auto result = ctx.Create(createFunc);
 
 		// Remove ref
@@ -132,52 +134,52 @@ namespace Editor
 		if (result == CreateResult::Ok)
 		{
 			// check if is resource tile
-			if (StartsWith(path.c_str(), ".export/resources_tiles/"))
+			if (StartsWith(inputPath.c_str(), ".export/resources_tiles/"))
 			{
 				const auto endTime = Timer::GetTimeSeconds();
-				Logger::Info("Create resource time %s in %.3f s", path.c_str(), endTime - startTime);
+				Logger::Info("Create resource time %s in %.3f s", inputPath.c_str(), endTime - startTime);
 				return true;
 			}
 
 			// Register if resource is compiled
-			ResourceManager::GetCache().Register(ctx.initData.header.guid, ctx.initData.header.type, path);
+			ResourceManager::GetCache().Register(ctx.initData.header.guid, ctx.initData.header.type, inputPath);
 
 			const auto endTime = Timer::GetTimeSeconds();
-			Logger::Info("Create resource %s in %.3f s", path.c_str(), endTime - startTime);
+			Logger::Info("Create resource %s in %.3f s", inputPath.c_str(), endTime - startTime);
 			return true;
 		}
 		else
 		{
-			Logger::Info("Faield to create resource %s", path.c_str());
+			Logger::Info("Faield to create resource %s", inputPath.c_str());
 			return false;
 		}
 	}
 
-	bool ResourceImportingManager::Import(const Path& path, Guid& resID, void* arg)
+	bool ResourceImportingManager::Import(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg)
 	{
-		Logger::Info("Importing file %s", path.c_str());
+		Logger::Info("Importing file %s", inputPath.c_str());
 		auto& fs = Engine::Instance->GetFileSystem();
-		if (!fs.FileExists(path.c_str()))
+		if (!fs.FileExists(inputPath.c_str()))
 		{
-			Logger::Error("Missing file %s", path.c_str());
+			Logger::Error("Missing file %s", inputPath.c_str());
 			return false;
 		}
 
-		auto extension = Path::GetExtension(path.ToSpan());
+		auto extension = Path::GetExtension(inputPath.ToSpan());
 		if (extension.length() <= 0)
 		{
-			Logger::Error("Unknown file extension %s", path.c_str());
+			Logger::Error("Unknown file extension %s", inputPath.c_str());
 			return false;
 		}
 
 		const auto importer = GetImporter(extension);
 		if (importer == nullptr)
 		{
-			Logger::Error("Unknown file type %s", path.c_str());
+			Logger::Error("Unknown file type %s", inputPath.c_str());
 			return false;
 		}
 
-		return Create(importer->callback, path, arg, importer->isCompiled);
+		return Create(importer->callback, inputPath, outputPath, arg, importer->isCompiled);
 	}
 }
 }

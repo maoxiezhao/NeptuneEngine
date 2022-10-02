@@ -82,8 +82,9 @@ namespace Editor
 			{
 				importedFiles.insert(Path(tex.path), true);
 
+				const Path& resPath = ResourceStorage::GetContentPath(texPath, true);
 				TextureImporter::ImportConfig config = {};
-				ResourceImportingManager::Import(texPath, tex.guid, &config);
+				ResourceImportingManager::Import(texPath, resPath, tex.guid, &config);
 			}
 		}
 
@@ -98,11 +99,14 @@ namespace Editor
 			memset(&options.info, 0, sizeof(MaterialInfo));
 			options.info.domain = MaterialDomain::Object;
 			options.info.type = MaterialType::Standard;
+			options.info.side = material.doubleSided ? ObjectDoubleSided::OBJECT_DOUBLESIDED_FRONTSIDE : ObjectDoubleSided::OBJECT_DOUBLESIDED_FRONTSIDE;
+			options.info.blendMode = material.blendMode;
 
 			// BaseColor
 			options.baseColor = Color4(material.color);
 			options.metalness = material.metallic;
 			options.roughness = material.roughness;
+			options.alphaRef = material.alphaRef;
 
 			// Write textures
 			auto WriteTexture = [&material, &options](Texture::TextureType type)
@@ -155,6 +159,9 @@ namespace Editor
 		{
 		case ModelType::Model:
 			ret = WriteModel(ctx, importModelData);
+			break;
+		case ModelType::Scene:
+			ret = WriteScene(ctx, importModelData);
 			break;
 		default:
 			break;
@@ -238,6 +245,26 @@ namespace Editor
 		}
 
 		return CreateResult::Ok;
+	}
+
+	bool ModelImporter::WriteSceneNode(CreateResourceContext& ctx, ImportModel& modelData, Scene* scene, ImportNode& node)
+	{
+		return true;
+	}
+
+	CreateResult ModelImporter::WriteScene(CreateResourceContext& ctx, ImportModel& modelData)
+	{
+		auto scene = CJING_NEW(Scene)();
+		scene->SetName(ctx.input.c_str());
+
+		if (!WriteSceneNode(ctx, modelData, scene, modelData.root))
+		{
+			CJING_SAFE_DELETE(scene);
+			return CreateResult::Error;
+		}
+
+
+		return CreateResult();
 	}
 
 	I32 GetAttributeCount(const ModelImporter::ImportMesh& mesh)

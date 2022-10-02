@@ -1,5 +1,6 @@
 #pragma once
 
+#include "content\config.h"
 #include "core\utils\path.h"
 #include "core\utils\dataChunk.h"
 #include "core\types\guid.h"
@@ -7,7 +8,6 @@
 namespace VulkanTest
 {
 #define INVALID_CHUNK_INDEX (-1)
-#define MAX_RESOURCE_DATA_CHUNKS 16
 #define GET_CHUNK_FLAG(chunkIndex) (1 << chunkIndex)
 
 	class ResourceManager;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core\common.h"
+#include "config.h"
 #include "core\globals.h"
 #include "loading\resourceLoading.h"
 #include "core\filesystem\filesystem.h"

@@ -5,6 +5,7 @@
 #include "content\resources\material.h"
 #include "editor\importers\definition.h"
 #include "math\geometry.h"
+#include "level\scene.h"
 
 namespace VulkanTest
 {
@@ -69,6 +70,7 @@ namespace Editor
 			String name;
 			ImportTexture textures[Texture::TextureType::COUNT];
 			bool import = true;
+
 			F32x4 color = F32x4(1.0f);
 			F32 metallic = 0.0f;
 			F32 roughness = 1.0f;
@@ -83,20 +85,31 @@ namespace Editor
 			I32 lodIndex = 0;
 		};
 
+		struct ImportNode
+		{
+			String name;
+			Transform transform;
+			I32 meshIndex = -1;
+			Array<ImportNode> children;
+		};
+
 		struct ImportModel
 		{
 			Array<ImportMesh> meshes;
 			Array<ImportLOD> lods;
 			Array<ImportTexture> textures;
 			Array<ImportMaterial> materials;
+			ImportNode root;
 		};
 
 	public:
 		static CreateResult Import(CreateResourceContext& ctx);
 		static CreateResult WriteModel(CreateResourceContext& ctx, ImportModel& modelData);
+		static CreateResult WriteScene(CreateResourceContext& ctx, ImportModel& modelData);
 
 	private:
 		static bool WriteMesh(OutputMemoryStream& outMem, const ImportMesh& mesh);
+		static bool WriteSceneNode(CreateResourceContext& ctx, ImportModel& modelData, Scene* scene, ImportNode& node);
 	};
 }
 }

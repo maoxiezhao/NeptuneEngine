@@ -25,6 +25,7 @@ namespace Editor
 		generator.FindOrCreateEmpty("BaseColor", MaterialParameterType::Color).asColor = baseColor.GetRGBA();
 		generator.FindOrCreateEmpty("Metalness", MaterialParameterType::Float).asFloat = options->metalness;
 		generator.FindOrCreateEmpty("Roughness", MaterialParameterType::Float).asFloat = options->roughness;
+		generator.FindOrCreateEmpty("AlphaRef", MaterialParameterType::Float).asFloat = options->alphaRef;
 
 		// Write textures
 		auto WriteTexture = [options, &generator](Texture::TextureType type)

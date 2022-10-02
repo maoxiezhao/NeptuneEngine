@@ -319,6 +319,7 @@ namespace Editor
             auto& fs = editor.GetEngine().GetFileSystem();
             ResourceManager::DeleteResource(Path(fileInfos[index].filepath.c_str()));
             fs.DeleteFile(fileInfos[index].filepath.c_str());
+            selectedResources.clear();
         }
 
         void OnDetailsGUI()
@@ -703,7 +704,7 @@ namespace Editor
                 data->mem.Write(mem.Data(), mem.Size());
 
                 return CreateResult::Ok;
-            }, Path(to));
+            }, Path(from), Path(to));
         }
 
         bool CreateThumbnailTile(FileInfo& info)

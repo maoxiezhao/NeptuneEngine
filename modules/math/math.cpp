@@ -61,6 +61,24 @@ namespace VulkanTest
 		scale *= value;
 	}
 
+	void Transform::Apply()
+	{
+		SetDirty();
+		VECTOR S, R, T;
+		MatrixDecompose(&S, &R, &T, LoadFMat4x4(world));
+		scale = StoreF32x3(S);
+		rotation = StoreF32x4(R);
+		translation = StoreF32x3(T);
+	}
+
+	void Transform::Clear()
+	{
+		SetDirty();
+		translation = F32x3(0.f, 0.f, 0.f);
+		rotation = F32x4(0.f, 0.f, 0.f, 1.f);
+		scale = F32x3(1.f, 1.f, 1.f);
+	}
+
 	F32x3 Transform::DoTransform(const F32x3& value) const
 	{
 		return StoreF32x3(Vector4Transform(LoadF32x3(value), LoadFMat4x4(world)));

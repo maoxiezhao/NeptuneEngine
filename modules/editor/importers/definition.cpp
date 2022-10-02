@@ -4,8 +4,8 @@
 
 namespace VulkanTest::Editor
 {
-	CreateResourceContext::CreateResourceContext(const Guid& guid, const String& output_, bool isCompiled_, void* arg_) :
-		input(output_),
+	CreateResourceContext::CreateResourceContext(const Guid& guid, const String& input_, const String& output_, bool isCompiled_, void* arg_) :
+		input(input_),
 		output(output_),
 		isCompiled(isCompiled_),
 		customArg(arg_)
@@ -23,6 +23,10 @@ namespace VulkanTest::Editor
 		CreateResult ret = func(*this);
 		if (ret != CreateResult::Ok)
 			return ret;
+
+		// Skip for non-res resource, like json resource or custom resource type
+		if (aaa!isCompiled) // && !EndsWith(output.c_str(), RESOURCE_FILES_EXTENSION))
+			return CreateResult::Ok;
 
 		OutputMemoryStream data;
 		if (!ResourceStorage::Save(data, initData))
@@ -42,8 +46,7 @@ namespace VulkanTest::Editor
 			needReload = true;
 		}
 
-		Path storagePath = ResourceStorage::GetContentPath(outputPath, isCompiled);
-		auto file = fs.OpenFile(storagePath.c_str(), FileFlags::DEFAULT_WRITE);
+		auto file = fs.OpenFile(outputPath.c_str(), FileFlags::DEFAULT_WRITE);
 		if (!file)
 		{
 			Logger::Error("Failed to create resource file %s", output.c_str());
@@ -52,10 +55,7 @@ namespace VulkanTest::Editor
 		if (!file->Write(data.Data(), data.Size()))
 			Logger::Error("Failed to write mat file %s", output.c_str());
 
-		file->Close();
-
-		//if (storage && needReload)
-		//	storage->Reload();
+		file->Close();;
 
 		return CreateResult::Ok;
 	}

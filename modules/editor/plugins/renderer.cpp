@@ -45,6 +45,7 @@ namespace Editor
 				return false;
 			}
 
+			const Path& resPath = ResourceStorage::GetContentPath(path, true);
 			return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
 				IMPORT_SETUP(FontResource);
 
@@ -57,7 +58,7 @@ namespace Editor
 				shaderChunk->mem.Link(mem.Data(), mem.Size());
 
 				return CreateResult::Ok;
-			}, guid, path);
+			}, guid, path, resPath);
 		}
 
 		std::vector<const char*> GetSupportExtensions()
@@ -102,7 +103,9 @@ namespace Editor
 			TextureImporter::ImportConfig config;
 			config.compress = meta.compress;
 			config.generateMipmaps = meta.generateMipmaps;
-			return ResourceImportingManager::Import(path, guid, &config);
+
+			const Path& resPath = ResourceStorage::GetContentPath(path, true);
+			return ResourceImportingManager::Import(path, resPath, guid, &config);
 		}
 
 		TextureMeta GetMeta(const Path& path)const
@@ -169,6 +172,7 @@ namespace Editor
 			app(app_)
 		{
 			app_.GetAssetCompiler().RegisterExtension("obj", Model::ResType);
+			app_.GetAssetCompiler().RegisterExtension("gltf", Model::ResType);
 		}
 
 		bool Compile(const Path& path, Guid guid)override
@@ -176,7 +180,9 @@ namespace Editor
 			Meta meta = GetMeta(path);
 			ModelImporter::ImportConfig cfg = {};
 			cfg.scale = meta.scale;
-			return ResourceImportingManager::Import(path, guid, &cfg);
+
+			const Path& resPath = ResourceStorage::GetContentPath(path, true);
+			return ResourceImportingManager::Import(path, resPath, guid, &cfg);
 		}
 
 		Meta GetMeta(const Path& path)const
@@ -187,7 +193,10 @@ namespace Editor
 
 		std::vector<const char*> GetSupportExtensions()
 		{
-			return { "obj" };
+			return { 
+				"obj", 
+				"gltf" 
+			};
 		}
 	};
 

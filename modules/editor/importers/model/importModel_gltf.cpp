@@ -4,7 +4,6 @@
 
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_NO_FS
-#define TINYGLTF_NO_STB_IMAGE
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #define TINYGLTF_USE_RAPIDJSON
 #include "loader\tiny_gltf.h"
@@ -14,6 +13,109 @@ namespace VulkanTest
 namespace Editor
 {	
 	static const bool transformToLH = true;
+
+	namespace
+	{
+		bool FileExists(const std::string& name, void*)
+		{
+			auto& fs = Engine::Instance->GetFileSystem();
+			return fs.FileExists(name.c_str());
+		}
+
+		std::string ExpandFilePath(const std::string& filepath, void*)
+		{
+#ifdef _WIN32
+			DWORD len = ExpandEnvironmentStringsA(filepath.c_str(), NULL, 0);
+			char* str = new char[len];
+			ExpandEnvironmentStringsA(filepath.c_str(), str, len);
+
+			std::string s(str);
+			delete[] str;
+			return s;
+#else
+			ASSERT(false);
+#endif
+		}
+
+		bool ReadWholeFile(std::vector<unsigned char>* out, std::string* err, const std::string& filepath, void*) 
+		{
+			auto& fs = Engine::Instance->GetFileSystem();
+			OutputMemoryStream mem;
+			if (!fs.LoadContext(filepath.c_str(), mem))
+				return false;
+
+			out->resize(mem.Size());
+			memcpy(out->data(), mem.Data(), mem.Size());
+			return true;
+		}
+
+		bool WriteWholeFile(std::string* err, const std::string& filepath, const std::vector<unsigned char>& contents, void*) 
+		{
+			ASSERT(false);
+			return false;
+		}
+	}
+
+	struct LoadState
+	{
+		tinygltf::Model gltfModel;
+	};
+
+	void LoadNode(int nodeIndex, ModelImporter::ImportNode& parent, LoadState& state)
+	{
+		if (nodeIndex < 0)
+			return;
+
+		ModelImporter::ImportNode& newNode = parent.children.emplace();
+		auto& node = state.gltfModel.nodes[nodeIndex];
+		if (node.mesh >= 0)
+		{
+			if (node.skin >= 0)
+			{
+				ASSERT(false);
+			}
+			else
+			{
+				// Mesh instance
+				newNode.meshIndex = node.mesh;
+			}
+		}
+
+		Transform& transform = newNode.transform;
+		if (!node.scale.empty())
+			transform.scale = F32x3((F32)node.scale[0], (F32)node.scale[1], (F32)node.scale[2]);
+		if (!node.rotation.empty())
+			transform.rotation = F32x4((F32)node.rotation[0], (F32)node.rotation[1], (F32)node.rotation[2], (F32)node.rotation[3]);
+		if (!node.translation.empty())
+			transform.translation = F32x3((F32)node.translation[0], (F32)node.translation[1], (F32)node.translation[2]);
+		if (!node.matrix.empty())
+		{
+			transform.world._11 = (F32)node.matrix[0];
+			transform.world._12 = (F32)node.matrix[1];
+			transform.world._13 = (F32)node.matrix[2];
+			transform.world._14 = (F32)node.matrix[3];
+			transform.world._21 = (F32)node.matrix[4];
+			transform.world._22 = (F32)node.matrix[5];
+			transform.world._23 = (F32)node.matrix[6];
+			transform.world._24 = (F32)node.matrix[7];
+			transform.world._31 = (F32)node.matrix[8];
+			transform.world._32 = (F32)node.matrix[9];
+			transform.world._33 = (F32)node.matrix[10];
+			transform.world._34 = (F32)node.matrix[11];
+			transform.world._41 = (F32)node.matrix[12];
+			transform.world._42 = (F32)node.matrix[13];
+			transform.world._43 = (F32)node.matrix[14];
+			transform.world._44 = (F32)node.matrix[15];
+			transform.Apply();
+		}
+		transform.UpdateTransform();
+
+		if (!node.children.empty())
+		{
+			for (int child : node.children)
+				LoadNode(child, newNode, state);
+		}
+	}
 
 	bool ImportModelDataGLTF(const char* path, ModelImporter::ImportModel& modelData, const ModelImporter::ImportConfig& cfg)
 	{
@@ -26,6 +128,13 @@ namespace Editor
 
 		tinygltf::TinyGLTF loader;
 		tinygltf::Model gltfModel;
+
+		tinygltf::FsCallbacks callbacks;
+		callbacks.ReadWholeFile = ReadWholeFile;
+		callbacks.WriteWholeFile = WriteWholeFile;
+		callbacks.FileExists = FileExists;
+		callbacks.ExpandFilePath = ExpandFilePath;
+		loader.SetFsCallbacks(callbacks);
 
 		PathInfo pathInfo(path);		
 		char ext[5] = {};
@@ -87,14 +196,14 @@ namespace Editor
 			auto roughnessFactor = x.values.find("roughnessFactor");
 			if (roughnessFactor != x.values.end())
 			{
-				mat.roughness = float(roughnessFactor->second.Factor());
+				mat.roughness = F32(roughnessFactor->second.Factor());
 			}
 
 			// Metallic
 			auto metallicFactor = x.values.find("metallicFactor");
 			if (metallicFactor != x.values.end())
 			{
-				mat.metallic = float(metallicFactor->second.Factor());
+				mat.metallic = F32(metallicFactor->second.Factor());
 			}
 
 			// AlphaMode
@@ -111,7 +220,7 @@ namespace Editor
 			// AlphaCutoff
 			auto alphaCutoff = x.additionalValues.find("alphaCutoff");
 			if (alphaCutoff != x.additionalValues.end())
-				mat.alphaRef = 1 - float(alphaCutoff->second.Factor());
+				mat.alphaRef = 1 - F32(alphaCutoff->second.Factor());
 		
 			// Gather texture
 			auto GatherTexture = [&mat, &fs, &x, &modelData, &gltfModel](Texture::TextureType type) {
@@ -305,6 +414,17 @@ namespace Editor
 			if (lods.size() <= mesh.lod)
 				lods.resize(mesh.lod + 1);
 			lods[mesh.lod].meshes.push_back(&mesh);
+		}
+
+		// Load transform hierarchy
+		modelData.root.name = pathInfo.basename;
+
+		LoadState loadState = {};
+		loadState.gltfModel = gltfModel;
+		const tinygltf::Scene& gltfScene = gltfModel.scenes[std::max(0, gltfModel.defaultScene)];
+		for (size_t i = 0; i < gltfScene.nodes.size(); i++)
+		{
+			LoadNode(gltfScene.nodes[i], modelData.root, loadState);
 		}
 
 		return true;

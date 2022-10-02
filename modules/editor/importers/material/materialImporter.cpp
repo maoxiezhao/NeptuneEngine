@@ -25,6 +25,7 @@ namespace Editor
 			return false;
 
 		// Write compiled resource
+		const Path& taretPath = ResourceStorage::GetContentPath(path, true);
 		return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
 		
 			MaterialHeader header;
@@ -46,7 +47,7 @@ namespace Editor
 			}
 
 			return CreateResult::Ok;
-		}, initData.header.guid, path);
+		}, initData.header.guid, path, taretPath);
 	}
 }
 }

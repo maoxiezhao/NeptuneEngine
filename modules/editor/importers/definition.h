@@ -42,11 +42,10 @@ namespace Editor
 		void* customArg;
 		ResourceInitData initData;
 		bool isCompiled;
-
 		Array<DataChunk> chunks;
 
 	public:
-		CreateResourceContext(const Guid& guid, const String& output_, bool isCompiled, void* arg_);
+		CreateResourceContext(const Guid& guid, const String& input_, const String& output_, bool isCompiled, void* arg_);
 		~CreateResourceContext();
 
 		CreateResult Create();

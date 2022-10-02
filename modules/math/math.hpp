@@ -122,6 +122,8 @@ namespace VulkanTest
 		void RotateRollPitchYaw(const F32x3& value);
 		void Rotate(const F32x4& quaternion);
 		void Scale(const F32x3& value);
+		void Apply();
+		void Clear();
 
 		F32x3 DoTransform(const F32x3& value) const;
 		F32x4 DoTransform(const F32x4& value) const;

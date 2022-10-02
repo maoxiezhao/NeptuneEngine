@@ -160,6 +160,7 @@ namespace Editor
 
     bool ShaderCompilation::Write(EditorApp& editor, Guid guid, const Path& path, OutputMemoryStream& mem)
     {
+        const Path& resPath = ResourceStorage::GetContentPath(path, true);
         return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
             IMPORT_SETUP(Shader);
             
@@ -176,7 +177,7 @@ namespace Editor
             dataChunk->mem.Link(mem.Data(), mem.Size());
 
             return CreateResult::Ok;
-        }, guid, path);
+        }, guid, path, resPath);
     }
 }
 }
