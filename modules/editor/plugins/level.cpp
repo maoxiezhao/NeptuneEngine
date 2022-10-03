@@ -37,6 +37,7 @@ namespace Editor
 
 		bool Compile(const Path& path, Guid guid)override
 		{
+#if CJING3D_EDITOR
 			FileSystem& fs = app.GetEngine().GetFileSystem();
 			OutputMemoryStream mem;
 			if (!fs.LoadContext(path.c_str(), mem))
@@ -53,6 +54,9 @@ namespace Editor
 
 				return CreateResult::Ok;
 			}, guid, path, resPath);
+#else
+			return true;
+#endif
 		}
 
 		std::vector<const char*> GetSupportExtensions() {

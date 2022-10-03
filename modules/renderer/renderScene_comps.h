@@ -1,7 +1,6 @@
 #pragma once
 
 #include "rendererCommon.h"
-#include "shaderInterop_renderer.h"
 #include "renderGraph.h"
 #include "content\resources\model.h"
 
@@ -70,11 +69,11 @@ namespace VulkanTest
 	{
 		struct MeshInfo
 		{
-			Mesh* mesh = nullptr;
 			I32 meshIndex = 0;
 			AABB aabb;
 			ECS::Entity material = ECS::INVALID_ENTITY;
 
+			Mesh* mesh = nullptr;
 			U32 meshletCount = 0;
 			U32 geometryOffset = 0;
 		};

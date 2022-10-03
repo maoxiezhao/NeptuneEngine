@@ -329,10 +329,7 @@ namespace VulkanTest
 		// Read material slots
 		I32 materialCount = 0;
 		input.Read(materialCount);
-		if (materialCount <= 0)
-			return false;
 		materialSlots.resize(materialCount);
-
 		for (I32 i = 0; i < materialCount; i++)
 		{
 			// Mateiral guid

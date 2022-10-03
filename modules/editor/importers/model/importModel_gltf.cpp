@@ -68,6 +68,8 @@ namespace Editor
 
 		ModelImporter::ImportNode& newNode = parent.children.emplace();
 		auto& node = state.gltfModel.nodes[nodeIndex];
+		newNode.name = node.name;
+
 		if (node.mesh >= 0)
 		{
 			if (node.skin >= 0)
@@ -272,12 +274,13 @@ namespace Editor
 		// Gather meshes
 		auto& meshes = modelData.meshes;
 		auto& lods = modelData.lods;
-		meshes.resize((U32)gltfModel.meshes.size());
+		meshes.reserve((U32)gltfModel.meshes.size());
 		for (auto& x : gltfModel.meshes)
 		{
 			auto& mesh = meshes.emplace();
 			mesh.name = x.name;
 
+			auto& aabb = mesh.aabb;
 			for (auto& prim : x.primitives)
 			{
 				ASSERT(prim.indices >= 0);
@@ -292,8 +295,8 @@ namespace Editor
 				mesh.indices.resize(indexOffset + indexCount);
 
 				auto& subset = mesh.subsets.emplace();
-				subset.indexOffset = indexOffset;
-				subset.indexCount = indexCount;
+				subset.uniqueIndexOffset = indexOffset;
+				subset.uniqueIndexCount = indexCount;
 				subset.materialIndex = prim.material;
 
 				// Indices data
@@ -348,7 +351,12 @@ namespace Editor
 					{
 						mesh.vertexPositions.resize(vertexOffset + vertexCount);
 						for (size_t i = 0; i < vertexCount; ++i)
-							mesh.vertexPositions[vertexOffset + i] = ((F32x3*)data)[i];
+						{
+							F32x3 pos = ((F32x3*)data)[i];
+							mesh.vertexPositions[vertexOffset + i] = pos;
+							aabb.min = Min(aabb.min, pos);
+							aabb.max = Max(aabb.max, pos);
+						}
 
 						if (accessor.sparse.isSparse)
 						{

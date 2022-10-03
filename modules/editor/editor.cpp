@@ -654,6 +654,35 @@ namespace Editor
 
                 if (showDemoWindow)
                     ImGui::ShowDemoWindow(&showDemoWindow);
+
+                auto state = stateMachine.GetCurrentStateType();
+                if (state == EditorStateType::ChangingScene)
+                {
+                    const F32 uiWidth = std::max(300.f, ImGui::GetIO().DisplaySize.x * 0.33f);
+                    const ImVec2 pos = ImGui::GetMainViewport()->Pos;
+                    ImGui::SetNextWindowPos(ImVec2((ImGui::GetIO().DisplaySize.x - uiWidth) * 0.5f + pos.x, ImGui::GetIO().DisplaySize.y * 0.4f + pos.y));
+                    ImGui::SetNextWindowSize(ImVec2(uiWidth, -1));
+                    ImGui::SetNextWindowSizeConstraints(ImVec2(-FLT_MAX, 0), ImVec2(FLT_MAX, 200));
+                    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
+                        | ImGuiWindowFlags_NoFocusOnAppearing
+                        | ImGuiWindowFlags_NoInputs
+                        | ImGuiWindowFlags_NoNav
+                        | ImGuiWindowFlags_AlwaysAutoResize
+                        | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_NoSavedSettings;
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
+
+                    if (ImGui::Begin("SceneStateNotify", nullptr, flags))
+                    {
+                        ImGui::Text("%s", "Changing scenes...");
+                        static U32 totalCount = 100;
+                        static U32 currentCount = 0;
+                        ImGui::ProgressBar(((F32)currentCount) / (F32)totalCount);
+                        currentCount = (currentCount + 1) % totalCount;
+                    }
+                    ImGui::End();
+                    ImGui::PopStyleVar();
+                }
             }
         }
 

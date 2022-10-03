@@ -41,6 +41,8 @@ namespace VulkanTest
 #ifdef CJING3D_EDITOR
 		Path GetPath()const;
 #endif
+	public:
+		ECS::Entity CreateEntity(const char* name);
 
 	private:
 		World* world;

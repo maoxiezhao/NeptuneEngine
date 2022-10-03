@@ -69,4 +69,9 @@ namespace VulkanTest
 		return resInfo.path;
 	}
 #endif
+
+	ECS::Entity Scene::CreateEntity(const char* name)
+	{
+		return world->CreateEntity(name);
+	}
 }

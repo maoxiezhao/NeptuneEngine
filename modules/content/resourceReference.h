@@ -117,7 +117,7 @@ namespace VulkanTest
 
 		FORCE_INLINE Guid GetGuid()const 
 		{
-			return resource ? resource->GetGUID() : Guid::Empty;
+			return resource ? resource->GetGUID() : virtualID;
 		}
 
 		FORCE_INLINE T* get() const
@@ -134,6 +134,15 @@ namespace VulkanTest
 		{
 			OnSet(nullptr);
 		}
+
+		void SetVirtualID(const Guid& guid)
+		{
+			ASSERT(resource == nullptr);
+			virtualID = guid;
+		}
+
+	private:
+		Guid virtualID = Guid::Empty;
 	};
 
 	template<typename T>

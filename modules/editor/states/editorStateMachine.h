@@ -30,6 +30,10 @@ namespace Editor
 		void Update();
 		void SwitchState(EditorStateType stateType);
 
+		FORCE_INLINE EditorStateType GetCurrentStateType()const {
+			return stateType;
+		}
+
 		const EditorState* CurrentState()const {
 			return (EditorState*)StateMachine::CurrentState();
 		}
@@ -55,6 +59,7 @@ namespace Editor
 		EditorApp& editor;
 		Array<EditorState*> pendingStates;
 		EditorState* editorStates[(I32)EditorStateType::Count];
+		EditorStateType stateType = EditorStateType::EditingScene;
 	};
 }
 }

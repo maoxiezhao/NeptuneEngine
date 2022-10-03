@@ -214,12 +214,11 @@ namespace Editor
                 return;
             }
 
-
             Span<const char> dir = Path::GetDir(path.c_str());
             if (dir.length() > 0 && (*(dir.pEnd - 1) == '/' || *(dir.pEnd - 1) == '\\')) {
                 --dir.pEnd;
             }
-            if (!EqualString(dir, curDir.toSpan()))
+            if (!EqualString(dir, Span<const char>(curDir, curDir.length())))
                 return;
 
             auto renderInterface = editor.GetRenderInterface();
@@ -703,7 +702,8 @@ namespace Editor
                 auto data = ctx.AllocateChunk(0);
                 data->mem.Write(mem.Data(), mem.Size());
 
-                return CreateResult::Ok;
+                // Save
+                return ctx.Save();
             }, Path(from), Path(to));
         }
 
@@ -729,7 +729,8 @@ namespace Editor
                 return CopyThumbnailTile("editor/textures/tile_model.tga", tilePath.c_str());
             else if (resType == FontResource::ResType)
                 return CopyThumbnailTile("editor/textures/tile_font.tga", tilePath.c_str());       
-
+            else if (resType == SceneResource::ResType)
+                return CopyThumbnailTile("editor/textures/tile_scene.tga", tilePath.c_str());
             return false;
         }
 

@@ -451,9 +451,8 @@ namespace VulkanTest
 			return path;
 
 		StaticString<MAX_PATH_LENGTH> fullResPath;
-		if (StartsWith(path.c_str(), ".export/resources_tiles/"))
+		if (StartsWith(path.c_str(), ".export"))
 		{
-			// Resource tiles load directly
 			fullResPath = path.c_str();
 		}
 		else

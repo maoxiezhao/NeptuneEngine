@@ -51,6 +51,7 @@ namespace Editor
 		CreateResult Create();
 		CreateResult Create(const CreateResourceFunction& func);
 		DataChunk* AllocateChunk(I32 index);
+		CreateResult Save();
 
 		template<typename T>
 		void WriteCustomData(const T& data_)

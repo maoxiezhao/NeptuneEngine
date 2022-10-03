@@ -11,7 +11,8 @@ namespace VulkanTest
 namespace Editor
 {
 	const String ResourceImportingManager::CreateMaterialTag("Material");
-
+	const String ResourceImportingManager::CreateModelTag("Model");
+	
 	Array<ResourceImporter> ResourceImportingManager::importers;
 	Array<ResourceCreator> ResourceImportingManager::creators;
 
@@ -44,6 +45,7 @@ namespace Editor
 			// Creators
 			ResourceCreator BuiltInCreators[] = {
 				{ ResourceImportingManager::CreateMaterialTag, CreateMaterial::Create },
+				{ ResourceImportingManager::CreateModelTag, ModelImporter::Create },
 			};
 			for (const auto& creator : BuiltInCreators)
 				ResourceImportingManager::creators.push_back(creator);

@@ -44,7 +44,7 @@ namespace Editor
 		if (!generator.GenerateSimple(dataChunk->mem, options->info))
 			return CreateResult::Error;
 
-		return CreateResult::Ok;
+		return ctx.Save();
 	}
 }
 }

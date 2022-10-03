@@ -106,10 +106,24 @@ namespace Editor
 		static CreateResult Import(CreateResourceContext& ctx);
 		static CreateResult WriteModel(CreateResourceContext& ctx, ImportModel& modelData);
 		static CreateResult WriteScene(CreateResourceContext& ctx, ImportModel& modelData);
+		static CreateResult Create(CreateResourceContext& ctx);
 
 	private:
 		static bool WriteMesh(OutputMemoryStream& outMem, const ImportMesh& mesh);
-		static bool WriteSceneNode(CreateResourceContext& ctx, ImportModel& modelData, Scene* scene, ImportNode& node);
+
+		struct WriteSceneContext
+		{
+			ImportModel& modelData;
+			CreateResourceContext& ctx;
+			Scene* scene;
+
+			WriteSceneContext(CreateResourceContext& ctx_, ImportModel& modelData_, Scene* scene_) :
+				ctx(ctx_),
+				modelData(modelData_),
+				scene(scene_)
+			{}
+		};
+		static bool WriteSceneNode(WriteSceneContext& ctx, const ImportNode& node, ECS::Entity parent);
 	};
 }
 }

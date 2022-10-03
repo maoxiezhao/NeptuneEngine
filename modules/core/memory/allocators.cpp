@@ -83,7 +83,7 @@ namespace VulkanTest
 		}
 
 		ASSERT(page->header.itemSize > 0);
-		ASSERT(page->header.firstFree + size < sizeof(page->data));
+		ASSERT(page->header.firstFree + size <= sizeof(page->data));
 		void* mem = &page->data[page->header.firstFree];
 		page->header.firstFree = *(U32*)mem;
 

@@ -25,7 +25,7 @@ namespace VulkanTest::Editor
 			return ret;
 
 		// Skip for non-res resource, like json resource or custom resource type
-		if (aaa!isCompiled) // && !EndsWith(output.c_str(), RESOURCE_FILES_EXTENSION))
+		if (!EndsWith(output.c_str(), RESOURCE_FILES_EXTENSION))
 			return CreateResult::Ok;
 
 		OutputMemoryStream data;
@@ -55,7 +55,7 @@ namespace VulkanTest::Editor
 		if (!file->Write(data.Data(), data.Size()))
 			Logger::Error("Failed to write mat file %s", output.c_str());
 
-		file->Close();;
+		file->Close();
 
 		return CreateResult::Ok;
 	}
@@ -78,5 +78,38 @@ namespace VulkanTest::Editor
 		auto chunk = &chunks.emplace();
 		initData.header.chunks[index] = chunk;
 		return chunk;
+	}
+
+	CreateResult CreateResourceContext::Save()
+	{
+		OutputMemoryStream data;
+		if (!ResourceStorage::Save(data, initData))
+		{
+			Logger::Error("Failed to save resource storage.");
+			return CreateResult::SaveFailed;
+		}
+
+		FileSystem& fs = Engine::Instance->GetFileSystem();
+		Path outputPath(output.c_str());
+		auto storage = StorageManager::TryGetStorage(outputPath, isCompiled);
+
+		bool needReload = false;
+		if (storage && storage->IsLoaded())
+		{
+			storage->CloseContent();
+			needReload = true;
+		}
+
+		auto file = fs.OpenFile(outputPath.c_str(), FileFlags::DEFAULT_WRITE);
+		if (!file)
+		{
+			Logger::Error("Failed to create resource file %s", output.c_str());
+			return CreateResult::Error;
+		}
+		if (!file->Write(data.Data(), data.Size()))
+			Logger::Error("Failed to write mat file %s", output.c_str());
+
+		file->Close();
+		return CreateResult::Ok;
 	}
 }

@@ -19,6 +19,7 @@ namespace Editor
 		static const ResourceCreator* GetCreator(const String& tag);
 
 		static const String CreateMaterialTag;
+		static const String CreateModelTag;
 
 	public:
 		static bool Create(const String& tag, Guid& guid, const Path& targetPath, void* arg = nullptr, bool isCompiled = true);

@@ -1,6 +1,8 @@
 #include "modelImporter.h"
 #include "modelTool.h"
 #include "importModel.h"
+#include "level\level.h"
+#include "core\utils\deleteHandler.h"
 #include "editor\editor.h"
 #include "editor\importers\texture\textureImporter.h"
 #include "editor\importers\material\createMaterial.h"
@@ -90,6 +92,14 @@ namespace Editor
 
 		// Perpare materials
 		const PathInfo pathInfo(path);
+		if (!modelData.materials.empty())
+		{
+			auto& fs = Engine::Instance->GetFileSystem();
+			StaticString<MAX_PATH_LENGTH> matPath(fs.GetBasePath(), pathInfo.dir, "/", pathInfo.basename);
+			if (!Platform::DirExists(matPath.c_str()))
+				Platform::MakeDir(matPath.c_str());
+		}
+
 		for (auto& material : modelData.materials)
 		{
 			if (!material.import)
@@ -122,7 +132,7 @@ namespace Editor
 			WriteTexture(Texture::TextureType::SPECULAR);
 
 			const auto& matName = material.name;
-			StaticString<MAX_PATH_LENGTH> matPath(pathInfo.dir, matName.c_str(), ".mat");
+			StaticString<MAX_PATH_LENGTH> matPath(pathInfo.dir, "/", pathInfo.basename, "/", matName.c_str(), ".mat");
 			if (!ResourceImportingManager::Create(
 				ResourceImportingManager::CreateMaterialTag,
 				material.guid,
@@ -247,24 +257,134 @@ namespace Editor
 		return CreateResult::Ok;
 	}
 
-	bool ModelImporter::WriteSceneNode(CreateResourceContext& ctx, ImportModel& modelData, Scene* scene, ImportNode& node)
+	bool ModelImporter::WriteSceneNode(WriteSceneContext& ctx, const ImportNode& node, ECS::Entity parent)
 	{
-		return true;
+		auto entity = ctx.scene->CreateEntity(node.name.c_str());
+		if (parent != ECS::INVALID_ENTITY)
+			entity.ChildOf(parent);
+
+		// Transform
+		entity.Add<TransformComponent>();
+		auto transform = entity.GetMut<TransformComponent>();
+		if (transform != nullptr)
+		{
+			transform->transform = node.transform;
+		}
+
+		// Mesh
+		if (node.meshIndex >= 0)
+		{
+			auto& mesh = ctx.modelData.meshes[node.meshIndex];
+			if (mesh.import && !mesh.indices.empty())
+			{
+				entity.Add<ObjectComponent>()
+					.Add<MeshComponent>()
+					.Add<MaterialComponent>();
+
+				ObjectComponent* obj = entity.GetMut<ObjectComponent>();
+				obj->mesh = entity;		
+
+				// Write mesh as model resource
+				ImportModel modelData;
+				auto& lod = modelData.lods.emplace();
+				lod.meshes.push_back(&mesh);
+
+				// TEMP
+				const I32 meshLods = 1;
+				MeshComponent* meshComp = entity.GetMut<MeshComponent>();
+				meshComp->meshCount = 1;
+				meshComp->lodsCount = meshLods;
+				for (int lodIndex = 0; lodIndex < meshLods; lodIndex++)
+				{
+					auto& meshInfo = meshComp->meshes[lodIndex].emplace();
+					meshInfo.aabb = mesh.aabb;
+					meshInfo.meshIndex = 0;
+					
+					// Write scene materials
+					meshInfo.material = entity;		
+					MaterialComponent* comp = entity.GetMut<MaterialComponent>();
+					comp->materials.resize(mesh.subsets.size());
+					for (I32 i = 0; i < mesh.subsets.size(); i++)
+					{
+						auto& material = ctx.modelData.materials[mesh.subsets[i].materialIndex];
+						mesh.subsets[i].materialIndex = i;
+						comp->materials[i].SetVirtualID(material.guid);
+
+						modelData.materials.push_back(material);
+					}
+				}
+	
+				Guid modelResID = Guid::New();
+
+				PathInfo pathInfo(ctx.ctx.input);
+				StaticString<MAX_PATH_LENGTH> fullpath(pathInfo.dir, mesh.name.c_str(), RESOURCE_FILES_EXTENSION_WITH_DOT);
+				if (!ResourceImportingManager::Create(
+					ResourceImportingManager::CreateModelTag,
+					modelResID,
+					ResourceStorage::GetContentPath(Path(fullpath), true),
+					&modelData,
+					true))
+				{
+					Logger::Warning("Faield to create a mesh %s from model %s", mesh.name.c_str(), ctx.ctx.input.c_str());
+					return false;
+				}
+
+				meshComp->model.SetVirtualID(modelResID);
+			}
+		}
+
+		bool ret = true;
+		for (const auto& child : node.children)
+		{
+			if (!WriteSceneNode(ctx, child, entity))
+			{
+				ret = false;
+				break;
+			}
+		}
+		return ret;
 	}
 
 	CreateResult ModelImporter::WriteScene(CreateResourceContext& ctx, ImportModel& modelData)
 	{
+		// ScriptingObjectParams params(ctx.initData.header.guid);
 		auto scene = CJING_NEW(Scene)();
+		DeleteHandler handler(scene);
 		scene->SetName(ctx.input.c_str());
 
-		if (!WriteSceneNode(ctx, modelData, scene, modelData.root))
+		// Write scene nodes
+		WriteSceneContext writeCtx(ctx, modelData, scene);
+		if (!WriteSceneNode(writeCtx, modelData.root, ECS::INVALID_ENTITY))
 		{
-			CJING_SAFE_DELETE(scene);
+			Logger::Error("Failed to writer scene nodes %s", ctx.input.c_str());
 			return CreateResult::Error;
 		}
 
+		PathInfo pathInfo(ctx.input);
+		StaticString<MAX_PATH_LENGTH> scenePath(pathInfo.dir, pathInfo.basename, ".scene");
+		rapidjson_flax::StringBuffer outData;
+		if (!Level::SaveScene(scene, outData))
+		{
+			Logger::Warning("Failed to save scene %s", scenePath.c_str());
+			return CreateResult::Error;
+		}
 
-		return CreateResult();
+		auto& fs = Engine::Instance->GetFileSystem();
+		auto file = fs.OpenFile(scenePath.c_str(), FileFlags::DEFAULT_WRITE);
+		if (!file->IsValid())
+		{
+			Logger::Error("Failed to create the scene resource file");
+			return CreateResult::Error;
+		}
+		file->Write(outData.GetString(), outData.GetSize());
+		file->Close();
+
+		// Register scene resource
+		ResourceManager::GetCache().Register(scene->GetGUID(), SceneResource::ResType, Path(scenePath));
+
+		ctx.output = scenePath;
+		ctx.initData.header.type = SceneResource::ResType;
+		return CreateResult::Ok;
 	}
 
 	I32 GetAttributeCount(const ModelImporter::ImportMesh& mesh)
@@ -372,6 +492,20 @@ namespace Editor
 		}
 
 		return true;
+	}
+
+	CreateResult ModelImporter::Create(CreateResourceContext& ctx)
+	{
+		ASSERT(ctx.customArg != nullptr);
+		auto& modelData = *(ImportModel*)ctx.customArg;
+
+		if (modelData.lods.empty() || modelData.lods[0].meshes.empty())
+		{
+			Logger::Warning("Models has no valid meshes");
+			return CreateResult::Error;
+		}
+
+		return WriteModel(ctx, modelData);
 	}
 }
 }

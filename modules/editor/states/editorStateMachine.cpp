@@ -38,8 +38,9 @@ namespace Editor
 		}
 	}
 
-	void EditorStateMachine::SwitchState(EditorStateType stateType)
+	void EditorStateMachine::SwitchState(EditorStateType stateType_)
 	{
+		stateType = stateType_;
 		GoToState(editorStates[(I32)stateType]);
 	}
 
