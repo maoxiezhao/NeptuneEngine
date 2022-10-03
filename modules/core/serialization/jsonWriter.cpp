@@ -6,19 +6,38 @@ namespace VulkanTest
 	{
 		// 128bits => 32 chars
 		// Binary to hexadecimal
-		char buffer[32];
-		memset(buffer, 0, sizeof(buffer));
-		static const char* digits = "0123456789abcdef";
-		I32 offset = 0;
-		for (int i = 0; i < 4; i++)
+		char buffer[32] =
 		{
-			U32 value = guid.Values[i];
-			char* p = buffer + (i * 8 + 7);
-			do
-			{
-				*p-- = digits[value & 0xf];
-			} while ((value >>= 4) != 0);
-		}
+			'0','0', '0', '0', '0', '0', '0', '0',
+			'0','0', '0', '0', '0', '0', '0', '0',
+			'0','0', '0', '0', '0', '0', '0', '0',
+			'0','0', '0', '0', '0', '0', '0', '0'
+		};
+		static const char* digits = "0123456789abcdef";
+		U32 n = guid.A;
+		char* p = buffer + 7;
+		do
+		{
+			*p-- = digits[n & 0xf];
+		} while ((n >>= 4) != 0);
+		n = guid.B;
+		p = buffer + 15;
+		do
+		{
+			*p-- = digits[n & 0xf];
+		} while ((n >>= 4) != 0);
+		n = guid.C;
+		p = buffer + 23;
+		do
+		{
+			*p-- = digits[n & 0xf];
+		} while ((n >>= 4) != 0);
+		n = guid.D;
+		p = buffer + 31;
+		do
+		{
+			*p-- = digits[n & 0xf];
+		} while ((n >>= 4) != 0);
 		String(buffer, 32);
 	}
 

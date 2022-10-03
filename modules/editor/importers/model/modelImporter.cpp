@@ -317,7 +317,7 @@ namespace Editor
 				Guid modelResID = Guid::New();
 
 				PathInfo pathInfo(ctx.ctx.input);
-				StaticString<MAX_PATH_LENGTH> fullpath(pathInfo.dir, mesh.name.c_str(), RESOURCE_FILES_EXTENSION_WITH_DOT);
+				StaticString<MAX_PATH_LENGTH> fullpath(pathInfo.dir, "/", pathInfo.basename, "/", mesh.name.c_str(), RESOURCE_FILES_EXTENSION_WITH_DOT);
 				if (!ResourceImportingManager::Create(
 					ResourceImportingManager::CreateModelTag,
 					modelResID,
