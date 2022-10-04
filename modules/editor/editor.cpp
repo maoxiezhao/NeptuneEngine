@@ -1,5 +1,7 @@
 #include "editor.h"
 #include "editorUtils.h"
+#include "projectInfo.h"
+#include "core\commandLine.h"
 #include "core\platform\platform.h"
 #include "core\scene\reflection.h"
 #include "core\utils\string.h"
@@ -70,6 +72,7 @@ namespace Editor
 
         ~EditorAppImpl()
         {
+            CJING_SAFE_DELETE(project);
         }
 
         virtual U32 GetDefaultWidth() {
@@ -81,12 +84,107 @@ namespace Editor
         }
 
         virtual const char* GetWindowTitle() {
-            return "VulkanEditor";
+            return Globals::ProductName;
+        }
+
+        bool InitializeProject()
+        {
+            Globals::ProductName = "Editor";
+
+#ifdef CJING3D_TESTS
+            if (CommandLine::options.projectPath.empty())
+            {
+                char projectPath[MAX_PATH_LENGTH];
+                Platform::GetSpecialFolderPath(Platform::SpecialFolder::Temporary, projectPath);
+                CommandLine::options.projectPath = projectPath;
+            }
+            CommandLine::options.newProject = true;
+#endif
+            Path projectPath = Path(CommandLine::options.projectPath);
+            if (CommandLine::options.newProject)
+            {
+                if (projectPath.IsEmpty())
+                {
+                    char workingPath[MAX_PATH_LENGTH];
+                    Platform::GetCurrentDir(workingPath);
+                    projectPath = workingPath;
+                }
+                else if (!Platform::DirExists(projectPath.c_str()))
+                    Platform::MakeDir(projectPath.c_str());
+
+                char tmp[MAX_PATH_LENGTH];
+                memcpy(tmp, projectPath.c_str(), projectPath.Length());
+                tmp[projectPath.Length() - 1] = '\0';
+                PathInfo pathInfo(tmp);
+
+                // Create project
+                ProjectInfo project;
+                project.Name = pathInfo.basename;
+                project.ProjectPath = StaticString<MAX_PATH_LENGTH>((projectPath / project.Name).c_str(), ".proj");
+                project.ProjectFolderPath = projectPath;
+                if (!project.Save())
+                {
+                    Platform::Fatal("Failed to save project");
+                    return false;
+                }
+
+                if (!Platform::DirExists(projectPath / "content"))
+                    Platform::MakeDir(projectPath / "content");
+            }
+
+            if (projectPath.IsEmpty())
+            {
+                Platform::Fatal("Missing project");
+                return false;
+            }
+
+            if (!Platform::DirExists(projectPath.c_str()))
+            {
+                Platform::Fatal("Project folder is missing");
+                return false;
+            }
+
+            // Load project
+            Globals::ProjectFolder = projectPath;
+            Array<String> projectFiles;
+            auto fileList = FileSystem::Enumerate(projectPath);
+            for (const auto& fileInfo : fileList)
+            {
+                if (fileInfo.type != PathType::File)
+                    continue;
+
+                if (EndsWith(fileInfo.filename, ".proj"))
+                    projectFiles.push_back(fileInfo.filename);
+            }
+
+            if (projectFiles.size() == 0)
+            {
+                Platform::Fatal("Missing project file");
+                return false;
+            }
+            else if (projectFiles.size() > 1)
+            {
+                Platform::Fatal("Too many project file");
+                return false;
+            }
+
+            project = CJING_NEW(ProjectInfo);
+            if (!project->Load(Path(projectFiles[0])))
+            {
+                Platform::Fatal("Failed to load project.");
+                return false;
+            }
+
+            return true;
         }
 
         void Initialize() override
         {
             Profiler::Enable(true);
+
+            // Init project
+            if (!InitializeProject())
+                return;
 
             // Init platform
             bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
@@ -97,9 +195,7 @@ namespace Editor
             windows.push_back(mainWindow);
 
             // Create game engine
-            Engine::InitConfig config = {};
-            config.windowTitle = GetWindowTitle();
-            engine = CreateEngine(config, *this);
+            engine = CreateEngine(*this);
             Engine::Instance = engine.Get();
 
             // Init asset compiler first
@@ -544,7 +640,7 @@ namespace Editor
 
             // Load big icon font
             OutputMemoryStream iconsData;
-            if (GetEngine().GetFileSystem().LoadContext("editor/fonts/fa-solid-900.ttf", iconsData))
+            if (FileSystem::LoadContext("editor/fonts/fa-solid-900.ttf", iconsData))
             {
                 F32 iconSize = fontSize * 1.25f;
 
@@ -558,7 +654,7 @@ namespace Editor
                 cfg.MergeMode = true;
                 CopyString(cfg.Name, "editor/fonts/fa-regular-400.ttf");
                 iconsData.Clear();
-                if (engine.GetFileSystem().LoadContext(cfg.Name, iconsData))
+                if (FileSystem::LoadContext(cfg.Name, iconsData))
                 {
                     ImFont* iconsFont = io.Fonts->AddFontFromMemoryTTF((void*)iconsData.Data(), (I32)iconsData.Size(), iconSize, &cfg, iconRanges);
                     ASSERT(iconsFont);
@@ -1039,7 +1135,7 @@ namespace Editor
         {
             Engine& engine = GetEngine();
             OutputMemoryStream mem;
-            if (!engine.GetFileSystem().LoadContext(path, mem))
+            if (!FileSystem::LoadContext(path, mem))
             {
                 Logger::Error("Failed to load font %s", path);
                 return nullptr;
@@ -1066,7 +1162,7 @@ namespace Editor
 
                 static const ImWchar iconRanges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
                 OutputMemoryStream iconsData;
-                if (engine.GetFileSystem().LoadContext(config.Name, iconsData))
+                if (FileSystem::LoadContext(config.Name, iconsData))
                 {
                     ImFont* iconsFont = io.Fonts->AddFontFromMemoryTTF((void*)iconsData.Data(), (I32)iconsData.Size(), fontSize * 0.75f, &config, iconRanges);
                     ASSERT(iconsFont);
@@ -1074,7 +1170,7 @@ namespace Editor
 
                 CopyString(config.Name, "editor/fonts/fa-solid-900.ttf");
                 iconsData.Clear();
-                if (engine.GetFileSystem().LoadContext(config.Name, iconsData))
+                if (FileSystem::LoadContext(config.Name, iconsData))
                 {
                     ImFont* iconsFont = io.Fonts->AddFontFromMemoryTTF((void*)iconsData.Data(), (I32)iconsData.Size(), fontSize * 0.75f, &config, iconRanges);
                     ASSERT(iconsFont);
@@ -1173,6 +1269,7 @@ namespace Editor
         }
 
     private:
+        ProjectInfo* project = nullptr;
         Array<EditorPlugin*> plugins;
         Array<EditorWidget*> widgets;
         Array<Utils::Action*> actions;
@@ -1230,7 +1327,6 @@ namespace Editor
     
     void EditorApp::Destroy(EditorApp* app)
     {
-        // CJING_SAFE_DELETE(app);
     }
 }
 }

@@ -64,7 +64,7 @@ namespace ImGuiRenderer
 		io.Fonts->SetTexID((ImTextureID)&(*fontTexture));
 
 		// Load shader
-		shader = ResourceManager::LoadResource<Shader>(Path("shaders/editor/imGui.shd"));
+		shader = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/editor/imGui.shd"));
 	}
 
 	static void UpdateImGuiMonitors() 

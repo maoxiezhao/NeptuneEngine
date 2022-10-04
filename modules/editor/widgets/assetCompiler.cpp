@@ -76,7 +76,10 @@ namespace Editor
         Semaphore semaphore;
         LoadHook lookHook;
 
+#if 0
         UniquePtr<Platform::FileSystemWatcher> watcher;
+#endif
+        
         Mutex changedMutex;
         Array<Path> changedDirs;
         Array<Path> changedFiles;
@@ -99,17 +102,16 @@ namespace Editor
             compilerTask(*this)
         {
             Engine& engine = editor.GetEngine();
-            FileSystem& fs = engine.GetFileSystem();
-
-            watcher = Platform::FileSystemWatcher::Create(fs.GetBasePath());
+#if 0
+            watcher = Platform::FileSystemWatcher::Create(Globals::ProjectContentFolder);
             watcher->GetCallback().Bind<&AssetCompilerImpl::OnFileChanged>(this);
+#endif
 
             // Setup compiler task
             compilerTask.Create("CompilerTask");
 
             // Check the export director
-            const char* basePath = fs.GetBasePath();
-            StaticString<MAX_PATH_LENGTH> path(basePath, ".export/editor");
+            StaticString<MAX_PATH_LENGTH> path(".export/editor");
             if (!Platform::DirExists(path.c_str()))
             {
                 if (!Platform::MakeDir(path.c_str()))
@@ -119,7 +121,7 @@ namespace Editor
                 }
 
                 // Create version file
-                auto file = fs.OpenFile(EXPORT_RESOURCE_VERSION, FileFlags::DEFAULT_WRITE);
+                auto file = FileSystem::OpenFile(EXPORT_RESOURCE_VERSION, FileFlags::DEFAULT_WRITE);
                 if (!file->IsValid())
                 {
                     Logger::Error("Failed to create the version file of resources");
@@ -131,7 +133,7 @@ namespace Editor
             }
 
             // Check the version file
-            auto file = fs.OpenFile(EXPORT_RESOURCE_VERSION, FileFlags::DEFAULT_READ);
+            auto file = FileSystem::OpenFile(EXPORT_RESOURCE_VERSION, FileFlags::DEFAULT_READ);
             if (!file->IsValid())
             {
                 Logger::Error("Failed to load the version file of resources");
@@ -153,8 +155,7 @@ namespace Editor
         ~AssetCompilerImpl()
         {
             Engine& engine = editor.GetEngine();
-            FileSystem& fs = engine.GetFileSystem();
-            auto filePtr = fs.OpenFile(EXPORT_RESOURCE_LIST_TEMP, FileFlags::DEFAULT_WRITE);
+            auto filePtr = FileSystem::OpenFile(EXPORT_RESOURCE_LIST_TEMP, FileFlags::DEFAULT_WRITE);
             if (!filePtr->IsValid())
             {
                 Logger::Error("Failed to save the list of resources");
@@ -196,8 +197,8 @@ namespace Editor
             }
             file << "}\n\n";
             file.Close();
-            fs.DeleteFile(EXPORT_RESOURCE_LIST);
-            fs.MoveFile(EXPORT_RESOURCE_LIST_TEMP, EXPORT_RESOURCE_LIST);
+            FileSystem::DeleteFile(EXPORT_RESOURCE_LIST);
+            FileSystem::MoveFile(EXPORT_RESOURCE_LIST_TEMP, EXPORT_RESOURCE_LIST);
 
             compilerTask.isFinished = true;
             semaphore.Signal();
@@ -222,19 +223,17 @@ namespace Editor
             LoadResourceList();
 
             // Check current base directroy
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            const U64 listLastmodified = fs.GetLastModTime(EXPORT_RESOURCE_LIST);
+            const U64 listLastmodified = FileSystem::GetLastModTime(EXPORT_RESOURCE_LIST);
             ProcessDirectory("", listLastmodified);
         }
 
         void LoadResourceList()
         {
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            if (!fs.FileExists(EXPORT_RESOURCE_LIST))
+            if (!FileSystem::FileExists(EXPORT_RESOURCE_LIST))
                 return;
 
             OutputMemoryStream mem;
-            if (fs.LoadContext(EXPORT_RESOURCE_LIST, mem))
+            if (FileSystem::LoadContext(EXPORT_RESOURCE_LIST, mem))
             {
                 lua_State* l = luaL_newstate();
                 [&]() {
@@ -249,11 +248,11 @@ namespace Editor
                         return;
 
                     resMutex.Lock();
-                    LuaUtils::ForEachArrayItem<Path>(l, -1, "resource list expected", [this, &fs](const Path& p) {
+                    LuaUtils::ForEachArrayItem<Path>(l, -1, "resource list expected", [this](const Path& p) {
                         ResourceType resType = GetResourceType(p.c_str());
                         if (resType != ResourceType::INVALID_TYPE)
                         {
-                            if (fs.FileExists(p.c_str()))
+                            if (FileSystem::FileExists(p.c_str()))
                             {
                                 resources.insert(p.GetHashValue(), {
                                     p,
@@ -380,9 +379,8 @@ namespace Editor
 
                 if (!targetPath.IsEmpty())
                 {
-                    FileSystem& fs = editor.GetEngine().GetFileSystem();
-                    const U64 listLastmodified = fs.GetLastModTime(EXPORT_RESOURCE_LIST);
-                    const StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), targetPath.c_str());
+                    const U64 listLastmodified = FileSystem::GetLastModTime(EXPORT_RESOURCE_LIST);
+                    const StaticString<MAX_PATH_LENGTH> fullPath(targetPath.c_str());
 
                     // Check directory is deleted
                     if (Platform::DirExists(fullPath.c_str()))
@@ -434,11 +432,10 @@ namespace Editor
                         continue;
                 }
 
-                FileSystem& fs = editor.GetEngine().GetFileSystem();
                 auto resType = GetResourceType(targetPath.c_str());
                 if (resType != ResourceType::INVALID_TYPE)
                 {
-                    bool isExists = fs.FileExists(targetPath.c_str());
+                    bool isExists = FileSystem::FileExists(targetPath.c_str());
                     if (isExists)
                     {
                         RegisterResource(targetPath.c_str());
@@ -536,9 +533,7 @@ namespace Editor
             if (EndsWith(path, ".log") || EndsWith(path, ".ini"))
                 return;
 
-            const char* basePath = editor.GetEngine().GetFileSystem().GetBasePath();
-            const StaticString<MAX_PATH_LENGTH> fullPath(basePath, "/", path);
-
+            const StaticString<MAX_PATH_LENGTH> fullPath(path);
             if (Platform::DirExists(fullPath.c_str()))
             {
                 ScopedMutex lock(changedMutex);
@@ -737,9 +732,8 @@ namespace Editor
 
         ResourceManager::LoadHook::Action OnBeforeLoad(Resource& res)
         {
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
             const char* resPath = res.GetPath().c_str();
-            if (!fs.FileExists(resPath))
+            if (!FileSystem::FileExists(resPath))
                 return ResourceManager::LoadHook::Action::IMMEDIATE;
 
             if (StartsWith(resPath, ".export/resources/"))
@@ -753,9 +747,9 @@ namespace Editor
             const StaticString<MAX_PATH> metaPath(resPath, ".meta");
 
             // It is a new resource or expired
-            if (!fs.FileExists(dstPath) || 
-                fs.GetLastModTime(dstPath) < fs.GetLastModTime(resPath) ||
-                fs.GetLastModTime(dstPath) < fs.GetLastModTime(metaPath))
+            if (!FileSystem::FileExists(dstPath) || 
+                FileSystem::GetLastModTime(dstPath) < FileSystem::GetLastModTime(resPath) ||
+                FileSystem::GetLastModTime(dstPath) < FileSystem::GetLastModTime(metaPath))
             {
                 if (GetPlugin(res.GetPath()) == nullptr)
                     ResourceManager::LoadHook::Action::IMMEDIATE;
@@ -779,8 +773,7 @@ namespace Editor
 
         void ProcessDirectory(const char* dir, U64 listLastModified)
         {
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            auto fileList = fs.Enumerate(dir);
+            auto fileList = FileSystem::Enumerate(dir);
             for (const auto& fileInfo : fileList)
             {
                 if (fileInfo.filename[0] == '.')
@@ -803,7 +796,7 @@ namespace Editor
                         CatString(fullpath, "/");
                     CatString(fullpath, fileInfo.filename);
 
-                    if (fs.GetLastModTime(fullpath) > listLastModified) {
+                    if (FileSystem::GetLastModTime(fullpath) > listLastModified) {
                         RegisterResource(fullpath);
                     }
                     else
@@ -824,8 +817,7 @@ namespace Editor
         void UpdateMeta(const Path& path, const char* src) const
         {
             const StaticString<MAX_PATH> metaPath(path.c_str(), ".meta");
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            auto file = fs.OpenFile(metaPath, FileFlags::DEFAULT_WRITE);
+            auto file = FileSystem::OpenFile(metaPath, FileFlags::DEFAULT_WRITE);
             if (!file->IsValid())
             {
                 Logger::Error("Failed to update meta %s", path.c_str());
@@ -839,12 +831,11 @@ namespace Editor
         bool GetMeta(const Path& path, void* userPtr, void (*callback)(void*, lua_State*)) const
         {
             const StaticString<MAX_PATH> metaPath(path.c_str(), ".meta");
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            if (!fs.FileExists(metaPath))
+            if (!FileSystem::FileExists(metaPath))
                 return false;
 
             OutputMemoryStream mem;
-            if (!fs.LoadContext(metaPath, mem))
+            if (!FileSystem::LoadContext(metaPath, mem))
                 return false;
 
             LuaConfig luaConfig;

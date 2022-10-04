@@ -35,9 +35,10 @@ namespace Editor
     {
     public:
         static EditorApp* Create();
+        static I32 LoadProject();
         static void Destroy(EditorApp* app);
-        virtual void InitFinished() = 0;
 
+        virtual void InitFinished() = 0;
         virtual void AddPlugin(EditorPlugin& plugin) = 0;
         virtual void AddWidget(EditorWidget& widget) = 0;
         virtual EditorWidget* GetWidget(const char* name) = 0;

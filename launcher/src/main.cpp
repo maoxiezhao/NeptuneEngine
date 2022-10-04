@@ -1,19 +1,12 @@
 #include "client\app\app.h"
 #include "editor\editor.h"
-#include "core\commandLine.h"
+
+#include "core\serialization\jsonWriter.h"
 
 namespace VulkanTest
 {
-    App* CreateApplication(int argc, char** argv)
+    App* CreateApplication(int, char**)
     {
-        char cmdLine[2048];
-        Platform::GetCommandLines(cmdLine);
-        if (!CommandLine::Parse(cmdLine))
-        {
-            Logger::Error("Invalid command line.");
-            return nullptr;
-        }
-
 #ifdef DEBUG_RENDERDOC
         GPU::DeviceVulkan::InitRenderdocCapture();
 #endif

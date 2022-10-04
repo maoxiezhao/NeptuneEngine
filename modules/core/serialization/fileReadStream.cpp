@@ -14,9 +14,9 @@ namespace VulkanTest
 		Close();
 	}
 
-	FileReadStream* FileReadStream::Open(FileSystem& fs, const char* path)
+	FileReadStream* FileReadStream::Open(const char* path)
 	{
-		auto file = fs.OpenFile(path, FileFlags::DEFAULT_READ);
+		auto file = FileSystem::OpenFile(path, FileFlags::DEFAULT_READ);
 		if (!file)
 		{
 			Logger::Warning("Failed to open file %s", path);

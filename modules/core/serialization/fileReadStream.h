@@ -27,7 +27,7 @@ namespace VulkanTest
 			return file.Get();
 		}
 
-		static FileReadStream* Open(FileSystem& fs, const char* path);
+		static FileReadStream* Open(const char* path);
 
 	private:
 		UniquePtr<File> file;

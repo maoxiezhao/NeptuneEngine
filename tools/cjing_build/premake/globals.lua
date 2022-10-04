@@ -51,11 +51,13 @@ current_platform = "unknown"
 is_static_plugin = true
 renderdoc_debug = true
 work_dir = nil
+project_dir = nil
 build_editor = true
 build_app = false
 build_tests = false
 all_plugins = {}
 target_architecture = ""
+test_mode = true
 
 function setup_project_env_win32()
     platforms "x64"
@@ -108,6 +110,10 @@ function setup_project_definines()
     if build_editor then 
         defines { "CJING3D_EDITOR" }
     end
+
+    if test_mode then 
+        defines { "CJING3D_TESTS" }
+    end
 end 
 
 function force_Link(name)
@@ -159,6 +165,9 @@ function setup_env_from_options()
     if _OPTIONS["work_dir"] then
         work_dir = _OPTIONS["work_dir"]
     end 
+    if _OPTIONS["project_dir"] then
+        project_dir = _OPTIONS["project_dir"]
+    end 
     if _OPTIONS["net_lib"] then 
         net_lib = _OPTIONS["net_lib"]
     end 
@@ -175,6 +184,7 @@ function setup_env_from_action()
     print("[premake]:sln_name:", sln_name)
     print("[premake]:env_dir:", env_dir)
     print("[premake]:work_dir:", work_dir)
+    print("[premake]:project_dir", project_dir)
     print("[premake]:current_platform:", current_platform)
     print("[premake]:current renderer:", renderer and renderer or "NULL")
 

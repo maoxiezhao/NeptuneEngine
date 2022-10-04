@@ -20,8 +20,8 @@ namespace Editor
 	class MaterialFileReader : public tinyobj::MaterialReader 
 	{
 	public:
-		explicit MaterialFileReader(FileSystem& fs_, const std::string& basedir_)
-			: basedir(basedir_), fs(fs_) {}
+		explicit MaterialFileReader(const std::string& basedir_)
+			: basedir(basedir_) {}
 
 		virtual bool operator()(
 			const std::string& matId,
@@ -38,7 +38,7 @@ namespace Editor
 			}
 
 			OutputMemoryStream mem;
-			if (!fs.LoadContext(filepath.c_str(), mem))
+			if (!FileSystem::LoadContext(filepath.c_str(), mem))
 			{
 				std::string ss;
 				ss += "WARN: Material file [ " + filepath + " ] not found.\n";
@@ -63,7 +63,6 @@ namespace Editor
 		}
 
 	private:
-		FileSystem& fs;
 		std::string basedir;
 	};
 
@@ -75,9 +74,8 @@ namespace Editor
 		std::vector<tinyobj::shape_t> objShapes;
 		std::vector<tinyobj::material_t> objMaterials;
 
-		FileSystem& fs = Engine::Instance->GetFileSystem();
 		OutputMemoryStream mem;
-		if (!fs.LoadContext(path, mem))
+		if (!FileSystem::LoadContext(path, mem))
 			return false;
 
 		char srcDir[MAX_PATH_LENGTH];
@@ -87,7 +85,7 @@ namespace Editor
 		std::string objErrors;
 		membuf sbuf((char*)mem.Data(), (char*)mem.Data() + mem.Size());
 		std::istream in(&sbuf);
-		MaterialFileReader matFileReader(fs, srcDir);
+		MaterialFileReader matFileReader(srcDir);
 		if (!tinyobj::LoadObj(&objAttrib, &objShapes, &objMaterials, &objErrors, &in, &matFileReader, true))
 		{
 			if (!objErrors.empty())
@@ -232,7 +230,7 @@ namespace Editor
 			mat.metallic = objMaterial.metallic;
 			mat.roughness = objMaterial.roughness;
 
-			auto GatherTexture = [&mat, &fs, srcDir, &objMaterial, &modelData](Texture::TextureType type) {
+			auto GatherTexture = [&mat, srcDir, &objMaterial, &modelData](Texture::TextureType type) {
 
 				std::string texname;
 				switch (type)
@@ -257,7 +255,7 @@ namespace Editor
 				ModelImporter::ImportTexture& tex = mat.textures[(U32)type];
 				tex.type = type;
 				tex.path = Path::Join(Span(srcDir), Span(texname.c_str(), texname.size()));
-				tex.isValid = fs.FileExists(tex.path.c_str());
+				tex.isValid = FileSystem::FileExists(tex.path.c_str());
 				tex.import = true;
 
 				modelData.textures.push_back(tex);

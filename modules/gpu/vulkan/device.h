@@ -184,7 +184,6 @@ public:
     VkInstance instance = VK_NULL_HANDLE;
     QueueInfo queueInfo;
     DeviceFeatures features;
-    SystemHandles systemHandles;
 
 #ifdef VULKAN_MT
     std::mutex mutex;
@@ -431,8 +430,6 @@ public:
     SemaphorePtr GetAndConsumeReleaseSemaphore();
     VkQueue GetPresentQueue()const;
     DeviceFeatures GetFeatures()const { return features; }
-    SystemHandles& GetSystemHandles() { return systemHandles; }
-
     RenderPassInfo GetSwapchianRenderPassInfo(const SwapChain* swapchain, SwapchainRenderPassType swapchainRenderPassType = SwapchainRenderPassType::DepthStencil);  
     CommandListPtr RequestCommandListNolock(QueueType queueType);
 

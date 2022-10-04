@@ -12,8 +12,8 @@ namespace VulkanTest
 
 	bool PostprocessingPass::Init()
 	{
-		shaderTonemap = ResourceManager::LoadResource<Shader>(Path("shaders/tonemap.shd"));
-		shaderFxaa = ResourceManager::LoadResource<Shader>(Path("shaders/fxaa.shd"));
+		shaderTonemap = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/tonemap.shd"));
+		shaderFxaa = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/fxaa.shd"));
 		return true;
 	}
 

@@ -81,10 +81,7 @@ void App::Initialize()
     ASSERT(ret);
 
     // Create game engine
-    Engine::InitConfig config = {};
-    config.windowTitle = GetWindowTitle();
-    engine = CreateEngine(config, *this);
-    Engine::Instance = engine.Get();
+    engine = CreateEngine(*this);
 
     // Load plugins
     engine->LoadPlugins();
@@ -105,7 +102,6 @@ void App::Uninitialize()
     engine->Stop(world);
     engine->DestroyWorld(world);
     engine.Reset();
-    Engine::Instance = nullptr;
     world = nullptr;
     platform.reset();
 }

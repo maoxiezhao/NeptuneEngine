@@ -18,8 +18,7 @@ namespace Editor
 	{
 		bool FileExists(const std::string& name, void*)
 		{
-			auto& fs = Engine::Instance->GetFileSystem();
-			return fs.FileExists(name.c_str());
+			return FileSystem::FileExists(name.c_str());
 		}
 
 		std::string ExpandFilePath(const std::string& filepath, void*)
@@ -39,9 +38,8 @@ namespace Editor
 
 		bool ReadWholeFile(std::vector<unsigned char>* out, std::string* err, const std::string& filepath, void*) 
 		{
-			auto& fs = Engine::Instance->GetFileSystem();
 			OutputMemoryStream mem;
-			if (!fs.LoadContext(filepath.c_str(), mem))
+			if (!FileSystem::LoadContext(filepath.c_str(), mem))
 				return false;
 
 			out->resize(mem.Size());
@@ -123,9 +121,8 @@ namespace Editor
 	{
 		PROFILE_FUNCTION();
 
-		FileSystem& fs = Engine::Instance->GetFileSystem();
 		OutputMemoryStream mem;
-		if (!fs.LoadContext(path, mem))
+		if (!FileSystem::LoadContext(path, mem))
 			return false;
 
 		tinygltf::TinyGLTF loader;
@@ -225,7 +222,7 @@ namespace Editor
 				mat.alphaRef = 1 - F32(alphaCutoff->second.Factor());
 		
 			// Gather texture
-			auto GatherTexture = [&mat, &fs, &x, &modelData, &gltfModel](Texture::TextureType type) {
+			auto GatherTexture = [&mat, &x, &modelData, &gltfModel](Texture::TextureType type) {
 
 				String textureName;
 				switch (type)
@@ -261,7 +258,7 @@ namespace Editor
 				ModelImporter::ImportTexture& tex = mat.textures[(U32)type];
 				tex.type = type;
 				tex.path = texname;
-				tex.isValid = fs.FileExists(tex.path.c_str());
+				tex.isValid = FileSystem::FileExists(tex.path.c_str());
 				tex.import = true;
 
 				modelData.textures.push_back(tex);

@@ -9,7 +9,7 @@ namespace VulkanTest
 
 	bool VisibilityPass::Init()
 	{
-		shader = ResourceManager::LoadResource<Shader>(Path("shaders/visibility.shd"));
+		shader = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/visibility.shd"));
 		return true;
 	}
 

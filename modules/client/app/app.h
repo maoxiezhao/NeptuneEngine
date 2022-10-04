@@ -120,6 +120,6 @@ protected:
 	RenderPath* renderPath = nullptr;
 };
 
-UniquePtr<Engine> CreateEngine(const Engine::InitConfig& config, App& app);
+UniquePtr<Engine> CreateEngine(App& app);
 int ApplicationMain(std::function<App*(int, char **)> createAppFunc, int argc, char *argv[]);
 }

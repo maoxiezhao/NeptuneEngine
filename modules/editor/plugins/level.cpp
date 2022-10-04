@@ -38,9 +38,8 @@ namespace Editor
 		bool Compile(const Path& path, Guid guid)override
 		{
 #if CJING3D_EDITOR
-			FileSystem& fs = app.GetEngine().GetFileSystem();
 			OutputMemoryStream mem;
-			if (!fs.LoadContext(path.c_str(), mem))
+			if (!FileSystem::LoadContext(path.c_str(), mem))
 			{
 				Logger::Error("failed to read file:%s", path.c_str());
 				return false;
@@ -73,7 +72,6 @@ namespace Editor
 		{
 			bool ret = true;
 			Engine& engine = app.GetEngine();
-			auto& fs = engine.GetFileSystem();
 			auto scene = CJING_NEW(Scene)();
 			scene->SetName(name);
 
@@ -88,7 +86,7 @@ namespace Editor
 			// Write scene file
 			{
 				StaticString<MAX_PATH_LENGTH> fullPath(path.c_str(), "/", name, ".scene");
-				auto file = fs.OpenFile(fullPath, FileFlags::DEFAULT_WRITE);
+				auto file = FileSystem::OpenFile(fullPath, FileFlags::DEFAULT_WRITE);
 				if (!file->IsValid())
 				{
 					Logger::Error("Failed to create the scene resource file");

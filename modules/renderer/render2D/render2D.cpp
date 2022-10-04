@@ -40,7 +40,7 @@ namespace Render2D
 
 		bool Init(Engine& engine) override
 		{
-			fontShader = ResourceManager::LoadResource<Shader>(Path("shaders/font.shd"));
+			fontShader = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/font.shd"));
 			if (fontShader == nullptr)
 			{
 				Logger::Error("Failed to load font shader");

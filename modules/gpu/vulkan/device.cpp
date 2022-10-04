@@ -292,7 +292,6 @@ void DeviceVulkan::SetContext(VulkanContext& context)
     instance = context.instance;
     queueInfo = context.queueInfo;
     features = context.ext;
-    systemHandles = context.GetSystemHandles();
 
     TIMESTAMP_FREQUENCY = U64(1.0 / F64(features.properties2.properties.limits.timestampPeriod) * 1000 * 1000 * 1000);
 
@@ -2885,9 +2884,8 @@ MemoryUsage DeviceVulkan::GetMemoryUsage() const
 
 void DeviceVulkan::InitPipelineCache()
 {
-    auto fs = systemHandles.fileSystem;
     const char* cachePath = GetPipelineCachePath();
-    if (!fs->FileExists(cachePath))
+    if (!FileSystem::FileExists(cachePath))
     {
         if (!InitPipelineCache(nullptr, 0))
             Logger::Warning("Failed to init pipeline cache.");
@@ -2895,7 +2893,7 @@ void DeviceVulkan::InitPipelineCache()
     }
 
     OutputMemoryStream mem;
-    if (!fs->LoadContext(cachePath, mem))
+    if (!FileSystem::LoadContext(cachePath, mem))
     {
         Logger::Warning("Failed to init pipeline cache.");
         return;
@@ -2966,8 +2964,6 @@ bool DeviceVulkan::InitPipelineCache(const U8* data, size_t size)
 
 void DeviceVulkan::FlushPipelineCache()
 {
-    auto fs = systemHandles.fileSystem;
-
     // Get size of pipeline cache
     size_t size{};
     VkResult res = vkGetPipelineCacheData(device, pipelineCache, &size, nullptr);
@@ -2980,7 +2976,7 @@ void DeviceVulkan::FlushPipelineCache()
 
     // Write pipeline cache data to a file in binary format
     const char* cachePath = GetPipelineCachePath();
-    auto file = fs->OpenFile(cachePath, FileFlags::DEFAULT_WRITE);
+    auto file = FileSystem::OpenFile(cachePath, FileFlags::DEFAULT_WRITE);
     if (!file->IsValid())
     {
         Logger::Error("Failed to save pipeline cache.");

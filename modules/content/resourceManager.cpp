@@ -9,7 +9,6 @@ namespace VulkanTest
 	namespace
 	{
 		bool isExit = false;
-		class FileSystem* fileSystem = nullptr;
 		Mutex factoryMutex;
 		ResourceManager::FactoryTable factoryTable;
 		F32 lastUnloadCheckTime = 0.0f;
@@ -166,6 +165,25 @@ namespace VulkanTest
 #endif
 		// Resource start loading
 		res->DoLoad();
+
+		return res;
+	}
+
+	Resource* ResourceManager::LoadResourceInternal(ResourceType type, const Path& path)
+	{
+		if (path.IsEmpty() || type == ResourceType::INVALID_TYPE)
+			return nullptr;
+
+#if CJING3D_EDITOR
+		
+#endif
+		const StaticString<MAX_PATH_LENGTH> fullPath;
+		Resource* res = LoadResource(type, Path(fullPath));
+		if (res == nullptr)
+		{
+			Logger::Error("Failed to load %s", path.c_str());
+			return nullptr;
+		}
 
 		return res;
 	}
@@ -389,8 +407,8 @@ namespace VulkanTest
 
 		// Delete resource file
 		auto storagePath = ResourceStorage::GetContentPath(path, true);
-		if (fileSystem->FileExists(storagePath.c_str()))
-			fileSystem->DeleteFile(storagePath.c_str());
+		if (FileSystem::FileExists(storagePath.c_str()))
+			FileSystem::DeleteFile(storagePath.c_str());
 	}
 
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)
@@ -415,10 +433,6 @@ namespace VulkanTest
 	void ResourceManager::UnregisterFactory(ResourceType type)
 	{
 		factoryTable.erase(type.GetHashValue());
-	}
-
-	FileSystem* ResourceManager::GetFileSystem() {
-		return fileSystem;
 	}
 
 	ResourcesCache& ResourceManager::GetCache() {
@@ -520,8 +534,6 @@ namespace VulkanTest
 
 	bool ResourceManagerServiceImpl::Init(Engine& engine)
 	{
-		fileSystem = &engine.GetFileSystem();
-
 		// Init resource cache
 		cache.Initialize();
 

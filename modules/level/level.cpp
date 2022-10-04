@@ -256,8 +256,7 @@ namespace VulkanTest
 				return false;
 			}
 		
-			auto& fs = Engine::Instance->GetFileSystem();
-			auto file = fs.OpenFile(path.c_str(), FileFlags::DEFAULT_WRITE);
+			auto file = FileSystem::OpenFile(path.c_str(), FileFlags::DEFAULT_WRITE);
 			if (!file->IsValid())
 			{
 				Logger::Error("Failed to save the scene resource file");
@@ -430,15 +429,14 @@ namespace VulkanTest
 	bool Level::LoadScene(const Path& path)
 	{
 		Logger::Info("Loading scene from file. Path: \'%s\'", path.c_str());
-		auto fs = ResourceManager::GetFileSystem();
-		if (!fs->FileExists(path.c_str()))
+		if (!FileSystem::FileExists(path.c_str()))
 		{
 			Logger::Error("Missing scene file %s", path.c_str());
 			return false;
 		}
 
 		OutputMemoryStream mem;
-		if (!fs->LoadContext(path.c_str(), mem))
+		if (!FileSystem::LoadContext(path.c_str(), mem))
 		{
 			Logger::Error("Failed to load scene file %s", path.c_str());
 			return false;

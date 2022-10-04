@@ -81,3 +81,10 @@ newoption
    value       = "dir",
    description = "specify location of engine work"
 }
+
+newoption 
+{
+   trigger     = "project_dir",
+   value       = "dir",
+   description = "specify location of project work"
+}

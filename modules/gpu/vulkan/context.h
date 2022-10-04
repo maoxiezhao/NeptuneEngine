@@ -33,11 +33,6 @@ struct QueueInfo
     VkQueue queues[QUEUE_INDEX_COUNT] = {};
 };
 
-struct SystemHandles
-{
-    FileSystem* fileSystem;
-};
-
 class VulkanContext
 {
 public:
@@ -71,16 +66,6 @@ public:
         return queueInfo;
     }
 
-    void SetSystemHandles(SystemHandles& handles_)
-    {
-        handles = handles_;
-    }
-
-    SystemHandles& GetSystemHandles()
-    {
-        return handles;
-    }
-
 private:
     bool CreateInstance(std::vector<const char*> instanceExt);
     bool CreateDevice(VkPhysicalDevice physicalDevice_, std::vector<const char*> deviceExt);
@@ -102,7 +87,6 @@ private:
     uint32_t width = 0;
     uint32_t height = 0;
     bool debugLayer = false;
-    SystemHandles handles;
     U32 numThreads = 1;
 
     VkDevice device;

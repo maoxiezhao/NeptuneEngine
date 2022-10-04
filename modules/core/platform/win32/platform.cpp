@@ -7,6 +7,8 @@
 #include "platform\platform.h"
 #include "core\utils\string.h"
 #include "core\profiler\profiler.h"
+#include "core\globals.h"
+#include "core\engine.h"
 
 #include <array>
 
@@ -1089,6 +1091,69 @@ namespace Platform {
 	{
 		WPathString tmp(msg);
 		::OutputDebugString(tmp);
+	}
+
+	void Fatal(const char* msg)
+	{
+		if (Globals::IsFatal)
+			return;
+
+		Globals::IsFatal = true;
+		Globals::IsRequestingExit = true;
+		Globals::ExitCode = -1;
+
+		ShowMessageBox(msg);
+	}
+
+	void SetCommandLine(int, char**)
+	{
+		ASSERT(false);
+	}
+
+	bool GetCommandLines(Span<char> output)
+	{
+		WCHAR* cl = ::GetCommandLine();
+		WCharToChar(output, cl);
+		return true;
+	}
+
+	void GetSpecialFolderPath(SpecialFolder type, Span<char> output)
+	{
+		KNOWNFOLDERID rfid;
+		switch (type)
+		{
+		case SpecialFolder::Desktop:
+			rfid = FOLDERID_Desktop;
+			break;
+		case SpecialFolder::Documents:
+			rfid = FOLDERID_Documents;
+			break;
+		case SpecialFolder::Pictures:
+			rfid = FOLDERID_Pictures;
+			break;
+		case SpecialFolder::AppData:
+			rfid = FOLDERID_RoamingAppData;
+			break;
+		case SpecialFolder::LocalAppData:
+			rfid = FOLDERID_LocalAppData;
+			break;
+		case SpecialFolder::ProgramData:
+			rfid = FOLDERID_ProgramData;
+			break;
+		case SpecialFolder::Temporary:
+		{
+			WCHAR buffer[MAX_PATH_LENGTH];
+			if (GetTempPathW(MAX_PATH_LENGTH, buffer))
+				WCharToChar(output, buffer);
+			return;
+		}
+		}
+
+		PWSTR path = nullptr;
+		HRESULT hr = SHGetKnownFolderPath(rfid, 0, nullptr, &path);
+		if (SUCCEEDED(hr))
+			WCharToChar(output, path);
+		CoTaskMemFree(path);
 	}
 
 	void* LibraryOpen(const char* path)

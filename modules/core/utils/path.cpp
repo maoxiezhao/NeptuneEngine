@@ -185,6 +185,18 @@ namespace VulkanTest
 		return PathInfo(path);
 	}
 
+	Path& Path::operator/=(const char* str)
+	{
+		Join(str);
+		return *this;
+	}
+
+	Path& Path::operator/=(char c)
+	{
+		Join(String(c).c_str());
+		return *this;
+	}
+
 	bool Path::operator==(const Path& rhs) const
 	{
 		return hash == rhs.hash;

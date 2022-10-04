@@ -37,9 +37,8 @@ namespace Editor
 
 		bool Compile(const Path& path, Guid guid)override
 		{
-			FileSystem& fs = app.GetEngine().GetFileSystem();
 			OutputMemoryStream mem;
-			if (!fs.LoadContext(path.c_str(), mem))
+			if (!FileSystem::LoadContext(path.c_str(), mem))
 			{
 				Logger::Error("failed to read file:%s", path.c_str());
 				return false;

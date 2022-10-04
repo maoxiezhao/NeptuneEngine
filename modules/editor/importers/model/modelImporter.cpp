@@ -94,8 +94,7 @@ namespace Editor
 		const PathInfo pathInfo(path);
 		if (!modelData.materials.empty())
 		{
-			auto& fs = Engine::Instance->GetFileSystem();
-			StaticString<MAX_PATH_LENGTH> matPath(fs.GetBasePath(), pathInfo.dir, "/", pathInfo.basename);
+			StaticString<MAX_PATH_LENGTH> matPath(pathInfo.dir, "/", pathInfo.basename);
 			if (!Platform::DirExists(matPath.c_str()))
 				Platform::MakeDir(matPath.c_str());
 		}
@@ -369,8 +368,7 @@ namespace Editor
 			return CreateResult::Error;
 		}
 
-		auto& fs = Engine::Instance->GetFileSystem();
-		auto file = fs.OpenFile(scenePath.c_str(), FileFlags::DEFAULT_WRITE);
+		auto file = FileSystem::OpenFile(scenePath.c_str(), FileFlags::DEFAULT_WRITE);
 		if (!file->IsValid())
 		{
 			Logger::Error("Failed to create the scene resource file");

@@ -73,7 +73,7 @@ namespace VulkanTest
 				{
 					auto& materialData = mateiralIt->value;
 					v.materials.resize(materialData.Size());
-					for (int i = 0; i < materialData.Size(); i++)
+					for (I32 i = 0; i < (I32)materialData.Size(); i++)
 						Serialization::Deserialize(materialData[i], v.materials[i]);
 				}
 			}
@@ -116,12 +116,12 @@ namespace VulkanTest
 				auto meshInfosIt = stream.FindMember("MeshInfos");
 				if (meshInfosIt != stream.MemberEnd())
 				{
-					for (int lodIndex = 0; lodIndex < meshInfosIt->value.Size(); lodIndex++)
+					for (I32 lodIndex = 0; lodIndex < (I32)meshInfosIt->value.Size(); lodIndex++)
 					{
 						auto& meshInfoDatas = meshInfosIt->value[lodIndex];
 						auto& meshInfos = v.meshes[lodIndex];
 						meshInfos.resize(meshInfoDatas.Size());
-						for (int i = 0; i < meshInfoDatas.Size(); i++)
+						for (I32 i = 0; i < (I32)meshInfoDatas.Size(); i++)
 						{
 							DESERIALIZE_MEMBER_WITH("MeshIndex", meshInfos[i].meshIndex, meshInfoDatas[i]);
 							DESERIALIZE_MEMBER_WITH("AABB", meshInfos[i].aabb, meshInfoDatas[i]);
@@ -246,7 +246,7 @@ namespace VulkanTest
 			if (!data.IsArray())
 				return;
 
-			for (int i = 0; i < data.Size(); i++)
+			for (I32 i = 0; i < (I32)data.Size(); i++)
 			{
 				auto& entityData = data[i];
 				if (entityData.IsObject())

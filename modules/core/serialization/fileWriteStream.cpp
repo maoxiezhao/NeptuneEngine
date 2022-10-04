@@ -13,9 +13,9 @@ namespace VulkanTest
 		Close();
 	}
 
-	FileWriteStream* FileWriteStream::Open(FileSystem& fs, const char* path)
+	FileWriteStream* FileWriteStream::Open(const char* path)
 	{
-		auto file = fs.OpenFile(path, FileFlags::DEFAULT_WRITE);
+		auto file = FileSystem::OpenFile(path, FileFlags::DEFAULT_WRITE);
 		if (!file)
 		{
 			Logger::Warning("Failed to write file %s", path);

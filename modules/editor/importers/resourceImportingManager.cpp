@@ -5,6 +5,7 @@
 #include "material\createMaterial.h"
 #include "model\modelImporter.h"
 #include "texture\textureImporter.h"
+#include "shader\shaderImporter.h"
 
 namespace VulkanTest
 {
@@ -38,6 +39,9 @@ namespace Editor
 				{ "obj",  ModelImporter::Import, true},
 				{ "gltf", ModelImporter::Import, true},
 				{ "glb",  ModelImporter::Import, true},
+
+				// Shader
+				{ "shd",  ShaderImporter::Import, true },
 			};
 			for (const auto& importer : BuildInImporters)
 				ResourceImportingManager::importers.push_back(importer);
@@ -99,8 +103,6 @@ namespace Editor
 
 		if (!guid.IsValid())
 			guid = Guid::New();
-
-		auto& fs = Engine::Instance->GetFileSystem();
 	
 		// Use the same guid if resource is loaded
 		ResPtr<Resource> res = ResourceManager::GetResource(inputPath);
@@ -111,7 +113,7 @@ namespace Editor
 		else
 		{
 			const Path storagePath = ResourceStorage::GetContentPath(inputPath, isCompiled);
-			if (fs.FileExists(storagePath.c_str()))
+			if (FileSystem::FileExists(storagePath.c_str()))
 			{
 				// Load target resource and get the guid
 				auto storage = StorageManager::GetStorage(storagePath, true, isCompiled);
@@ -160,8 +162,7 @@ namespace Editor
 	bool ResourceImportingManager::Import(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg)
 	{
 		Logger::Info("Importing file %s", inputPath.c_str());
-		auto& fs = Engine::Instance->GetFileSystem();
-		if (!fs.FileExists(inputPath.c_str()))
+		if (!FileSystem::FileExists(inputPath.c_str()))
 		{
 			Logger::Error("Missing file %s", inputPath.c_str());
 			return false;

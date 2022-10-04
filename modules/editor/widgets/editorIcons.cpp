@@ -11,7 +11,7 @@ namespace Editor
 	EditorIcons::EditorIcons(EditorApp& editor_) :
 		worldEditor(editor_.GetWorldEditor())
 	{
-		iconFontRes = ResourceManager::LoadResource<FontResource>(Path("editor/fonts/fa-solid-900.ttf"));
+		iconFontRes = ResourceManager::LoadResourceInternal<FontResource>(Path("editor/fonts/fa-solid-900.ttf"));
 	}
 
 	EditorIcons::~EditorIcons()

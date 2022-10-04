@@ -48,18 +48,18 @@ namespace {
 #endif
 	}
 
-	bool IsShaderOutdated(FileSystem& fs, const char* shaderfilename)
+	bool IsShaderOutdated(const char* shaderfilename)
 	{
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
-		if (!fs.FileExists(shaderfilename))
+		if (!FileSystem::FileExists(shaderfilename))
 			return true;
 
 		std::string metaPath = shaderfilename;
 		metaPath = Helper::ReplaceExtension(metaPath, "shadermeta");
-		if (!fs.FileExists(metaPath.c_str()))
+		if (!FileSystem::FileExists(metaPath.c_str()))
 			return false;
 
-		const U64 lastModeTime = fs.GetLastModTime(shaderfilename);
+		const U64 lastModeTime = FileSystem::GetLastModTime(shaderfilename);
 		Archive dependencyLibrary(metaPath);
 		if (dependencyLibrary.IsOpen())
 		{
@@ -70,9 +70,9 @@ namespace {
 			for (auto& x : dependencies)
 			{
 				std::string dependencypath = rootdir + x;
-				if (fs.FileExists(dependencypath.c_str()))
+				if (FileSystem::FileExists(dependencypath.c_str()))
 				{
-					const U64 depModTime = fs.GetLastModTime(dependencypath.c_str());
+					const U64 depModTime = FileSystem::GetLastModTime(dependencypath.c_str());
 					if (lastModeTime < depModTime)
 						return true;
 				}
@@ -82,7 +82,7 @@ namespace {
 		return false;
 	}
 
-	bool SaveShaderAndMetadata(FileSystem& fs, const char* shaderfilename, const CompilerOutput& output)
+	bool SaveShaderAndMetadata(const char* shaderfilename, const CompilerOutput& output)
 	{
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 		if (!Platform::DirExists(ShaderManager::EXPORT_SHADER_PATH.c_str()))
@@ -107,7 +107,7 @@ namespace {
 			dependencyLibrary << dependencies;
 		}
 
-		auto file = fs.OpenFile(shaderfilename, FileFlags::DEFAULT_WRITE);
+		auto file = FileSystem::OpenFile(shaderfilename, FileFlags::DEFAULT_WRITE);
 		if (!file->IsValid())
 		{
 			Logger::Error("Failed to save shader metadata.");
@@ -208,15 +208,13 @@ void ShaderTemplate::RecompileVariant(ShaderTemplateVariant& variant)
 
 bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderVariantMap& defines)
 {
-	auto& fs = *device.GetSystemHandles().fileSystem;
-
 #ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	{		
 		ScopedMutex holder(lock);
 		std::string exportShaderPath = ShaderManager::EXPORT_SHADER_PATH + std::to_string(variant->hash) + ".shader";
 		RegisterShader(exportShaderPath);
 
-		if (IsShaderOutdated(fs, exportShaderPath.c_str()))
+		if (IsShaderOutdated(exportShaderPath.c_str()))
 		{
 			String msg = String("Compiling shader:") + path.c_str();
 			if (!defines.empty())
@@ -253,7 +251,7 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 			if (Compile(input, output))
 			{
 				Logger::Info("Compile shader successfully:%s", path.c_str());
-				SaveShaderAndMetadata(fs, exportShaderPath.c_str(), output);
+				SaveShaderAndMetadata(exportShaderPath.c_str(), output);
 				if (!output.errorMessage.empty())
 					Logger::Error(output.errorMessage.c_str());
 
@@ -273,7 +271,7 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 		else
 		{
 			OutputMemoryStream mem;
-			if (!fs.LoadContext(exportShaderPath.c_str(), mem))
+			if (!FileSystem::LoadContext(exportShaderPath.c_str(), mem))
 			{
 				Logger::Error("Failed to load export shader:%s", exportShaderPath.c_str());
 				return false;

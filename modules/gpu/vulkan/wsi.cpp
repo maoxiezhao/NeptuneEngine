@@ -12,7 +12,7 @@ WSI::~WSI()
 {
 }
 
-bool WSI::Initialize(GPU::SystemHandles& handles, U32 numThread)
+bool WSI::Initialize(U32 numThread)
 {
     if (platform == nullptr)
     {
@@ -25,7 +25,6 @@ bool WSI::Initialize(GPU::SystemHandles& handles, U32 numThread)
     auto deviceExt = platform->GetRequiredDeviceExtensions();
 
     vulkanContext = CJING_NEW(GPU::VulkanContext)(numThread);
-    vulkanContext->SetSystemHandles(handles);
     if (!vulkanContext->Initialize(instanceExt, deviceExt, true))
         return false;
 

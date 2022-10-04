@@ -8,7 +8,6 @@ import "../tools/cjing_build/config_base.jsc"
         cjing_build_dir : "../tools/cjing_build",
         assets_dir : "../assets",
         assets_export_dir : ".export",
-        project_dir : "../workspace",
     },
 
     ///////////////////////////////////////////////////////////////////
@@ -49,7 +48,6 @@ import "../tools/cjing_build/config_base.jsc"
                 "--sln_name=${sln_name}",
                 "--env_dir=../",
                 "--work_dir=${assets_dir}",
-                "--project_dir=${project_dir}",
                 "--renderer=vulkan",
                 "--platform_dir=win32",
                 "--sdk_version=%{windows_sdk_version}",

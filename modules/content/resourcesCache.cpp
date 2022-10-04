@@ -19,23 +19,21 @@ namespace VulkanTest
 
 	void ResourcesCache::Initialize()
 	{
-		auto fs = ResourceManager::GetFileSystem();
-		const char* basePath = fs->GetBasePath();
-		StaticString<MAX_PATH_LENGTH> resDir(basePath, ".export/resources");
-		if (!Platform::DirExists(resDir))
-			Platform::MakeDir(resDir);
-
-		path = ".export/resources/resource_cache.bin";
+#ifdef CJING3D_EDITOR
+		path = Globals::ProjectCacheFolder / "resource_cache.bin";
+#else
+		path = Globals::ProjectCacheFolder / "resource_cache.bin";
+#endif
 		Logger::Info("Load resource cache %s", path.c_str());
 
-		if (!fs->FileExists(path.c_str()))
+		if (!FileSystem::FileExists(path.c_str()))
 		{
 			isDirty = true;
 			Logger::Warning("Failed find resource cache file.");
 			return;
 		}
 
-		auto stream = FileReadStream::Open(*fs, path.c_str());
+		auto stream = FileReadStream::Open(path.c_str());
 		DeleteHandler toDelete(stream);
 		
 		// Version
@@ -89,12 +87,11 @@ namespace VulkanTest
 	bool ResourcesCache::Save()
 	{
 #ifdef CJING3D_EDITOR
-		auto fs = ResourceManager::GetFileSystem();
-		if (!isDirty && fs->FileExists(path.c_str()))
+		if (!isDirty && FileSystem::FileExists(path.c_str()))
 			return false;
 
 		ScopedMutex lock(mutex);
-		if (!Save(fs, path, resourceRegistry, pathHashMapping))
+		if (!Save(path, resourceRegistry, pathHashMapping))
 			return false;
 
 		isDirty = false;
@@ -102,12 +99,12 @@ namespace VulkanTest
 #endif
 	}
 
-	bool ResourcesCache::Save(FileSystem* fs, const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<U64, Guid>& pathMapping)
+	bool ResourcesCache::Save(const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<U64, Guid>& pathMapping)
 	{
 		PROFILE_FUNCTION();
 		Logger::Info("Saving resouce cache %s", path.c_str());
 
-		auto stream = FileWriteStream::Open(*fs, path.c_str());
+		auto stream = FileWriteStream::Open(path.c_str());
 		if (stream == nullptr)
 			return false;
 

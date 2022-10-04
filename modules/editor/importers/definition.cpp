@@ -35,7 +35,6 @@ namespace VulkanTest::Editor
 			return CreateResult::SaveFailed;
 		}
 
-		FileSystem& fs = Engine::Instance->GetFileSystem();
 		Path outputPath(output.c_str());
 		auto storage = StorageManager::TryGetStorage(outputPath, isCompiled);
 
@@ -46,7 +45,7 @@ namespace VulkanTest::Editor
 			needReload = true;
 		}
 
-		auto file = fs.OpenFile(outputPath.c_str(), FileFlags::DEFAULT_WRITE);
+		auto file = FileSystem::OpenFile(outputPath.c_str(), FileFlags::DEFAULT_WRITE);
 		if (!file)
 		{
 			Logger::Error("Failed to create resource file %s", output.c_str());
@@ -89,7 +88,6 @@ namespace VulkanTest::Editor
 			return CreateResult::SaveFailed;
 		}
 
-		FileSystem& fs = Engine::Instance->GetFileSystem();
 		Path outputPath(output.c_str());
 		auto storage = StorageManager::TryGetStorage(outputPath, isCompiled);
 
@@ -100,7 +98,7 @@ namespace VulkanTest::Editor
 			needReload = true;
 		}
 
-		auto file = fs.OpenFile(outputPath.c_str(), FileFlags::DEFAULT_WRITE);
+		auto file = FileSystem::OpenFile(outputPath.c_str(), FileFlags::DEFAULT_WRITE);
 		if (!file)
 		{
 			Logger::Error("Failed to create resource file %s", output.c_str());

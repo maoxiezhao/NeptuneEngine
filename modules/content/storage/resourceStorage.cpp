@@ -414,7 +414,7 @@ namespace VulkanTest
 				int a = 0;
 
 			Path contentPath = GetContentPath(path, isCompiled);
-			auto file_ = ResourceManager::GetFileSystem()->OpenFile(contentPath.c_str(), FileFlags::DEFAULT_READ);
+			auto file_ = FileSystem::OpenFile(contentPath.c_str(), FileFlags::DEFAULT_READ);
 			if (!file_ || !file_->IsValid())
 			{
 				Logger::Error("Cannot open compiled resource content %s", contentPath.c_str());

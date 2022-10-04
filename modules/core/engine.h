@@ -40,16 +40,8 @@ namespace VulkanTest
 	class VULKAN_TEST_API Engine
 	{
 	public:
-		struct InitConfig
-		{
-			const char* workingDir = nullptr;
-			const char* windowTitle = "VULKAN_TEST";
-			Span<const char*> plugins;
-		};
-
-		virtual ~Engine() {}
-
 		static Engine* Instance;
+		virtual ~Engine() {}
 
 		static void RequestExit(I32 exitCode = 0);
 		static bool ShouldExit();
@@ -65,7 +57,6 @@ namespace VulkanTest
 		virtual void Stop(World* world) {};
 
 		virtual class InputSystem& GetInputSystem() = 0;
-		virtual class FileSystem& GetFileSystem() = 0;
 		virtual class PluginManager& GetPluginManager() = 0;
 		virtual class TaskGraph& GetTaskGraph() = 0;
 		virtual class WSI& GetWSI() = 0;

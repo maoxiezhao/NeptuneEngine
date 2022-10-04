@@ -47,6 +47,43 @@ namespace VulkanTest
 		bool operator==(const Path& rhs) const;
 		bool operator!=(const Path& rhs) const;
 
+		Path& operator/=(const char* str);
+		Path& operator/=(char c);
+
+		FORCE_INLINE Path& operator/=(const String& str)
+		{
+			return operator/=(str.c_str());
+		}
+
+		FORCE_INLINE Path& operator/=(const Path& str)
+		{
+			return operator/=(str.c_str());
+		}
+
+		FORCE_INLINE Path operator/(const char* str) const
+		{
+			return Path(*this) /= str;
+		}
+
+		FORCE_INLINE Path operator/(const char c) const
+		{
+			return Path(*this) /= c;
+		}
+
+		FORCE_INLINE Path operator/(const String& str) const
+		{
+			return Path(*this) /= str;
+		} 
+
+		FORCE_INLINE Path operator/(const Path& str) const
+		{
+			return Path(*this) /= str;
+		}
+
+		operator const char* () const {
+			return path;
+		}
+
 	private:
 		char path[MAX_PATH_LENGTH];
 		StringID hash;

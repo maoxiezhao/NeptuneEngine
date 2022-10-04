@@ -74,8 +74,7 @@ namespace Editor
             filter[0] = '\0';
 
             // Check directory of resource tiles
-            const char* path = editor.GetEngine().GetFileSystem().GetBasePath();
-            StaticString<MAX_PATH_LENGTH> tilePath(path, ".export/resources_tiles");
+            StaticString<MAX_PATH_LENGTH> tilePath(".export/resources_tiles");
             if (!Platform::DirExists(tilePath.c_str()))
                 Platform::MakeDir(tilePath.c_str());
 
@@ -206,8 +205,7 @@ namespace Editor
 
         void OnResourceListChanged(const Path& path)
         {
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            const StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), path.c_str());
+            const StaticString<MAX_PATH_LENGTH> fullPath(path.c_str());
             if (Platform::DirExists(fullPath.c_str()))
             {
                 SetCurrentDir(curDir);
@@ -227,7 +225,7 @@ namespace Editor
                 if (info.filepath != path.c_str()) 
                     continue;
 
-                switch (GetTileState(info, fs))
+                switch (GetTileState(info))
                 {
                 case TileState::OK:
                     return;
@@ -275,8 +273,7 @@ namespace Editor
                 curDir[len - 1] = '\0';
 
             subdirs.clear();
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
-            auto fileList = fs.Enumerate(curDir.c_str());
+            auto fileList = FileSystem::Enumerate(curDir.c_str());
             for (const auto& fileInfo : fileList)
             {
                 if (fileInfo.filename[0] == '.' || fileInfo.type != PathType::Directory)
@@ -315,9 +312,8 @@ namespace Editor
 
         void DeleteResTile(I32 index)
         {
-            auto& fs = editor.GetEngine().GetFileSystem();
             ResourceManager::DeleteResource(Path(fileInfos[index].filepath.c_str()));
-            fs.DeleteFile(fileInfos[index].filepath.c_str());
+            FileSystem::DeleteFile(fileInfos[index].filepath.c_str());
             selectedResources.clear();
         }
 
@@ -466,13 +462,11 @@ namespace Editor
 
             static char tmp[MAX_PATH_LENGTH] = "";
             ImGui::Separator();
-            auto& fs = editor.GetEngine().GetFileSystem();
-            const char* basePath = fs.GetBasePath();
             ImGui::Checkbox("Thumbnails", &showThumbnails);
 
             if (ImGui::MenuItem("View in explorer")) 
             {
-                StaticString<MAX_PATH_LENGTH> fullPath(basePath, "/", curDir);
+                StaticString<MAX_PATH_LENGTH> fullPath(curDir);
                 Platform::OpenExplorer(fullPath.c_str());     
             }
             if (ImGui::BeginMenu("New folder")) 
@@ -481,7 +475,7 @@ namespace Editor
                 ImGui::SameLine();
                 if (ImGui::Button("Create")) 
                 {
-                    StaticString<MAX_PATH_LENGTH> fullPath(basePath, "/", curDir, "/", tmp);
+                    StaticString<MAX_PATH_LENGTH> fullPath(curDir, "/", tmp);
                     if (!Platform::MakeDir(fullPath))
                         Logger::Error("Failed to create directory %s", fullPath.c_str());
 
@@ -596,7 +590,6 @@ namespace Editor
             }
 
             // Popup menu
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
             bool openDeletePopup = false;
             if (ImGui::BeginPopup("itemCtx"))
             {
@@ -618,7 +611,7 @@ namespace Editor
                     {
                         PathInfo pathInfo(fileInfos[popupCtxResource].filepath);
                         StaticString<MAX_PATH_LENGTH> newPath(pathInfo.dir, tmp, ".", pathInfo.extension);
-                        fs.MoveFile(fileInfos[popupCtxResource].filepath.c_str(), newPath.c_str());
+                        FileSystem::MoveFile(fileInfos[popupCtxResource].filepath.c_str(), newPath.c_str());
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndMenu();
@@ -666,18 +659,19 @@ namespace Editor
             DELETED,
             NOT_CREATED
         };
-        static TileState GetTileState(const FileInfo& info, FileSystem& fs) 
+        static TileState GetTileState(const FileInfo& info) 
         {
-            if (!fs.FileExists(info.filepath)) 
+            if (!FileSystem::FileExists(info.filepath)) 
                 return TileState::DELETED;
         
             StaticString<MAX_PATH_LENGTH> path(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
-            if (!fs.FileExists(path)) 
+            if (!FileSystem::FileExists(path)) 
                 return TileState::NOT_CREATED;
 
             MaxPathString compiledPath(".export/Resources/", info.filePathHash.GetHashValue(), ".res");
-            const U64 lastModified = fs.GetLastModTime(path);
-            if (lastModified < fs.GetLastModTime(info.filepath) || lastModified < fs.GetLastModTime(compiledPath))
+            const U64 lastModified = FileSystem::GetLastModTime(path);
+            if (lastModified < FileSystem::GetLastModTime(info.filepath) || 
+                lastModified < FileSystem::GetLastModTime(compiledPath))
                 return TileState::OUTDATED;
 
             return TileState::OK;
@@ -685,9 +679,8 @@ namespace Editor
 
         bool CopyThumbnailTile(const char* from, const char* to)
         {
-            FileSystem& fs = editor.GetEngine().GetFileSystem();
             OutputMemoryStream mem;
-            if (!fs.LoadContext(from, mem))
+            if (!FileSystem::LoadContext(from, mem))
                 return false;
 
             return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
@@ -753,8 +746,7 @@ namespace Editor
                 auto renderInterface = editor.GetRenderInterface();
                 if (renderInterface != nullptr)
                 {
-                    auto& fs = editor.GetEngine().GetFileSystem();
-                    TileState state = GetTileState(info, fs);
+                    TileState state = GetTileState(info);
                     switch (state)
                     {
                     case TileState::OK:

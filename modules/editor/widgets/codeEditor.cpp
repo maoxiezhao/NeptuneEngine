@@ -16,8 +16,7 @@ namespace Editor
 
 	void CodeEditor::OpenFile(const char* path)
 	{
-		FileSystem& fs = app.GetEngine().GetFileSystem();
-		StaticString<MAX_PATH_LENGTH> fullPath(fs.GetBasePath(), path);
+		StaticString<MAX_PATH_LENGTH> fullPath(path);
 		Platform::ShellExecuteOpen(fullPath.c_str(), nullptr);
 	}
 }

@@ -38,18 +38,6 @@ namespace VulkanTest
 	public:
 		using FactoryTable = std::unordered_map<U64, ResourceFactory*>;
 
-		struct VULKAN_TEST_API LoadHook
-		{
-			enum class Action 
-			{ 
-				IMMEDIATE, 
-				DEFERRED
-			};
-			virtual ~LoadHook() {}
-			virtual Action OnBeforeLoad(Resource& res) = 0;
-			void ContinueLoad(Resource& res);
-		};
-
 		template<typename T>
 		static T* LoadResource(const Path& path)
 		{
@@ -62,8 +50,16 @@ namespace VulkanTest
 			return static_cast<T*>(LoadResource(T::ResType, guid));
 		}
 
+		template<typename T>
+		static T* LoadResourceInternal(const Path& path)
+		{
+			return static_cast<T*>(LoadResourceInternal(T::ResType, path));
+		}
+
 		static Resource* LoadResource(ResourceType type, const Guid& guid);
 		static Resource* LoadResource(ResourceType type, const Path& path);
+		static Resource* LoadResourceInternal(ResourceType type, const Path& path);
+
 		static void UnloadResoruce(Resource* res);
 		static void ReloadResource(const Path& path);
 		static Resource* CreateTemporaryResource(ResourceType type);
@@ -82,10 +78,20 @@ namespace VulkanTest
 		static FactoryTable& GetAllFactories();
 		static void RegisterFactory(ResourceType type, ResourceFactory* factory);
 		static void UnregisterFactory(ResourceType type);
-
-		static class FileSystem* GetFileSystem();
 		static ResourcesCache& GetCache();
 
+		// Resource load hook
+		struct VULKAN_TEST_API LoadHook
+		{
+			enum class Action
+			{
+				IMMEDIATE,
+				DEFERRED
+			};
+			virtual ~LoadHook() {}
+			virtual Action OnBeforeLoad(Resource& res) = 0;
+			void ContinueLoad(Resource& res);
+		};
 		static void SetLoadHook(LoadHook* hook);
 		static LoadHook::Action OnBeforeLoad(Resource& res);
 

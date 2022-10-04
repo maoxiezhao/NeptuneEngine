@@ -292,9 +292,8 @@ namespace Editor
             if (!GetImageType(filename, type))
                 return CreateResult::Error;
 
-            FileSystem& fs = Engine::Instance->GetFileSystem();
             OutputMemoryStream mem;
-            if (!fs.LoadContext(filename, mem))
+            if (!FileSystem::LoadContext(filename, mem))
                 return CreateResult::Error;
 
             TextureCompressor::Input input;

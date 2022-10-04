@@ -43,15 +43,14 @@ namespace Editor
 	bool Settings::Load()
 	{
 		lua_State* l = luaState;
-		FileSystem& fs = app.GetEngine().GetFileSystem();
-		if (!fs.FileExists(SETTINGS_PATH))
+		if (!FileSystem::FileExists(SETTINGS_PATH))
 		{
 			Logger::Error("Failed to open %s", SETTINGS_PATH);
 			return false;
 		}
 
 		OutputMemoryStream buf;
-		if (!fs.LoadContext(SETTINGS_PATH, buf))
+		if (!FileSystem::LoadContext(SETTINGS_PATH, buf))
 		{
 			Logger::Error("Failed to open %s", SETTINGS_PATH);
 			return false;
@@ -152,8 +151,7 @@ namespace Editor
 
 	bool Settings::Save()
 	{
-		FileSystem& fs = app.GetEngine().GetFileSystem();
-		auto file = fs.OpenFile(SETTINGS_PATH, FileFlags::DEFAULT_WRITE);
+		auto file = FileSystem::OpenFile(SETTINGS_PATH, FileFlags::DEFAULT_WRITE);
 		if (!file->IsValid())
 		{
 			Logger::Error("Failed to save the settings");

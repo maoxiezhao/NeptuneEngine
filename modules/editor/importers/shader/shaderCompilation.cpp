@@ -122,13 +122,8 @@ namespace Editor
         if (options.path.IsEmpty() || options.outMem == nullptr)
             return false;
 
-        auto storage = StorageManager::TryGetStorage(options.path, false);
-        if (storage)
-            int a = 0;
-
-        FileSystem& fs = editor.GetEngine().GetFileSystem();
         OutputMemoryStream mem;
-        if (!fs.LoadContext(options.path.c_str(), mem))
+        if (!FileSystem::LoadContext(options.path.c_str(), mem))
             return false;
 
         // Parse shader to collect shader metadata

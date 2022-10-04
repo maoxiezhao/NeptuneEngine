@@ -35,7 +35,7 @@ namespace VulkanTest
 		bool Delete(const Path& path, ResourceInfo* resInfo);
 		bool Delete(const Guid& path, ResourceInfo* resInfo);
 
-		static bool Save(FileSystem* fs, const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<U64, Guid>& pathMapping);
+		static bool Save(const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<U64, Guid>& pathMapping);
 
 	private:
 		HashMap<Guid, Entry> resourceRegistry;

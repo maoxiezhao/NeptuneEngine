@@ -34,9 +34,8 @@ namespace VulkanTest
 	bool JsonResourceBase::LoadResource()
 	{
 #ifdef CJING3D_EDITOR
-		auto fs = ResourceManager::GetFileSystem();
 		OutputMemoryStream mem;
-		if (!fs->LoadContext(path.c_str(), mem))
+		if (!FileSystem::LoadContext(path.c_str(), mem))
 			return false;
 #else
 		auto storage = StorageManager::GetStorage(path, true);

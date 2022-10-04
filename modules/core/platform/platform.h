@@ -375,9 +375,10 @@ namespace Platform {
 	FileIterator* CreateFileIterator(const char* path, const char* ext = nullptr);
 	void DestroyFileIterator(FileIterator* it);
 	bool GetNextFile(FileIterator* it, ListEntry& info);
-
 	void DebugOutput(const char* msg);
-
+	void Fatal(const char* msg);
+	void SetCommandLine(int, char**);
+	bool GetCommandLines(Span<char> output);
 
 	struct VULKAN_TEST_API FileSystemWatcher
 	{
@@ -386,6 +387,18 @@ namespace Platform {
 		static UniquePtr<FileSystemWatcher> Create(const char* path);
 		virtual Delegate<void(const char*)>& GetCallback() = 0;
 	};
+
+	enum class SpecialFolder
+	{
+		Desktop = 0,
+		Documents = 1,
+		Pictures = 2,
+		AppData = 3,
+		LocalAppData = 4,
+		ProgramData = 5,
+		Temporary = 6,
+	};
+	void GetSpecialFolderPath(SpecialFolder type, Span<char> outputa);
 
 	/////////////////////////////////////////////////////////////////////////////////
 	// Library
