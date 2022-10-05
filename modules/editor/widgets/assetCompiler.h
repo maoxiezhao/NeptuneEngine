@@ -15,6 +15,7 @@ namespace Editor
     class VULKAN_EDITOR_API AssetCompiler : public EditorWidget
     {
     public:
+#if 0
         struct VULKAN_EDITOR_API IPlugin
         {
             virtual ~IPlugin() {}
@@ -54,6 +55,7 @@ namespace Editor
                 return (*(T*)userPtr)(L);
             });
         }
+#endif
     };
 }
 }

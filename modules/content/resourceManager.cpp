@@ -169,16 +169,22 @@ namespace VulkanTest
 		return res;
 	}
 
-	Resource* ResourceManager::LoadResourceInternal(ResourceType type, const Path& path)
+	Resource* ResourceManager::LoadResourceInternal(ResourceType type, const Path& internalPath)
 	{
-		if (path.IsEmpty() || type == ResourceType::INVALID_TYPE)
+		if (internalPath.IsEmpty() || type == ResourceType::INVALID_TYPE)
 			return nullptr;
 
 #if CJING3D_EDITOR
-		
+		const Path path = Globals::EngineContentFolder / internalPath + RESOURCE_FILES_EXTENSION_WITH_DOT;
+		if (!FileSystem::FileExists(path))
+		{
+			Logger::Error("Missing file %s", path.c_str());
+			return nullptr;
+		}
+#else
+		const Path path = Globals::ProjectContentFolder / internalPath + RESOURCE_FILES_EXTENSION_WITH_DOT;
 #endif
-		const StaticString<MAX_PATH_LENGTH> fullPath;
-		Resource* res = LoadResource(type, Path(fullPath));
+		Resource* res = LoadResource(type, path);
 		if (res == nullptr)
 		{
 			Logger::Error("Failed to load %s", path.c_str());
@@ -406,9 +412,8 @@ namespace VulkanTest
 			storage->CloseContent();
 
 		// Delete resource file
-		auto storagePath = ResourceStorage::GetContentPath(path, true);
-		if (FileSystem::FileExists(storagePath.c_str()))
-			FileSystem::DeleteFile(storagePath.c_str());
+		if (FileSystem::FileExists(path.c_str()))
+			FileSystem::DeleteFile(path.c_str());
 	}
 
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)
@@ -456,12 +461,49 @@ namespace VulkanTest
 
 	bool ResourceManager::GetResourceInfo(const Guid& guid, ResourceInfo& info)
 	{
+		if (!guid.IsValid())
+			return false;
+
+#ifdef CJING3D_EDITOR
+		if (cache.Find(guid, info))
+			return true;
+
+		return false;
+#else
 		return cache.Find(guid, info);
+#endif
 	}
 
 	bool ResourceManager::GetResourceInfo(const Path& path, ResourceInfo& info)
 	{
+		if (path.IsEmpty())
+			return false;
+
+#ifdef CJING3D_EDITOR
+		if (cache.Find(path, info))
+			return true;
+
+		auto extension = Path::GetExtension(path.ToSpan());
+		if (EqualString(extension, RESOURCE_FILES_EXTENSION) ||
+			EqualString(extension, PACKAGE_FILES_EXTENSION))
+		{
+			auto storage = StorageManager::GetStorage(path);
+			if (storage)
+			{
+				cache.Register(storage);
+				return cache.Find(path, info);
+			}
+		}
+		else if (EqualString(extension, "json"))
+		{
+			ASSERT(false);
+			return false;
+		}
+
+		return false;
+#else
 		return cache.Find(path, info);
+#endif
 	}
 
 	Resource* ResourceManager::GetResource(const Path& path)

@@ -41,7 +41,7 @@ namespace Editor
 		String output;
 		void* customArg;
 		ResourceInitData initData;
-		bool isCompiled;
+		bool skipMetadata;
 		Array<DataChunk> chunks;
 
 	public:
@@ -51,7 +51,6 @@ namespace Editor
 		CreateResult Create();
 		CreateResult Create(const CreateResourceFunction& func);
 		DataChunk* AllocateChunk(I32 index);
-		CreateResult Save();
 
 		template<typename T>
 		void WriteCustomData(const T& data_)

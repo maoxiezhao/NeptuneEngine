@@ -70,7 +70,7 @@ namespace Editor
         GPU::ShaderCompiler::CompilerInput input;   
         input.includeDirectories.push_back(includeDir);
         input.shadersourceData = (char*)context.source->Data();
-        input.shadersourceSize = context.source->Size();
+        input.shadersourceSize = (U32)context.source->Size();
         input.stage = meta.GetStage();
         input.entrypoint = meta.name;
         auto& macros = input.defines;

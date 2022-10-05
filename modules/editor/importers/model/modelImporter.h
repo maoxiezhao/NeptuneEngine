@@ -105,7 +105,7 @@ namespace Editor
 	public:
 		static CreateResult Import(CreateResourceContext& ctx);
 		static CreateResult WriteModel(CreateResourceContext& ctx, ImportModel& modelData);
-		static CreateResult WriteScene(CreateResourceContext& ctx, ImportModel& modelData);
+		static CreateResult WriteScene(CreateResourceContext& ctx, ImportModel& modelData, const Path& importOutput);
 		static CreateResult Create(CreateResourceContext& ctx);
 
 	private:
@@ -123,7 +123,7 @@ namespace Editor
 				scene(scene_)
 			{}
 		};
-		static bool WriteSceneNode(WriteSceneContext& ctx, const ImportNode& node, ECS::Entity parent);
+		static bool WriteSceneNode(WriteSceneContext& ctx, const ImportNode& node, ECS::Entity parent, const Path& importOutput);
 	};
 }
 }

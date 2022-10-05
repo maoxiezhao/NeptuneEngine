@@ -1,7 +1,6 @@
 #include "materialPlugin.h"
 #include "editor\editor.h"
 #include "imgui-docking\imgui.h"
-#include "editor\importers\material\materialImporter.h"
 
 namespace VulkanTest
 {
@@ -15,7 +14,7 @@ namespace Editor
 
 	bool MaterialPlugin::Compile(const Path& path, Guid guid)
 	{
-		return MaterialImporter::Import(app, path);
+		return false;
 	}
 
 	void MaterialPlugin::OnGui(Span<class Resource*> resource)

@@ -11,6 +11,12 @@ namespace VulkanTest
 {
 	class ResourceManager;
 
+	enum class ResorucesCacheFlags
+	{
+		None = 0,
+		RelativePaths = 1,
+	};
+
 	class VULKAN_TEST_API ResourcesCache
 	{
 	public:
@@ -35,11 +41,11 @@ namespace VulkanTest
 		bool Delete(const Path& path, ResourceInfo* resInfo);
 		bool Delete(const Guid& path, ResourceInfo* resInfo);
 
-		static bool Save(const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<U64, Guid>& pathMapping);
+		static bool Save(const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<Path, Guid>& pathMapping, ResorucesCacheFlags flags = ResorucesCacheFlags::None);
 
 	private:
 		HashMap<Guid, Entry> resourceRegistry;
-		HashMap<U64, Guid> pathHashMapping;
+		HashMap<Path, Guid> pathHashMapping;
 		Mutex mutex;
 		Path path;
 		bool isDirty = false;

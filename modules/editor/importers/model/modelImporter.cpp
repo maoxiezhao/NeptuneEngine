@@ -35,7 +35,7 @@ namespace Editor
 	}
 
 
-	bool ImportModelData(const String& path, ModelImporter::ImportModel& modelData, ModelImporter::ImportConfig& cfg)
+	bool ImportModelData(const String& path, ModelImporter::ImportModel& modelData, ModelImporter::ImportConfig& cfg, const Path& importOutput)
 	{
 		Logger::Info("Importing model from %s", path.c_str());
 		const auto startTime = Timer::GetTimeSeconds();
@@ -76,29 +76,29 @@ namespace Editor
 		HashMap<Path, bool> importedFiles;
 		for (auto& tex : modelData.textures)
 		{
-			if (!tex.isValid)
+			if (importOutput.IsEmpty() || !tex.isValid)
 				continue;
 
-			auto texPath = Path(tex.path);
-			if (!importedFiles.contains(texPath))
+			auto texFilename = Path::GetBaseName(tex.path);
+			auto filename = Path(texFilename.data());
+			if (importedFiles.contains(filename))
 			{
-				importedFiles.insert(Path(tex.path), true);
-
-				const Path& resPath = ResourceStorage::GetContentPath(texPath, true);
-				TextureImporter::ImportConfig config = {};
-				ResourceImportingManager::Import(texPath, resPath, tex.guid, &config);
+				I32 counter = 1;
+				do
+				{
+					filename = StaticString<MAX_PATH_LENGTH>().Sprintf("%s_%d", texFilename, counter);
+					counter++;
+				} while (importedFiles.contains(filename));
 			}
+			importedFiles.insert(filename, true);
+
+			auto texPath = Path(tex.path);
+			auto outputPath = importOutput / tex.path + RESOURCE_FILES_EXTENSION_WITH_DOT;
+			TextureImporter::ImportConfig config = {};
+			ResourceImportingManager::ImportIfEdited(texPath, outputPath, tex.guid, &config);
 		}
 
 		// Perpare materials
-		const PathInfo pathInfo(path);
-		if (!modelData.materials.empty())
-		{
-			StaticString<MAX_PATH_LENGTH> matPath(pathInfo.dir, "/", pathInfo.basename);
-			if (!Platform::DirExists(matPath.c_str()))
-				Platform::MakeDir(matPath.c_str());
-		}
-
 		for (auto& material : modelData.materials)
 		{
 			if (!material.import)
@@ -130,12 +130,11 @@ namespace Editor
 			WriteTexture(Texture::TextureType::NORMAL);
 			WriteTexture(Texture::TextureType::SPECULAR);
 
-			const auto& matName = material.name;
-			StaticString<MAX_PATH_LENGTH> matPath(pathInfo.dir, "/", pathInfo.basename, "/", matName.c_str(), ".mat");
+			auto matPath = importOutput / material.name + RESOURCE_FILES_EXTENSION_WITH_DOT;
 			if (!ResourceImportingManager::Create(
 				ResourceImportingManager::CreateMaterialTag,
 				material.guid,
-				Path(matPath),
+				matPath,
 				&options,
 				false))
 			{
@@ -154,9 +153,12 @@ namespace Editor
 		if (ctx.customArg != nullptr)
 			cfg = *static_cast<ImportConfig*>(ctx.customArg);
 
+		const PathInfo pathInfo(ctx.input);
+		Path importOutputPath(StaticString<MAX_PATH_LENGTH>(pathInfo.dir, "/", pathInfo.basename, "/").c_str());
+
 		// Import model data
 		ImportModel importModelData;
-		if (!ImportModelData(ctx.input, importModelData, cfg))
+		if (!ImportModelData(ctx.input, importModelData, cfg, importOutputPath))
 		{
 			Logger::Error("Failed to import model file %s", ctx.input.c_str());
 			return CreateResult::Error;
@@ -170,7 +172,7 @@ namespace Editor
 			ret = WriteModel(ctx, importModelData);
 			break;
 		case ModelType::Scene:
-			ret = WriteScene(ctx, importModelData);
+			ret = WriteScene(ctx, importModelData, importOutputPath);
 			break;
 		default:
 			break;
@@ -256,7 +258,7 @@ namespace Editor
 		return CreateResult::Ok;
 	}
 
-	bool ModelImporter::WriteSceneNode(WriteSceneContext& ctx, const ImportNode& node, ECS::Entity parent)
+	bool ModelImporter::WriteSceneNode(WriteSceneContext& ctx, const ImportNode& node, ECS::Entity parent, const Path& importOutput)
 	{
 		auto entity = ctx.scene->CreateEntity(node.name.c_str());
 		if (parent != ECS::INVALID_ENTITY)
@@ -315,12 +317,11 @@ namespace Editor
 	
 				Guid modelResID = Guid::New();
 
-				PathInfo pathInfo(ctx.ctx.input);
-				StaticString<MAX_PATH_LENGTH> fullpath(pathInfo.dir, "/", pathInfo.basename, "/", mesh.name.c_str(), RESOURCE_FILES_EXTENSION_WITH_DOT);
+				auto outputPath = importOutput / mesh.name.c_str() + RESOURCE_FILES_EXTENSION_WITH_DOT;
 				if (!ResourceImportingManager::Create(
 					ResourceImportingManager::CreateModelTag,
 					modelResID,
-					ResourceStorage::GetContentPath(Path(fullpath), true),
+					outputPath,
 					&modelData,
 					true))
 				{
@@ -335,7 +336,7 @@ namespace Editor
 		bool ret = true;
 		for (const auto& child : node.children)
 		{
-			if (!WriteSceneNode(ctx, child, entity))
+			if (!WriteSceneNode(ctx, child, entity, importOutput))
 			{
 				ret = false;
 				break;
@@ -344,7 +345,7 @@ namespace Editor
 		return ret;
 	}
 
-	CreateResult ModelImporter::WriteScene(CreateResourceContext& ctx, ImportModel& modelData)
+	CreateResult ModelImporter::WriteScene(CreateResourceContext& ctx, ImportModel& modelData, const Path& importOutput)
 	{
 		// ScriptingObjectParams params(ctx.initData.header.guid);
 		auto scene = CJING_NEW(Scene)();
@@ -353,7 +354,7 @@ namespace Editor
 
 		// Write scene nodes
 		WriteSceneContext writeCtx(ctx, modelData, scene);
-		if (!WriteSceneNode(writeCtx, modelData.root, ECS::INVALID_ENTITY))
+		if (!WriteSceneNode(writeCtx, modelData.root, ECS::INVALID_ENTITY, importOutput))
 		{
 			Logger::Error("Failed to writer scene nodes %s", ctx.input.c_str());
 			return CreateResult::Error;

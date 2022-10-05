@@ -185,6 +185,19 @@ namespace VulkanTest
 		return PathInfo(path);
 	}
 
+	Path VulkanTest::Path::operator+(const char* str)
+	{
+		Path ret = *this;
+		ret.Join(str);
+		return ret;
+	}
+
+	Path& VulkanTest::Path::operator+=(const char* str)
+	{
+		Join(str);
+		return *this;
+	}
+
 	Path& Path::operator/=(const char* str)
 	{
 		Join(str);

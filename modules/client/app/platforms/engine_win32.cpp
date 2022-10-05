@@ -38,7 +38,6 @@ namespace VulkanTest
 			
 			// Init engine paths
 			char startupPath[MAX_PATH_LENGTH];
-
 #ifdef CJING3D_EDITOR
 			if (!CommandLine::options.workingPath.empty())
 				memcpy(startupPath, CommandLine::options.workingPath, CommandLine::options.workingPath.size());
@@ -102,6 +101,7 @@ namespace VulkanTest
 			Globals::StartupFolder = startupPath;
 #ifdef CJING3D_EDITOR
 			Globals::EngineContentFolder = Globals::StartupFolder / "content";
+			Globals::ProjectCacheFolder = Globals::ProjectFolder / "cache";
 #endif
 			Globals::ProjectContentFolder = Globals::ProjectFolder / "content";
 		}

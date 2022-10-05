@@ -6,6 +6,7 @@
 #include "core\platform\atomic.h"
 #include "core\filesystem\filesystem.h"
 #include "core\serialization\stream.h"
+#include "core\globals.h"
 
 namespace VulkanTest
 {
@@ -2884,7 +2885,12 @@ MemoryUsage DeviceVulkan::GetMemoryUsage() const
 
 void DeviceVulkan::InitPipelineCache()
 {
-    const char* cachePath = GetPipelineCachePath();
+#ifdef CJING3D_EDITOR
+    const Path cachePath = Globals::ProjectCacheFolder / "pipeline_cache.bin";
+#else
+    const Path cachePath = Globals::ProjectCacheFolder / "pipeline_cache.bin"; 
+#endif
+
     if (!FileSystem::FileExists(cachePath))
     {
         if (!InitPipelineCache(nullptr, 0))

@@ -3,18 +3,10 @@
 #include "core\platform\platform.h"
 #include "imgui-docking\imgui.h"
 
+#if 0
+
 namespace VulkanTest
 {
-
-template<>
-struct HashMapHashFunc<Path>
-{
-    static U32 Get(const Path& key)
-    {
-        const U64 hash = key.GetHashValue();
-        return U32(hash ^ (hash >> 32));
-    }
-};
 
 namespace Editor
 {
@@ -915,3 +907,5 @@ namespace Editor
     }
 }
 }
+
+#endif

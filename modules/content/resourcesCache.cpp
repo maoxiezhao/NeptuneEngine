@@ -22,7 +22,7 @@ namespace VulkanTest
 #ifdef CJING3D_EDITOR
 		path = Globals::ProjectCacheFolder / "resource_cache.bin";
 #else
-		path = Globals::ProjectCacheFolder / "resource_cache.bin";
+		path = Globals::ProjectContentFolder / "resource_cache.bin";
 #endif
 		Logger::Info("Load resource cache %s", path.c_str());
 
@@ -45,6 +45,10 @@ namespace VulkanTest
 			return;
 		}
 
+		// Flags
+		ResorucesCacheFlags flags;
+		stream->Read(flags);
+
 		ScopedMutex lock(mutex);
 		isDirty = false;
 
@@ -65,6 +69,10 @@ namespace VulkanTest
 			stream->Read(path, strSize);
 			entry.info.path = Path(path);
 
+			// Convert to absolute path
+			if (flags == ResorucesCacheFlags::RelativePaths && !entry.info.path.IsEmpty())
+				entry.info.path = Globals::StartupFolder / entry.info.path;
+
 			resourceRegistry.insert(entry.info.guid, entry);
 		}
 
@@ -75,10 +83,20 @@ namespace VulkanTest
 		{
 			Guid id;
 			stream->Read(id);
-			U64 pathHash;
-			stream->Read(pathHash);
+			I32 strSize;
+			stream->Read(strSize);
+			char path[MAX_PATH_LENGTH];
+			path[strSize] = 0;
+			stream->Read(path, strSize);
 
-			pathHashMapping.insert(pathHash, id);
+			// Convert to absolute path
+			Path mappedPath;
+			if (flags == ResorucesCacheFlags::RelativePaths && strSize > 0)
+				mappedPath = Globals::StartupFolder / path;
+			else
+				mappedPath = path;
+
+			pathHashMapping.insert(mappedPath, id);
 		}
 
 		Logger::Info("Resource cache loaded");
@@ -99,7 +117,7 @@ namespace VulkanTest
 #endif
 	}
 
-	bool ResourcesCache::Save(const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<U64, Guid>& pathMapping)
+	bool ResourcesCache::Save(const Path& path, const HashMap<Guid, Entry>& registry, const HashMap<Path, Guid>& pathMapping, ResorucesCacheFlags flags)
 	{
 		PROFILE_FUNCTION();
 		Logger::Info("Saving resouce cache %s", path.c_str());
@@ -110,6 +128,9 @@ namespace VulkanTest
 
 		// Version
 		stream->Write((I32)FILE_VERSION);
+
+		// Flags
+		stream->Write(flags);
 
 		// Registry
 		stream->Write((I32)registry.count());
@@ -128,7 +149,11 @@ namespace VulkanTest
 		for (auto it = pathMapping.begin(); it != pathMapping.end(); ++it)
 		{
 			stream->Write(it.value());
-			stream->Write(it.key());
+			
+			const Path& path = it.key();
+			const I32 len = (I32)StringLength(path.c_str());
+			stream->Write(len);
+			stream->Write(path.c_str(), len);
 		}
 
 		stream->Flush();
@@ -171,7 +196,7 @@ namespace VulkanTest
 		e.info.type = entry.type;
 		e.info.path = storagePath;
 		resourceRegistry.insert(entry.guid, e);
-		pathHashMapping.insert(path.GetHashValue(), entry.guid);
+		pathHashMapping.insert(path, entry.guid);
 
 		isDirty = true;
 	}
@@ -226,7 +251,7 @@ namespace VulkanTest
 			e.info.type = type;
 			e.info.path = path;
 			resourceRegistry.insert(guid, e);
-			pathHashMapping.insert(path.GetHashValue(), guid);
+			pathHashMapping.insert(path, guid);
 			isDirty = true;
 		}
 	}
@@ -246,7 +271,8 @@ namespace VulkanTest
 				resourceRegistry.erase(it);
 				isDirty = true;
 				ret = true;
-				Logger::Info("Delete resource %d %d %s", resInfo->guid.GetHash(), resInfo->type.GetHashValue(), path.c_str());
+				const auto& info = it.value().info;
+				Logger::Info("Delete resource %d %d %s", info.guid.GetHash(), info.type.GetHashValue(), path.c_str());
 				break;
 			}
 		}
@@ -266,7 +292,8 @@ namespace VulkanTest
 			resourceRegistry.erase(it);
 			isDirty = true;
 			ret = true;
-			Logger::Info("Delete resource %d %d %s", resInfo->guid.GetHash(), resInfo->type.GetHashValue(), path.c_str());
+			const auto& info = it.value().info;
+			Logger::Info("Delete resource %d %d %s", info.guid.GetHash(), info.type.GetHashValue(), path.c_str());
 
 		}
 		return ret;
@@ -277,7 +304,7 @@ namespace VulkanTest
 		PROFILE_FUNCTION();
 		mutex.Lock();
 		Guid guid;
-		if (pathHashMapping.tryGet(path.GetHashValue(), guid))
+		if (pathHashMapping.tryGet(path, guid))
 		{
 			mutex.Unlock();
 			return Find(guid, resInfo);

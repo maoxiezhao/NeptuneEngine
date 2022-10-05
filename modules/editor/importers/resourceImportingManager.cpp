@@ -112,11 +112,10 @@ namespace Editor
 		}
 		else
 		{
-			const Path storagePath = ResourceStorage::GetContentPath(inputPath, isCompiled);
-			if (FileSystem::FileExists(storagePath.c_str()))
+			if (FileSystem::FileExists(outputPath))
 			{
 				// Load target resource and get the guid
-				auto storage = StorageManager::GetStorage(storagePath, true, isCompiled);
+				auto storage = StorageManager::GetStorage(outputPath, true);
 				if (storage)
 				{
 					auto entry = storage->GetResourceEntry();
@@ -124,7 +123,7 @@ namespace Editor
 				}
 				else
 				{
-					Logger::Warning("Cannot open resource storage %s", storagePath.c_str());
+					Logger::Warning("Cannot open resource storage %s", outputPath.c_str());
 				}
 			}
 		}
@@ -137,16 +136,8 @@ namespace Editor
 
 		if (result == CreateResult::Ok)
 		{
-			// check if is resource tile
-			if (StartsWith(inputPath.c_str(), ".export/resources_tiles/"))
-			{
-				const auto endTime = Timer::GetTimeSeconds();
-				Logger::Info("Create resource time %s in %.3f s", inputPath.c_str(), endTime - startTime);
-				return true;
-			}
-
 			// Register if resource is compiled
-			ResourceManager::GetCache().Register(ctx.initData.header.guid, ctx.initData.header.type, inputPath);
+			ResourceManager::GetCache().Register(ctx.initData.header.guid, ctx.initData.header.type, outputPath);
 
 			const auto endTime = Timer::GetTimeSeconds();
 			Logger::Info("Create resource %s in %.3f s", inputPath.c_str(), endTime - startTime);
@@ -183,6 +174,25 @@ namespace Editor
 		}
 
 		return Create(importer->callback, inputPath, outputPath, arg, importer->isCompiled);
+	}
+
+	bool ResourceImportingManager::ImportIfEdited(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg)
+	{
+		if (!FileSystem::FileExists(outputPath))
+			return Import(inputPath, outputPath, resID, arg);
+
+		U64 srcTime = FileSystem::GetLastModTime(inputPath);
+		U64 dstTime = FileSystem::GetLastModTime(outputPath);
+		if (srcTime > dstTime)
+			return Import(inputPath, outputPath, resID, arg);
+
+		if (!resID.IsValid())
+		{
+			ResourceInfo info;
+			ResourceManager::GetResourceInfo(outputPath, info);
+			resID = info.guid;
+		}
+		return true;
 	}
 }
 }

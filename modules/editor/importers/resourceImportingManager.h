@@ -31,6 +31,7 @@ namespace Editor
 		}
 
 		static bool Import(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg);
+		static bool ImportIfEdited(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg);
 	};
 }
 }

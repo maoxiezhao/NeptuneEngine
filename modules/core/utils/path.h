@@ -2,6 +2,7 @@
 
 #include "string.h"
 #include "stringID.h"
+#include "core\collections\hashMap.h"
 
 namespace VulkanTest
 {
@@ -44,6 +45,9 @@ namespace VulkanTest
 		PathInfo GetPathInfo();
 		Span<const char> ToSpan()const { return Span(path, Length()); }
 		
+		Path operator+(const char* str);
+		Path& operator+=(const char* str);
+
 		bool operator==(const Path& rhs) const;
 		bool operator!=(const Path& rhs) const;
 
@@ -99,4 +103,13 @@ namespace VulkanTest
 		virtual bool OriginalPath(const char* inPath, char* outPath, size_t maxOutPath) = 0;
 	};
 
+	template<>
+	struct HashMapHashFunc<Path>
+	{
+		static U32 Get(const Path& key)
+		{
+			const U64 hash = key.GetHashValue();
+			return U32(hash ^ (hash >> 32));
+		}
+	};
 }

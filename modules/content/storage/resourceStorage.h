@@ -25,7 +25,7 @@ namespace VulkanTest
 			I32 chunkIndex[MAX_RESOURCE_DATA_CHUNKS];
 		};
 
-		ResourceStorage(const Path& path_, bool isCompiled_);
+		ResourceStorage(const Path& path_);
 		virtual ~ResourceStorage();
 
 		bool Load();
@@ -126,7 +126,6 @@ namespace VulkanTest
 
 		DelegateList<void(ResourceStorage*, bool)> OnReloaded; 
 #endif
-		static Path GetContentPath(const Path& path, bool isCompiled);
 
 	private:
 		FileReadStream* LoadContent();
@@ -135,7 +134,6 @@ namespace VulkanTest
 		ResourceEntry entry;
 		Array<DataChunk*> chunks;
 		ThreadLocalObject<FileReadStream> file;
-		bool isCompiled = true;
 		bool isLoaded = false;
 		Mutex mutex;
 		volatile I64 chunksLock;

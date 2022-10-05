@@ -61,27 +61,25 @@ namespace VulkanTest
 	};
 	StorageServiceImpl StorageServiceImplInstance;
 
-	ResourceStorageRef StorageManager::TryGetStorage(const Path& path, bool isCompiled)
+	ResourceStorageRef StorageManager::TryGetStorage(const Path& path)
 	{
 		auto& impl = StorageServiceImplInstance;
 		ScopedMutex lock(impl.mutex);
 		ResourceStorage* storage = nullptr;
-		Path contentPath = ResourceStorage::GetContentPath(path, isCompiled);
-		impl.storageMap.tryGet(contentPath.GetHashValue(), storage);
+		impl.storageMap.tryGet(path.GetHashValue(), storage);
 		return storage;
 	}
 
-	ResourceStorageRef StorageManager::GetStorage(const Path& path, bool doLoad, bool isCompiled)
+	ResourceStorageRef StorageManager::GetStorage(const Path& path, bool doLoad)
 	{
 		auto& impl = StorageServiceImplInstance;
 		impl.mutex.Lock();
-		Path contentPath = ResourceStorage::GetContentPath(path, isCompiled);
 		ResourceStorage* ret = nullptr;
-		auto it = impl.storageMap.find(contentPath.GetHashValue());
+		auto it = impl.storageMap.find(path.GetHashValue());
 		if (!it.isValid())
 		{
-			auto newStorage = CJING_NEW(ResourceStorage)(path, isCompiled);
-			impl.storageMap.insert(contentPath.GetHashValue(), newStorage);
+			auto newStorage = CJING_NEW(ResourceStorage)(path);
+			impl.storageMap.insert(path.GetHashValue(), newStorage);
 			ret = newStorage;
 		}
 		else
@@ -100,7 +98,7 @@ namespace VulkanTest
 				Logger::Error("Failed to load storage %s", path.c_str());
 
 				ScopedMutex lock(impl.mutex);
-				impl.storageMap.erase(contentPath.GetHashValue());
+				impl.storageMap.erase(path.GetHashValue());
 				CJING_DELETE(ret);
 				return nullptr;
 			}

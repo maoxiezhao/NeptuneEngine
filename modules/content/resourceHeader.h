@@ -51,5 +51,10 @@ namespace VulkanTest
 	{
 		ResourceHeader header;
 		OutputMemoryStream customData;
+
+#ifdef CJING3D_EDITOR
+		OutputMemoryStream metadata;
+		Array<Pair<Guid, U64>> dependencies;
+#endif
 	};
 }

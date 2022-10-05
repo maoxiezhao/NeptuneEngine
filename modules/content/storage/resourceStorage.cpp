@@ -19,12 +19,11 @@ namespace VulkanTest
 
 	ResourceStorage::StorageLock ResourceStorage::StorageLock::Invalid(nullptr);
 
-	ResourceStorage::ResourceStorage(const Path& path_, bool isCompiled_) :
+	ResourceStorage::ResourceStorage(const Path& path_) :
 		path(path_),
 		chunksLock(0),
 		refCount(0),
-		lastRefLoseTime(0.0f),
-		isCompiled(isCompiled_)
+		lastRefLoseTime(0.0f)
 	{
 	}
 
@@ -413,11 +412,10 @@ namespace VulkanTest
 			if (AtomicRead(&chunksLock) != 0)
 				int a = 0;
 
-			Path contentPath = GetContentPath(path, isCompiled);
-			auto file_ = FileSystem::OpenFile(contentPath.c_str(), FileFlags::DEFAULT_READ);
+			auto file_ = FileSystem::OpenFile(path.c_str(), FileFlags::DEFAULT_READ);
 			if (!file_ || !file_->IsValid())
 			{
-				Logger::Error("Cannot open compiled resource content %s", contentPath.c_str());
+				Logger::Error("Cannot open compiled resource content %s", path.c_str());
 				return nullptr;
 			}
 
@@ -443,23 +441,5 @@ namespace VulkanTest
 
 		ASSERT(chunksLock == 0);
 		file.DeleteAll();
-	}
-
-	Path ResourceStorage::GetContentPath(const Path& path, bool isCompiled)
-	{
-		if (!isCompiled)
-			return path;
-
-		StaticString<MAX_PATH_LENGTH> fullResPath;
-		if (StartsWith(path.c_str(), ".export"))
-		{
-			fullResPath = path.c_str();
-		}
-		else
-		{
-			const U64 pathHash = path.GetHashValue();
-			fullResPath = StaticString<MAX_PATH_LENGTH>(".export/resources/", pathHash, ".res");
-		}
-		return Path(fullResPath.c_str());
 	}
 }

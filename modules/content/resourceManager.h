@@ -51,14 +51,14 @@ namespace VulkanTest
 		}
 
 		template<typename T>
-		static T* LoadResourceInternal(const Path& path)
+		static T* LoadResourceInternal(const Path& internalPath)
 		{
-			return static_cast<T*>(LoadResourceInternal(T::ResType, path));
+			return static_cast<T*>(LoadResourceInternal(T::ResType, internalPath));
 		}
 
 		static Resource* LoadResource(ResourceType type, const Guid& guid);
 		static Resource* LoadResource(ResourceType type, const Path& path);
-		static Resource* LoadResourceInternal(ResourceType type, const Path& path);
+		static Resource* LoadResourceInternal(ResourceType type, const Path& internalPath);
 
 		static void UnloadResoruce(Resource* res);
 		static void ReloadResource(const Path& path);
