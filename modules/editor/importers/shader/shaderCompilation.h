@@ -28,7 +28,7 @@ namespace Editor
 	{
 	public:
         static bool Compile(EditorApp& editor, CompilationOptions& options);
-        static bool Write(EditorApp& editor, Guid guid, const Path& path, OutputMemoryStream& mem);
+        static bool Write(EditorApp& editor, Guid guid, const Path& inputPath, const Path& outputPath, OutputMemoryStream& mem);
 	};
 }
 }

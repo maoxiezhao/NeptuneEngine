@@ -37,6 +37,8 @@ namespace VulkanTest
 		void operator=(const char* rhs);
 
 		void Join(const char* path_);
+		void Append(const char* str);
+		void Append(char* str);
 		size_t Length()const;
 		const char* c_str()const { return path; }
 		StringID GetHash()const { return hash; }

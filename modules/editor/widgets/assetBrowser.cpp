@@ -1,5 +1,5 @@
 #include "assetBrowser.h"
-#include "assetCompiler.h"
+#include "assetImporter.h"
 #include "editor\editor.h"
 #include "editor\importers\resourceImportingManager.h"
 #include "editor\widgets\codeEditor.h"
@@ -104,13 +104,10 @@ namespace Editor
         ~AssetBrowserImpl()
         {
             UnloadSelectedResources();
-
-            editor.GetAssetCompiler().GetListChangedCallback().Unbind<&AssetBrowserImpl::OnResourceListChanged>(this);
         }
 
         void InitFinished() override
         {
-            editor.GetAssetCompiler().GetListChangedCallback().Bind<&AssetBrowserImpl::OnResourceListChanged>(this);
             initialized = true;
         }
 
@@ -283,17 +280,14 @@ namespace Editor
             }
 
             // Add the resource with the same directory
-            RuntimeHash hash(curDir.c_str());
-
-            auto& compiler = editor.GetAssetCompiler();
-            auto& resources = compiler.LockResources();
-            for (auto& res : resources)
-            {
-                if (res.dirHash == hash)
-                    AddResTile(res.path);
-            }
-
-            compiler.UnlockResources();
+            //RuntimeHash hash(curDir.c_str());
+            //auto& resources = compiler.LockResources();
+            //for (auto& res : resources)
+            //{
+            //    if (res.dirHash == hash)
+            //        AddResTile(res.path);
+            //}
+            //compiler.UnlockResources();
         }
 
         void AddResTile(const Path& path)
@@ -361,7 +355,7 @@ namespace Editor
                     }
 
                     // Plugin does the own OnGUI
-                    ResourceType resType = editor.GetAssetCompiler().GetResourceType(path);
+                    ResourceType resType = editor.GetAssetImporter().GetResourceType(path);
                     auto it = plugins.find(resType.GetHashValue());
                     if (it.isValid())
                     {
@@ -696,7 +690,7 @@ namespace Editor
                 data->mem.Write(mem.Data(), mem.Size());
 
                 // Save
-                return ctx.Save();
+                return CreateResult::Ok;
             }, Path(from), Path(to));
         }
 
@@ -707,7 +701,7 @@ namespace Editor
 
             info.isLoading = true;
 
-            auto& compiler = editor.GetAssetCompiler();
+            auto& compiler = editor.GetAssetImporter();
             auto resType = compiler.GetResourceType(info.filepath);
 
             StaticString<MAX_PATH_LENGTH> tilePath(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
@@ -802,7 +796,7 @@ namespace Editor
                 }
             }
 
-            const ResourceType resType = editor.GetAssetCompiler().GetResourceType(path.c_str());
+            const ResourceType resType = editor.GetAssetImporter().GetResourceType(path.c_str());
             ResPtr<Resource> res = ResourceManager::LoadResource(resType, path);
             if (res)
             {

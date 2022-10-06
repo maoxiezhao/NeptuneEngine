@@ -358,13 +358,13 @@ namespace Renderer
 
 	void LoadShaders()
 	{
-		shaders[SHADERTYPE_OBJECT] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/object.shd"));
-		shaders[SHADERTYPE_VERTEXCOLOR] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/vertexColor.shd"));
-		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/outline.shd"));
-		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/blurGaussian.shd"));
-		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/lightCulling.shd"));
-		shaders[SHADERTYPE_MESHLET] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/meshlet.shd"));
-		shaders[SHADERTYPE_SKY] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/sky.shd"));
+		shaders[SHADERTYPE_OBJECT] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/object"));
+		shaders[SHADERTYPE_VERTEXCOLOR] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/vertexColor"));
+		shaders[SHADERTYPE_POSTPROCESS_OUTLINE] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/outline"));
+		shaders[SHADERTYPE_POSTPROCESS_BLUR_GAUSSIAN] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/blurGaussian"));
+		shaders[SHADERTYPE_TILED_LIGHT_CULLING] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/lightCulling"));
+		shaders[SHADERTYPE_MESHLET] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/meshlet"));
+		shaders[SHADERTYPE_SKY] = ResourceManager::LoadResourceInternal<Shader>(Path("shaders/sky"));
 	}
 
 	void Renderer::Initialize(Engine& engine)

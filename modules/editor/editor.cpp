@@ -19,7 +19,7 @@
 #include "plugins\level.h"
 
 #include "widgets\assetBrowser.h"
-#include "widgets\assetCompiler.h"
+#include "widgets\assetImporter.h"
 #include "widgets\worldEditor.h"
 #include "widgets\log.h"
 #include "widgets\property.h"
@@ -98,7 +98,7 @@ namespace Editor
                 Platform::GetSpecialFolderPath(Platform::SpecialFolder::Temporary, projectPath);
                 CommandLine::options.projectPath = projectPath;
             }
-            CommandLine::options.newProject = true;
+            CommandLine::options.newProject = false;
 #endif
             Path projectPath = Path(CommandLine::options.projectPath);
             if (CommandLine::options.newProject)
@@ -146,15 +146,15 @@ namespace Editor
 
             // Load project
             Globals::ProjectFolder = projectPath;
-            Array<String> projectFiles;
+            Array<Path> projectFiles;
             auto fileList = FileSystem::Enumerate(projectPath);
             for (const auto& fileInfo : fileList)
             {
-                if (fileInfo.type != PathType::File)
+                if (fileInfo.type == PathType::Directory)
                     continue;
 
                 if (EndsWith(fileInfo.filename, ".proj"))
-                    projectFiles.push_back(fileInfo.filename);
+                    projectFiles.push_back(projectPath / fileInfo.filename);   
             }
 
             if (projectFiles.size() == 0)
@@ -199,7 +199,7 @@ namespace Editor
             Engine::Instance = engine.Get();
 
             // Init asset compiler first
-            assetCompiler = AssetCompiler::Create(*this);
+            assetImporter = AssetImporter::Create(*this);
 
             // Load plugins
             engine->LoadPlugins();
@@ -275,7 +275,7 @@ namespace Editor
 
             // Remove system widgets
             assetBrowser.Reset();
-            assetCompiler.Reset();
+            assetImporter.Reset();
             worldEditor.Reset();
             entityListWidget.Reset();
             profilerWidget.Reset();
@@ -403,14 +403,14 @@ namespace Editor
             }
         }
 
-        AssetCompiler& GetAssetCompiler() override
-        {
-            return *assetCompiler;
-        }
-
         AssetBrowser& GetAssetBrowser() override
         {
             return *assetBrowser;
+        }
+
+        AssetImporter& GetAssetImporter() override
+        {
+            return *assetImporter;
         }
 
         EntityListWidget& GetEntityList() override
@@ -475,7 +475,7 @@ namespace Editor
             ImGuiRenderer::BeginFrame();
             ImGui::PushFont(font);
 
-            assetCompiler->Update(deltaTime);
+            assetImporter->Update(deltaTime);
             worldEditor->Update(deltaTime);
 
             engine->Update(worldEditor->GetWorld(), deltaTime);
@@ -563,7 +563,7 @@ namespace Editor
             stateMachine.SwitchState(EditorStateType::EditingScene);
 
             // Asset compiler process pending tasks
-            assetCompiler->InitFinished();
+            assetImporter->InitFinished();
 
             // Init all widgets
             for (auto widget : widgets)
@@ -744,7 +744,7 @@ namespace Editor
                 for (auto widget : widgets)
                     widget->OnGUI();
 
-                assetCompiler->OnGUI();
+                assetImporter->OnGUI();
                 settings.OnGUI();
                 OnAboundGUI();
 
@@ -1293,7 +1293,7 @@ namespace Editor
         RenderInterface* renderInterface = nullptr;
 
         // Builtin widgets
-        UniquePtr<AssetCompiler> assetCompiler;
+        UniquePtr<AssetImporter> assetImporter;
         UniquePtr<AssetBrowser> assetBrowser;
         UniquePtr<WorldEditor> worldEditor;
         UniquePtr<LogWidget> logWidget;

@@ -1,7 +1,6 @@
 #include "level.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetBrowser.h"
-#include "editor\widgets\assetCompiler.h"
 #include "editor\widgets\worldEditor.h"
 #include "editor\states\editorStateMachine.h"
 #include "editor\importers\resourceImportingManager.h"
@@ -14,7 +13,7 @@ namespace VulkanTest
 {
 namespace Editor
 {
-	struct ScenePlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
+	struct ScenePlugin final : AssetBrowser::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -23,8 +22,6 @@ namespace Editor
 		ScenePlugin(EditorApp& app_) :
 			app(app_)
 		{
-			app_.GetAssetCompiler().RegisterExtension("scene", SceneResource::ResType);
-
 			Level::SceneLoaded.Bind<&ScenePlugin::OnSceneLoaded>(this);
 			Level::SceneUnloaded.Bind<&ScenePlugin::OnSceneUnloaded>(this);
 		}
@@ -33,33 +30,6 @@ namespace Editor
 		{
 			Level::SceneLoaded.Unbind<&ScenePlugin::OnSceneLoaded>(this);
 			Level::SceneUnloaded.Unbind<&ScenePlugin::OnSceneUnloaded>(this);
-		}
-
-		bool Compile(const Path& path, Guid guid)override
-		{
-#if CJING3D_EDITOR
-			OutputMemoryStream mem;
-			if (!FileSystem::LoadContext(path.c_str(), mem))
-			{
-				Logger::Error("failed to read file:%s", path.c_str());
-				return false;
-			}
-
-			const Path& resPath = ResourceStorage::GetContentPath(path, true);
-			return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
-				IMPORT_SETUP(SceneResource);
-				DataChunk* shaderChunk = ctx.AllocateChunk(0);
-				shaderChunk->mem.Link(mem.Data(), mem.Size());
-
-				return CreateResult::Ok;
-			}, guid, path, resPath);
-#else
-			return true;
-#endif
-		}
-
-		std::vector<const char*> GetSupportExtensions() {
-			return { "scene" };
 		}
 
 		void OnGui(Span<class Resource*> resource)override {}
@@ -108,9 +78,8 @@ namespace Editor
 
 		void DoubleClick(const Path& path) override
 		{
-			const ResourceType resType = app.GetAssetCompiler().GetResourceType(path.c_str());
-			if (resType == SceneResource::ResType)
-				OpenScene(path);
+			//if (resType == SceneResource::ResType)
+			//	OpenScene(path);
 		}
 
 		bool CreateResourceEnable()const {
@@ -183,17 +152,10 @@ namespace Editor
 		{
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.RemovePlugin(scenePlugin);
-		
-			AssetCompiler& assetCompiler = app.GetAssetCompiler();
-			assetCompiler.RemovePlugin(scenePlugin);
 		}
 
 		void Initialize() override
 		{
-			// Add plugins for asset compiler
-			AssetCompiler& assetCompiler = app.GetAssetCompiler();
-			assetCompiler.AddPlugin(scenePlugin);
-
 			// Add plugins for asset browser
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();
 			assetBrowser.AddPlugin(scenePlugin);

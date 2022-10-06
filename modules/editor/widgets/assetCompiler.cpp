@@ -1,9 +1,9 @@
+#if 0
+
 #include "assetCompiler.h"
 #include "editor\editor.h"
 #include "core\platform\platform.h"
 #include "imgui-docking\imgui.h"
-
-#if 0
 
 namespace VulkanTest
 {
@@ -892,7 +892,7 @@ namespace Editor
         return 0;
     }
 
-    void AssetCompiler::IPlugin::RegisterResource(AssetCompiler& compiler, const char* path)
+    void AssetImporter::IPlugin::RegisterResource(AssetCompiler& compiler, const char* path)
     {
         ResourceType type = compiler.GetResourceType(path);
         if (type == ResourceType::INVALID_TYPE)
@@ -901,7 +901,7 @@ namespace Editor
         compiler.AddResource(type, path);
     }
 
-    UniquePtr<AssetCompiler> AssetCompiler::Create(EditorApp& app)
+    UniquePtr<AssetCompiler> AssetImporter::Create(EditorApp& app)
     {
         return CJING_MAKE_UNIQUE<AssetCompilerImpl>(app);
     }

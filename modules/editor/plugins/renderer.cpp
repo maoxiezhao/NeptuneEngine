@@ -1,7 +1,7 @@
 #include "renderer.h"
 #include "editor\editor.h"
 #include "editor\widgets\assetBrowser.h"
-#include "editor\widgets\assetCompiler.h"
+#include "editor\widgets\assetImporter.h"
 #include "editor\widgets\sceneView.h"
 #include "content\resources\model.h"
 #include "renderer\render2D\fontResource.h"
@@ -23,7 +23,7 @@ namespace Editor
 {
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Font editor plugin
-	struct FontPlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
+	struct FontPlugin final : AssetImporter::IPlugin, AssetBrowser::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -32,32 +32,12 @@ namespace Editor
 		FontPlugin(EditorApp& app_) :
 			app(app_)
 		{
-			app_.GetAssetCompiler().RegisterExtension("ttf", FontResource::ResType);
+			app_.GetAssetImporter().RegisterExtension("ttf", FontResource::ResType);
 		}
 
-		bool Compile(const Path& path, Guid guid)override
+		bool Import(const Path& input, const Path& outptu)override
 		{
-			OutputMemoryStream mem;
-			if (!FileSystem::LoadContext(path.c_str(), mem))
-			{
-				Logger::Error("failed to read file:%s", path.c_str());
-				return false;
-			}
-
-			const Path& resPath = ResourceStorage::GetContentPath(path, true);
-			return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
-				IMPORT_SETUP(FontResource);
-
-				// Write header
-				FontResource::FontHeader header = {};
-				ctx.WriteCustomData(header);
-
-				// Write data
-				DataChunk* shaderChunk = ctx.AllocateChunk(0);
-				shaderChunk->mem.Link(mem.Data(), mem.Size());
-
-				return CreateResult::Ok;
-			}, guid, path, resPath);
+			return false;
 		}
 
 		std::vector<const char*> GetSupportExtensions()
@@ -74,7 +54,7 @@ namespace Editor
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Texture editor plugin
-	struct TexturePlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
+	struct TexturePlugin final : AssetImporter::IPlugin, AssetBrowser::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -90,21 +70,15 @@ namespace Editor
 		TexturePlugin(EditorApp& app_) :
 			app(app_)
 		{
-			app_.GetAssetCompiler().RegisterExtension("raw", Texture::ResType);
-			app_.GetAssetCompiler().RegisterExtension("png", Texture::ResType);
-			app_.GetAssetCompiler().RegisterExtension("jpg", Texture::ResType);
-			app_.GetAssetCompiler().RegisterExtension("tga", Texture::ResType);
+			app_.GetAssetImporter().RegisterExtension("raw", Texture::ResType);
+			app_.GetAssetImporter().RegisterExtension("png", Texture::ResType);
+			app_.GetAssetImporter().RegisterExtension("jpg", Texture::ResType);
+			app_.GetAssetImporter().RegisterExtension("tga", Texture::ResType);
 		}
 
-		bool Compile(const Path& path, Guid guid)override
+		bool Import(const Path& input, const Path& outptu)override
 		{
-			TextureMeta meta = GetMeta(path);
-			TextureImporter::ImportConfig config;
-			config.compress = meta.compress;
-			config.generateMipmaps = meta.generateMipmaps;
-
-			const Path& resPath = ResourceStorage::GetContentPath(path, true);
-			return ResourceImportingManager::Import(path, resPath, guid, &config);
+			return false;
 		}
 
 		TextureMeta GetMeta(const Path& path)const
@@ -156,7 +130,7 @@ namespace Editor
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Model editor plugin
-	struct ModelPlugin final : AssetCompiler::IPlugin
+	struct ModelPlugin final : AssetImporter::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -170,18 +144,13 @@ namespace Editor
 		ModelPlugin(EditorApp& app_) : 
 			app(app_)
 		{
-			app_.GetAssetCompiler().RegisterExtension("obj", Model::ResType);
-			app_.GetAssetCompiler().RegisterExtension("gltf", Model::ResType);
+			app_.GetAssetImporter().RegisterExtension("obj", Model::ResType);
+			app_.GetAssetImporter().RegisterExtension("gltf", Model::ResType);
 		}
 
-		bool Compile(const Path& path, Guid guid)override
+		bool Import(const Path& input, const Path& outptu)override
 		{			
-			Meta meta = GetMeta(path);
-			ModelImporter::ImportConfig cfg = {};
-			cfg.scale = meta.scale;
-
-			const Path& resPath = ResourceStorage::GetContentPath(path, true);
-			return ResourceImportingManager::Import(path, resPath, guid, &cfg);
+			return false;
 		}
 
 		Meta GetMeta(const Path& path)const
@@ -201,7 +170,7 @@ namespace Editor
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Shader editor plugin
-	struct ShaderPlugin final : AssetCompiler::IPlugin, AssetBrowser::IPlugin
+	struct ShaderPlugin final : AssetImporter::IPlugin, AssetBrowser::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -215,87 +184,12 @@ namespace Editor
 		ShaderPlugin(EditorApp& app_) :
 			app(app_)
 		{
-			app_.GetAssetCompiler().RegisterExtension("shd", Shader::ResType);
+			app_.GetAssetImporter().RegisterExtension("shd", Shader::ResType);
 		}
 
-		bool Compile(const Path& path, Guid guid)override
+		bool Import(const Path& input, const Path& outptu)override
 		{
-			char ext[5] = {};
-			CopyString(Span(ext), Path::GetExtension(path.ToSpan()));
-			MakeLowercase(Span(ext), ext);
-
-			if (EqualString(ext, "shd"))
-			{
-				OutputMemoryStream outMem;
-				outMem.Reserve(32 * 1024);
-
-				OutputMemoryStream mem;
-				CompilationOptions options = {};
-				options.Macros.clear();
-				options.path = path;
-				options.outMem = &mem;
-				if (!ShaderCompilation::Compile(app, options))
-					return false;
-
-				// Update meta
-				String metaData;
-				metaData += "dependencies = {";
-				HashMap<U64, bool> set;
-				for (const auto& dependency : options.dependencies)
-				{
-					auto hash = RuntimeHash(dependency.c_str()).GetHashValue();
-					if (set.find(hash).isValid())
-						continue;
-					set.insert(hash, true);
-
-					metaData += "\"";
-					metaData += dependency.c_str();
-					metaData += "\",";
-				}
-				metaData += "\n}";
-				app.GetAssetCompiler().UpdateMeta(path, metaData.c_str());
-
-				return ShaderCompilation::Write(app, guid, path, mem);
-			}
-			else
-			{
-				ASSERT(false);
-				return false;
-			}
-		}
-
-		void RegisterResource(AssetCompiler& compiler, const char* path) override
-		{
-			compiler.AddResource(Shader::ResType, path);
-
-			Meta meta = GetMeta(Path(path));
-			for (const auto& dependency : meta.dependencies)
-				compiler.AddDependency(Path(path), dependency);
-		}
-
-		Meta GetMeta(const Path& path)const
-		{
-			// TODO: Remove lua functions
-			Meta meta = {};
-			app.GetAssetCompiler().GetMeta(path, [&](lua_State* L) {
-				lua_getglobal(L, "dependencies");
-				if (lua_type(L, -1) == LUA_TTABLE)
-				{
-					lua_len(L, -1);
-					auto count = lua_tointeger(L, -1);
-					lua_pop(L, 1);
-
-					for (int i = 0; i < count; ++i)
-					{
-						lua_rawgeti(L, -1, i + 1);
-						if (lua_type(L, -1) == LUA_TSTRING)
-							meta.dependencies.push_back(LuaUtils::Get<Path>(L, -1));
-						lua_pop(L, 1);
-					}
-				}
-				lua_pop(L, 1);
-			});
-			return meta;
+			return false;
 		}
 
 		void OnGui(Span<class Resource*> resource)override
@@ -468,12 +362,12 @@ namespace Editor
 			assetBrowser.RemovePlugin(materialPlugin);
 			assetBrowser.RemovePlugin(fontPlugin);
 
-			AssetCompiler& assetCompiler = app.GetAssetCompiler();
-			assetCompiler.RemovePlugin(modelPlugin);
-			assetCompiler.RemovePlugin(materialPlugin);
-			assetCompiler.RemovePlugin(shaderPlugin);
-			assetCompiler.RemovePlugin(texturePlugin);
-			assetCompiler.RemovePlugin(fontPlugin);
+			AssetImporter& assetImporter = app.GetAssetImporter();
+			assetImporter.RemovePlugin(modelPlugin);
+			assetImporter.RemovePlugin(materialPlugin);
+			assetImporter.RemovePlugin(shaderPlugin);
+			assetImporter.RemovePlugin(texturePlugin);
+			assetImporter.RemovePlugin(fontPlugin);
 
 			app.RemoveWidget(sceneView);
 			app.SetRenderInterace(nullptr);
@@ -485,12 +379,12 @@ namespace Editor
 			app.SetRenderInterace(&renderInterface);
 
 			// Add plugins for asset compiler
-			AssetCompiler& assetCompiler = app.GetAssetCompiler();
-			assetCompiler.AddPlugin(fontPlugin);
-			assetCompiler.AddPlugin(texturePlugin);
-			assetCompiler.AddPlugin(modelPlugin);
-			assetCompiler.AddPlugin(materialPlugin);
-			assetCompiler.AddPlugin(shaderPlugin);
+			AssetImporter& assetImporter = app.GetAssetImporter();
+			assetImporter.AddPlugin(fontPlugin);
+			assetImporter.AddPlugin(texturePlugin);
+			assetImporter.AddPlugin(modelPlugin);
+			assetImporter.AddPlugin(materialPlugin);
+			assetImporter.AddPlugin(shaderPlugin);
 
 			// Add plugins for asset browser
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();

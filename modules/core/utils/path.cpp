@@ -175,6 +175,18 @@ namespace VulkanTest
 		hash = StringID(path);
 	}
 
+	void Path::Append(const char* str)
+	{
+		CatString(path, str);
+		hash = StringID(path);
+	}
+
+	void Path::Append(char* str)
+	{
+		CatString(path, str);
+		hash = StringID(path);
+	}
+
 	size_t Path::Length() const
 	{
 		return StringLength(path);
@@ -188,13 +200,13 @@ namespace VulkanTest
 	Path VulkanTest::Path::operator+(const char* str)
 	{
 		Path ret = *this;
-		ret.Join(str);
+		ret.Append(str);
 		return ret;
 	}
 
 	Path& VulkanTest::Path::operator+=(const char* str)
 	{
-		Join(str);
+		Append(str);
 		return *this;
 	}
 

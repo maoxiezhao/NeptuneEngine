@@ -9,10 +9,9 @@ namespace Editor
 	MaterialPlugin::MaterialPlugin(EditorApp& app_) :
 		app(app_)
 	{
-		app_.GetAssetCompiler().RegisterExtension("mat", Material::ResType);
 	}
 
-	bool MaterialPlugin::Compile(const Path& path, Guid guid)
+	bool MaterialPlugin::Import(const Path& input, const Path& outptu)
 	{
 		return false;
 	}
