@@ -8,8 +8,6 @@
 
 namespace VulkanTest
 {
-namespace Editor
-{
 	ShaderCompilerVulkan::ShaderCompilerVulkan(ShaderCompilationContext& context_) :
 		context(context_),
         outMem(*context.options->outMem)
@@ -144,7 +142,6 @@ namespace Editor
         // ResLayout
         Write(resLayout);
     }
-}
 }
 
 

@@ -45,6 +45,7 @@ namespace VulkanTest
 
 		static void RequestExit(I32 exitCode = 0);
 		static bool ShouldExit();
+		static void InitGlobalPaths(const char* startupPath);
 
 		virtual class World& CreateWorld() = 0;
 		virtual void DestroyWorld(World* world) = 0;

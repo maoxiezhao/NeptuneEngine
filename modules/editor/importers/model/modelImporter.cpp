@@ -135,8 +135,7 @@ namespace Editor
 				ResourceImportingManager::CreateMaterialTag,
 				material.guid,
 				matPath,
-				&options,
-				false))
+				&options))
 			{
 				Logger::Warning("Faield to create a material %s from model %s", matPath.c_str(), path);
 				return false;
@@ -149,6 +148,8 @@ namespace Editor
 
 	CreateResult ModelImporter::Import(CreateResourceContext& ctx)
 	{
+		IMPORT_SETUP(Model);
+
 		ImportConfig cfg;
 		if (ctx.customArg != nullptr)
 			cfg = *static_cast<ImportConfig*>(ctx.customArg);
@@ -322,8 +323,7 @@ namespace Editor
 					ResourceImportingManager::CreateModelTag,
 					modelResID,
 					outputPath,
-					&modelData,
-					true))
+					&modelData))
 				{
 					Logger::Warning("Faield to create a mesh %s from model %s", mesh.name.c_str(), ctx.ctx.input.c_str());
 					return false;

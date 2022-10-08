@@ -28,8 +28,10 @@ namespace VulkanTest
 		static Span<const char> GetDir(const char* path);
 		static Span<const char> GetBaseName(const char* path);
 		static Span<const char> GetExtension(Span<const char> path);
+		static Span<const char> GetPathWithoutExtension(const char* path);
 		static bool HasExtension(const char* path, const char* ext);
 		static bool ReplaceExtension(char* path, const char* ext);
+		static Path ConvertAbsolutePathToRelative(const Path& base, const Path& path);
 
 	public:
 		Path();
@@ -46,6 +48,7 @@ namespace VulkanTest
 		bool IsEmpty()const { return path[0] == '\0'; }
 		PathInfo GetPathInfo();
 		Span<const char> ToSpan()const { return Span(path, Length()); }
+		bool IsRelative()const;
 		
 		Path operator+(const char* str);
 		Path& operator+=(const char* str);

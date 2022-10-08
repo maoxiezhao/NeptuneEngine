@@ -5,6 +5,7 @@
 namespace VulkanTest
 {
 	U32 ProjectInfo::PROJECT_VERSION = 01;
+	Array<ProjectInfo*> ProjectInfo::ProjectsCache;
 
 	ProjectInfo::ProjectInfo() :
 		Version(ProjectInfo::PROJECT_VERSION)
@@ -26,6 +27,17 @@ namespace VulkanTest
 
 			stream.JKEY("Version");
 			stream.Uint(Version);
+
+			stream.JKEY("References");
+			stream.StartArray();
+			for (auto& ref : References)
+			{
+				stream.StartObject();
+				stream.JKEY("Name");
+				stream.String(ref.Name);
+				stream.EndObject();
+			}
+			stream.EndArray();
 		}
 		stream.EndObject();
 
@@ -64,7 +76,10 @@ namespace VulkanTest
 		// Parse json
 		Name = JsonUtils::GetString(document, "Name");
 		ProjectPath = path;
-		ProjectFolderPath = Path(Path::GetDir(path).data());
+
+		char projectFolder[MAX_PATH_LENGTH];
+		CopyString(projectFolder, Path::GetDir(path));
+		ProjectFolderPath = projectFolder;
 		U32 version = JsonUtils::GetUint(document, "Version", 0);
 		if (version != PROJECT_VERSION)
 		{
@@ -72,6 +87,59 @@ namespace VulkanTest
 			return false;
 		}
 
+		auto refIt = document.FindMember("References");
+		if (refIt != document.MemberEnd())
+		{
+			auto& refDatas = refIt->value;
+			References.resize(refDatas.Size());
+			for (int i = 0; i < refDatas.Size(); i++)
+			{
+				auto& ref = References[i];
+				auto& refData = refDatas[i];
+				ref.Name = JsonUtils::GetString(refData, "Name");
+
+				Path refPath;
+				if (StartsWith(ref.Name.c_str(), "$(EnginePath)"))
+				{
+					refPath = Globals::StartupFolder / ref.Name.substr(StringLength("$(EnginePath)"));
+				}
+				else if (Path(ref.Name).IsRelative())
+				{
+					refPath = Globals::StartupFolder / ref.Name;
+				}
+				else
+				{
+					refPath = ref.Name;
+				}
+
+				ref.Project = LoadProject(refPath);
+				if (ref.Project == nullptr)
+				{
+					Logger::Error("Failed to load reference project %s", refPath.c_str());
+					return false;
+				}
+			}
+		}
+
 		return true;
+	}
+
+	ProjectInfo* ProjectInfo::LoadProject(const Path& path)
+	{
+		for (auto& project : ProjectsCache)
+		{
+			if (project->ProjectPath == path)
+				return project;
+		}
+
+		auto project = CJING_NEW(ProjectInfo)();
+		if (!project->Load(path))
+		{
+			CJING_SAFE_DELETE(project);
+			return nullptr;
+		}
+
+		ProjectsCache.push_back(project);
+		return project;
 	}
 }

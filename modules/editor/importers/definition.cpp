@@ -5,7 +5,7 @@
 
 namespace VulkanTest::Editor
 {
-	CreateResourceContext::CreateResourceContext(const Guid& guid, const String& input_, const String& output_, bool isCompiled_, void* arg_) :
+	CreateResourceContext::CreateResourceContext(const Guid& guid, const String& input_, const String& output_, void* arg_) :
 		input(input_),
 		output(output_),
 		customArg(arg_),

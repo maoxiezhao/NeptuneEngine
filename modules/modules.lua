@@ -16,12 +16,20 @@ PROJECT_RENDERER_NAME   = "renderer"
 PROJECT_LEVEL_NAME      = "level"
 PROJECT_CLIENT_NAME     = "client"
 PROJECT_EDITOR_NAME     = "editor"
+PROJECT_SHADERS_COMPILATION_NAME = "shaderCompilation"
 
 register_module(PROJECT_MATH_NAME)
 register_module(PROJECT_ECS_NAME)
 register_module(PROJECT_CORE_NAME,     { PROJECT_MATH_NAME, PROJECT_ECS_NAME })
 register_module(PROJECT_GPU_NAME,      { PROJECT_CORE_NAME })
-register_module(PROJECT_CONTENT_NAME,  { PROJECT_GPU_NAME })
+
+if with_shader_compiler then 
+    register_module(PROJECT_SHADERS_COMPILATION_NAME,  { PROJECT_GPU_NAME })
+    register_module(PROJECT_CONTENT_NAME,  { PROJECT_GPU_NAME, PROJECT_SHADERS_COMPILATION_NAME })
+else
+    register_module(PROJECT_CONTENT_NAME,  { PROJECT_GPU_NAME })
+end 
+
 register_module(PROJECT_RENDERER_NAME, { PROJECT_GPU_NAME, PROJECT_CONTENT_NAME })
 register_module(PROJECT_LEVEL_NAME,    { PROJECT_RENDERER_NAME })
 register_module(PROJECT_CLIENT_NAME,   { PROJECT_RENDERER_NAME })

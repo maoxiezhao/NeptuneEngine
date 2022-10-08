@@ -58,6 +58,7 @@ build_tests = false
 all_plugins = {}
 target_architecture = ""
 test_mode = true
+with_shader_compiler = true
 
 function setup_project_env_win32()
     platforms "x64"
@@ -114,6 +115,10 @@ function setup_project_definines()
     if test_mode then 
         defines { "CJING3D_TESTS" }
     end
+
+    if with_shader_compiler then 
+        defines { "COMPILE_WITH_SHADER_COMPILER" }
+    end 
 end 
 
 function force_Link(name)

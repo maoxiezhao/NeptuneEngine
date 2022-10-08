@@ -1,15 +1,14 @@
 #include "shaderCompilation.h"
-#include "editor\editor.h"
+#include "core\engine.h"
 #include "core\utils\helper.h"
-#include "editor\importers\resourceImportingManager.h"
+#include "core\profiler\profiler.h"
+#include "core\platform\platform.h"
 
 #ifdef CJING3D_RENDERER_VULKAN
 #include "shaderCompiler_Vulkan.h"
 #endif
 
 namespace VulkanTest
-{
-namespace Editor
 {
     struct ShaderParser : public IShaderParser, public ITokenReadersContainer<ShaderMetaCollector>
     {
@@ -115,16 +114,26 @@ namespace Editor
         return shaderCompiler.CompileShaders();
     }
 
-    bool ShaderCompilation::Compile(EditorApp& editor, CompilationOptions& options)
+    bool ShaderCompilation::Compile(CompilationOptions& options)
     {
         PROFILE_FUNCTION();
 
-        if (options.path.IsEmpty() || options.outMem == nullptr)
+        if (options.targetName.empty() || !options.targetGuid.IsValid())
             return false;
 
-        OutputMemoryStream mem;
-        if (!FileSystem::LoadContext(options.path.c_str(), mem))
+        if (options.outMem == nullptr)
             return false;
+
+        if (options.source == nullptr || options.sourceLength <= 0)
+            return false;
+
+        // Remove null in the end of source
+        while (options.sourceLength > 2 && options.source[options.sourceLength - 1] == 0)
+            options.sourceLength--;
+
+        const auto startTime = Timer::GetTimeSeconds();
+        OutputMemoryStream mem;
+        mem.Link((const U8*)options.source, options.sourceLength);
 
         // Parse shader to collect shader metadata
         ShaderMeta shaderMeta;
@@ -140,6 +149,7 @@ namespace Editor
             return false;
         }
 
+        // Perform compilation
         ShaderCompilationContext context;
         context.source = &mem;
         context.options = &options;
@@ -150,11 +160,14 @@ namespace Editor
             return false;
         }
 
+        const auto endTime = Timer::GetTimeSeconds();
+        Logger::Info("Shader compilation succeed %s in %.3f s", options.targetName.c_str(), endTime - startTime);
         return true;
     }
 
-    bool ShaderCompilation::Write(EditorApp& editor, Guid guid, const Path& inputPath, const Path& outputPath, OutputMemoryStream& mem)
+    bool ShaderCompilation::Write(Guid guid, const Path& inputPath, const Path& outputPath, OutputMemoryStream& mem)
     {
+#if 0
         return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
             IMPORT_SETUP(Shader);
             
@@ -172,6 +185,8 @@ namespace Editor
 
             return CreateResult::Ok;
         }, guid, inputPath, outputPath);
+#else
+        return false;
+#endif
     }
-}
 }

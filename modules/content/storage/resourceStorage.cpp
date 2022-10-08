@@ -247,6 +247,13 @@ namespace VulkanTest
 		return true;
 	}
 
+	DataChunk* ResourceStorage::AllocateChunk()
+	{
+		auto chunk = CJING_NEW(DataChunk);
+		chunks.push_back(chunk);
+		return chunk;
+	}
+
 	bool ResourceStorage::ShouldDispose() const
 	{
 		F32 refLostTime = ((F32)Timer::GetRawTimestamp() / (F32)Timer::GetFrequency());

@@ -239,6 +239,13 @@ namespace VulkanTest
             size_ = 0;
         }
 
+        void clearDelete()
+        {
+            for (U32 i = 0; i < size_; i++)
+                CJING_SAFE_DELETE(data_[i]);
+            clear();
+        }
+
         Array<T> copy() const 
         {
             Array<T> res;

@@ -13,11 +13,22 @@ namespace VulkanTest
 		U32 Version;
 		static U32 PROJECT_VERSION;
 
+		struct Reference
+		{
+			String Name;
+			ProjectInfo* Project = nullptr;
+		};
+		Array<Reference> References;
+
+	public:
+		static Array<ProjectInfo*> ProjectsCache;
+
 	public:
 		ProjectInfo();
 		~ProjectInfo();
 
 		bool Save();
 		bool Load(const Path& path);
+		static ProjectInfo* LoadProject(const Path& path);
 	};
 }

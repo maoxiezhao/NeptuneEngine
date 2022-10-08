@@ -4,6 +4,7 @@ tests/bin
 tests/build
 editor/bin
 editor/build
+workspace
 
 # 3rdparty
 3rdparty/glfw/build
@@ -14,6 +15,7 @@ tools/cjing_build/scripts/__pycache__
 # assets
 assets/.export
 assets/models
+assets/content
 
 # vscode
 .vscode

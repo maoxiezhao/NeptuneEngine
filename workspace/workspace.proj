@@ -1,4 +1,9 @@
 {
 	"Name": "workspace",
-	"Version": 1
+	"Version": 1,
+	"References": [
+		{
+			"Name": "$(EnginePath)/engine.proj"
+		}
+	]
 }

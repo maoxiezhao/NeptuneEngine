@@ -22,12 +22,12 @@ namespace Editor
 		static const String CreateModelTag;
 
 	public:
-		static bool Create(const String& tag, Guid& guid, const Path& targetPath, void* arg = nullptr, bool isCompiled = true);
-		static bool Create(CreateResourceFunction createFunc, Guid& guid, const Path& inputPath, const Path& outputPath, void* arg = nullptr, bool isCompiled = true);
-		static bool Create(CreateResourceFunction createFunc, const Path& inputPath, const Path& outputPath, void* arg = nullptr, bool isCompiled = true)
+		static bool Create(const String& tag, Guid& guid, const Path& targetPath, void* arg = nullptr);
+		static bool Create(CreateResourceFunction createFunc, Guid& guid, const Path& inputPath, const Path& outputPath, void* arg = nullptr);
+		static bool Create(CreateResourceFunction createFunc, const Path& inputPath, const Path& outputPath, void* arg = nullptr)
 		{
 			Guid guid = Guid::Empty;
-			return Create(createFunc, guid, inputPath, outputPath, arg, isCompiled);
+			return Create(createFunc, guid, inputPath, outputPath, arg);
 		}
 
 		static bool Import(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg);

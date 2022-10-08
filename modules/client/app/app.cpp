@@ -1,5 +1,6 @@
 #include "app.h"
 #include "core\globals.h"
+#include "core\commandLine.h"
 #include "core\utils\log.h"
 #include "core\profiler\profiler.h"
 #include "core\events\event.h"
@@ -76,6 +77,18 @@ void App::Run(std::unique_ptr<WSIPlatform> platform_)
 
 void App::Initialize()
 {
+    // Init engine paths
+    char startupPath[MAX_PATH_LENGTH];
+#ifdef CJING3D_EDITOR
+    if (!CommandLine::options.workingPath.empty())
+        memcpy(startupPath, CommandLine::options.workingPath, CommandLine::options.workingPath.size());
+    else
+        Platform::GetCurrentDir(startupPath);
+#else
+    Platform::GetCurrentDir(startupPath);
+#endif
+    Engine::InitGlobalPaths(startupPath);
+
     // Init platform
     bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
     ASSERT(ret);

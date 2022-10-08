@@ -33,6 +33,7 @@ namespace VulkanTest
 		void Tick();
 		bool LoadResourceHeader(ResourceInitData& initData);
 		bool LoadChunk(DataChunk* chunk);
+		DataChunk* AllocateChunk();
 		bool ShouldDispose()const;
 		bool Reload();
 		U64 Size();

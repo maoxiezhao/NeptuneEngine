@@ -220,6 +220,23 @@ namespace VulkanTest
 		return chunk;
 	}
 
+	DataChunk* BinaryResource::GetOrCreateChunk(I32 index)
+	{
+		ASSERT(index >= 0 && index < MAX_RESOURCE_DATA_CHUNKS);
+		auto chunk = header.chunks[index];
+		if (chunk)
+		{
+			chunk->RegisterUsage();
+			return chunk;
+		}
+
+		chunk = storage->AllocateChunk();
+		header.chunks[index] = chunk;
+		if (chunk)
+			chunk->RegisterUsage();
+		return chunk;
+	}
+
 	void BinaryResource::GetChunkData(I32 index, OutputMemoryStream& data)const
 	{
 		if (!HasChunkLoaded(index))
@@ -239,5 +256,34 @@ namespace VulkanTest
 		}
 
 		return CJING_NEW(LoadChunkDataTask)(this, GET_CHUNK_FLAG(index));
+	}
+
+	bool BinaryResource::LoadChunks(AssetChunksFlag flags)
+	{
+		ASSERT(storage != nullptr);
+
+		if (flags == 0)
+			return false;
+
+		for (I32 i = 0; i < MAX_RESOURCE_DATA_CHUNKS; i++)
+		{
+			auto chunk = header.chunks[i];
+			if (chunk != nullptr
+				&& flags & GET_CHUNK_FLAG(i)
+				&& chunk->IsMissing()
+				&& chunk->ExistsInFile())
+			{
+				if (!storage->LoadChunk(chunk))
+					return false;
+			}
+		}
+		return true;
+	}
+
+	void BinaryResource::ReleaseChunk(I32 index)
+	{
+		auto chunk = GetChunk(index);
+		if (chunk != nullptr)
+			chunk->mem.Free();
 	}
 }

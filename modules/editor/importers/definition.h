@@ -25,7 +25,6 @@ namespace Editor
 	{
 		String extension;
 		CreateResourceFunction callback;
-		bool isCompiled;
 	};
 
 	struct ResourceCreator
@@ -45,7 +44,7 @@ namespace Editor
 		Array<DataChunk> chunks;
 
 	public:
-		CreateResourceContext(const Guid& guid, const String& input_, const String& output_, bool isCompiled, void* arg_);
+		CreateResourceContext(const Guid& guid, const String& input_, const String& output_, void* arg_);
 		~CreateResourceContext();
 
 		CreateResult Create();

@@ -4,8 +4,6 @@
 
 namespace VulkanTest
 {
-namespace Editor
-{
     struct ShaderPermutationEntry
     {
         String name;
@@ -91,5 +89,4 @@ namespace Editor
             return vs.size() + ps.size() + cs.size();
         }
     };
-}
 }

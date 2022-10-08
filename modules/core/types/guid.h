@@ -3,6 +3,7 @@
 #include "core\common.h"
 #include "core\collections\hashMap.h"
 #include "core\platform\platform.h"
+#include "core\utils\string.h"
 
 namespace VulkanTest {
 
@@ -68,6 +69,9 @@ namespace VulkanTest {
         }
 
         static Guid Empty;
+
+    public:
+        String ToString() const;
 	};
 
     template<>

@@ -18,6 +18,7 @@ namespace VulkanTest
 	Path Globals::ProjectFolder;
 	Path Globals::ProjectContentFolder;
 	Path Globals::ProjectCacheFolder;
+	Path Globals::ProjectLocalFolder;
 
 	bool IsInMainThread()
 	{

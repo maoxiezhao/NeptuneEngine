@@ -13,7 +13,6 @@
 
 #include "editor\importers\resourceImportingManager.h"
 #include "editor\importers\model\modelImporter.h"
-#include "editor\importers\shader\shaderCompilation.h"
 #include "editor\importers\texture\textureImporter.h"
 #include "editor\importers\material\materialPlugin.h"
 

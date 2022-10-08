@@ -35,19 +35,7 @@ namespace VulkanTest
 		{
 			Engine::Instance = this;
 			Logger::Info("Create game engine...");
-			
-			// Init engine paths
-			char startupPath[MAX_PATH_LENGTH];
-#ifdef CJING3D_EDITOR
-			if (!CommandLine::options.workingPath.empty())
-				memcpy(startupPath, CommandLine::options.workingPath, CommandLine::options.workingPath.size());
-			else
-				Platform::GetCurrentDir(startupPath);
-#else
-			Platform::GetCurrentDir(startupPath);
-#endif
-			InitPaths(startupPath);
-
+		
 			// Init platform
 			platform = &app.GetPlatform();
 			SetupUnhandledExceptionHandler();
@@ -94,16 +82,6 @@ namespace VulkanTest
 			Engine::Instance = nullptr;
 
 			Logger::Info("Game engine released.");
-		}
-
-		void InitPaths(const char* startupPath)
-		{
-			Globals::StartupFolder = startupPath;
-#ifdef CJING3D_EDITOR
-			Globals::EngineContentFolder = Globals::StartupFolder / "content";
-			Globals::ProjectCacheFolder = Globals::ProjectFolder / "cache";
-#endif
-			Globals::ProjectContentFolder = Globals::ProjectFolder / "content";
 		}
 
 		void LoadPlugins()override

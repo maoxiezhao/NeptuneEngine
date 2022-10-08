@@ -30,18 +30,18 @@ namespace Editor
 			ResourceImporter BuildInImporters[] = {
 
 				// Texture
-				{ "raw",  TextureImporter::Import, true },
-				{ "png",  TextureImporter::Import, true },
-				{ "jpg",  TextureImporter::Import, true },
-				{ "tga",  TextureImporter::Import, true },
+				{ "raw",  TextureImporter::Import },
+				{ "png",  TextureImporter::Import },
+				{ "jpg",  TextureImporter::Import },
+				{ "tga",  TextureImporter::Import },
 
 				// Model
-				{ "obj",  ModelImporter::Import, true},
-				{ "gltf", ModelImporter::Import, true},
-				{ "glb",  ModelImporter::Import, true},
+				{ "obj",  ModelImporter::Import },
+				{ "gltf", ModelImporter::Import },
+				{ "glb",  ModelImporter::Import },
 
 				// Shader
-				{ "shd",  ShaderImporter::Import, true },
+				{ "shd",  ShaderImporter::Import },
 			};
 			for (const auto& importer : BuildInImporters)
 				ResourceImportingManager::importers.push_back(importer);
@@ -86,7 +86,7 @@ namespace Editor
 		return nullptr;
 	}
 
-	bool ResourceImportingManager::Create(const String& tag, Guid& guid, const Path& targetPath, void* arg, bool isCompiled)
+	bool ResourceImportingManager::Create(const String& tag, Guid& guid, const Path& targetPath, void* arg)
 	{
 		const auto creator = GetCreator(tag);
 		if (!creator)
@@ -94,10 +94,10 @@ namespace Editor
 			Logger::Warning("Cannot find resource creator for %s", tag);
 			return false;
 		}
-		return Create(creator->creator, guid, targetPath, targetPath, arg, isCompiled);
+		return Create(creator->creator, guid, targetPath, targetPath, arg);
 	}
 
-	bool ResourceImportingManager::Create(CreateResourceFunction createFunc, Guid& guid, const Path& inputPath, const Path& outputPath, void* arg, bool isCompiled)
+	bool ResourceImportingManager::Create(CreateResourceFunction createFunc, Guid& guid, const Path& inputPath, const Path& outputPath, void* arg)
 	{
 		const auto startTime = Timer::GetTimeSeconds();
 
@@ -105,7 +105,7 @@ namespace Editor
 			guid = Guid::New();
 	
 		// Use the same guid if resource is loaded
-		ResPtr<Resource> res = ResourceManager::GetResource(inputPath);
+		ResPtr<Resource> res = ResourceManager::GetResource(outputPath);
 		if (res != nullptr)
 		{
 			guid = res->GetGUID();
@@ -128,7 +128,7 @@ namespace Editor
 			}
 		}
 
-		CreateResourceContext ctx(guid, inputPath.c_str(), outputPath.c_str(), isCompiled, arg);
+		CreateResourceContext ctx(guid, inputPath.c_str(), outputPath.c_str(), arg);
 		const auto result = ctx.Create(createFunc);
 
 		// Remove ref
@@ -173,7 +173,7 @@ namespace Editor
 			return false;
 		}
 
-		return Create(importer->callback, inputPath, outputPath, arg, importer->isCompiled);
+		return Create(importer->callback, resID, inputPath, outputPath, arg);
 	}
 
 	bool ResourceImportingManager::ImportIfEdited(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg)

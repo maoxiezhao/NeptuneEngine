@@ -283,6 +283,8 @@ namespace Editor
 
         CreateResult Import(CreateResourceContext& ctx)
         {
+            IMPORT_SETUP(Texture);
+
             ImportConfig cfg;
             if (ctx.customArg != nullptr)
                 cfg = *static_cast<ImportConfig*>(ctx.customArg);

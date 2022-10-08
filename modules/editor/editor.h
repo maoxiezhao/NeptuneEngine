@@ -1,6 +1,7 @@
 #pragma once
 
 #include "editor\common.h"
+#include "editor\projectInfo.h"
 #include "editor\editorUtils.h"
 #include "editor\editorPlugin.h"
 #include "client\app\app.h"
@@ -35,7 +36,7 @@ namespace Editor
     {
     public:
         static EditorApp* Create();
-        static I32 LoadProject();
+        static ProjectInfo* GetProject();
         static void Destroy(EditorApp* app);
 
         virtual void InitFinished() = 0;

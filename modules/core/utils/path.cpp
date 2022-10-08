@@ -1,4 +1,5 @@
 #include "path.h"
+#include "core\collections\array.h"
 
 namespace VulkanTest
 {
@@ -110,6 +111,18 @@ namespace VulkanTest
 		return ext;
 	}
 
+	Span<const char> Path::GetPathWithoutExtension(const char* path)
+	{
+		if (!path[0]) return { nullptr, nullptr };
+
+		Span<const char> dir;
+		dir.pBegin = path;
+		dir.pEnd = path + StringLength(path) - 1;
+		while (dir.pEnd != dir.pBegin && *dir.pEnd != '.')
+			--dir.pEnd;
+		return dir;
+	}
+
 	bool Path::HasExtension(const char* path, const char* ext)
 	{
 		char tmp[20];
@@ -139,6 +152,55 @@ namespace VulkanTest
 
 		*end = '\0';
 		return true;
+	}
+
+	static void SplitPath(const String& path, Array<String>& splitPath)
+	{
+		I32 start = 0;
+		I32 separatorPos;
+		do
+		{
+			separatorPos = path.find("/", start);
+			if (separatorPos == -1)
+				splitPath.push_back(path.substr(start));
+			else
+				splitPath.push_back(path.substr(start, separatorPos - start));
+			start = separatorPos + 1;
+		} while (separatorPos != -1);
+	}
+
+	Path Path::ConvertAbsolutePathToRelative(const Path& base, const Path& path)
+	{
+		Array<String> toDirs;
+		Array<String> fromDirs;
+		SplitPath(path.c_str(), toDirs);
+		SplitPath(base.c_str(), fromDirs);
+
+		String output;
+		auto toIt = toDirs.begin(), fromIt = fromDirs.begin();
+		const auto toEnd = toDirs.end(), fromEnd = fromDirs.end();
+		while (toIt != toEnd && fromIt != fromEnd && *toIt == *fromIt)
+		{
+			++toIt;
+			++fromIt;
+		}
+
+		while (fromIt != fromEnd)
+		{
+			output += "../";
+			++fromIt;
+		}
+
+		while (toIt != toEnd)
+		{
+			output += *toIt;
+			++toIt;
+
+			if (toIt != toEnd)
+				output += '/';
+		}
+
+		return Path(output);
 	}
 
 	PathInfo::PathInfo(const char* path)
@@ -195,6 +257,14 @@ namespace VulkanTest
 	PathInfo Path::GetPathInfo()
 	{
 		return PathInfo(path);
+	}
+
+	bool Path::IsRelative() const
+	{
+		return (StringLength(path) >= 2 && iswalpha(path[0]) && path[1] == ':') ||
+			StartsWith(path, "\\\\") ||
+			StartsWith(path, "\\") ||
+			StartsWith(path, "/");
 	}
 
 	Path VulkanTest::Path::operator+(const char* str)

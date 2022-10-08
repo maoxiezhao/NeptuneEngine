@@ -99,8 +99,10 @@ namespace Editor
                 CommandLine::options.projectPath = projectPath;
             }
             CommandLine::options.newProject = false;
-#endif
+            Path projectPath = Path("C:/Github/Vulkan-Test/workspace");
+#else
             Path projectPath = Path(CommandLine::options.projectPath);
+#endif
             if (CommandLine::options.newProject)
             {
                 if (projectPath.IsEmpty())
@@ -122,6 +124,10 @@ namespace Editor
                 project.Name = pathInfo.basename;
                 project.ProjectPath = StaticString<MAX_PATH_LENGTH>((projectPath / project.Name).c_str(), ".proj");
                 project.ProjectFolderPath = projectPath;
+
+                // Project always link to the engine
+                auto& ref = project.References.emplace();
+                ref.Name = "$(EnginePath)/engine.proj";
                 if (!project.Save())
                 {
                     Platform::Fatal("Failed to save project");
@@ -144,8 +150,20 @@ namespace Editor
                 return false;
             }
 
-            // Load project
+            // Init global paths
             Globals::ProjectFolder = projectPath;
+            char startupPath[MAX_PATH_LENGTH];
+#ifdef CJING3D_EDITOR
+            if (!CommandLine::options.workingPath.empty())
+                memcpy(startupPath, CommandLine::options.workingPath, CommandLine::options.workingPath.size());
+            else
+                Platform::GetCurrentDir(startupPath);
+#else
+            Platform::GetCurrentDir(startupPath);
+#endif
+            Engine::InitGlobalPaths(startupPath);
+
+            // Load project
             Array<Path> projectFiles;
             auto fileList = FileSystem::Enumerate(projectPath);
             for (const auto& fileInfo : fileList)
@@ -262,6 +280,10 @@ namespace Editor
 
             // Clear widgets
             widgets.clear();
+
+            // Clear project
+            project = nullptr;
+            ProjectInfo::ProjectsCache.clearDelete();
 
             // Clear editor plugins
             for (EditorPlugin* plugin : plugins)
@@ -1268,8 +1290,10 @@ namespace Editor
             gizmoConfig.mode = Gizmo::Config::Mode::SCALE;
         }
 
+    public:
+        static ProjectInfo* project;
+
     private:
-        ProjectInfo* project = nullptr;
         Array<EditorPlugin*> plugins;
         Array<EditorWidget*> widgets;
         Array<Utils::Action*> actions;
@@ -1319,10 +1343,16 @@ namespace Editor
         // Imgui
         ImGuiKey imguiKeyMap[255];
     };
+    ProjectInfo* EditorAppImpl::project = nullptr;
 
     EditorApp* EditorApp::Create()
     {
 		return CJING_NEW(EditorAppImpl)();
+    }
+
+    ProjectInfo* EditorApp::GetProject()
+    {
+        return EditorAppImpl::project;
     }
     
     void EditorApp::Destroy(EditorApp* app)

@@ -1,17 +1,17 @@
 #pragma once
 
+#include "core\types\guid.h"
 #include "shaderMeta.h"
 #include "shaderReader.h"
 
 namespace VulkanTest
 {
-namespace Editor
-{
-    class EditorApp;
-
     struct CompilationOptions
     {
-        Path path;
+        String targetName;
+        Guid targetGuid = Guid::Empty;
+        const char* source = nullptr;
+        U32 sourceLength = 0;
         Array<GPU::ShaderMacro> Macros;
         OutputMemoryStream* outMem;
         Array<Path> dependencies;
@@ -24,11 +24,10 @@ namespace Editor
         OutputMemoryStream* source;
     };
 
-	class VULKAN_EDITOR_API ShaderCompilation
+	class VULKAN_TEST_API ShaderCompilation
 	{
 	public:
-        static bool Compile(EditorApp& editor, CompilationOptions& options);
-        static bool Write(EditorApp& editor, Guid guid, const Path& inputPath, const Path& outputPath, OutputMemoryStream& mem);
+        static bool Compile(CompilationOptions& options);
+        static bool Write(Guid guid, const Path& inputPath, const Path& outputPath, OutputMemoryStream& mem);
 	};
-}
 }

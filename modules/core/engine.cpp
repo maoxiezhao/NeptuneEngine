@@ -97,4 +97,18 @@ namespace VulkanTest
     {
         return Globals::IsRequestingExit;
     }
+
+    void Engine::InitGlobalPaths(const char* startupPath)
+    {
+        Globals::StartupFolder = startupPath;
+#ifdef CJING3D_EDITOR
+        Globals::EngineContentFolder = Globals::StartupFolder / "content";
+        Globals::ProjectCacheFolder = Globals::ProjectFolder / "cache";
+#endif
+        Globals::ProjectContentFolder = Globals::ProjectFolder / "content";
+
+        char localFolder[MAX_PATH_LENGTH]; 
+        Platform::GetSpecialFolderPath(Platform::SpecialFolder::LocalAppData, localFolder);
+        Globals::ProjectLocalFolder = Path(localFolder) /= Globals::ProductName;
+    }
 }

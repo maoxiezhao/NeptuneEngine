@@ -7,8 +7,6 @@
 
 namespace VulkanTest
 {
-namespace Editor
-{
 	struct ShaderCompilationContext;
 
 	class ShaderCompilerVulkan
@@ -36,7 +34,6 @@ namespace Editor
 		OutputMemoryStream& outMem;
 		Mutex mutex;
 	};
-}
 }
 
 #endif

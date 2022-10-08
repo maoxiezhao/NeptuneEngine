@@ -1,12 +1,9 @@
 #pragma once
 
-#include "editorPlugin.h"
 #include "shaderMeta.h"
 #include "core\utils\textReader.h"
 
 namespace VulkanTest
-{
-namespace Editor
 {
 	struct IShaderParser
 	{
@@ -304,5 +301,4 @@ namespace Editor
 			readers.push_back(CJING_NEW(StripLineReader)("numthreads"));
 		}
 	};
-}
 }
