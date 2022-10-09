@@ -12,8 +12,11 @@ namespace VulkanTest
         Array() = default;
         ~Array()
         {
-            DestructData(data_, data_ + size_);
-            CJING_FREE_ALIGN(data_);
+            if (data_ != nullptr)
+            {
+                DestructData(data_, data_ + size_);
+                CJING_FREE_ALIGN(data_);
+            }
         }
 
         Array(const Array& rhs) = delete;
@@ -259,6 +262,16 @@ namespace VulkanTest
                 new (res.data_ + i) T(data_[i]);
             }
             return res;
+        }
+
+        void release()
+        {
+            clear();
+            if (data_ != nullptr)
+            {
+                CJING_FREE_ALIGN(data_);
+                data_ = nullptr;
+            }
         }
 
         void resize(U32 size)

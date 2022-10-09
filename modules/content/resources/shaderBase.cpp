@@ -182,7 +182,7 @@ namespace VulkanTest
 			result.Data.Clear();
 
 			Logger::Info("Compiling shader %s...", shaderRes->GetPath().c_str());
-			if (!shaderRes->LoadChunks(SHADER_RESOURCE_CHUNK_SOURCE))
+			if (!shaderRes->LoadChunks(GET_CHUNK_FLAG(SHADER_RESOURCE_CHUNK_SOURCE)))
 			{
 				Logger::Warning("Failed to load shader source chunk data %s", shaderRes->GetPath().c_str());
 				return false;
@@ -191,8 +191,9 @@ namespace VulkanTest
 
 			// Load shader source data
 			auto sourceChunk = shaderRes->GetChunk(SHADER_RESOURCE_CHUNK_SOURCE);
-			const char* sourceData = (const char*)sourceChunk->Data();
+			char* sourceData = (char*)sourceChunk->Data();
 			const size_t sourceLength = sourceChunk->Size();
+			sourceData[sourceLength - 1] = 0;
 
 			// Compile shader
 			OutputMemoryStream outMem;
@@ -235,7 +236,7 @@ namespace VulkanTest
 			else if (cachingMode == ShaderStorage::CachingMode::ProjectCache)
 			{
 				// Save results to cache
-				if (ShaderCacheManager::SaveCache(shaderCacheEntry, outMem))
+				if (!ShaderCacheManager::SaveCache(shaderCacheEntry, outMem))
 				{
 					Logger::Warning("Cannot save shader cache.");
 					return false;

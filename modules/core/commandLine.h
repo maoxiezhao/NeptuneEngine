@@ -15,8 +15,8 @@ namespace VulkanTest
 
 #ifdef CJING3D_EDITOR
 			bool newProject = false;
-			String workingPath;
-			String projectPath;
+			std::string workingPath;
+			std::string projectPath;
 #endif
 		};
 		static Options options;

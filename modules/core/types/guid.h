@@ -10,6 +10,25 @@ namespace VulkanTest {
 	struct VULKAN_TEST_API Guid
 	{
 	public:
+        enum class FormatType
+        {
+            // 32 digits:
+            // 00000000000000000000000000000000
+            N,
+
+            // 32 digits separated by hyphens:
+            // 00000000-0000-0000-0000-000000000000
+            D,
+
+            // 32 digits separated by hyphens, enclosed in braces:
+            // {00000000-0000-0000-0000-000000000000}
+            B,
+
+            // 32 digits separated by hyphens, enclosed in parentheses:
+            // (00000000-0000-0000-0000-000000000000)
+            P,
+        };
+
         union
         {
             struct
@@ -71,7 +90,7 @@ namespace VulkanTest {
         static Guid Empty;
 
     public:
-        String ToString() const;
+        String ToString(FormatType format) const;
 	};
 
     template<>

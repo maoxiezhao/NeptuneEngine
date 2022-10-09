@@ -1,7 +1,6 @@
 #pragma once
 
 #include "editor\common.h"
-#include "content\resourceHeader.h"
 #include "core\filesystem\filesystem.h"
 #include "level\scene.h"
 

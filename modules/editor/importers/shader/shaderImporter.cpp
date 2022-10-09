@@ -110,7 +110,7 @@ namespace Editor
         {
         public:
             ShaderImporterServiceImpl() :
-                EngineService("ShaderImporterServiceImpl", -100)
+                EngineService("ShaderImporterService", -100)
             {}
 
             bool Init(Engine& engine) override;

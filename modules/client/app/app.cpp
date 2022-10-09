@@ -81,7 +81,7 @@ void App::Initialize()
     char startupPath[MAX_PATH_LENGTH];
 #ifdef CJING3D_EDITOR
     if (!CommandLine::options.workingPath.empty())
-        memcpy(startupPath, CommandLine::options.workingPath, CommandLine::options.workingPath.size());
+        memcpy(startupPath, CommandLine::options.workingPath.c_str(), CommandLine::options.workingPath.size());
     else
         Platform::GetCurrentDir(startupPath);
 #else

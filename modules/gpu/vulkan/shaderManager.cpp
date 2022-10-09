@@ -1,5 +1,4 @@
 ﻿#include "shaderManager.h"
-#include "shaderCompiler.h"
 #include "device.h"
 #include "core\platform\atomic.h"
 #include "core\utils\archive.h"
@@ -15,10 +14,6 @@ namespace VulkanTest
 {
 namespace GPU
 {
-
-using namespace ShaderCompiler;
-
-#define RUNTIME_SHADERCOMPILER_ENABLED
 
 // Shader flow:
 // ShaderManager -> ShaderTemplateProgram -> ShaderTemplateProgramVariant  -> ShaderTemplate -> Variant -> Shader
@@ -82,9 +77,9 @@ namespace {
 		return false;
 	}
 
+#ifdef RUNTIME_SHADERCOMPILER_ENABLED
 	bool SaveShaderAndMetadata(const char* shaderfilename, const CompilerOutput& output)
 	{
-#ifdef RUNTIME_SHADERCOMPILER_ENABLED
 		if (!Platform::DirExists(ShaderManager::EXPORT_SHADER_PATH.c_str()))
 		{
 			if (!Platform::MakeDir(ShaderManager::EXPORT_SHADER_PATH.c_str()))
@@ -115,11 +110,10 @@ namespace {
 		}
 		file->Write(output.shaderdata, output.shadersize);
 		file->Close();
-
-#endif // RUNTIME_SHADERCOMPILER_ENABLED
-
 		return true;
 	}
+#endif // RUNTIME_SHADERCOMPILER_ENABLED
+
 }
 
 ShaderTemplate::ShaderTemplate(DeviceVulkan& device_, ShaderStage stage_, const std::string& path_, HashValue pathHash_) :
@@ -284,7 +278,7 @@ bool ShaderTemplate::CompileShader(ShaderTemplateVariant* variant, const ShaderV
 	return true;
 #else
 	ASSERT(false);
-	return nullptr;
+	return false;
 #endif
 }
 

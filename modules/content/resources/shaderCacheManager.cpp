@@ -19,7 +19,7 @@ namespace VulkanTest
 		{
 			ASSERT(id.IsValid());
 			cachedEntry.ID = id;
-			cachedEntry.Path = folder / StaticString<MAX_PATH_LENGTH>(id.GetHash());
+			cachedEntry.Path = folder / id.ToString(Guid::FormatType::P);
 			return cachedEntry.Exists();
 		}
 

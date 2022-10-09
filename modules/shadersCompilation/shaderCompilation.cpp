@@ -3,13 +3,39 @@
 #include "core\utils\helper.h"
 #include "core\profiler\profiler.h"
 #include "core\platform\platform.h"
+#include "shaderCompiler.h"
 
-#ifdef CJING3D_RENDERER_VULKAN
-#include "shaderCompiler_Vulkan.h"
-#endif
+#include "shaderCompilerDX.h"
 
 namespace VulkanTest
 {
+    namespace
+    {
+        Mutex CompilerMutex;
+        Array<ShaderCompiler*> Compilers;
+        Array<ShaderCompiler*> ReadyCompilers;
+    }
+
+    class ShaderCompilationServiceImpl : public EngineService
+    {
+    public:
+        ShaderCompilationServiceImpl() :
+            EngineService("ShaderCompilationService", -100)
+        {}
+
+        void Uninit() override
+        {
+            CompilerMutex.Lock();
+            ReadyCompilers.clearDelete();
+            Compilers.clear();
+            CompilerMutex.Unlock();
+
+            // Free shader file cache
+            ShaderCompiler::FreeIncludeFileCache();
+        }
+    };
+    ShaderCompilationServiceImpl ShaderCompilationServiceImplInstance;
+
     struct ShaderParser : public IShaderParser, public ITokenReadersContainer<ShaderMetaCollector>
     {
         OutputMemoryStream& mem;
@@ -100,18 +126,51 @@ namespace VulkanTest
         return parser.Process(shaderMeta);
     }
 
-    bool CompileShaders(ShaderCompilationContext& context)
+    ShaderCompiler* RequestCompiler(ShaderProfile profile)
     {
-        ASSERT(context.options->outMem);
-        auto& output = *context.options->outMem;
+        ShaderCompiler* compiler = nullptr;
+        ScopedMutex lock(CompilerMutex);
 
-        // Shader count
-        U32 shaderCount = context.shaderMeta->GetShadersCount();
-        output.Write(shaderCount);
+        for (int i = 0; i < ReadyCompilers.size(); i++)
+        {
+            if (ReadyCompilers[i]->GetProfile() == profile)
+            {
+                compiler = ReadyCompilers[i];
+                ReadyCompilers.eraseAt(i);
+                return compiler;
+            }
+        }
 
-        // Compile shaders
-        ShaderCompilerVulkan shaderCompiler(context);
-        return shaderCompiler.CompileShaders();
+        switch (profile)
+        {
+        case ShaderProfile::DirectX:
+            compiler = CJING_NEW(ShaderCompilerDX)();
+            break;
+        case ShaderProfile::Vulkan:
+            compiler = CJING_NEW(ShaderCompilerDX)();
+            break;
+        default:
+            break;
+        }
+        if (compiler == nullptr)
+        {
+            Logger::Error("Invalid profile for shader compilers.");
+            return nullptr;
+        }
+
+        Compilers.push_back(compiler);
+        return compiler;
+    }
+
+    void FreeCompiler(ShaderCompiler* compiler)
+    {
+        ScopedMutex lock(CompilerMutex);
+        if (Compilers.indexOf(compiler) < 0) {
+            CJING_SAFE_DELETE(compiler);
+        }
+        else {
+            ReadyCompilers.push_back(compiler);
+        }
     }
 
     bool ShaderCompilation::Compile(CompilationOptions& options)
@@ -150,11 +209,35 @@ namespace VulkanTest
         }
 
         // Perform compilation
-        ShaderCompilationContext context;
-        context.source = &mem;
-        context.options = &options;
-        context.shaderMeta = &shaderMeta;
-        if (!CompileShaders(context))
+        bool ret = false;
+        {
+            ShaderCompilationContext context;
+            context.source = &mem;
+            context.options = &options;
+            context.shaderMeta = &shaderMeta;
+
+            ASSERT(context.options->outMem);
+            auto& output = *context.options->outMem;
+
+            // Shader count
+            U32 shaderCount = context.shaderMeta->GetShadersCount();
+            output.Write(shaderCount);
+
+            // Request compiler
+            auto compiler = RequestCompiler(ShaderProfile::DirectX);
+            if (compiler == nullptr)
+            {
+                Logger::Error("No available shader compiler.");
+                return false;
+            }
+            
+            // Compile shaders
+            ret = compiler->CompileShaders(&context);
+
+            FreeCompiler(compiler);
+        }
+     
+        if (ret == false)
         {
             Logger::Warning("Failed to compile shader.");
             return false;

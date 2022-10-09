@@ -123,6 +123,11 @@ namespace VulkanTest
 		return CopyNString(Span(temp, length), source, n);
 	}
 
+	int compareString(const char* lhs, const char* rhs, I32 maxCount)
+	{
+		return strncmp(lhs, rhs, maxCount);
+	}
+
 	int compareString(const char* lhs, const char* rhs)
 	{
 		return strcmp(lhs, rhs);
@@ -797,6 +802,9 @@ namespace VulkanTest
 		}
 		else
 		{
+			size_t size = str.length() + 1;
+			if (size == 35)
+				int a = 0;
 			bigData = (char*)CJING_ALLOCATOR_MALLOC(gStringAllocator, str.length() + 1);
 			Memory::Memcpy(bigData, str.data(), str.length());
 			bigData[str.length()] = '\0';

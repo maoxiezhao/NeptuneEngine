@@ -72,7 +72,6 @@ namespace Editor
 
         ~EditorAppImpl()
         {
-            CJING_SAFE_DELETE(project);
         }
 
         virtual U32 GetDefaultWidth() {
@@ -155,7 +154,7 @@ namespace Editor
             char startupPath[MAX_PATH_LENGTH];
 #ifdef CJING3D_EDITOR
             if (!CommandLine::options.workingPath.empty())
-                memcpy(startupPath, CommandLine::options.workingPath, CommandLine::options.workingPath.size());
+                memcpy(startupPath, CommandLine::options.workingPath.c_str(), CommandLine::options.workingPath.size());
             else
                 Platform::GetCurrentDir(startupPath);
 #else
@@ -186,12 +185,13 @@ namespace Editor
                 return false;
             }
 
-            project = CJING_NEW(ProjectInfo);
+            auto project = CJING_NEW(ProjectInfo);
             if (!project->Load(Path(projectFiles[0])))
             {
                 Platform::Fatal("Failed to load project.");
                 return false;
             }
+            ProjectInfo::EditorProject = project;
 
             return true;
         }
@@ -282,8 +282,12 @@ namespace Editor
             widgets.clear();
 
             // Clear project
-            project = nullptr;
-            ProjectInfo::ProjectsCache.clearDelete();
+            CJING_SAFE_DELETE(ProjectInfo::EditorProject);
+            ProjectInfo::EditorProject = nullptr;
+            for (auto project : ProjectInfo::ProjectsCache) {
+                CJING_DELETE(project);
+            }
+            ProjectInfo::ProjectsCache.release();
 
             // Clear editor plugins
             for (EditorPlugin* plugin : plugins)
@@ -1290,9 +1294,6 @@ namespace Editor
             gizmoConfig.mode = Gizmo::Config::Mode::SCALE;
         }
 
-    public:
-        static ProjectInfo* project;
-
     private:
         Array<EditorPlugin*> plugins;
         Array<EditorWidget*> widgets;
@@ -1343,7 +1344,6 @@ namespace Editor
         // Imgui
         ImGuiKey imguiKeyMap[255];
     };
-    ProjectInfo* EditorAppImpl::project = nullptr;
 
     EditorApp* EditorApp::Create()
     {
@@ -1352,7 +1352,7 @@ namespace Editor
 
     ProjectInfo* EditorApp::GetProject()
     {
-        return EditorAppImpl::project;
+        return ProjectInfo::EditorProject;
     }
     
     void EditorApp::Destroy(EditorApp* app)

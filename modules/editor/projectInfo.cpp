@@ -6,6 +6,7 @@ namespace VulkanTest
 {
 	U32 ProjectInfo::PROJECT_VERSION = 01;
 	Array<ProjectInfo*> ProjectInfo::ProjectsCache;
+	ProjectInfo* ProjectInfo::EditorProject = nullptr;
 
 	ProjectInfo::ProjectInfo() :
 		Version(ProjectInfo::PROJECT_VERSION)

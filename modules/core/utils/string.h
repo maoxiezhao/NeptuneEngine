@@ -18,6 +18,7 @@ namespace VulkanTest
 	bool CatString(Span<char> dst, const char* source);
 	bool CopyNString(Span<char> dst, const char* source, size_t n);
 	bool CatNString(Span<char> dst, const char* source, size_t n);
+	int  compareString(const char* lhs, const char* rhs, I32 maxCount);
 	int  compareString(const char* lhs, const char* rhs);	// CompareString macro confict
 	bool EqualString(const char* lhs, const char* rhs);
 	bool EqualString(Span<const char> lhs, Span<const char> rhs);
