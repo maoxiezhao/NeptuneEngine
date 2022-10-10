@@ -46,6 +46,8 @@ namespace VulkanTest
 
 		virtual void Enqueue() = 0;
 
+		static Task* StartNew(Task* task);
+
 	public:
 		void Start();
 		void Execute();

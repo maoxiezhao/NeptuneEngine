@@ -1,10 +1,11 @@
 #pragma once
 
-#include "resource.h"
-#include "resourceHeader.h"
+#include "content\resource.h"
+#include "content\resourceHeader.h"
 #include "core\platform\timer.h"
 #include "core\serialization\fileReadStream.h"
 #include "core\utils\threadLocal.h"
+#include "core\serialization\stream.h"
 
 namespace VulkanTest
 {
@@ -123,7 +124,8 @@ namespace VulkanTest
 		}
 
 #ifdef CJING3D_EDITOR
-		static bool Save(OutputMemoryStream& output, const ResourceInitData& data);
+		static bool Create(const Path& path, const ResourceInitData& initData);
+		static bool Save(IOutputStream& output, const ResourceInitData& data);
 
 		DelegateList<void(ResourceStorage*, bool)> OnReloaded; 
 #endif

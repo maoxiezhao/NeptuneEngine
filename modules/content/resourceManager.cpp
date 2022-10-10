@@ -416,6 +416,11 @@ namespace VulkanTest
 			FileSystem::DeleteFile(path.c_str());
 	}
 
+	Path ResourceManager::CreateTemporaryResourcePath()
+	{
+		return Globals::TemporaryFolder / (Guid::New().ToString(Guid::FormatType::N)) + RESOURCE_FILES_EXTENSION_WITH_DOT;
+	}
+
 	ResourceFactory* ResourceManager::GetFactory(ResourceType type)
 	{
 		ScopedMutex lock(factoryMutex);

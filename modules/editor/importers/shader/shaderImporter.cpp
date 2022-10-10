@@ -21,11 +21,11 @@ namespace Editor
             return result;
         }
 
-        void OnShaderWatcherEvent(const char* path)
+        void OnShaderWatcherEvent(const Path& path, Platform::FileWatcherAction action)
         {
-            if (!EndsWith(path, ".shader"))
+            if (action == Platform::FileWatcherAction::Delete)
                 return;
-            if (!FileSystem::FileExists(path))
+            if (!EndsWith(path, ".shd"))
                 return;
 
             Logger::Info("shader %s has been modified", path);
@@ -33,14 +33,16 @@ namespace Editor
             // Wait a little so app that was editing the file (e.g. Visual Studio, Notepad++) has enough time to flush whole file change
             Platform::Sleep(0.1f);
 
-            auto pos = ReverseFindSubstring(path, "/Shaders");
+            auto pos = ReverseFindSubstring(path, "/shaders");
             if (pos < 0)
                 return;
 
             Path projectPath = Path(String(path).substr(0, pos));
-            auto filename = Path::GetPathWithoutExtension(path);
-            const Path shaderResourcePath = projectPath / "/content/shaders";
-            const Path outputPath = shaderResourcePath / filename / RESOURCE_FILES_EXTENSION_WITH_DOT;
+            const Path shaderResourcePath = projectPath / "content/shaders";
+            const Path shaderSourcePath = projectPath / "shaders";
+            const Path localPath = Path::ConvertAbsolutePathToRelative(shaderSourcePath, path);
+            String filename = Path::GetPathWithoutExtension(localPath);
+            const Path outputPath = shaderResourcePath / filename + RESOURCE_FILES_EXTENSION_WITH_DOT;
             Guid id = GetShaderGUID(filename);
             ResourceImportingManager::ImportIfEdited(Path(path), outputPath, id, nullptr);
         }

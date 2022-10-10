@@ -59,6 +59,12 @@ typedef VulkanTest::I32 intptr;
 #define POINTER_SIZE 4
 #endif
 
+#if PLATFORM_TEXT_IS_CHAR16
+typedef char16_t Char;
+#else
+typedef wchar_t Char;
+#endif
+
 #ifdef DEBUG
 #define ASSERT(x)                                                \
 	do                                                           \

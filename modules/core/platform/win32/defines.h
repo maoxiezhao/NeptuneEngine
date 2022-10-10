@@ -17,4 +17,15 @@
 #define PLATFORM_LINE_TERMINATOR "\r\n"
 #define PLATFORM_DEBUG_BREAK __debugbreak()
 
+// Unicode text macro
+#if !defined(TEXT)
+#if PLATFORM_TEXT_IS_CHAR16
+#define _TEXT(x) u ## x
+#else
+#define _TEXT(x) L ## x
+#endif
+#define TEXT(x) _TEXT(x)
+#endif
+
+
 #endif

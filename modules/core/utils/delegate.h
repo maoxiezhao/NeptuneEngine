@@ -62,6 +62,11 @@ namespace VulkanTest
 			return instance == rhs.instance && func == rhs.func;
 		}
 
+		bool IsBinded()const
+		{
+			return func != nullptr;
+		}
+
 	public:
 		using InstancePtr = void*;
 		using InstanceFunc = R(*)(void*, Args...);

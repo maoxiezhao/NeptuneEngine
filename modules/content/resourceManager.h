@@ -67,6 +67,8 @@ namespace VulkanTest
 		static void DeleteResource(Resource* res);
 		static void DeleteResource(const Path& path);
 
+		static Path CreateTemporaryResourcePath();
+
 		static ResourceStorageRef GetStorage(const Path& path);
 		static bool GetResourceInfo(const Guid& guid, ResourceInfo& info);
 		static bool GetResourceInfo(const Path& path, ResourceInfo& info);

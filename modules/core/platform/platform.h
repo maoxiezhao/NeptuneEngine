@@ -3,6 +3,7 @@
 #include "defines.h"
 #include "core\common.h"
 #include "core\utils\delegate.h"
+#include "core\utils\path.h"
 #include "file.h"
 
 #include <string.h>
@@ -369,6 +370,7 @@ namespace Platform {
 	size_t GetFileSize(const char* path);
 	U64    GetLastModTime(const char* file);
 	bool   MakeDir(const char* path);
+	bool   DeleteDir(const char* path);
 	void   SetCurrentDir(const char* path);
 	void   GetCurrentDir(Span<char> path);
 	bool   StatFile(const char* path, FileInfo& fileInfo);
@@ -380,12 +382,20 @@ namespace Platform {
 	void SetCommandLine(int, char**);
 	bool GetCommandLines(Span<char> output);
 
+	enum class FileWatcherAction
+	{
+		Unknown,
+		Create,
+		Delete,
+		Modify,
+	};
+
 	struct VULKAN_TEST_API FileSystemWatcher
 	{
 		virtual ~FileSystemWatcher() {}
 
 		static UniquePtr<FileSystemWatcher> Create(const char* path);
-		virtual Delegate<void(const char*)>& GetCallback() = 0;
+		virtual Delegate<void(const Path&, FileWatcherAction)>& GetCallback() = 0;
 	};
 
 	enum class SpecialFolder

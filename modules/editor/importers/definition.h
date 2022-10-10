@@ -38,10 +38,12 @@ namespace Editor
 	public:
 		String input;
 		String output;
+		Path tempPath;
 		void* customArg;
 		ResourceInitData initData;
 		bool skipMetadata;
 		Array<DataChunk> chunks;
+		CreateResult applyChangeResult;
 
 	public:
 		CreateResourceContext(const Guid& guid, const String& input_, const String& output_, void* arg_);
@@ -56,6 +58,8 @@ namespace Editor
 		{
 			initData.customData.Write(data_);
 		}
+
+		void ApplyChanges();
 	};
 
 #define IMPORT_SETUP(resType) 	ctx.initData.header.type = resType::ResType;

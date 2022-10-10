@@ -19,11 +19,9 @@ namespace VulkanTest
 				return false;
 
 			ResourceStorage* storage = res->storage;
-			if (storage->IsLoaded())
-				return false;
 
 			// Load resource storage
-			if (!storage->Load())
+			if (!storage->IsLoaded() && !storage->Load())
 				return false;
 
 			// Load resource init data from storage

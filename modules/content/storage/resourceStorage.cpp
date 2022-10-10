@@ -1,5 +1,6 @@
 #include "resourceStorage.h"
 #include "resourceManager.h"
+#include "core\serialization\fileWriteStream.h"
 #include "compress\compressor.h"
 
 namespace VulkanTest
@@ -288,7 +289,26 @@ namespace VulkanTest
 	}
 
 #ifdef CJING3D_EDITOR
-	bool ResourceStorage::Save(OutputMemoryStream& output, const ResourceInitData& data)
+	
+	bool ResourceStorage::Create(const Path& path, const ResourceInitData& initData)
+	{
+		auto storage = StorageManager::EnsureAccess(path);
+		auto stream = FileWriteStream::Open(path);
+		if (stream == nullptr)
+			return false;
+
+		bool ret = Save(*stream, initData);
+
+		CJING_DELETE(stream);
+
+		// Reload storage if is loaded
+		if (storage)
+			storage->Reload();
+
+		return ret;
+	}
+
+	bool ResourceStorage::Save(IOutputStream& output, const ResourceInitData& data)
 	{
 		Array<DataChunk*> chunks;
 		for (I32 i = 0; i < MAX_RESOURCE_DATA_CHUNKS; i++)

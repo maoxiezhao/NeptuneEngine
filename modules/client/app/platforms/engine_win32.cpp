@@ -8,6 +8,7 @@
 #include "content\resourceManager.h"
 #include "core\profiler\profiler.h"
 #include "core\threading\taskGraph.h"
+#include "core\threading\mainThreadTask.h"
 #include "app\app.h"
 #include "renderer\renderer.h"
 
@@ -80,6 +81,9 @@ namespace VulkanTest
 			wsi.Uninitialize();
 			platform = nullptr;
 			Engine::Instance = nullptr;
+
+			if (Platform::DirExists(Globals::TemporaryFolder))
+				Platform::DeleteDir(Globals::TemporaryFolder);
 
 			Logger::Info("Game engine released.");
 		}
@@ -158,12 +162,18 @@ namespace VulkanTest
 
 		void Update(World* world, F32 dt) override
 		{
+			// Run main thread tasks
+			MainThreadTask::RunAll(dt);
+
+			// Update scenes
 			if (world != nullptr)
 			{
 				PROFILE_BLOCK("Update scenes");
 				for (auto& scene : world->GetScenes())
 					scene->Update(dt, isPaused);
 			}
+			
+			// Update plugins
 			pluginManager->UpdatePlugins(dt);
 
 			// Update input system

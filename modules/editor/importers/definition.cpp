@@ -1,7 +1,9 @@
 #include "definition.h"
+#include "content\storage\resourceStorage.h" 
 #include "editor\editor.h"
 #include "editor\importers\material\createMaterial.h"
 #include "core\serialization\jsonWriter.h"
+#include "core\threading\mainThreadTask.h"
 
 namespace VulkanTest::Editor
 {
@@ -12,6 +14,7 @@ namespace VulkanTest::Editor
 		skipMetadata(false)
 	{
 		initData.header.guid = guid;
+		tempPath = ResourceManager::CreateTemporaryResourcePath();
 	}
 
 	CreateResourceContext::~CreateResourceContext()
@@ -43,35 +46,17 @@ namespace VulkanTest::Editor
 			initData.metadata.Write(buffer.GetString(), buffer.GetSize());
 		}
 
-		// Save resource file
-		OutputMemoryStream data;
-		if (!ResourceStorage::Save(data, initData))
+		// Create a temorary resource to avoiding conflict, then move the file to the target resource path
+		ret = ResourceStorage::Create(tempPath, initData) ? CreateResult::Ok : CreateResult::Error;
+		if (ret == CreateResult::Ok)
 		{
-			Logger::Error("Failed to save resource storage.");
-			return CreateResult::SaveFailed;
+			applyChangeResult = CreateResult::Error;
+			INVOKE_ON_MAIN_THREAD(CreateResourceContext, CreateResourceContext::ApplyChanges, this);
+			ret = applyChangeResult;
 		}
+		FileSystem::DeleteFile(tempPath);
 
-		Path outputPath(output.c_str());
-		bool needReload = false;
-		auto storage = StorageManager::TryGetStorage(outputPath);
-		if (storage && storage->IsLoaded())
-		{
-			storage->CloseContent();
-			needReload = true;
-		}
-
-		auto file = FileSystem::OpenFile(outputPath.c_str(), FileFlags::DEFAULT_WRITE);
-		if (!file)
-		{
-			Logger::Error("Failed to create resource file %s", output.c_str());
-			return CreateResult::Error;
-		}
-		if (!file->Write(data.Data(), data.Size()))
-			Logger::Error("Failed to write mat file %s", output.c_str());
-
-		file->Close();
-
-		return CreateResult::Ok;
+		return ret;
 	}
 
 	DataChunk* CreateResourceContext::AllocateChunk(I32 index)
@@ -92,5 +77,24 @@ namespace VulkanTest::Editor
 		auto chunk = &chunks.emplace();
 		initData.header.chunks[index] = chunk;
 		return chunk;
+	}
+
+	void CreateResourceContext::ApplyChanges()
+	{
+		auto storage = StorageManager::TryGetStorage(Path(output));
+		if (storage && storage->IsLoaded())
+			storage->CloseContent();
+		
+		if (!Platform::MoveFile(tempPath, output))
+		{
+			Logger::Warning("Failed to move imported file %s to %s", tempPath.c_str(), output);
+			applyChangeResult = CreateResult::SaveFailed;
+			return;
+		}
+
+		if (storage)
+			storage->Reload();
+
+		applyChangeResult = CreateResult::Ok;
 	}
 }

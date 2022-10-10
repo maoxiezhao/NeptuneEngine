@@ -133,6 +133,16 @@ namespace VulkanTest
 		return strcmp(lhs, rhs);
 	}
 
+	int compareString(const Char* lhs, const Char* rhs, I32 maxCount)
+	{
+		return wcsncmp(lhs, rhs, maxCount);
+	}
+
+	int compareString(const Char* lhs, const Char* rhs)
+	{
+		return wcscmp(lhs, rhs);
+	}
+
 	bool EqualString(const char* lhs, const char* rhs)
 	{
 		return strcmp(lhs, rhs) == 0;

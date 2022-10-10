@@ -25,6 +25,7 @@ namespace VulkanTest
 		static Path ProjectContentFolder;
 		static Path ProjectCacheFolder;
 		static Path ProjectLocalFolder;
+		static Path TemporaryFolder;
 	};
 
 	bool IsInMainThread();

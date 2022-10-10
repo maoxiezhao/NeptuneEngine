@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "globals.h"
+#include "types/guid.h"
 
 namespace VulkanTest
 {
@@ -107,8 +108,27 @@ namespace VulkanTest
 #endif
         Globals::ProjectContentFolder = Globals::ProjectFolder / "content";
 
+        // Get local app path
         char localFolder[MAX_PATH_LENGTH]; 
         Platform::GetSpecialFolderPath(Platform::SpecialFolder::LocalAppData, localFolder);
-        Globals::ProjectLocalFolder = Path(localFolder) /= Globals::ProductName;
+        Globals::ProjectLocalFolder = Path(localFolder) / Globals::ProductName;
+
+        // Get temporary path
+        char temporaryFolder[MAX_PATH_LENGTH];
+        Platform::GetSpecialFolderPath(Platform::SpecialFolder::Temporary, temporaryFolder);
+        Globals::TemporaryFolder = Path(temporaryFolder);
+        if (Globals::TemporaryFolder.IsEmpty())
+            Platform::Fatal("Failed to gather temporary folder path.");
+        Globals::TemporaryFolder /= Guid::New().ToString(Guid::FormatType::D);
+
+        if (Platform::DirExists(Globals::TemporaryFolder))
+            Platform::DeleteDir(Globals::TemporaryFolder);
+        if (!Platform::MakeDir(Globals::TemporaryFolder))
+        {
+            Platform::Sleep(0.01F);
+            if (!Platform::MakeDir(Globals::TemporaryFolder))
+                Platform::Fatal("Cannot create temporary directory.");
+        }
+         
     }
 }

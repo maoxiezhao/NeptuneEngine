@@ -61,6 +61,17 @@ namespace VulkanTest
 	};
 	StorageServiceImpl StorageServiceImplInstance;
 
+	ResourceStorageRef StorageManager::EnsureAccess(const Path& path)
+	{
+		auto storage = TryGetStorage(path);
+		if (storage && storage->IsLoaded())
+		{
+			Logger::Info("File %s is already loaded. Trying to release to handle it");
+			storage->CloseContent();
+		}
+		return storage;
+	}
+
 	ResourceStorageRef StorageManager::TryGetStorage(const Path& path)
 	{
 		auto& impl = StorageServiceImplInstance;

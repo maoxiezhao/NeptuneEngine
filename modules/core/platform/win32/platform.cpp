@@ -1003,6 +1003,131 @@ namespace Platform {
 		return SHCreateDirectoryEx(NULL, wpath, NULL) == ERROR_SUCCESS;
 	}
 
+	// TEMP:
+	// Delete it if we support wchar
+	bool DeleteDir(const Char* path)
+	{
+		bool deleteContents = true;
+		if (deleteContents)
+		{
+			// Create search pattern
+			WString wpattern = path;
+			if (wpattern.back() != TEXT('/'))
+				wpattern += TEXT('/');
+			wpattern += TEXT('*');
+
+			WIN32_FIND_DATA info;
+			HANDLE hp;
+			hp = FindFirstFileW(wpattern.c_str(), &info);
+			if (INVALID_HANDLE_VALUE == hp)
+				return GetLastError() != ERROR_FILE_NOT_FOUND;
+
+			do
+			{
+				// Check if it isn't a special case
+				if (compareString(info.cFileName, TEXT(".")) == 0 || compareString(info.cFileName, TEXT("..")) == 0)
+					continue;
+
+				// Check if its a directory of a file
+				WString tmpPath = path;
+				if (tmpPath.back() != TEXT('/'))
+					tmpPath += TEXT('/');
+				tmpPath += info.cFileName;
+				
+				if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				{
+					// Delete sub directory recursively
+					if (DeleteDir(tmpPath.c_str()))
+					{
+						FindClose(hp);
+						return true;
+					}
+				}
+				else
+				{
+					if (!::DeleteFileW(tmpPath.c_str()))
+					{
+						FindClose(hp);
+						return false;
+					}
+				}
+			} while (FindNextFileW(hp, &info) != 0);
+			FindClose(hp);
+
+			if (GetLastError() != ERROR_NO_MORE_FILES)
+				return false;
+		}
+
+		// Remove the directory
+		RemoveDirectoryW(path);
+
+		// Check if still exists
+		const DWORD result = GetFileAttributesW(path);
+		return result != 0xFFFFFFFF && result & FILE_ATTRIBUTE_DIRECTORY;
+	}
+
+	bool DeleteDir(const char* path)
+	{
+		const WPathString wpath(path);
+
+		// Remove all contents in this directory
+		bool deleteContents = true;
+		if (deleteContents)
+		{
+			// Create search pattern
+			Path pattern = Path(path) / '*';
+			WString wpattern = StringToWString(pattern.c_str());
+
+			WIN32_FIND_DATA info;
+			HANDLE hp;
+			hp = FindFirstFileW(wpattern.c_str(), &info);
+			if (INVALID_HANDLE_VALUE == hp)
+				return GetLastError() != ERROR_FILE_NOT_FOUND;
+
+			do
+			{
+				// Check if it isn't a special case
+				if (compareString(info.cFileName, TEXT(".")) == 0 || compareString(info.cFileName, TEXT("..")) == 0)
+					continue;
+
+				// Check if its a directory of a file
+				WString tmpPath = StringToWString(path);
+				if (tmpPath.back() != TEXT('/'))
+					tmpPath += TEXT('/');
+				tmpPath += info.cFileName;
+
+				if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				{
+					// Delete sub directory recursively
+					if (DeleteDir(tmpPath.c_str()))
+					{
+						FindClose(hp);
+						return true;
+					}
+				}
+				else
+				{
+					if (!::DeleteFileW(tmpPath.c_str()))
+					{
+						FindClose(hp);
+						return false;
+					}
+				}
+			} while (FindNextFileW(hp, &info) != 0);
+			FindClose(hp);
+
+			if (GetLastError() != ERROR_NO_MORE_FILES)
+				return false;
+		}
+
+		// Remove the directory
+		RemoveDirectoryW(wpath);
+
+		// Check if still exists
+		const DWORD result = GetFileAttributesW(wpath);
+		return result != 0xFFFFFFFF && result & FILE_ATTRIBUTE_DIRECTORY;
+	}
+
 	void SetCurrentDir(const char* path)
 	{
 		WPathString tmp(path);
@@ -1236,11 +1361,11 @@ namespace Platform {
 			return true;
 		}
 
-		Delegate<void(const char*)>& GetCallback() override { 
+		Delegate<void(const Path&, FileWatcherAction)>& GetCallback() override {
 			return callback;
 		}
 
-		Delegate<void(const char*)> callback;
+		Delegate<void(const Path&, FileWatcherAction)> callback;
 		FileSystemWatcherTask* task = nullptr;
 	};
 
@@ -1259,28 +1384,31 @@ namespace Platform {
 		FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)task->info;
 		while (info) 
 		{
+			FileWatcherAction watcherAction = FileWatcherAction::Unknown;
 			auto action = info->Action;
 			switch (action) 
 			{
 			case FILE_ACTION_RENAMED_NEW_NAME:
 			case FILE_ACTION_ADDED:
+				watcherAction = FileWatcherAction::Create;
+				break;
 			case FILE_ACTION_MODIFIED:
+				watcherAction = FileWatcherAction::Modify;
+				break;
+			case FILE_ACTION_RENAMED_OLD_NAME:
 			case FILE_ACTION_REMOVED: 
+				watcherAction = FileWatcherAction::Delete;
+				break;
+			}
+
+			if (watcherAction != FileWatcherAction::Unknown)
 			{
 				char tmp[MAX_PATH];
 				WCharToCharArray(info->FileName, tmp, info->FileNameLength);
-				task->watcher.callback.Invoke(tmp);
-			} 
-			break;
-			case FILE_ACTION_RENAMED_OLD_NAME:
-				char tmp[MAX_PATH];
-				WCharToCharArray(info->FileName, tmp, info->FileNameLength);
-				task->watcher.callback.Invoke(tmp);
-				break;
-			default: 
-				ASSERT(false); 
-				break;
+				Path path = Path(task->path) / tmp;
+				task->watcher.callback.Invoke(path, watcherAction);
 			}
+
 			info = info->NextEntryOffset == 0 ? nullptr : (FILE_NOTIFY_INFORMATION*)(((U8*)info) + info->NextEntryOffset);
 		}
 	}

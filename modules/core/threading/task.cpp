@@ -4,6 +4,12 @@
 
 namespace VulkanTest
 {
+	Task* Task::StartNew(Task* task)
+	{
+		task->Start();
+		return task;
+	}
+
 	void Task::Start()
 	{
 		if (state != State::Created)
