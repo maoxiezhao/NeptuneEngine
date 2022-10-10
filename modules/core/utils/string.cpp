@@ -812,9 +812,6 @@ namespace VulkanTest
 		}
 		else
 		{
-			size_t size = str.length() + 1;
-			if (size == 35)
-				int a = 0;
 			bigData = (char*)CJING_ALLOCATOR_MALLOC(gStringAllocator, str.length() + 1);
 			Memory::Memcpy(bigData, str.data(), str.length());
 			bigData[str.length()] = '\0';

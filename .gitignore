@@ -4,6 +4,10 @@ tests/bin
 tests/build
 editor/bin
 editor/build
+game/bin
+game/build
+launcher/bin
+launcher/build
 workspace
 
 # 3rdparty

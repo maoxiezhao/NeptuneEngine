@@ -1,5 +1,6 @@
 #include "assetBrowser.h"
 #include "assetImporter.h"
+#include "treeNode.h"
 #include "editor\editor.h"
 #include "editor\importers\resourceImportingManager.h"
 #include "editor\widgets\codeEditor.h"
@@ -85,7 +86,6 @@ namespace Editor
             forwardAction.func.Bind<&AssetBrowserImpl::GoForward>(this);
         }
 
-
         void GoBack()
         {
             if (historyIndex < 1) 
@@ -93,7 +93,6 @@ namespace Editor
             historyIndex = std::max(0, historyIndex - 1);
             SelectResource(history[historyIndex], false);
         }
-
 
         void GoForward()
         {

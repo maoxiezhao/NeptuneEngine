@@ -2872,10 +2872,14 @@ BindlessDescriptorHeap* DeviceVulkan::GetBindlessDescriptorHeap(BindlessReosurce
     return nullptr;
 }
 
-const char* GetPipelineCachePath()
+Path GetPipelineCachePath()
 {
-    static const std::string PIPELINE_CACHE_PATH = ".export/pipeline_cache.bin";
-    return PIPELINE_CACHE_PATH.c_str();
+#ifdef CJING3D_EDITOR
+    static const Path PIPELINE_CACHE_PATH = Globals::ProjectCacheFolder / "pipeline/pipeline_cache.bin";
+#else
+    static const Path PIPELINE_CACHE_PATH = Globals::ProjectLocalFolder / "pipeline/pipeline_cache.bin";
+#endif
+    return PIPELINE_CACHE_PATH;
 }
 
 MemoryUsage DeviceVulkan::GetMemoryUsage() const
@@ -2885,12 +2889,7 @@ MemoryUsage DeviceVulkan::GetMemoryUsage() const
 
 void DeviceVulkan::InitPipelineCache()
 {
-#ifdef CJING3D_EDITOR
-    const Path cachePath = Globals::ProjectCacheFolder / "pipeline_cache.bin";
-#else
-    const Path cachePath = Globals::ProjectCacheFolder / "pipeline_cache.bin"; 
-#endif
-
+    const Path cachePath = GetPipelineCachePath();
     if (!FileSystem::FileExists(cachePath))
     {
         if (!InitPipelineCache(nullptr, 0))
