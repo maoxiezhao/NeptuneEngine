@@ -1,5 +1,6 @@
 #include "thumbnails.h"
 #include "editor\editor.h"
+#include "renderer\render2D\sprite.h"
 
 namespace VulkanTest
 {
@@ -92,7 +93,6 @@ namespace Editor
 		{
 			if (CheckHasDefaultThumbnail(info))
 				return AssetItemState::HAS_DEFAULT;
-
 #if 0
 			if (!FileSystem::FileExists(info.filepath))
 				return TileState::DELETED;

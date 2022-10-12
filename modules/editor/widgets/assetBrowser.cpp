@@ -401,7 +401,7 @@ namespace Editor
             if (isSelected)
                 flags |= ImGuiTreeNodeFlags_Selected;
 
-            bool nodeOpen = nodeOpen = ImGui::TreeNodeEx((void*)&treeNode, flags, "%s%s", ICON_FA_FOLDER, treeNode->name.c_str());
+            bool nodeOpen = nodeOpen = ImGui::TreeNodeEx((void*)&treeNode, flags, "%s%s", isRoot ? ICON_FA_HOME : ICON_FA_FOLDER, treeNode->name.c_str());
 
             if (ImGui::IsItemVisible())
             {      
@@ -670,6 +670,20 @@ namespace Editor
                             if (tile.type == AssetItemType::Directory)
                             {
                                 ShowThumbnail(tile, thumbnailSize * TILE_SIZE, false);
+                                if (ImGui::IsItemHovered())
+                                {
+                                    if (ImGui::IsMouseDoubleClicked(0))
+                                    {
+                                        if (curNode && !curNode->children.empty())
+                                        {
+                                            for (auto& node : curNode->children)
+                                            {
+                                                if (node.name == tile.filename)
+                                                    SetCurrentTreeNode(&node);
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             else if (tile.type == AssetItemType::Resource)
                             {
