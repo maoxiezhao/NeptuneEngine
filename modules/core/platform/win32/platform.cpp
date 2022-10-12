@@ -1242,6 +1242,47 @@ namespace Platform {
 		return true;
 	}
 
+	bool OpenFileDialog(WindowType window, const char* path, const char* filter, bool multiSelect, const char* title, Array<Path>& filenames)
+	{
+		const I32 maxFilenamesSize = (multiSelect ? 200 : 2) * MAX_PATH;
+		Array<char> fileNamesBuffer;
+		fileNamesBuffer.resize(maxFilenamesSize);
+		fileNamesBuffer[0] = 0;
+
+		OPENFILENAMEA of;
+		ZeroMemory(&of, sizeof(of));
+		of.lStructSize = sizeof(of);
+		of.lpstrFilter = filter;
+		of.lpstrFile = fileNamesBuffer.data();
+		of.nMaxFile = maxFilenamesSize;
+		of.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_ENABLESIZING | OFN_NOCHANGEDIR;
+		of.lpstrTitle = title;
+		of.lpstrInitialDir = path;
+		if (window)
+			of.hwndOwner = window;
+		if (multiSelect)
+			of.Flags |= OFN_ALLOWMULTISELECT;
+
+		if (GetOpenFileNameA(&of) != 0)
+		{
+			char* ptr = of.lpstrFile;
+			ptr[of.nFileOffset - 1] = 0;
+			String directory = String(ptr);
+			ptr += of.nFileOffset;
+			while (*ptr)
+			{
+				filenames.push_back(Path(directory) / ptr);
+				ptr += strlen(ptr);
+				if (multiSelect)
+					ptr++;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
 	void GetSpecialFolderPath(SpecialFolder type, Span<char> output)
 	{
 		KNOWNFOLDERID rfid;

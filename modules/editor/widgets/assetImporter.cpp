@@ -97,6 +97,17 @@ namespace Editor
             return false;
         }
 
+        void ShowImportFileDialog(const Path& targetLocation) override
+        {
+            Array<Path> files;
+            auto mainWindow = editor.GetMainWindow();
+            if (!Platform::OpenFileDialog(mainWindow, nullptr, "All files (*.*)\0*.*\0", true, "Select files to import", files))
+                return;
+            
+            for (const auto& file : files)
+                Import(file, targetLocation);
+        }
+
         void OnGUI() override
         {
 

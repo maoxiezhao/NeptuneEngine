@@ -23,6 +23,7 @@ namespace VulkanTest
 	public:
 		static Array<ProjectInfo*> ProjectsCache;
 		static ProjectInfo* EditorProject;
+		static ProjectInfo* EngineProject;
 
 	public:
 		ProjectInfo();

@@ -30,6 +30,7 @@ namespace Editor
         virtual ResourceType GetResourceType(const char* path) const = 0;
         virtual void RegisterExtension(const char* extension, ResourceType type) = 0;
         virtual bool Import(const Path& input, const Path& outptu) = 0;
+        virtual void ShowImportFileDialog(const Path& location) = 0;
     };
 }
 }

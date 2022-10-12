@@ -6,6 +6,7 @@
 #include "editor\editorPlugin.h"
 #include "client\app\app.h"
 #include "renderer\renderer.h"
+#include "modules\editorModule.h"
 
 struct ImFont;
 
@@ -72,6 +73,11 @@ namespace Editor
         virtual ImFont* GetBoldFont() = 0;
         virtual const AddComponentTreeNode* GetAddComponentTreeNodeRoot()const = 0;
         virtual class ProfilerTools& GetProfilerTools() = 0;
+        virtual Platform::WindowType GetMainWindow() = 0;
+
+        virtual void RegisterModule(EditorModule* module) = 0;
+        virtual class ContentDatabaseModule& GetContentDatabaseModule() = 0;
+        virtual class ThumbnailsModule& GetThumbnailsModule() = 0;
 
         virtual const char* GetComponentIcon(ComponentType compType) const = 0;
         virtual const char* GetComponentTypeName(ComponentType compType) const = 0;

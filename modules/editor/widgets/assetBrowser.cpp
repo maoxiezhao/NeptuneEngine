@@ -1,9 +1,11 @@
 #include "assetBrowser.h"
 #include "assetImporter.h"
 #include "treeNode.h"
+#include "assetItem.h"
 #include "editor\editor.h"
 #include "editor\importers\resourceImportingManager.h"
 #include "editor\widgets\codeEditor.h"
+#include "editor\modules\thumbnails.h"
 #include "core\platform\platform.h"
 #include "content\resources\texture.h"
 #include "renderer\render2D\fontResource.h"
@@ -45,18 +47,10 @@ namespace Editor
         Array<ResPtr<Resource>> selectedResources;
         I32 popupCtxResource = -1;
         char filter[128];
-        MaxPathString curDir;
-        Array<MaxPathString> subdirs;
+        ContentTreeNode* curNode = nullptr;
 
-        struct FileInfo 
-        {
-            MaxPathString filepath;
-            MaxPathString filename;
-            StringID filePathHash;
-            GPU::Image* tex = nullptr;
-            bool isLoading = false;
-        };
-        Array<FileInfo> fileInfos;  // All file infos in the current directory
+      
+        Array<AssetItem> fileInfos;  // All file infos in the current directory
         bool hasResInClipboard = false;
 
         CodeEditor codeEditor;
@@ -66,24 +60,38 @@ namespace Editor
         Array<Path> history;
         Utils::Action backAction;
         Utils::Action forwardAction;
+        Utils::Action importAction;
+
+        ProjectTreeNode projectTreeNode;
+        ProjectTreeNode engineTreeNode;
 
     public:
         AssetBrowserImpl(EditorApp& editor_) :
             editor(editor_),
-            codeEditor(editor_)
+            codeEditor(editor_),
+            projectTreeNode(ProjectInfo::EditorProject),
+            engineTreeNode(ProjectInfo::EngineProject)
         {
             filter[0] = '\0';
 
+#if 0
             // Check directory of resource tiles
             StaticString<MAX_PATH_LENGTH> tilePath(".export/resources_tiles");
             if (!Platform::DirExists(tilePath.c_str()))
                 Platform::MakeDir(tilePath.c_str());
+#endif
 
             backAction.Init("Move back", "back", "Back in asset history", ICON_FA_ARROW_LEFT);
             backAction.func.Bind<&AssetBrowserImpl::GoBack>(this);
 
             forwardAction.Init("Move forward", "forward", "Forward in asset history", ICON_FA_ARROW_RIGHT);
             forwardAction.func.Bind<&AssetBrowserImpl::GoForward>(this);
+
+            importAction.Init("Import", "import", "Import resource", ICON_FA_ARROW_DOWN);
+            importAction.func.Bind<&AssetBrowserImpl::Import>(this);
+
+            engineTreeNode.contentNode = CJING_NEW(MainContentTreeNode)(ContentFolderType::Content, Globals::EngineContentFolder, &engineTreeNode);
+            engineTreeNode.contentNode->LoadFolder(true);
         }
 
         void GoBack()
@@ -92,6 +100,14 @@ namespace Editor
                 return;
             historyIndex = std::max(0, historyIndex - 1);
             SelectResource(history[historyIndex], false);
+        }
+
+        void Import()
+        {
+            if (curNode == nullptr)
+                return;
+
+            editor.GetAssetImporter().ShowImportFileDialog(curNode->path);
         }
 
         void GoForward()
@@ -120,8 +136,8 @@ namespace Editor
         void OnGUI() override
         {
             // Set default directory
-            if (curDir.empty())
-                SetCurrentDir(".");
+            if (curNode == nullptr)
+                SetCurrentTreeNode(projectTreeNode.contentNode);
 
             if (!isOpen)
             {
@@ -136,6 +152,7 @@ namespace Editor
             }
 
             // Show serach field
+#if 0
             ImGui::PushItemWidth(150);
             if (ImGui::InputTextWithHint("##search", ICON_FA_SEARCH " Search", filter, sizeof(filter), ImGuiInputTextFlags_EnterReturnsTrue))
                 SetCurrentDir(curDir);
@@ -146,10 +163,9 @@ namespace Editor
                 filter[0] = '\0';
                 SetCurrentDir(curDir);
             }
-            ImGui::SameLine();
-
-            // Show bread crumbs
-            BreadCrumbs();
+#endif
+            // Show tool bar
+            OnToolbarGUI();
             ImGui::Separator();
 
             float contentW = ImGui::GetContentRegionAvail().x;
@@ -201,6 +217,7 @@ namespace Editor
 
         void OnResourceListChanged(const Path& path)
         {
+#if 0
             const StaticString<MAX_PATH_LENGTH> fullPath(path.c_str());
             if (Platform::DirExists(fullPath.c_str()))
             {
@@ -248,11 +265,18 @@ namespace Editor
             }
 
             fileInfos.clear();
-            AddResTile(path);
+            AddAssetItem(path);
+
+#endif
         }
 
-        void SetCurrentDir(const char* path)
+        void SetCurrentTreeNode(ContentTreeNode* treeNode)
         {
+            if (treeNode == curNode)
+                return;
+
+            curNode = treeNode;
+
             // Clear file infos
             auto renderInterface = editor.GetRenderInterface();
             for (auto& info : fileInfos)
@@ -261,39 +285,38 @@ namespace Editor
                     renderInterface->DestroyTexture(info.tex);
             }
             fileInfos.clear();
+       
+            if (curNode == nullptr)
+                return;
 
-            // Remove the '/' or '\\' in last pos when called Path::GetDir
-            Path::Normalize(path, curDir.toSpan());
-            size_t len = StringLength(curDir);
-            if (len > 0 && (curDir[len - 1] == '/' || curDir[len - 1] == '\\'))
-                curDir[len - 1] = '\0';
-
-            subdirs.clear();
+            Path curDir = treeNode->path;
             auto fileList = FileSystem::Enumerate(curDir.c_str());
             for (const auto& fileInfo : fileList)
             {
                 if (fileInfo.filename[0] == '.' || fileInfo.type != PathType::Directory)
                     continue;
                 
-                subdirs.push_back(fileInfo.filename);
+                AddAssetItem(Path(fileInfo.filename), AssetItemType::Directory);
             }
 
+#if 0
             // Add the resource with the same directory
-            //RuntimeHash hash(curDir.c_str());
-            //auto& resources = compiler.LockResources();
-            //for (auto& res : resources)
-            //{
-            //    if (res.dirHash == hash)
-            //        AddResTile(res.path);
-            //}
-            //compiler.UnlockResources();
+            RuntimeHash hash(curDir.c_str());
+            auto& resources = compiler.LockResources();
+            for (auto& res : resources)
+            {
+                if (res.dirHash == hash)
+                    AddAssetItem(res.path);
+            }
+            compiler.UnlockResources();
+#endif
         }
 
-        void AddResTile(const Path& path)
+        void AddAssetItem(const Path& path, AssetItemType type)
         {
-            FileInfo info = {};
-            info.filePathHash = path.GetHash();
+            AssetItem info = {};
             info.filepath = path.c_str();
+            info.type = type;
 
             char filename[MAX_PATH_LENGTH];
             CopyString(filename, Path::GetBaseName(path.c_str()));
@@ -317,18 +340,6 @@ namespace Editor
 
             if (ImGui::Begin(ICON_FA_IMAGE "Asset inspector##asset_inspector", &isOpen, ImGuiWindowFlags_AlwaysVerticalScrollbar))
             {
-                ImVec2 pos = ImGui::GetCursorScreenPos();
-                if (history.size() > 1) {
-                    if (ImGuiEx::BeginToolbar("asset_browser_toolbar", pos, ImVec2(0, 24)))
-                    {
-                        if (historyIndex > 0) 
-                            backAction.ToolbarButton(editor.GetBigIconFont());
-                        if (historyIndex < history.size() - 1) 
-                            forwardAction.ToolbarButton(editor.GetBigIconFont());
-                    }
-                    ImGuiEx::EndToolbar();
-                }
-
                 if (selectedResources.empty())
                 {
                     ImGui::End();
@@ -373,14 +384,84 @@ namespace Editor
             ImGui::End();
         }
 
+        void OnTreeNodeUI(ContentTreeNode* treeNode, bool isRoot)
+        {
+            if (treeNode == nullptr)
+                return;
+
+            ImGui::PushID(treeNode);
+
+            // Setup tree node flags
+            ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+            bool isLeaf = !isRoot && treeNode->children.empty();
+            if (isLeaf)
+                flags |= ImGuiTreeNodeFlags_Leaf;
+
+            bool isSelected = curNode == treeNode;
+            if (isSelected)
+                flags |= ImGuiTreeNodeFlags_Selected;
+
+            bool nodeOpen = nodeOpen = ImGui::TreeNodeEx((void*)&treeNode, flags, "%s%s", ICON_FA_FOLDER, treeNode->name.c_str());
+
+            if (ImGui::IsItemVisible())
+            {      
+                if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+                    SetCurrentTreeNode(treeNode);
+            }
+
+            if (!nodeOpen)
+            {
+                ImGui::PopID();
+                return;
+            }
+
+            // Folder context menu
+            if (ImGui::IsMouseReleased(1) && ImGui::IsItemHovered())
+                ImGui::OpenPopup("directroyContextMenu");
+            if (ImGui::BeginPopup("directroyContextMenu"))
+            {
+                if (ImGui::Selectable("Expand all"))
+                {
+                }
+
+                if (ImGui::Selectable("Collapse all"))
+                {
+                }
+
+                ImGui::Separator();
+
+                ImGui::EndPopup();
+            }
+
+            // Show children folders
+            if (isRoot)
+            {
+                ProjectTreeNode* projectNode = (ProjectTreeNode*)treeNode;
+                if (projectNode->contentNode)
+                    OnTreeNodeUI(projectNode->contentNode, false);
+                if (projectNode->sourceNode)
+                    OnTreeNodeUI(projectNode->sourceNode, false);
+            }
+
+            for (auto& child : treeNode->children)
+            {
+                OnTreeNodeUI(&child, false);
+            }
+
+            ImGui::TreePop();
+            ImGui::PopID();
+        }
+
         void OnDirColumnGUI()
         {
-            ImVec2 size(std::max(120.f, leftColumnWidth), 0);
+            ImVec2 size(std::max(160.f, leftColumnWidth), 0);
             ImGui::BeginChild("left_col", size);
-            ImGui::PushItemWidth(120);
+            ImGui::PushItemWidth(160);
 
+            OnTreeNodeUI(&projectTreeNode, true);
+            OnTreeNodeUI(&engineTreeNode, true);
+#if 0
             bool selected = false;
-
             // Show back selectable
             if ((curDir[0] != '.' || curDir[1] != 0) && ImGui::Selectable("..", &selected))
             {
@@ -398,48 +479,71 @@ namespace Editor
                     SetCurrentDir(newDir);
                 }
             }
-
+#endif
             ImGui::PopItemWidth();
             ImGui::EndChild();
         }
 
+        void OnToolbarGUI()
+        {
+            auto pos = ImGui::GetCursorScreenPos();
+            const float toolbarHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().FramePadding.y * 2;
+            if (ImGuiEx::BeginToolbar("browserToolbar", pos, ImVec2(0, toolbarHeight)))
+            {
+                auto iconFont = editor.GetBigIconFont();
+                importAction.ToolbarButton(iconFont);
+   
+                if (history.size() > 1) 
+                {
+                    if (historyIndex > 0)
+                        backAction.ToolbarButton(iconFont);
+                    if (historyIndex < history.size() - 1)
+                        forwardAction.ToolbarButton(iconFont);
+                }
+
+                ImGui::SameLine();
+                ImGuiEx::Rect(1.0f, ImGui::GetItemRectSize().y, 0xff3A3A3E);
+                ImGui::SameLine();
+
+                // Show bread crumbs
+                BreadCrumbs();
+            }
+            
+            ImGuiEx::EndToolbar();
+        }
+
         void BreadCrumbs()
         {
+            if (curNode == nullptr)
+            {
+                ImGui::SameLine();
+                ImGui::TextUnformatted("/");
+                return;
+            }
+
             // Show buttons for current directory
-            if (curDir[0] != '.' || curDir[1] != 0) 
+            static Array<ContentTreeNode*> breadQueue;
+            auto node = curNode;
+            while (node != nullptr)
             {
-                if (ImGui::Button("."))
-                    SetCurrentDir(".");
+                breadQueue.push_back(node);
+                node = node->parent;
+            }
 
+            for (int i = breadQueue.size() - 1; i >= 0; i--)
+            {
+                auto node = breadQueue[i];
+                if (node == nullptr)
+                    continue;
+
+                if (ImGui::Button(node->name.c_str()))
+                    SetCurrentTreeNode(node);
                 ImGui::SameLine();
                 ImGui::TextUnformatted("/");
                 ImGui::SameLine();
             }
+            breadQueue.clear();
 
-            char tmp[MAX_PATH_LENGTH];
-            const char* c = curDir.c_str();
-            while (*c)
-            {
-                char* ptr = tmp;
-                while (*c && *c != '/')
-                {
-                    *ptr = *c;
-                    ++ptr;
-                    ++c;
-                }
-                *ptr = '\0';
-                if (*c == '/') ++c;
-
-                if (ImGui::Button(tmp))
-                {
-                    char newDir[MAX_PATH_LENGTH];
-                    CopyNString(Span(newDir), curDir, int(c - curDir.c_str()));
-                    SetCurrentDir(newDir);
-                }
-                ImGui::SameLine();
-                ImGui::TextUnformatted("/");
-                ImGui::SameLine();
-            }
             ImGui::NewLine();
         }
 
@@ -459,8 +563,8 @@ namespace Editor
 
             if (ImGui::MenuItem("View in explorer")) 
             {
-                StaticString<MAX_PATH_LENGTH> fullPath(curDir);
-                Platform::OpenExplorer(fullPath.c_str());     
+                // StaticString<MAX_PATH_LENGTH> fullPath(curDir);
+                // Platform::OpenExplorer(fullPath.c_str());     
             }
             if (ImGui::BeginMenu("New folder")) 
             {
@@ -468,11 +572,11 @@ namespace Editor
                 ImGui::SameLine();
                 if (ImGui::Button("Create")) 
                 {
-                    StaticString<MAX_PATH_LENGTH> fullPath(curDir, "/", tmp);
-                    if (!Platform::MakeDir(fullPath))
-                        Logger::Error("Failed to create directory %s", fullPath.c_str());
+                    //StaticString<MAX_PATH_LENGTH> fullPath(curDir, "/", tmp);
+                    //if (!Platform::MakeDir(fullPath))
+                    //    Logger::Error("Failed to create directory %s", fullPath.c_str());
 
-                    SetCurrentDir(curDir);  // Refresh
+                    // SetCurrentDir(curDir);  // Refresh
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::EndMenu();
@@ -491,7 +595,7 @@ namespace Editor
                         ImGui::SameLine();
                         if (ImGui::Button("Create")) 
                         {
-                            plugin->CreateResource(Path(curDir), tmp);
+                            // plugin->CreateResource(Path(curDir), tmp);
                             ImGui::CloseCurrentPopup();
                         }
                         ImGui::EndMenu();
@@ -500,8 +604,8 @@ namespace Editor
             ImGui::EndMenu();
             }
 
-            if (ImGui::MenuItem("Refresh"))
-                SetCurrentDir(curDir);
+            //if (ImGui::MenuItem("Refresh"))
+            //    SetCurrentDir(curDir);
         }
 
         void OnFileColumnGUI()
@@ -512,9 +616,9 @@ namespace Editor
             int tileCount = fileInfos.size();
             int rows = showThumbnails ? (tileCount + columns - 1) / columns : tileCount;
 
-            auto HandleResource = [this](FileInfo& tile, int idx) {
+            auto HandleResource = [this](AssetItem& tile, int idx) {
                 if (ImGui::IsItemHovered()) 
-                    ImGui::SetTooltip("%s", tile.filepath.data);
+                    ImGui::SetTooltip("%s", tile.filepath.c_str());
 
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
                 {
@@ -562,20 +666,29 @@ namespace Editor
                                 break;
                             }
 
-                            FileInfo& tile = fileInfos[idx];
-                            bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
-                                return res->GetPath().GetHash() == tile.filePathHash;
-                            }) >= 0;
-                            ShowThumbnail(tile, thumbnailSize * TILE_SIZE, selected);
-                            HandleResource(tile, idx);
+                            AssetItem& tile = fileInfos[idx];
+                            if (tile.type == AssetItemType::Directory)
+                            {
+                                ShowThumbnail(tile, thumbnailSize * TILE_SIZE, false);
+                            }
+                            else if (tile.type == AssetItemType::Resource)
+                            {
+                                //bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
+                                //    return res->GetPath().GetHash() == tile.filePathHash;
+                                //}) >= 0;
+                                bool selected = false;
+                                ShowThumbnail(tile, thumbnailSize * TILE_SIZE, selected);
+                                HandleResource(tile, idx);
+                            }
                         }
                     }
                     else
                     {
-                        FileInfo& tile = fileInfos[j];
-                        bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
-                            return res->GetPath().GetHash() == tile.filePathHash;
-                        }) >= 0;
+                        AssetItem& tile = fileInfos[j];
+                        //bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
+                        //    return res->GetPath().GetHash() == tile.filePathHash;
+                        //}) >= 0;
+                        bool selected = false;
                         ImGui::Selectable(tile.filepath, selected);
                         HandleResource(tile, j);
                     }
@@ -644,31 +757,8 @@ namespace Editor
             ImGui::EndChild();
         }
 
-        // State of Thumbnail tile
-        enum class TileState 
-        {
-            OK,
-            OUTDATED,
-            DELETED,
-            NOT_CREATED
-        };
-        static TileState GetTileState(const FileInfo& info) 
-        {
-            if (!FileSystem::FileExists(info.filepath)) 
-                return TileState::DELETED;
-        
-            StaticString<MAX_PATH_LENGTH> path(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
-            if (!FileSystem::FileExists(path)) 
-                return TileState::NOT_CREATED;
 
-            MaxPathString compiledPath(".export/Resources/", info.filePathHash.GetHashValue(), ".res");
-            const U64 lastModified = FileSystem::GetLastModTime(path);
-            if (lastModified < FileSystem::GetLastModTime(info.filepath) || 
-                lastModified < FileSystem::GetLastModTime(compiledPath))
-                return TileState::OUTDATED;
 
-            return TileState::OK;
-        }
 
         bool CopyThumbnailTile(const char* from, const char* to)
         {
@@ -693,34 +783,11 @@ namespace Editor
             }, Path(from), Path(to));
         }
 
-        bool CreateThumbnailTile(FileInfo& info)
+        void RefreshThumbnail(AssetItem& info)
         {
-            if (info.isLoading)
-                return false;
-
-            info.isLoading = true;
-
-            auto& compiler = editor.GetAssetImporter();
-            auto resType = compiler.GetResourceType(info.filepath);
-
-            StaticString<MAX_PATH_LENGTH> tilePath(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
-            // Check is builtin thumnailtile
-            if (resType == Shader::ResType)
-                return CopyThumbnailTile("editor/textures/tile_shader.tga", tilePath.c_str());
-            else if (resType == Texture::ResType)
-                return CopyThumbnailTile("editor/textures/tile_texture.tga", tilePath.c_str());
-            else if (resType == Material::ResType)
-                return CopyThumbnailTile("editor/textures/tile_material.tga", tilePath.c_str());
-            else if (resType == Model::ResType)
-                return CopyThumbnailTile("editor/textures/tile_model.tga", tilePath.c_str());
-            else if (resType == FontResource::ResType)
-                return CopyThumbnailTile("editor/textures/tile_font.tga", tilePath.c_str());       
-            else if (resType == SceneResource::ResType)
-                return CopyThumbnailTile("editor/textures/tile_scene.tga", tilePath.c_str());
-            return false;
         }
 
-        void ShowThumbnail(FileInfo& info, F32 size, bool selected)
+        void ShowThumbnail(AssetItem& info, F32 size, bool selected)
         {
             ImGui::BeginGroup();
             ImVec2 imgSize(size, size);
@@ -733,34 +800,7 @@ namespace Editor
             else
             {
                 ImGuiEx::Rect(imgSize.x, imgSize.y, 0xffffFFFF);
-
-                // Create custom thumbnail image
-                StaticString<MAX_PATH_LENGTH> path(".export/resources_tiles/", info.filePathHash.GetHashValue(), ".tile");
-                auto renderInterface = editor.GetRenderInterface();
-                if (renderInterface != nullptr)
-                {
-                    TileState state = GetTileState(info);
-                    switch (state)
-                    {
-                    case TileState::OK:
-                        info.tex = (GPU::Image*)renderInterface->LoadTexture(Path(path));
-                        break;
-                    case TileState::OUTDATED:
-                    case TileState::NOT_CREATED:
-                        CreateThumbnailTile(info);
-                        break;
-                    case TileState::DELETED:
-                        if (info.tex != nullptr)
-                        {
-                            renderInterface->DestroyTexture(info.tex);
-                            info.tex = nullptr;
-                        }
-                        ResourceManager::DeleteResource(Path(path));
-                        break;
-                    default:
-                        break;
-                    }
-                }
+                editor.GetThumbnailsModule().RefreshThumbnail(info);
             }
 
             // Show filename

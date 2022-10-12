@@ -18,6 +18,9 @@
 #include "plugins\renderer.h"
 #include "plugins\level.h"
 
+#include "modules\contentDatabase.h"
+#include "modules\thumbnails.h"
+
 #include "widgets\assetBrowser.h"
 #include "widgets\assetImporter.h"
 #include "widgets\worldEditor.h"
@@ -193,6 +196,15 @@ namespace Editor
             }
             ProjectInfo::EditorProject = project;
 
+            auto engineProjectPath = Globals::StartupFolder / "engine.proj";
+            project = ProjectInfo::LoadProject(engineProjectPath);
+            if (!project)
+            {
+                Platform::Fatal("Failed to load engine project.");
+                return false;
+            }
+            ProjectInfo::EngineProject = project;
+
             return true;
         }
 
@@ -221,6 +233,13 @@ namespace Editor
 
             // Load plugins
             engine->LoadPlugins();
+
+            // Load modules
+            RegisterModule(contentDatabase = CJING_NEW(ContentDatabaseModule)(*this));
+            RegisterModule(thumbnails = ThumbnailsModule::Create(*this));
+
+            for (auto editorModule : editorModules)
+                editorModule->Initialize();
 
             // Init widgets
             worldEditor = WorldEditor::Create(*this);
@@ -280,6 +299,14 @@ namespace Editor
 
             // Clear widgets
             widgets.clear();
+
+            // Clear modules
+            for (auto editorModule : editorModules)
+            {
+                editorModule->Unintialize();
+                CJING_SAFE_DELETE(editorModule);
+            }
+            editorModules.clear();
 
             // Clear project
             CJING_SAFE_DELETE(ProjectInfo::EditorProject);
@@ -479,6 +506,26 @@ namespace Editor
             return profilerTools;
         }
 
+        Platform::WindowType GetMainWindow() override
+        {
+            return mainWindow;
+        }
+
+        void RegisterModule(EditorModule* module) override
+        {
+            editorModules.push_back(module);
+        }
+
+        ContentDatabaseModule& GetContentDatabaseModule() override
+        {
+            return *contentDatabase;
+        }
+
+        ThumbnailsModule& GetThumbnailsModule() override
+        {
+            return *thumbnails;
+        }
+
         const char* GetComponentIcon(ComponentType compType) const override
         {
             auto it = componentIcons.find(compType.index);
@@ -505,6 +552,10 @@ namespace Editor
             worldEditor->Update(deltaTime);
 
             engine->Update(worldEditor->GetWorld(), deltaTime);
+
+            // Update editor modules
+            for (auto editorModule : editorModules)
+                editorModule->Update();
 
             // Update editor widgets
             for (auto widget : widgets)
@@ -590,6 +641,10 @@ namespace Editor
 
             // Asset compiler process pending tasks
             assetImporter->InitFinished();
+
+            // Modules
+            for (auto editorModule : editorModules)
+                editorModule->InitFinished();
 
             // Init all widgets
             for (auto widget : widgets)
@@ -1316,6 +1371,11 @@ namespace Editor
 
         // Render interace
         RenderInterface* renderInterface = nullptr;
+
+        // Modules
+        Array<EditorModule*> editorModules;
+        ContentDatabaseModule* contentDatabase;
+        ThumbnailsModule* thumbnails;
 
         // Builtin widgets
         UniquePtr<AssetImporter> assetImporter;

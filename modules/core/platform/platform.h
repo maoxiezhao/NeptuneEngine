@@ -381,6 +381,7 @@ namespace Platform {
 	void Fatal(const char* msg);
 	void SetCommandLine(int, char**);
 	bool GetCommandLines(Span<char> output);
+	bool OpenFileDialog(WindowType window, const char* path, const char* filter, bool multiSelect, const char* title, Array<Path>& filenames);
 
 	enum class FileWatcherAction
 	{

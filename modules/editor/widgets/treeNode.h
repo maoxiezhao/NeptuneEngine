@@ -2,17 +2,14 @@
 
 #include "editor\common.h"
 #include "editor\editorPlugin.h"
+#include "editor\projectInfo.h"
+#include "core\platform\platform.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
     class EditorApp;
-
-    struct TreeNode
-    {
-
-    };
 
     enum class ContentFolderType
     {
@@ -21,23 +18,39 @@ namespace Editor
         Other
     };
 
-    struct MainContentTreeNode
+    struct ContentTreeNode
     {
-    public:
-        ContentFolderType type;
+        ContentFolderType type = ContentFolderType::Other;
         Path path;
+        String name;
+        ContentTreeNode* parent = nullptr;
+        Array<ContentTreeNode> children;
 
     public:
-        MainContentTreeNode(ContentFolderType type_, const Path& path_) :
-            type(type_),
-            path(path_)
-        {
-        }
+        ContentTreeNode(ContentFolderType type_, const Path& path_, ContentTreeNode* parent_);
+        void LoadFolder(bool checkSubDirs);
     };
 
-    struct ProjectTreeNode
+    struct MainContentTreeNode : public ContentTreeNode
     {
+    private:
+        UniquePtr<Platform::FileSystemWatcher> watcher;
 
+    public:
+        MainContentTreeNode(ContentFolderType type_, const Path& path_, ContentTreeNode* parent_);
+
+        void OnFileWatcherEvent(const Path& path, Platform::FileWatcherAction action);
+    };
+
+    struct ProjectTreeNode : ContentTreeNode
+    {
+        const ProjectInfo* projectInfo;
+        MainContentTreeNode* sourceNode = nullptr;
+        MainContentTreeNode* contentNode = nullptr;
+
+    public:
+        ProjectTreeNode(const ProjectInfo* projectInfo_);
+        ~ProjectTreeNode();
     };
 
 }
