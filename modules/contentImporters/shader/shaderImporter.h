@@ -1,7 +1,6 @@
 #pragma once
 
-#include "editorPlugin.h"
-#include "editor\importers\definition.h"
+#include "contentImporters\definition.h"
 
 namespace VulkanTest
 {

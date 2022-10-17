@@ -1,7 +1,7 @@
 #include "definition.h"
 #include "content\storage\resourceStorage.h" 
 #include "editor\editor.h"
-#include "editor\importers\material\createMaterial.h"
+#include "material\createMaterial.h"
 #include "core\serialization\jsonWriter.h"
 #include "core\threading\mainThreadTask.h"
 

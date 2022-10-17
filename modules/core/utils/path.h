@@ -27,6 +27,7 @@ namespace VulkanTest
 		static void	Normalize(const char* path, Span<char> outPath);
 		static Span<const char> GetDir(const char* path);
 		static Span<const char> GetBaseName(const char* path);
+		static Span<const char> GetBaseNameWithExtension(const char* path);
 		static Span<const char> GetExtension(Span<const char> path);
 		static Span<const char> GetPathWithoutExtension(const char* path);
 		static bool HasExtension(const char* path, const char* ext);

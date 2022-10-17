@@ -6,6 +6,21 @@
 
 namespace VulkanTest
 {
+#ifdef CJING3D_EDITOR
+	HashMap<U64, String> ResourceType::ResourceNameMapping;
+
+	void ResourceType::RegisterResourceTypename(const ResourceType& type, const String& name)
+	{
+		ResourceNameMapping.insert(type.GetHashValue(), name);
+	}
+
+	String ResourceType::GetResourceTypename(const ResourceType& type)
+	{
+		auto it = ResourceNameMapping.find(type.GetHashValue());
+		return it.isValid() ? it.value() : String::EMPTY;
+	}
+#endif
+
 	namespace
 	{
 		bool isExit = false;
@@ -671,6 +686,11 @@ namespace VulkanTest
 
 		// Flush pending objects
 		ObjectService::FlushNow();
+
+#ifdef CJING3D_EDITOR
+		// Clear resource type name mapping
+		ResourceType::ResourceNameMapping.clear();
+#endif
 
 		initialized = false;
 	}

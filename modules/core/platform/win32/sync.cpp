@@ -58,6 +58,11 @@ namespace VulkanTest
 		::ReleaseSemaphore(id, 1, nullptr);
 	}
 
+	void Semaphore::Signal(U32 value)
+	{
+		::ReleaseSemaphore(id, (LONG)value, nullptr);
+	}
+
 	void Semaphore::Wait()
 	{
 		::WaitForSingleObject(id, INFINITE);

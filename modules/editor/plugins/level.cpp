@@ -3,7 +3,7 @@
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\worldEditor.h"
 #include "editor\states\editorStateMachine.h"
-#include "editor\importers\resourceImportingManager.h"
+#include "contentImporters\resourceImportingManager.h"
 #include "core\serialization\json.h"
 
 #include "imgui-docking\imgui.h"
@@ -45,6 +45,7 @@ namespace Editor
 			auto scene = CJING_NEW(Scene)();
 			scene->SetName(name);
 
+			// Serialize scene datas
 			rapidjson_flax::StringBuffer outData;
 			if (!Level::SaveScene(scene, outData))
 			{

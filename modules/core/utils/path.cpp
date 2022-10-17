@@ -96,6 +96,22 @@ namespace VulkanTest
 		return basename;
 	}
 
+	Span<const char> VulkanTest::Path::GetBaseNameWithExtension(const char* path)
+	{
+		if (!path[0]) return { nullptr, nullptr };
+
+		Span<const char> basename;
+		const char* end = path + StringLength(path);
+		basename.pEnd = end;
+		basename.pBegin = end;
+		while (basename.pBegin != path && *basename.pBegin != '\\' && *basename.pBegin != '/')
+			--basename.pBegin;
+		if (*basename.pBegin == '\\' || *basename.pBegin == '/')
+			++basename.pBegin;
+
+		return basename;
+	}
+
 	Span<const char> Path::GetExtension(Span<const char> path)
 	{
 		if (path.length() <= 0) return { nullptr, nullptr };

@@ -4,9 +4,9 @@
 #include "level\level.h"
 #include "core\utils\deleteHandler.h"
 #include "editor\editor.h"
-#include "editor\importers\texture\textureImporter.h"
-#include "editor\importers\material\createMaterial.h"
-#include "editor\importers\resourceImportingManager.h"
+#include "contentImporters\texture\textureImporter.h"
+#include "contentImporters\material\createMaterial.h"
+#include "contentImporters\resourceImportingManager.h"
 
 namespace VulkanTest
 {

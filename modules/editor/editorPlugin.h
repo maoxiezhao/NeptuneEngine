@@ -45,6 +45,9 @@ namespace Editor
         bool IsOpen()const {
             return isOpen;
         }
+        void Close() {
+            isOpen = false;
+        }
         bool isOpen = true;
     };
 

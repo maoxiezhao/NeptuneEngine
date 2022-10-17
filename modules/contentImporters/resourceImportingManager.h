@@ -31,6 +31,11 @@ namespace Editor
 		}
 
 		static bool Import(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg);
+		static bool Import(const Path& inputPath, const Path& outputPath, void* arg)
+		{
+			Guid guid = Guid::Empty;
+			return Import(inputPath, outputPath, guid, arg);
+		}
 		static bool ImportIfEdited(const Path& inputPath, const Path& outputPath, Guid& resID, void* arg);
 	};
 }

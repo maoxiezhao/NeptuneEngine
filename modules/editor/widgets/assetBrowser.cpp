@@ -3,7 +3,6 @@
 #include "treeNode.h"
 #include "assetItem.h"
 #include "editor\editor.h"
-#include "editor\importers\resourceImportingManager.h"
 #include "editor\widgets\codeEditor.h"
 #include "editor\modules\thumbnails.h"
 #include "core\platform\platform.h"
@@ -14,26 +13,9 @@
 namespace VulkanTest
 {
 namespace Editor
-{
-    static constexpr int TILE_SIZE = 96;
-
-    static void ClampText(char* text, int width)
-    {
-        char* end = text + StringLength(text);
-        ImVec2 size = ImGui::CalcTextSize(text);
-        if (size.x <= width) return;
-
-        do
-        {
-            *(end - 1) = '\0';
-            *(end - 2) = '.';
-            *(end - 3) = '.';
-            *(end - 4) = '.';
-            --end;
-
-            size = ImGui::CalcTextSize(text);
-        } while (size.x > width && end - text > 4);
-    }
+{   
+    I32 AssetBrowser::TileSize = 96;
+    F32 AssetBrowser::ThumbnailSize = 1.0f;
 
     class AssetBrowserImpl : public AssetBrowser
     {
@@ -42,15 +24,13 @@ namespace Editor
         bool initialized = false;
         float leftColumnWidth = 120;
         bool showThumbnails = true;
-        float thumbnailSize = 1.f;
 
-        Array<ResPtr<Resource>> selectedResources;
-        I32 popupCtxResource = -1;
+        I32 popupCtxItem = -1;
         char filter[128];
         ContentTreeNode* curNode = nullptr;
 
-      
-        Array<AssetItem> fileInfos;  // All file infos in the current directory
+        Array<AssetItem*> contentItems;  // All file infos in the current directory
+        Array<AssetItem*> selectedItems;
         bool hasResInClipboard = false;
 
         CodeEditor codeEditor;
@@ -99,7 +79,6 @@ namespace Editor
             if (historyIndex < 1) 
                 return;
             historyIndex = std::max(0, historyIndex - 1);
-            SelectResource(history[historyIndex], false);
         }
 
         void Import()
@@ -113,12 +92,11 @@ namespace Editor
         void GoForward()
         {
             historyIndex = std::min(historyIndex + 1, (I32)history.size() - 1);
-            SelectResource(history[historyIndex], false);
         }
 
         ~AssetBrowserImpl()
         {
-            UnloadSelectedResources();
+            contentItems.clearDelete();
         }
 
         void InitFinished() override
@@ -151,8 +129,8 @@ namespace Editor
                 return;
             }
 
-            // Show serach field
 #if 0
+            // Show serach field
             ImGui::PushItemWidth(150);
             if (ImGui::InputTextWithHint("##search", ICON_FA_SEARCH " Search", filter, sizeof(filter), ImGuiInputTextFlags_EnterReturnsTrue))
                 SetCurrentDir(curDir);
@@ -233,7 +211,7 @@ namespace Editor
                 return;
 
             auto renderInterface = editor.GetRenderInterface();
-            for (auto& info : fileInfos)
+            for (auto& info : contentItems)
             {
                 if (info.filepath != path.c_str()) 
                     continue;
@@ -264,10 +242,73 @@ namespace Editor
                 }
             }
 
-            fileInfos.clear();
+            contentItems.clear();
             AddAssetItem(path);
 
 #endif
+        }
+
+        AssetItem* ConstructItem(const Path& path, ResourceInfo& resInfo)
+        {
+            const auto& resType = resInfo.type;
+            if (resType == ResourceType::INVALID_TYPE)
+                return nullptr;
+
+            return CJING_NEW(ResourceItem)(path, resInfo.guid, ResourceType::GetResourceTypename(resType));
+        }
+
+        void LoadResoruces(ContentTreeNode* treeNode, std::vector<ListEntry>& fileList)
+        {
+            for (const auto& fileInfo : fileList)
+            {
+                if (fileInfo.filename[0] == '.' || fileInfo.type == PathType::Directory)
+                    continue;
+
+                if (!EndsWith(fileInfo.filename, RESOURCE_FILES_EXTENSION_WITH_DOT))
+                    continue;
+
+                AssetItem* item = nullptr;
+                const Path resPath = treeNode->path / fileInfo.filename;
+                ResourceInfo resInfo;
+                if (ResourceManager::GetResourceInfo(resPath, resInfo))
+                    item = ConstructItem(resPath, resInfo);
+                if (item == nullptr)
+                    item = CJING_NEW(FileItem)(resPath);
+
+                contentItems.push_back(item);
+            }
+        }
+
+        void RefreshCurrentTreeNode()
+        {
+            // Clear file infos
+            auto renderInterface = editor.GetRenderInterface();
+            for (auto& info : contentItems)
+            {
+                if (info->tex != nullptr)
+                    renderInterface->DestroyTexture(info->tex);
+            }
+            contentItems.clearDelete();
+            selectedItems.clear();
+
+            if (curNode == nullptr)
+                return;
+
+            // Load directories
+            Path curDir = curNode->path;
+            auto fileList = FileSystem::Enumerate(curDir.c_str());
+            for (const auto& fileInfo : fileList)
+            {
+                if (fileInfo.filename[0] == '.' || fileInfo.type != PathType::Directory)
+                    continue;
+
+                contentItems.push_back(CJING_NEW(ContentFolderItem)(Path(fileInfo.filename)));
+            }
+
+            // Load resources
+            bool canHaveResources = true;
+            if (canHaveResources)
+                LoadResoruces(curNode, fileList);
         }
 
         void SetCurrentTreeNode(ContentTreeNode* treeNode)
@@ -277,27 +318,7 @@ namespace Editor
 
             curNode = treeNode;
 
-            // Clear file infos
-            auto renderInterface = editor.GetRenderInterface();
-            for (auto& info : fileInfos)
-            {
-                if (info.tex != nullptr)
-                    renderInterface->DestroyTexture(info.tex);
-            }
-            fileInfos.clear();
-       
-            if (curNode == nullptr)
-                return;
-
-            Path curDir = treeNode->path;
-            auto fileList = FileSystem::Enumerate(curDir.c_str());
-            for (const auto& fileInfo : fileList)
-            {
-                if (fileInfo.filename[0] == '.' || fileInfo.type != PathType::Directory)
-                    continue;
-                
-                AddAssetItem(Path(fileInfo.filename), AssetItemType::Directory);
-            }
+            RefreshCurrentTreeNode();
 
 #if 0
             // Add the resource with the same directory
@@ -312,32 +333,12 @@ namespace Editor
 #endif
         }
 
-        void AddAssetItem(const Path& path, AssetItemType type)
-        {
-            AssetItem info = {};
-            info.filepath = path.c_str();
-            info.type = type;
-
-            char filename[MAX_PATH_LENGTH];
-            CopyString(filename, Path::GetBaseName(path.c_str()));
-            ClampText(filename, I32(thumbnailSize * TILE_SIZE));
-            info.filename = filename;
-
-            fileInfos.push_back(info);
-        }
-
-        void DeleteResTile(I32 index)
-        {
-            ResourceManager::DeleteResource(Path(fileInfos[index].filepath.c_str()));
-            FileSystem::DeleteFile(fileInfos[index].filepath.c_str());
-            selectedResources.clear();
-        }
-
         void OnDetailsGUI()
         {
             if (!isOpen)
                 return;
 
+#if 0
             if (ImGui::Begin(ICON_FA_IMAGE "Asset inspector##asset_inspector", &isOpen, ImGuiWindowFlags_AlwaysVerticalScrollbar))
             {
                 if (selectedResources.empty())
@@ -382,6 +383,7 @@ namespace Editor
                 }
             }
             ImGui::End();
+#endif
         }
 
         void OnTreeNodeUI(ContentTreeNode* treeNode, bool isRoot)
@@ -401,8 +403,13 @@ namespace Editor
             if (isSelected)
                 flags |= ImGuiTreeNodeFlags_Selected;
 
-            bool nodeOpen = nodeOpen = ImGui::TreeNodeEx((void*)&treeNode, flags, "%s%s", isRoot ? ICON_FA_HOME : ICON_FA_FOLDER, treeNode->name.c_str());
+            if (curNode != nullptr)
+            {
+                if (StartsWith(curNode->path.c_str(), treeNode->path.c_str()))
+                    flags |= ImGuiTreeNodeFlags_DefaultOpen;
+            }
 
+            bool nodeOpen = ImGui::TreeNodeEx((void*)&treeNode, flags, "%s%s", isRoot ? ICON_FA_HOME : ICON_FA_FOLDER, treeNode->name.c_str());
             if (ImGui::IsItemVisible())
             {      
                 if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
@@ -493,13 +500,9 @@ namespace Editor
                 auto iconFont = editor.GetBigIconFont();
                 importAction.ToolbarButton(iconFont);
    
-                if (history.size() > 1) 
-                {
-                    if (historyIndex > 0)
-                        backAction.ToolbarButton(iconFont);
-                    if (historyIndex < history.size() - 1)
-                        forwardAction.ToolbarButton(iconFont);
-                }
+                bool histroyEnable = history.size() > 1;
+                backAction.ToolbarButton(iconFont, histroyEnable && historyIndex > 0);
+                forwardAction.ToolbarButton(iconFont, histroyEnable && historyIndex < history.size() - 1);
 
                 ImGui::SameLine();
                 ImGuiEx::Rect(1.0f, ImGui::GetItemRectSize().y, 0xff3A3A3E);
@@ -549,7 +552,10 @@ namespace Editor
 
         void ShowCommonPopup()
         {
-            if (ImGui::MenuItem("Copy", nullptr, false, popupCtxResource >= 0))
+            if (curNode == nullptr)
+                return;
+
+            if (ImGui::MenuItem("Copy", nullptr, false, popupCtxItem >= 0))
             {
             }
 
@@ -563,8 +569,7 @@ namespace Editor
 
             if (ImGui::MenuItem("View in explorer")) 
             {
-                // StaticString<MAX_PATH_LENGTH> fullPath(curDir);
-                // Platform::OpenExplorer(fullPath.c_str());     
+                 Platform::OpenExplorer(curNode->path);     
             }
             if (ImGui::BeginMenu("New folder")) 
             {
@@ -572,11 +577,11 @@ namespace Editor
                 ImGui::SameLine();
                 if (ImGui::Button("Create")) 
                 {
-                    //StaticString<MAX_PATH_LENGTH> fullPath(curDir, "/", tmp);
-                    //if (!Platform::MakeDir(fullPath))
-                    //    Logger::Error("Failed to create directory %s", fullPath.c_str());
+                    Path fullPath = curNode->path / tmp;
+                    if (!Platform::MakeDir(fullPath))
+                        Logger::Error("Failed to create directory %s", fullPath.c_str());
 
-                    // SetCurrentDir(curDir);  // Refresh
+                    RefreshCurrentTreeNode();
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::EndMenu();
@@ -608,18 +613,48 @@ namespace Editor
             //    SetCurrentDir(curDir);
         }
 
-        void OnFileColumnGUI()
+        void OpenResourceItem(AssetItem& tile)
         {
-            ImGui::BeginChild("file_col");
-            float w = ImGui::GetContentRegionAvail().x;
-            int columns = std::max(1, showThumbnails ? (int)w / int(TILE_SIZE * thumbnailSize) : 1);
-            int tileCount = fileInfos.size();
-            int rows = showThumbnails ? (tileCount + columns - 1) / columns : tileCount;
+        }
 
-            auto HandleResource = [this](AssetItem& tile, int idx) {
-                if (ImGui::IsItemHovered()) 
-                    ImGui::SetTooltip("%s", tile.filepath.c_str());
+        void SelectResourceItem(AssetItem& tile, bool modified)
+        {
+            if (!modified)
+                selectedItems.clear();
 
+            auto idx = selectedItems.indexOf(&tile);
+            if (idx < 0)
+                selectedItems.push_back(&tile);
+        }
+
+        void HandleResourceItem(AssetItem& tile, int idx)
+        {
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", tile.filepath.c_str());
+
+            if (tile.type == AssetItemType::Directory)
+            {
+                if (ImGui::IsItemHovered())
+                {
+                    if (ImGui::IsMouseDoubleClicked(0))
+                    {
+                        if (curNode && !curNode->children.empty())
+                        {
+                            for (auto& node : curNode->children)
+                            {
+                                if (node.name == tile.filename)
+                                    SetCurrentTreeNode(&node);
+                            }
+                        }
+                    }
+                    else if (ImGui::IsMouseReleased(0))
+                    {
+                        SelectResourceItem(tile, ImGui::GetIO().KeyCtrl);
+                    }
+                }
+            }
+            else if (tile.type == AssetItemType::Resource)
+            {
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
                 {
                     ImGui::Text("%s", (const char*)tile.filepath);
@@ -629,20 +664,37 @@ namespace Editor
                 else if (ImGui::IsItemHovered())
                 {
                     if (ImGui::IsMouseDoubleClicked(0))
-                        DoubleClickResource(Path(tile.filepath));
+                        OpenResourceItem(tile);
                     else if (ImGui::IsMouseReleased(0))
-                        SelectResource(Path(tile.filepath), true);
+                        SelectResourceItem(tile, ImGui::GetIO().KeyCtrl);
                     else if (ImGui::IsMouseReleased(1))
                     {
-                        popupCtxResource = idx;
+                        popupCtxItem = idx;
                         ImGui::OpenPopup("itemCtx");
                     }
                 }
-            };
+            }   
+        }
 
+        void DeleteAssetItem(AssetItem* item)
+        {
+            if (item == nullptr || item->filepath.IsEmpty())
+                return;
+
+            FileSystem::DeleteFile(item->filepath.c_str());
+            selectedItems.clear();
+        }
+
+        void OnFileColumnGUI()
+        {
+            ImGui::BeginChild("file_col");
+            float w = ImGui::GetContentRegionAvail().x;
+            int columns = std::max(1, showThumbnails ? (int)w / int(TileSize * ThumbnailSize) : 1);
+            int tileCount = contentItems.size();
+            int rows = showThumbnails ? (tileCount + columns - 1) / columns : tileCount;
             auto GetThumbnailIndex = [this](int i, int j, int columns) {
                 int idx = j * columns + i;
-                if (idx >= (int)fileInfos.size()) {
+                if (idx >= (int)contentItems.size()) {
                     return -1;
                 }
                 return idx;
@@ -666,45 +718,22 @@ namespace Editor
                                 break;
                             }
 
-                            AssetItem& tile = fileInfos[idx];
-                            if (tile.type == AssetItemType::Directory)
-                            {
-                                ShowThumbnail(tile, thumbnailSize * TILE_SIZE, false);
-                                if (ImGui::IsItemHovered())
-                                {
-                                    if (ImGui::IsMouseDoubleClicked(0))
-                                    {
-                                        if (curNode && !curNode->children.empty())
-                                        {
-                                            for (auto& node : curNode->children)
-                                            {
-                                                if (node.name == tile.filename)
-                                                    SetCurrentTreeNode(&node);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            else if (tile.type == AssetItemType::Resource)
-                            {
-                                //bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
-                                //    return res->GetPath().GetHash() == tile.filePathHash;
-                                //}) >= 0;
-                                bool selected = false;
-                                ShowThumbnail(tile, thumbnailSize * TILE_SIZE, selected);
-                                HandleResource(tile, idx);
-                            }
+                            AssetItem& tile = *contentItems[idx];
+                            bool selected = selectedItems.find([&](AssetItem* item) {
+                                return item == &tile;
+                            }) >= 0;           
+                            ShowThumbnail(tile, TileSize * ThumbnailSize, selected);
+                            HandleResourceItem(tile, idx);
                         }
                     }
                     else
                     {
-                        AssetItem& tile = fileInfos[j];
-                        //bool selected = selectedResources.find([&](ResPtr<Resource>& res) {
-                        //    return res->GetPath().GetHash() == tile.filePathHash;
-                        //}) >= 0;
-                        bool selected = false;
+                        AssetItem& tile = *contentItems[j];
+                        bool selected = selectedItems.find([&](AssetItem* item) {
+                            return item == &tile;
+                        }) >= 0;
                         ImGui::Selectable(tile.filepath, selected);
-                        HandleResource(tile, j);
+                        HandleResourceItem(tile, j);
                     }
                 }
             }
@@ -713,7 +742,7 @@ namespace Editor
             bool openDeletePopup = false;
             if (ImGui::BeginPopup("itemCtx"))
             {
-                ImGui::Text("%s", fileInfos[popupCtxResource].filename.data);
+                ImGui::Text("%s", contentItems[popupCtxItem]->filename.data);
                 ImGui::Separator();
                 if (ImGui::MenuItem("Open"))
                 {
@@ -721,7 +750,7 @@ namespace Editor
                 }
 
                 if (ImGui::MenuItem(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
-                    OpenInExternalEditor(fileInfos[popupCtxResource].filepath);
+                    OpenInExternalEditor(contentItems[popupCtxItem]->filepath);
 
                 if (ImGui::BeginMenu("Rename"))
                 {
@@ -729,9 +758,9 @@ namespace Editor
                     ImGui::InputTextWithHint("##New name", "New name", tmp, sizeof(tmp));
                     if (ImGui::Button("Rename", ImVec2(100, 0)))
                     {
-                        PathInfo pathInfo(fileInfos[popupCtxResource].filepath);
+                        PathInfo pathInfo(contentItems[popupCtxItem]->filepath);
                         StaticString<MAX_PATH_LENGTH> newPath(pathInfo.dir, tmp, ".", pathInfo.extension);
-                        FileSystem::MoveFile(fileInfos[popupCtxResource].filepath.c_str(), newPath.c_str());
+                        FileSystem::MoveFile(contentItems[popupCtxItem]->filepath.c_str(), newPath.c_str());
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndMenu();
@@ -746,7 +775,7 @@ namespace Editor
             }
             else if (ImGui::BeginPopupContextWindow("context")) 
             {
-                popupCtxResource = -1;
+                popupCtxItem = -1;
                 ShowCommonPopup();
                 ImGui::EndPopup();
             }
@@ -756,10 +785,10 @@ namespace Editor
                 ImGui::OpenPopup("Delete_file");
             if (ImGui::BeginPopupModal("Delete_file", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             {
-                ImGui::Text("Are you sure to delete %s? This can not be undone.", fileInfos[popupCtxResource].filename.c_str());
+                ImGui::Text("Are you sure to delete %s? This can not be undone.", contentItems[popupCtxItem]->filename.c_str());
                 if (ImGui::Button("Yes", ImVec2(100, 0))) 
                 {           
-                    DeleteResTile(popupCtxResource);
+                    DeleteAssetItem(contentItems[popupCtxItem]);
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::SameLine(ImGui::GetWindowWidth() - 100 - ImGui::GetStyle().WindowPadding.x);
@@ -769,36 +798,6 @@ namespace Editor
             }
 
             ImGui::EndChild();
-        }
-
-
-
-
-        bool CopyThumbnailTile(const char* from, const char* to)
-        {
-            OutputMemoryStream mem;
-            if (!FileSystem::LoadContext(from, mem))
-                return false;
-
-            return ResourceImportingManager::Create([&](CreateResourceContext& ctx)->CreateResult {
-                IMPORT_SETUP(Texture);
-
-                // Texture header
-                TextureHeader header = {};
-                header.type = TextureResourceType::TGA;
-                ctx.WriteCustomData(header);
-
-                // Texture data
-                auto data = ctx.AllocateChunk(0);
-                data->mem.Write(mem.Data(), mem.Size());
-
-                // Save
-                return CreateResult::Ok;
-            }, Path(from), Path(to));
-        }
-
-        void RefreshThumbnail(AssetItem& info)
-        {
         }
 
         void ShowThumbnail(AssetItem& info, F32 size, bool selected)
@@ -833,6 +832,7 @@ namespace Editor
             }
         }
 
+#if 0
         void SelectResource(const Path& path, bool recordHistory)
         {
             if (recordHistory)
@@ -878,6 +878,7 @@ namespace Editor
 
             selectedResources.clear();
         }
+#endif
     };
 
     UniquePtr<AssetBrowser> AssetBrowser::Create(EditorApp& app)

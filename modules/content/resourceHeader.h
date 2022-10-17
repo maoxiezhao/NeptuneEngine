@@ -15,6 +15,10 @@ namespace VulkanTest
 	// Resource type
 	struct VULKAN_TEST_API ResourceType
 	{
+		static const ResourceType INVALID_TYPE;
+		StringID type;
+
+	public:
 		ResourceType() = default;
 		ResourceType(U64 hash) : type(StringID::FromU64(hash)) {}
 		explicit ResourceType(const char* typeName);
@@ -31,8 +35,12 @@ namespace VulkanTest
 			return type.GetHashValue();
 		}
 
-		static const ResourceType INVALID_TYPE;
-		StringID type;
+#ifdef CJING3D_EDITOR
+	public:
+		static HashMap<U64, String> ResourceNameMapping;
+		static void RegisterResourceTypename(const ResourceType& type, const String& name);
+		static String GetResourceTypename(const ResourceType& type);
+#endif
 	};
 
 	struct ResourceHeader

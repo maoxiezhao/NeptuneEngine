@@ -171,7 +171,7 @@ namespace VulkanTest
 	ResourceType GetType()const override { return ResType; };
 
 #define DEFINE_RESOURCE(CLASS_NAME)																\
-	const ResourceType CLASS_NAME::ResType(#CLASS_NAME);
+	const ResourceType CLASS_NAME::ResType(#CLASS_NAME);										
 
 	extern VULKAN_TEST_API Resource* LoadResource(ResourceType type, const Guid& guid);
 }

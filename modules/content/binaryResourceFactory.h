@@ -30,7 +30,9 @@ namespace VulkanTest
 	class CONCAT_MACROS(ResourceFactory, type) : public BinaryResourceFactory<type> \
 	{ \
 	public: \
-		CONCAT_MACROS(ResourceFactory, type)() { Initialize(type::ResType); } \
+		CONCAT_MACROS(ResourceFactory, type)() {					\
+			ResourceType::RegisterResourceTypename(ResourceType(#type), #type); \
+			Initialize(type::ResType); } \
 		~CONCAT_MACROS(ResourceFactory, type)() { Uninitialize(); } \
 	}; \
 	static CONCAT_MACROS(ResourceFactory, type) CONCAT_MACROS(CResourceFactory, type)

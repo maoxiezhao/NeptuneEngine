@@ -42,6 +42,10 @@ namespace Editor
         virtual void OpenInExternalEditor(const char* path) = 0;
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
+
+    public:
+        static I32 TileSize;
+        static F32 ThumbnailSize;
     };
 }
 }

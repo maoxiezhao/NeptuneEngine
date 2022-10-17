@@ -6,6 +6,7 @@ set_lib_location(module_env .. app_dir .. "/bin/" ..  platform_dir .. "/libs")
 set_third_party_location(module_env .. "3rdparty")
 set_asset_location(module_env .. "assets")
 
+----------------------------------------------------------------------------------------------------------
 -- definitions
 PROJECT_MATH_NAME       = "math"
 PROJECT_CORE_NAME       = "core"
@@ -17,6 +18,10 @@ PROJECT_LEVEL_NAME      = "level"
 PROJECT_CLIENT_NAME     = "client"
 PROJECT_EDITOR_NAME     = "editor"
 PROJECT_SHADERS_COMPILATION_NAME = "shaderCompilation"
+PROJECT_CONTENT_IMPORTERS_NAME = "contentImporters"
+
+----------------------------------------------------------------------------------------------------------
+-- registers
 
 register_module(PROJECT_MATH_NAME)
 register_module(PROJECT_ECS_NAME)
@@ -29,11 +34,13 @@ if with_shader_compiler then
 else
     register_module(PROJECT_CONTENT_NAME,  { PROJECT_GPU_NAME })
 end 
-
+register_module(PROJECT_CONTENT_IMPORTERS_NAME, { PROJECT_CONTENT_NAME })
 register_module(PROJECT_RENDERER_NAME, { PROJECT_GPU_NAME, PROJECT_CONTENT_NAME })
 register_module(PROJECT_LEVEL_NAME,    { PROJECT_RENDERER_NAME })
 register_module(PROJECT_CLIENT_NAME,   { PROJECT_RENDERER_NAME })
-register_module(PROJECT_EDITOR_NAME,   { PROJECT_CLIENT_NAME, PROJECT_LEVEL_NAME })
+register_module(PROJECT_EDITOR_NAME,   { PROJECT_CONTENT_IMPORTERS_NAME, PROJECT_CLIENT_NAME, PROJECT_LEVEL_NAME })
+
+----------------------------------------------------------------------------------------------------------
 
 print("---------------------------------------------------")
 print("Create modules")

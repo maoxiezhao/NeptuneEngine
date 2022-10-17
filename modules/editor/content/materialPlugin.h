@@ -1,9 +1,9 @@
 #pragma once
 
-#include "editorPlugin.h"
 #include "content\resources\material.h"
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetImporter.h"
+#include "importFileEntry.h"
 
 namespace VulkanTest
 {
@@ -11,7 +11,7 @@ namespace Editor
 {
 	class EditorApp;
 
-	struct MaterialPlugin final : AssetImporter::IPlugin, AssetBrowser::IPlugin
+	struct MaterialPlugin final : AssetBrowser::IPlugin
 	{
 	private:
 		EditorApp& app;
@@ -19,7 +19,6 @@ namespace Editor
 	public:
 		MaterialPlugin(EditorApp& app_);
 
-		bool Import(const Path& input, const Path& outptu)override;
 		void OnGui(Span<class Resource*> resource)override;
 
 		std::vector<const char*> GetSupportExtensions();

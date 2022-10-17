@@ -228,7 +228,7 @@ namespace Editor
             engine = CreateEngine(*this);
             Engine::Instance = engine.Get();
 
-            // Init asset compiler first
+            // Init asset importer first
             assetImporter = AssetImporter::Create(*this);
 
             // Load plugins
@@ -338,6 +338,9 @@ namespace Editor
 
             // Uninit imgui renderer
             ImGuiRenderer::Uninitialize();
+
+            // Dispose import file entries
+            ImportFileEntry::Dispose();
 
             // Reset engine
             engine.Reset();
@@ -639,7 +642,7 @@ namespace Editor
             Logger::Info("Editor end initialize");
             stateMachine.SwitchState(EditorStateType::EditingScene);
 
-            // Asset compiler process pending tasks
+            // Asset importer process pending tasks
             assetImporter->InitFinished();
 
             // Modules

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "editorPlugin.h"
 #include "content\resources\material.h"
 
 namespace VulkanTest

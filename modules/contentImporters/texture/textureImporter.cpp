@@ -1,6 +1,6 @@
 #include "textureImporter.h"
-#include "editor\editor.h"
-#include "editor\importers\resourceImportingManager.h"
+#include "contentImporters\resourceImportingManager.h"
+#include "core\profiler\profiler.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb\stb_image.h"

@@ -55,6 +55,7 @@ namespace VulkanTest
 		Semaphore(const Semaphore&) = delete;
 
 		void Signal();
+		void Signal(U32 value);
 		void Wait();
 
 	private:

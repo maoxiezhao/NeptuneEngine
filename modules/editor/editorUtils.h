@@ -26,7 +26,7 @@ namespace Editor::Utils
 		StaticString<32> tooltip;
 
 		bool IsActive();
-		bool ToolbarButton(ImFont* font);
+		bool ToolbarButton(ImFont* font, bool enable = true);
 	};
 }
 }

@@ -1,6 +1,6 @@
 #include "shaderImporter.h"
 #include "editor\editor.h"
-#include "editor\importers\resourceImportingManager.h"
+#include "contentImporters\resourceImportingManager.h"
 
 namespace VulkanTest
 {

@@ -1,9 +1,8 @@
 #pragma once
 
-#include "editorPlugin.h"
 #include "content\resources\texture.h"
 #include "content\resources\material.h"
-#include "editor\importers\definition.h"
+#include "contentImporters\definition.h"
 #include "math\geometry.h"
 #include "level\scene.h"
 
@@ -11,7 +10,7 @@ namespace VulkanTest
 {
 namespace Editor
 {
-	class VULKAN_EDITOR_API ModelImporter
+	class VULKAN_TEST_API ModelImporter
 	{
 	public:
 		enum class ModelType

@@ -42,7 +42,7 @@ namespace Editor::Utils
         return true;
     }
 
-    bool Action::ToolbarButton(ImFont* font)
+    bool Action::ToolbarButton(ImFont* font, bool enable)
     {
         if (!icon[0]) 
             return false;
@@ -52,11 +52,18 @@ namespace Editor::Utils
 
         ImGui::SameLine();
 
+        if (!enable)
+            ImGui::BeginDisabled();
+
         if (ImGuiEx::ToolbarButton(font, icon, bgColor, tooltip))
         {
             func.Invoke();
             return true;
         }
+
+        if (!enable)
+            ImGui::EndDisabled();
+
         return false;
     }
 }

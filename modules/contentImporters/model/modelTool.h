@@ -1,6 +1,5 @@
 #pragma once
 
-#include "editorPlugin.h"
 #include "content\resources\texture.h"
 #include "content\resources\model.h"
 

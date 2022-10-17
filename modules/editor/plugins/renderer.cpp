@@ -11,207 +11,16 @@
 #include "renderer\debugDraw.h"
 #include "imgui-docking\imgui.h"
 
-#include "editor\importers\resourceImportingManager.h"
-#include "editor\importers\model\modelImporter.h"
-#include "editor\importers\texture\textureImporter.h"
-#include "editor\importers\material\materialPlugin.h"
+#include "editor\content\fontPlugin.h"
+#include "editor\content\materialPlugin.h"
+#include "editor\content\modelPlugin.h"
+#include "editor\content\texturePlugin.h"
+#include "editor\content\shaderPlugin.h"
 
 namespace VulkanTest
 {
 namespace Editor
 {
-	/////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Font editor plugin
-	struct FontPlugin final : AssetImporter::IPlugin, AssetBrowser::IPlugin
-	{
-	private:
-		EditorApp& app;
-
-	public:
-		FontPlugin(EditorApp& app_) :
-			app(app_)
-		{
-			app_.GetAssetImporter().RegisterExtension("ttf", FontResource::ResType);
-		}
-
-		bool Import(const Path& input, const Path& outptu)override
-		{
-			return false;
-		}
-
-		std::vector<const char*> GetSupportExtensions()
-		{
-			return { "ttf" };
-		}
-
-		void OnGui(Span<class Resource*> resource)override{}
-
-		ResourceType GetResourceType() const override {
-			return FontResource::ResType;
-		}
-	};
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Texture editor plugin
-	struct TexturePlugin final : AssetImporter::IPlugin, AssetBrowser::IPlugin
-	{
-	private:
-		EditorApp& app;
-		Texture* curTexture = nullptr;
-
-		struct TextureMeta
-		{
-			bool generateMipmaps = true;
-			bool compress = false;
-		};
-
-	public:
-		TexturePlugin(EditorApp& app_) :
-			app(app_)
-		{
-			app_.GetAssetImporter().RegisterExtension("raw", Texture::ResType);
-			app_.GetAssetImporter().RegisterExtension("png", Texture::ResType);
-			app_.GetAssetImporter().RegisterExtension("jpg", Texture::ResType);
-			app_.GetAssetImporter().RegisterExtension("tga", Texture::ResType);
-		}
-
-		bool Import(const Path& input, const Path& outptu)override
-		{
-			return false;
-		}
-
-		TextureMeta GetMeta(const Path& path)const
-		{
-			TextureMeta meta = {};
-			return meta;
-		}
-
-		std::vector<const char*> GetSupportExtensions()
-		{
-			return { "raw", "png", "jpg", "tga" };
-		}
-
-		void OnGui(Span<class Resource*> resource)override
-		{
-			if (resource.length() > 1)
-				return;
-
-			Shader* shader = static_cast<Shader*>(resource[0]);
-			if (ImGui::Button(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
-				app.GetAssetBrowser().OpenInExternalEditor(shader->GetPath().c_str());
-
-			auto* texture = static_cast<Texture*>(resource[0]);
-			const auto& imgInfo = texture->GetImageInfo();
-
-			ImGuiEx::Label("Size");
-			ImGui::Text("%dx%d", imgInfo.width, imgInfo.height);
-			ImGuiEx::Label("Mips");
-			ImGui::Text("%d", imgInfo.levels);
-			ImGuiEx::Label("Format");
-			ImGui::TextUnformatted(GPU::FormatToString(imgInfo.format));
-
-			if (texture->GetImage())
-			{
-				ImVec2 textureSize(200, 200);
-				if (imgInfo.width > imgInfo.height)
-					textureSize.y = textureSize.x * imgInfo.height / imgInfo.width;
-				else
-					textureSize.x = textureSize.y * imgInfo.width / imgInfo.height;
-
-				ImGui::Image(texture->GetImage(), textureSize);
-			}
-		}
-
-		ResourceType GetResourceType() const override {
-			return Texture::ResType;
-		}
-	};
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Model editor plugin
-	struct ModelPlugin final : AssetImporter::IPlugin
-	{
-	private:
-		EditorApp& app;
-
-		struct Meta
-		{
-			F32 scale = 1.0f;
-		};
-
-	public:
-		ModelPlugin(EditorApp& app_) : 
-			app(app_)
-		{
-			app_.GetAssetImporter().RegisterExtension("obj", Model::ResType);
-			app_.GetAssetImporter().RegisterExtension("gltf", Model::ResType);
-		}
-
-		bool Import(const Path& input, const Path& outptu)override
-		{			
-			return false;
-		}
-
-		Meta GetMeta(const Path& path)const
-		{
-			Meta meta = {};
-			return meta;
-		}
-
-		std::vector<const char*> GetSupportExtensions()
-		{
-			return { 
-				"obj", 
-				"gltf" 
-			};
-		}
-	};
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Shader editor plugin
-	struct ShaderPlugin final : AssetImporter::IPlugin, AssetBrowser::IPlugin
-	{
-	private:
-		EditorApp& app;
-
-		struct Meta
-		{
-			Array<Path> dependencies;
-		};
-
-	public:
-		ShaderPlugin(EditorApp& app_) :
-			app(app_)
-		{
-			app_.GetAssetImporter().RegisterExtension("shd", Shader::ResType);
-		}
-
-		bool Import(const Path& input, const Path& outptu)override
-		{
-			return false;
-		}
-
-		void OnGui(Span<class Resource*> resource)override
-		{
-			if (resource.length() > 1)
-				return;
-
-			Shader* shader = static_cast<Shader*>(resource[0]);
-			if (ImGui::Button(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
-				app.GetAssetBrowser().OpenInExternalEditor(shader->GetPath().c_str());
-		}
-
-		std::vector<const char*> GetSupportExtensions() {
-			return { "shd" };
-		}
-
-		ResourceType GetResourceType() const override {
-			return Shader::ResType;
-		}
-	};
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////
-
 	struct RenderInterfaceImpl final : RenderInterface
 	{
 	private:
@@ -361,13 +170,6 @@ namespace Editor
 			assetBrowser.RemovePlugin(materialPlugin);
 			assetBrowser.RemovePlugin(fontPlugin);
 
-			AssetImporter& assetImporter = app.GetAssetImporter();
-			assetImporter.RemovePlugin(modelPlugin);
-			assetImporter.RemovePlugin(materialPlugin);
-			assetImporter.RemovePlugin(shaderPlugin);
-			assetImporter.RemovePlugin(texturePlugin);
-			assetImporter.RemovePlugin(fontPlugin);
-
 			app.RemoveWidget(sceneView);
 			app.SetRenderInterace(nullptr);
 		}
@@ -376,14 +178,6 @@ namespace Editor
 		{
 			// Set render interface
 			app.SetRenderInterace(&renderInterface);
-
-			// Add plugins for asset compiler
-			AssetImporter& assetImporter = app.GetAssetImporter();
-			assetImporter.AddPlugin(fontPlugin);
-			assetImporter.AddPlugin(texturePlugin);
-			assetImporter.AddPlugin(modelPlugin);
-			assetImporter.AddPlugin(materialPlugin);
-			assetImporter.AddPlugin(shaderPlugin);
 
 			// Add plugins for asset browser
 			AssetBrowser& assetBrowser = app.GetAssetBrowser();

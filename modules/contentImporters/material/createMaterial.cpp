@@ -1,6 +1,5 @@
 #include "createMaterial.h"
 #include "materialGenerator.h"
-#include "editor\editor.h"
 
 namespace VulkanTest
 {

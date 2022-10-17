@@ -114,7 +114,11 @@ namespace Editor
 
 		auto& entities = worldEditor.GetSelectedEntities();
 		if (entities.empty())
+		{
+			if (ImGui::Begin("Inspector##inspector", &isOpen))
+				ImGui::End();
 			return;
+		}
 
 		if (entities.size() > 1)
 		{
