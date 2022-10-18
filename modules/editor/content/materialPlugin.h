@@ -21,7 +21,6 @@ namespace Editor
 
 		void OnGui(Span<class Resource*> resource)override;
 
-		std::vector<const char*> GetSupportExtensions();
 		ResourceType GetResourceType() const override;
 
 	private:

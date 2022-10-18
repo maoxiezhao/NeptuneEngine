@@ -16,6 +16,15 @@ namespace Editor
 		virtual void RefreshThumbnail(AssetItem& item) = 0;
 
 		static ThumbnailsModule* Create(EditorApp& app);
+
+	public:
+		static GPU::Image* FolderIcon;
+		static GPU::Image* SceneIcon;
+		static GPU::Image* ShaderIcon;
+		static GPU::Image* MaterialIcon;
+		static GPU::Image* ModelIcon;
+		static GPU::Image* TextureIcon;
+		static GPU::Image* FontIcon;
 	};
 }
 }

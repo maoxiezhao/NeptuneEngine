@@ -154,7 +154,7 @@ namespace Editor
 		if (ctx.customArg != nullptr)
 			cfg = *static_cast<ImportConfig*>(ctx.customArg);
 
-		const PathInfo pathInfo(ctx.input);
+		const PathInfo pathInfo(ctx.output);
 		Path importOutputPath(StaticString<MAX_PATH_LENGTH>(pathInfo.dir, "/", pathInfo.basename, "/").c_str());
 
 		// Import model data

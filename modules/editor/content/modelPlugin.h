@@ -15,6 +15,9 @@ namespace Editor
 		EditorApp& app;
 
 	public:
+		static ImportFileEntry* CreateEntry(const ImportRequest& request);
+
+	public:
 		ModelPlugin(EditorApp& app_);
 
 		void OnGui(Span<class Resource*> resource) override;

@@ -136,6 +136,10 @@ namespace Editor
             return ImportImpl(input, fullOutput, skipDialog, true);
         }
 
+        void Reimport(ResourceItem& item, bool skipDialog) override
+        {
+        }
+
         void ShowImportFileDialog(const Path& targetLocation) override
         {
             Array<Path> files;

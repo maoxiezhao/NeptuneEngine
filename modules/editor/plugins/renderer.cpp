@@ -37,7 +37,7 @@ namespace Editor
 			if (it.isValid())
 				return it.value()->GetImage();
 
-			ResPtr<Texture> texture = ResourceManager::LoadResource<Texture>(path);
+			ResPtr<Texture> texture = ResourceManager::LoadResourceInternal<Texture>(path);
 			texture->WaitForLoaded();
 			textures.insert(texture->GetImage(), texture);
 			pathMapping.insert(texture->GetPath().GetHashValue(), texture.get());

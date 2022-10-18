@@ -22,10 +22,10 @@ namespace Editor
 
 		struct ImportConfig
 		{
-			F32 scale;
-			U32 autoLodCount = 1;
-			bool autoLODs = false;
 			ModelType type = ModelType::Model;
+			F32 scale = 1.0f;
+			bool autoLODs = false;
+			U32 autoLodCount = 1;
 		};
 
 		struct ImportMesh

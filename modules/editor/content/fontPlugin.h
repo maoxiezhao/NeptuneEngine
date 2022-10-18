@@ -15,12 +15,10 @@ namespace Editor
 		EditorApp& app;
 
 	public:
-		FontPlugin(EditorApp& app_);
+		static ImportFileEntry* CreateEntry(const ImportRequest& request);
 
-		std::vector<const char*> GetSupportExtensions()
-		{
-			return { "ttf" };
-		}
+	public:
+		FontPlugin(EditorApp& app_);
 
 		void OnGui(Span<class Resource*> resource)override {}
 

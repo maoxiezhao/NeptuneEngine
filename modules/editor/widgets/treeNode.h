@@ -24,20 +24,24 @@ namespace Editor
         Path path;
         String name;
         ContentTreeNode* parent = nullptr;
-        Array<ContentTreeNode> children;
+        Array<ContentTreeNode*> children;
 
     public:
         ContentTreeNode(ContentFolderType type_, const Path& path_, ContentTreeNode* parent_);
+        ~ContentTreeNode();
+
         void LoadFolder(bool checkSubDirs);
+        void RefreshFolder(const Path& targetPath, bool checkSubDirs);
     };
 
     struct MainContentTreeNode : public ContentTreeNode
     {
     private:
+        EditorApp& editor;
         UniquePtr<Platform::FileSystemWatcher> watcher;
 
     public:
-        MainContentTreeNode(ContentFolderType type_, const Path& path_, ContentTreeNode* parent_);
+        MainContentTreeNode(EditorApp& editor_, ContentFolderType type_, const Path& path_, ContentTreeNode* parent_);
 
         void OnFileWatcherEvent(const Path& path, Platform::FileWatcherAction action);
     };
@@ -51,6 +55,8 @@ namespace Editor
     public:
         ProjectTreeNode(const ProjectInfo* projectInfo_);
         ~ProjectTreeNode();
+
+        void LoadFolder(bool checkSubDirs);
     };
 
 }

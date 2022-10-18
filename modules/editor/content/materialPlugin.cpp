@@ -20,11 +20,6 @@ namespace Editor
 	{
 	}
 
-	std::vector<const char*> MaterialPlugin::GetSupportExtensions()
-	{
-		return { "mat" };
-	}
-
 	ResourceType MaterialPlugin::GetResourceType() const {
 		return Material::ResType;
 	}

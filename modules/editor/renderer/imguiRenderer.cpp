@@ -393,7 +393,9 @@ namespace ImGuiRenderer
 				cmd->SetScissor(scissor);
 
 				const GPU::Image* texture = (const GPU::Image*)drawCmd->TextureId;
-				cmd->SetTexture(0, 0, texture->GetImageView());
+				if (texture != nullptr)
+					cmd->SetTexture(0, 0, texture->GetImageView());
+	
 				cmd->DrawIndexed(drawCmd->ElemCount, indexOffset, vertexOffset);
 
 				indexOffset += drawCmd->ElemCount;

@@ -29,6 +29,8 @@ namespace Editor
 
     public:
         AssetItem(const Path& path, AssetItemType type);
+
+        virtual GPU::Image* DefaultThumbnail()const;
     };
 
     struct FileItem : public AssetItem
@@ -41,6 +43,8 @@ namespace Editor
     {
     public:
         ContentFolderItem(const Path& path);
+
+        GPU::Image* DefaultThumbnail()const override;
     };
 
     struct ResourceItem : public AssetItem
@@ -48,9 +52,12 @@ namespace Editor
     public:
         Guid id;
         String typeName;
+        ResourceType type;
 
     public:
-        ResourceItem(const Path& path, const Guid& id_, const String& typename_);
+        ResourceItem(const Path& path, const Guid& id_, const ResourceType& type_);
+
+        GPU::Image* DefaultThumbnail()const override;
     };
 
 }

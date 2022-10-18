@@ -1,6 +1,13 @@
 #include "assetItem.h"
 #include "assetBrowser.h"
+#include "editor\modules\thumbnails.h"
 #include "imgui-docking\imgui.h"
+
+#include "content\resources\texture.h"
+#include "content\resources\shader.h"
+#include "content\resources\model.h"
+#include "content\resources\material.h"
+#include "renderer\render2D\fontResource.h"
 
 namespace VulkanTest
 {
@@ -34,6 +41,11 @@ namespace Editor
 		filename = filename_;
 	}
 
+    GPU::Image* AssetItem::DefaultThumbnail() const
+    {
+        return nullptr;
+    }
+
     FileItem::FileItem(const Path& path) :
         AssetItem(path, AssetItemType::File)
     {
@@ -44,11 +56,33 @@ namespace Editor
     {
     }
 
-    ResourceItem::ResourceItem(const Path& path, const Guid& id_, const String& typename_) :
+    GPU::Image* ContentFolderItem::DefaultThumbnail()const
+    {
+        return ThumbnailsModule::FolderIcon;
+    }
+
+    ResourceItem::ResourceItem(const Path& path, const Guid& id_, const ResourceType& type_) :
         AssetItem(path, AssetItemType::Resource),
         id(id_),
-        typeName(typename_)
+        type(type_),
+        typeName(ResourceType::GetResourceTypename(type_))
     {
+    }
+
+    GPU::Image* ResourceItem::DefaultThumbnail()const
+    {
+        if (type == Shader::ResType)
+            return ThumbnailsModule::ShaderIcon;
+        else if (type == Model::ResType)
+            return ThumbnailsModule::ModelIcon;
+        else if (type == Material::ResType)
+            return ThumbnailsModule::MaterialIcon;
+        else if (type == Texture::ResType)
+            return ThumbnailsModule::TextureIcon;
+        else if (type == FontResource::ResType)
+            return ThumbnailsModule::FontIcon;
+        else
+            return nullptr;
     }
 }
 }

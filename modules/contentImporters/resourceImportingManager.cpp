@@ -6,6 +6,7 @@
 #include "model\modelImporter.h"
 #include "texture\textureImporter.h"
 #include "shader\shaderImporter.h"
+#include "font\fontImporter.h"
 
 namespace VulkanTest
 {
@@ -42,6 +43,9 @@ namespace Editor
 
 				// Shader
 				{ "shd",  ShaderImporter::Import },
+
+				// Font
+				{ "ttf",  FontImporter::Import },
 			};
 			for (const auto& importer : BuildInImporters)
 				ResourceImportingManager::importers.push_back(importer);
@@ -125,6 +129,12 @@ namespace Editor
 				{
 					Logger::Warning("Cannot open resource storage %s", outputPath.c_str());
 				}
+			}
+			else
+			{
+				const String outputDirectory = Path::GetDir(outputPath);
+				if (!Platform::DirExists(outputDirectory.c_str()))
+					Platform::MakeDir(outputDirectory.c_str());
 			}
 		}
 

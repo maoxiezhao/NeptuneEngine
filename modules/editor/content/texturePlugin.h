@@ -15,12 +15,6 @@ namespace Editor
 		EditorApp& app;
 		Texture* curTexture = nullptr;
 
-		struct TextureMeta
-		{
-			bool generateMipmaps = true;
-			bool compress = false;
-		};
-
 	public:
 		static ImportFileEntry* CreateEntry(const ImportRequest& request);
 

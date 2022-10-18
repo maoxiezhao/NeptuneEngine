@@ -22,7 +22,7 @@ namespace Editor
     public:
         EditorApp& editor;
         bool initialized = false;
-        float leftColumnWidth = 120;
+        float leftColumnWidth = 200;
         bool showThumbnails = true;
 
         I32 popupCtxItem = -1;
@@ -44,6 +44,13 @@ namespace Editor
 
         ProjectTreeNode projectTreeNode;
         ProjectTreeNode engineTreeNode;
+
+        struct DirtyNodeItem
+        {
+            MainContentTreeNode* node;
+            Path path;
+        };
+        Array<DirtyNodeItem> dirtyNodeItems;
 
     public:
         AssetBrowserImpl(EditorApp& editor_) :
@@ -70,8 +77,12 @@ namespace Editor
             importAction.Init("Import", "import", "Import resource", ICON_FA_ARROW_DOWN);
             importAction.func.Bind<&AssetBrowserImpl::Import>(this);
 
-            engineTreeNode.contentNode = CJING_NEW(MainContentTreeNode)(ContentFolderType::Content, Globals::EngineContentFolder, &engineTreeNode);
-            engineTreeNode.contentNode->LoadFolder(true);
+            // Init content tree nodes
+            engineTreeNode.contentNode = CJING_NEW(MainContentTreeNode)(editor_, ContentFolderType::Content, Globals::EngineContentFolder, &engineTreeNode);
+            engineTreeNode.LoadFolder(true);
+
+            projectTreeNode.contentNode = CJING_NEW(MainContentTreeNode)(editor_, ContentFolderType::Content, Globals::ProjectContentFolder, &engineTreeNode);
+            projectTreeNode.LoadFolder(true);
         }
 
         void GoBack()
@@ -107,8 +118,18 @@ namespace Editor
         void Update(F32 dt) override
         { 
             PROFILE_FUNCTION();
+          
+            // Update browser plugins
             for (auto kvp : plugins) 
                 kvp->Update();
+
+            // Refresh dirty tree nodes
+            for (auto& item: dirtyNodeItems)
+            {
+                if (item.node)
+                    item.node->RefreshFolder(item.path, true);
+            }
+            dirtyNodeItems.clear();
         }
 
         void OnGUI() override
@@ -193,59 +214,27 @@ namespace Editor
             plugins.erase(plugin.GetResourceType().GetHashValue());
         }
 
-        void OnResourceListChanged(const Path& path)
+        void OnDirectoryEvent(MainContentTreeNode* node, const Path& path, Platform::FileWatcherAction action) override
         {
-#if 0
-            const StaticString<MAX_PATH_LENGTH> fullPath(path.c_str());
-            if (Platform::DirExists(fullPath.c_str()))
-            {
-                SetCurrentDir(curDir);
-                return;
-            }
-
-            Span<const char> dir = Path::GetDir(path.c_str());
-            if (dir.length() > 0 && (*(dir.pEnd - 1) == '/' || *(dir.pEnd - 1) == '\\')) {
-                --dir.pEnd;
-            }
-            if (!EqualString(dir, Span<const char>(curDir, curDir.length())))
+            if (!initialized)
                 return;
 
-            auto renderInterface = editor.GetRenderInterface();
-            for (auto& info : contentItems)
+            if (action == Platform::FileWatcherAction::Create ||
+                action == Platform::FileWatcherAction::Delete)
             {
-                if (info.filepath != path.c_str()) 
-                    continue;
-
-                switch (GetTileState(info))
+                bool found = false;
+                for (auto& item : dirtyNodeItems)
                 {
-                case TileState::OK:
-                    return;
-                case TileState::OUTDATED:
-                case TileState::NOT_CREATED:
-                    if (info.tex != nullptr)
+                    if (item.node == node && item.path == path)
                     {
-                        renderInterface->DestroyTexture(info.tex);
-                        info.tex = nullptr;
+                        found = true;
+                        break;
                     }
-                    info.isLoading = false;
-                    break;
-                case TileState::DELETED:
-                    if (info.tex != nullptr)
-                    {
-                        renderInterface->DestroyTexture(info.tex);
-                        info.tex = nullptr;
-                    }
-                    ResourceManager::DeleteResource(Path(path));
-                    break;
-                default:
-                    break;
                 }
+                 
+                if (!found)
+                    dirtyNodeItems.push_back({node, path});
             }
-
-            contentItems.clear();
-            AddAssetItem(path);
-
-#endif
         }
 
         AssetItem* ConstructItem(const Path& path, ResourceInfo& resInfo)
@@ -254,7 +243,7 @@ namespace Editor
             if (resType == ResourceType::INVALID_TYPE)
                 return nullptr;
 
-            return CJING_NEW(ResourceItem)(path, resInfo.guid, ResourceType::GetResourceTypename(resType));
+            return CJING_NEW(ResourceItem)(path, resInfo.guid, resType);
         }
 
         void LoadResoruces(ContentTreeNode* treeNode, std::vector<ListEntry>& fileList)
@@ -285,7 +274,7 @@ namespace Editor
             auto renderInterface = editor.GetRenderInterface();
             for (auto& info : contentItems)
             {
-                if (info->tex != nullptr)
+                if (info->tex != nullptr && info->tex != info->DefaultThumbnail())
                     renderInterface->DestroyTexture(info->tex);
             }
             contentItems.clearDelete();
@@ -398,6 +387,8 @@ namespace Editor
             bool isLeaf = !isRoot && treeNode->children.empty();
             if (isLeaf)
                 flags |= ImGuiTreeNodeFlags_Leaf;
+            if (isRoot)
+                flags |= ImGuiTreeNodeFlags_Framed;
 
             bool isSelected = curNode == treeNode;
             if (isSelected)
@@ -449,10 +440,10 @@ namespace Editor
                 if (projectNode->sourceNode)
                     OnTreeNodeUI(projectNode->sourceNode, false);
             }
-
-            for (auto& child : treeNode->children)
+            else
             {
-                OnTreeNodeUI(&child, false);
+                for (auto& child : treeNode->children)
+                    OnTreeNodeUI(child, false);
             }
 
             ImGui::TreePop();
@@ -467,26 +458,7 @@ namespace Editor
 
             OnTreeNodeUI(&projectTreeNode, true);
             OnTreeNodeUI(&engineTreeNode, true);
-#if 0
-            bool selected = false;
-            // Show back selectable
-            if ((curDir[0] != '.' || curDir[1] != 0) && ImGui::Selectable("..", &selected))
-            {
-                char dir[MAX_PATH_LENGTH];
-                CopyString(Span(dir), Path::GetDir(curDir));
-                SetCurrentDir(dir);
-            }
 
-            // Show subdirs
-            for (auto& subdir : subdirs)
-            {
-                if (ImGui::Selectable(subdir, &selected))
-                {
-                    auto newDir = Path::Join(curDir.toSpan(), subdir.toSpan());
-                    SetCurrentDir(newDir);
-                }
-            }
-#endif
             ImGui::PopItemWidth();
             ImGui::EndChild();
         }
@@ -627,7 +599,7 @@ namespace Editor
                 selectedItems.push_back(&tile);
         }
 
-        void HandleResourceItem(AssetItem& tile, int idx)
+        void HandleAssetItem(AssetItem& tile, int idx)
         {
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s", tile.filepath.c_str());
@@ -640,10 +612,13 @@ namespace Editor
                     {
                         if (curNode && !curNode->children.empty())
                         {
-                            for (auto& node : curNode->children)
+                            for (auto node : curNode->children)
                             {
-                                if (node.name == tile.filename)
-                                    SetCurrentTreeNode(&node);
+                                if (node->name == tile.filename)
+                                {
+                                    SetCurrentTreeNode(node);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -723,7 +698,7 @@ namespace Editor
                                 return item == &tile;
                             }) >= 0;           
                             ShowThumbnail(tile, TileSize * ThumbnailSize, selected);
-                            HandleResourceItem(tile, idx);
+                            HandleAssetItem(tile, idx);
                         }
                     }
                     else
@@ -733,7 +708,7 @@ namespace Editor
                             return item == &tile;
                         }) >= 0;
                         ImGui::Selectable(tile.filepath, selected);
-                        HandleResourceItem(tile, j);
+                        HandleAssetItem(tile, j);
                     }
                 }
             }
@@ -751,6 +726,15 @@ namespace Editor
 
                 if (ImGui::MenuItem(ICON_FA_EXTERNAL_LINK_ALT "Open externally"))
                     OpenInExternalEditor(contentItems[popupCtxItem]->filepath);
+
+                if (ImGui::MenuItem("Reimport"))
+                {
+                    auto resItem = dynamic_cast<ResourceItem*>(contentItems[popupCtxItem]);
+                    if (resItem)
+                        editor.GetAssetImporter().Reimport(*resItem, false);
+                }
+
+                ImGui::Separator();
 
                 if (ImGui::BeginMenu("Rename"))
                 {
@@ -773,7 +757,7 @@ namespace Editor
                 ShowCommonPopup();
                 ImGui::EndPopup();
             }
-            else if (ImGui::BeginPopupContextWindow("context")) 
+            else if (ImGui::BeginPopupContextWindow("context"))
             {
                 popupCtxItem = -1;
                 ShowCommonPopup();
@@ -781,13 +765,13 @@ namespace Editor
             }
 
             // Open delete popup
-            if (openDeletePopup) 
+            if (openDeletePopup)
                 ImGui::OpenPopup("Delete_file");
             if (ImGui::BeginPopupModal("Delete_file", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             {
                 ImGui::Text("Are you sure to delete %s? This can not be undone.", contentItems[popupCtxItem]->filename.c_str());
-                if (ImGui::Button("Yes", ImVec2(100, 0))) 
-                {           
+                if (ImGui::Button("Yes", ImVec2(100, 0)))
+                {
                     DeleteAssetItem(contentItems[popupCtxItem]);
                     ImGui::CloseCurrentPopup();
                 }
@@ -831,54 +815,6 @@ namespace Editor
                 dl->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), color, 0, 0, 3.f);
             }
         }
-
-#if 0
-        void SelectResource(const Path& path, bool recordHistory)
-        {
-            if (recordHistory)
-            {
-                while (historyIndex < history.size() - 1)
-                    history.pop_back();
-      
-                historyIndex++;
-                history.push_back(path);
-                if (history.size() > 20)
-                {
-                    --historyIndex;
-                    history.eraseAt(0);
-                }
-            }
-
-            const ResourceType resType = editor.GetAssetImporter().GetResourceType(path.c_str());
-            ResPtr<Resource> res = ResourceManager::LoadResource(resType, path);
-            if (res)
-            {
-                UnloadSelectedResources();
-                selectedResources.push_back(std::move(res));
-            }
-        }
-
-        void DoubleClickResource(const Path& path)
-        {
-            for (auto plugin : plugins)
-                plugin->DoubleClick(path);
-        }
-
-        void UnloadSelectedResources()
-        {
-            if (selectedResources.empty())
-                return;
-
-            for (auto res : selectedResources)
-            {
-                for (auto plugin : plugins)
-                    plugin->OnResourceUnloaded(res.get());
-                res.reset();
-            }
-
-            selectedResources.clear();
-        }
-#endif
     };
 
     UniquePtr<AssetBrowser> AssetBrowser::Create(EditorApp& app)

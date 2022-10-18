@@ -10,6 +10,7 @@ namespace VulkanTest
 namespace Editor
 {
     class EditorApp;
+    struct MainContentTreeNode;
 
     class VULKAN_EDITOR_API AssetBrowser : public EditorWidget
     {
@@ -42,6 +43,7 @@ namespace Editor
         virtual void OpenInExternalEditor(const char* path) = 0;
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
+        virtual void OnDirectoryEvent(MainContentTreeNode* node, const Path& path, Platform::FileWatcherAction action) = 0;
 
     public:
         static I32 TileSize;

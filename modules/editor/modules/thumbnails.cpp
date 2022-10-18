@@ -39,13 +39,20 @@ namespace Editor
 		}
 	};
 
+	GPU::Image* ThumbnailsModule::FolderIcon = nullptr;
+	GPU::Image* ThumbnailsModule::SceneIcon = nullptr;
+	GPU::Image* ThumbnailsModule::ShaderIcon = nullptr;
+	GPU::Image* ThumbnailsModule::ModelIcon = nullptr;
+	GPU::Image* ThumbnailsModule::MaterialIcon = nullptr;
+	GPU::Image* ThumbnailsModule::TextureIcon = nullptr;
+	GPU::Image* ThumbnailsModule::FontIcon = nullptr;
+
 	class ThumbnailsModuleImpl : public ThumbnailsModule
 	{
 	private:
 		Mutex mutex;
 		Path cacheFolder;
 		Array<ThumbnailRequest> requestQueue;
-		HashMap<U32, GPU::Image*> defaultThumbnails;
 
 	public:
 		ThumbnailsModuleImpl(EditorApp& editor) :
@@ -72,9 +79,13 @@ namespace Editor
 			auto renderInterface = editor.GetRenderInterface();
 			if (renderInterface != nullptr)
 			{
-				// defaultThumbnails.insert((U32)AssetItemType::Directory, (GPU::Image*)renderInterface->LoadTexture(Path("editor/tile_scene")));
-				// defaultThumbnails.insert((U32)AssetItemType::Scene, (GPU::Image*)renderInterface->LoadTexture(Path("editor/tile_scene")));
-				// defaultThumbnails.insert((U32)AssetItemType::Scritps, (GPU::Image*)renderInterface->LoadTexture(Path("editor/tile_scene")));
+				FolderIcon =(GPU::Image*)renderInterface->LoadTexture(Path("editor/icons/tile_folder"));
+				SceneIcon = (GPU::Image*)renderInterface->LoadTexture(Path("editor/icons/tile_scene"));
+				ShaderIcon = (GPU::Image*)renderInterface->LoadTexture(Path("editor/icons/tile_shader"));
+				ModelIcon = (GPU::Image*)renderInterface->LoadTexture(Path("editor/icons/tile_model"));
+				MaterialIcon = (GPU::Image*)renderInterface->LoadTexture(Path("editor/icons/tile_material"));
+				TextureIcon = (GPU::Image*)renderInterface->LoadTexture(Path("editor/icons/tile_texture"));
+				FontIcon = (GPU::Image*)renderInterface->LoadTexture(Path("editor/icons/tile_font"));
 			}
 		}
 
@@ -84,14 +95,9 @@ namespace Editor
 
 		}
 
-		bool CheckHasDefaultThumbnail(const AssetItem& info) const
-		{
-			return defaultThumbnails.find((U32)info.type).isValid();
-		}
-
 		AssetItemState GetItemState(const AssetItem& info)
 		{
-			if (CheckHasDefaultThumbnail(info))
+			if (info.DefaultThumbnail())
 				return AssetItemState::HAS_DEFAULT;
 #if 0
 			if (!FileSystem::FileExists(info.filepath))
@@ -148,9 +154,7 @@ namespace Editor
 					break;
 				case AssetItemState::HAS_DEFAULT:
 				{
-					auto it = defaultThumbnails.find((U32)item.type);
-					if (it.isValid())
-						item.tex = it.value();
+					item.tex = item.DefaultThumbnail();
 				}
 				break;
 				default:
