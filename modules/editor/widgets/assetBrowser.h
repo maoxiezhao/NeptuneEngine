@@ -4,6 +4,7 @@
 #include "editor\editorPlugin.h"
 #include "core\filesystem\filesystem.h"
 #include "content\resourceManager.h"
+#include "assetItem.h"
 
 namespace VulkanTest
 {
@@ -23,6 +24,7 @@ namespace Editor
             virtual void OnResourceUnloaded(Resource* resource) {};
             virtual void Update() {}
             virtual ResourceType GetResourceType() const = 0;
+            virtual AssetItem* ConstructItem(const Path& path, const ResourceType& type, const Guid& guid);
             virtual void DoubleClick(const Path& path) {}
 
             virtual bool CreateResource(const Path& path, const char* name) {
@@ -43,6 +45,7 @@ namespace Editor
         virtual void OpenInExternalEditor(const char* path) = 0;
         virtual void AddPlugin(IPlugin& plugin) = 0;
         virtual void RemovePlugin(IPlugin& plugin) = 0;
+        virtual IPlugin* GetPlugin(const ResourceType& type) = 0;
         virtual void OnDirectoryEvent(MainContentTreeNode* node, const Path& path, Platform::FileWatcherAction action) = 0;
 
     public:

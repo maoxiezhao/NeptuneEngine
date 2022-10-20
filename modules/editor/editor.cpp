@@ -15,11 +15,10 @@
 #include "renderer\render2D\fontResource.h"
 #include "renderer\render2D\font.h"
 
-#include "plugins\renderer.h"
-#include "plugins\level.h"
-
 #include "modules\contentDatabase.h"
 #include "modules\thumbnails.h"
+#include "modules\level.h"
+#include "modules\renderer.h"
 
 #include "widgets\assetBrowser.h"
 #include "widgets\assetImporter.h"
@@ -234,13 +233,6 @@ namespace Editor
             // Load plugins
             engine->LoadPlugins();
 
-            // Load modules
-            RegisterModule(contentDatabase = CJING_NEW(ContentDatabaseModule)(*this));
-            RegisterModule(thumbnails = ThumbnailsModule::Create(*this));
-
-            for (auto editorModule : editorModules)
-                editorModule->Initialize();
-
             // Init widgets
             worldEditor = WorldEditor::Create(*this);
             assetBrowser = AssetBrowser::Create(*this);
@@ -249,6 +241,15 @@ namespace Editor
             propertyWidget = CJING_MAKE_UNIQUE<PropertyWidget>(*this);
             profilerWidget = ProfilerWidget::Create(*this);
             logWidget = CJING_MAKE_UNIQUE<LogWidget>();
+
+            // Load modules
+            RegisterModule(contentDatabase = CJING_NEW(ContentDatabaseModule)(*this));
+            RegisterModule(thumbnails = ThumbnailsModule::Create(*this));
+            RegisterModule(rendererModule = RendererModule::Create(*this));
+            RegisterModule(levelModule = LevelModule::Create(*this));
+
+            for (auto editorModule : editorModules)
+                editorModule->Initialize();
 
             // Create imgui context
             ImGuiRenderer::CreateContext();
@@ -527,6 +528,16 @@ namespace Editor
         ThumbnailsModule& GetThumbnailsModule() override
         {
             return *thumbnails;
+        }
+
+        RendererModule& GetRendererModule() override
+        {
+            return *rendererModule;
+        }
+
+        LevelModule& GetLevelModule() override
+        {
+            return *levelModule;
         }
 
         const char* GetComponentIcon(ComponentType compType) const override
@@ -1035,17 +1046,7 @@ namespace Editor
 
         void LoadPlugins()
         {
-            // TODO:
-            {
-                EditorPlugin* plugin = SetupPluginRenderer(*this);
-                if (plugin != nullptr)
-                    AddPlugin(*plugin);
-            }
-            {
-                EditorPlugin* plugin = SetupPluginLevel(*this);
-                if (plugin != nullptr)
-                    AddPlugin(*plugin);
-            }
+            // TODO: Load editor plugins
 
             // Init plugins
             for (EditorPlugin* plugin : plugins)
@@ -1379,6 +1380,8 @@ namespace Editor
         Array<EditorModule*> editorModules;
         ContentDatabaseModule* contentDatabase;
         ThumbnailsModule* thumbnails;
+        RendererModule* rendererModule;
+        LevelModule* levelModule;
 
         // Builtin widgets
         UniquePtr<AssetImporter> assetImporter;

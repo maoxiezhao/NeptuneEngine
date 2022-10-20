@@ -78,6 +78,8 @@ namespace Editor
         virtual void RegisterModule(EditorModule* module) = 0;
         virtual class ContentDatabaseModule& GetContentDatabaseModule() = 0;
         virtual class ThumbnailsModule& GetThumbnailsModule() = 0;
+        virtual class RendererModule& GetRendererModule() = 0;
+        virtual class LevelModule& GetLevelModule() = 0;
 
         virtual const char* GetComponentIcon(ComponentType compType) const = 0;
         virtual const char* GetComponentTypeName(ComponentType compType) const = 0;

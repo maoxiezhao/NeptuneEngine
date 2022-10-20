@@ -2,7 +2,7 @@
 #include "editor\editor.h"
 #include "editor\widgets\gizmo.h"
 #include "editor\widgets\entityList.h"
-#include "editor\plugins\level.h"
+#include "modules\level.h"
 #include "core\utils\stateMachine.h"
 #include "core\serialization\jsonWriter.h"
 #include "core\serialization\jsonUtils.h"
@@ -313,17 +313,14 @@ namespace Editor
             if (editingScene == nullptr)
                 return;
 
-            auto plugin = (LevelPlugin*)editor.GetPlugin("level");
-            plugin->SaveScene(editingScene);
+            editor.GetLevelModule().SaveScene(editingScene);
         }
 
         void SaveAllScenes() override
         {
-            auto plugin = (LevelPlugin*)editor.GetPlugin("level");
+            auto& levelModule = editor.GetLevelModule();
             for (auto scene : scenes)
-            {
-                plugin->SaveScene(scene);
-            }
+                levelModule.SaveScene(scene);
         }
 
         void ExecuteCommand(UniquePtr<IEditorCommand>&& command) override

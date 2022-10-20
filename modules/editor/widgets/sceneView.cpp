@@ -1,7 +1,7 @@
 #include "sceneView.h"
 #include "editor\editor.h"
 #include "editor\widgets\gizmo.h"
-#include "editor\plugins\level.h"
+#include "modules\level.h"
 #include "renderer\renderScene.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
@@ -449,11 +449,7 @@ namespace Editor
 					
 						// Want to close current scene
 						if (isOpen == false)
-						{
-							auto plugin = (LevelPlugin*)app.GetPlugin("level");
-							if (plugin)
-								plugin->CloseScene(scene);
-						}
+							app.GetLevelModule().CloseScene(scene);
 					}
 
 					if (editingScene != worldEditor.GetEditingScene())

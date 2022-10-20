@@ -136,7 +136,7 @@ namespace Editor
 		}
 	};
 
-	struct RenderPlugin : EditorPlugin
+	struct RendererModuleImpl : RendererModule
 	{
 	private:
 		EditorApp& app;
@@ -150,7 +150,8 @@ namespace Editor
 		ShaderPlugin shaderPlugin;
 
 	public:
-		RenderPlugin(EditorApp& app_) :
+		RendererModuleImpl(EditorApp& app_) :
+			RendererModule(app_),
 			app(app_),
 			renderInterface(app_),
 			fontPlugin(app_),
@@ -160,18 +161,6 @@ namespace Editor
 			shaderPlugin(app_),
 			sceneView(app_)
 		{
-		}
-
-		virtual ~RenderPlugin() 
-		{
-			AssetBrowser& assetBrowser = app.GetAssetBrowser();
-			assetBrowser.RemovePlugin(shaderPlugin);
-			assetBrowser.RemovePlugin(texturePlugin);
-			assetBrowser.RemovePlugin(materialPlugin);
-			assetBrowser.RemovePlugin(fontPlugin);
-
-			app.RemoveWidget(sceneView);
-			app.SetRenderInterace(nullptr);
 		}
 
 		void Initialize() override
@@ -189,6 +178,18 @@ namespace Editor
 			// Add widget for editor
 			app.AddWidget(sceneView);
 			sceneView.Init();
+		}
+
+		void Unintialize() override
+		{
+			AssetBrowser& assetBrowser = app.GetAssetBrowser();
+			assetBrowser.RemovePlugin(shaderPlugin);
+			assetBrowser.RemovePlugin(texturePlugin);
+			assetBrowser.RemovePlugin(materialPlugin);
+			assetBrowser.RemovePlugin(fontPlugin);
+
+			app.RemoveWidget(sceneView);
+			app.SetRenderInterace(nullptr);
 		}
 
 		bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) override
@@ -260,16 +261,20 @@ namespace Editor
 
 			sceneView.OnEditingSceneChanged(newScene, prevScene);
 		}
-
-		const char* GetName()const override
-		{
-			return "renderer";
-		}
 	};
 
-	EditorPlugin* SetupPluginRenderer(EditorApp& app)
+	RendererModule::RendererModule(EditorApp& app) :
+		EditorModule(app)
 	{
-		return CJING_NEW(RenderPlugin)(app);
+	}
+
+	RendererModule::~RendererModule()
+	{
+	}
+
+	RendererModule* RendererModule::Create(EditorApp& app)
+	{
+		return CJING_NEW(RendererModuleImpl)(app);
 	}
 }
 }

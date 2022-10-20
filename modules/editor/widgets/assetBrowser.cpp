@@ -17,6 +17,14 @@ namespace Editor
     I32 AssetBrowser::TileSize = 96;
     F32 AssetBrowser::ThumbnailSize = 1.0f;
 
+    AssetItem* AssetBrowser::IPlugin::ConstructItem(const Path& path, const ResourceType& type, const Guid& guid)
+    {
+        if (type == ResourceType::INVALID_TYPE)
+            return nullptr;
+
+        return CJING_NEW(ResourceItem)(path, guid, type);
+    }
+
     class AssetBrowserImpl : public AssetBrowser
     {
     public:
@@ -214,6 +222,16 @@ namespace Editor
             plugins.erase(plugin.GetResourceType().GetHashValue());
         }
 
+        IPlugin* GetPlugin(const ResourceType& type) override
+        {
+            for (auto plugin : plugins)
+            {
+                if (plugin->GetResourceType() == type)
+                    return plugin;
+            }
+            return nullptr;
+        }
+
         void OnDirectoryEvent(MainContentTreeNode* node, const Path& path, Platform::FileWatcherAction action) override
         {
             if (!initialized)
@@ -237,15 +255,6 @@ namespace Editor
             }
         }
 
-        AssetItem* ConstructItem(const Path& path, ResourceInfo& resInfo)
-        {
-            const auto& resType = resInfo.type;
-            if (resType == ResourceType::INVALID_TYPE)
-                return nullptr;
-
-            return CJING_NEW(ResourceItem)(path, resInfo.guid, resType);
-        }
-
         void LoadResoruces(ContentTreeNode* treeNode, std::vector<ListEntry>& fileList)
         {
             for (const auto& fileInfo : fileList)
@@ -253,14 +262,15 @@ namespace Editor
                 if (fileInfo.filename[0] == '.' || fileInfo.type == PathType::Directory)
                     continue;
 
-                if (!EndsWith(fileInfo.filename, RESOURCE_FILES_EXTENSION_WITH_DOT))
-                    continue;
-
                 AssetItem* item = nullptr;
                 const Path resPath = treeNode->path / fileInfo.filename;
                 ResourceInfo resInfo;
                 if (ResourceManager::GetResourceInfo(resPath, resInfo))
-                    item = ConstructItem(resPath, resInfo);
+                {
+                    auto plugin = GetPlugin(resInfo.type);
+                    if (plugin != nullptr)
+                        item = plugin->ConstructItem(resPath, resInfo.type, resInfo.guid);
+                }
                 if (item == nullptr)
                     item = CJING_NEW(FileItem)(resPath);
 
@@ -572,7 +582,7 @@ namespace Editor
                         ImGui::SameLine();
                         if (ImGui::Button("Create")) 
                         {
-                            // plugin->CreateResource(Path(curDir), tmp);
+                            plugin->CreateResource(curNode->path, tmp);
                             ImGui::CloseCurrentPopup();
                         }
                         ImGui::EndMenu();
