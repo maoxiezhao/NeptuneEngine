@@ -41,7 +41,7 @@ public:
 			Platform::DestroyCustomWindow(window);
 	}
 
-	bool Init(int width_, int height_, const char* title) override
+	bool Init(int width_, int height_, const char* title, bool showWindow = true) override
 	{
 		width = width_;
 		height = height_;
@@ -55,6 +55,7 @@ public:
 		args.name = title;
 		args.width = width;
 		args.height = height;
+		args.showWindow = showWindow;
 		window = Platform::CreateCustomWindow(args);
 		if (window == Platform::INVALID_WINDOW)
 		{

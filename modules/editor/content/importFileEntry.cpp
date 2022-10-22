@@ -8,7 +8,7 @@ namespace Editor
 
 	void ImportFileEntry::Dispose()
 	{
-		ImportFileEntryTypes.clear();
+		ImportFileEntryTypes.free();
 	}
 
 	void ImportFileEntry::RegisterEntry(const String& extension, ImportFileEntryHandle handle)

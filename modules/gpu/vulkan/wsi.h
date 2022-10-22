@@ -23,7 +23,7 @@ public:
 	virtual VkSurfaceKHR CreateSurface(VkInstance instance) = 0;
 	virtual VkSurfaceKHR CreateSurface(VkInstance instance, Platform::WindowType window) = 0;
 
-	virtual bool Init(int width_, int height_, const char* title) = 0;
+	virtual bool Init(int width_, int height_, const char* title, bool showWindow = true) = 0;
 	virtual U32  GetWidth() = 0;
 	virtual U32  GetHeight() = 0;
 	virtual Platform::WindowType GetWindow() = 0;

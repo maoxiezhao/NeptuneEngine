@@ -55,7 +55,6 @@ namespace VulkanTest
 		// Read resource registry
 		I32 count;
 		stream->Read(count);
-		resourceRegistry.clear();
 		for (int i = 0; i < count; i++)
 		{
 			Entry entry;
@@ -78,7 +77,6 @@ namespace VulkanTest
 
 		// Read paths mapping
 		stream->Read(count);
-		pathHashMapping.clear();
 		for (int i = 0; i < count; i++)
 		{
 			Guid id;
@@ -100,6 +98,12 @@ namespace VulkanTest
 		}
 
 		Logger::Info("Resource cache loaded");
+	}
+
+	void ResourcesCache::Uninitialize()
+	{
+		resourceRegistry.free();
+		pathHashMapping.free();
 	}
 
 	bool ResourcesCache::Save()

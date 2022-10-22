@@ -79,6 +79,7 @@ namespace VulkanTest
 	void ResourceFactory::Uninitialize()
 	{
 		exiting = true;
+		ResourceType::ResourceNameMapping.free();
 		ResourceManager::UnregisterFactory(resType);
 	}
 
@@ -666,6 +667,7 @@ namespace VulkanTest
 
 		// Save resources cache
 		cache.Save();
+		cache.Uninitialize();
 
 		// Uninit resource loading
 		ContentLoadingManager::Uninitialize();
@@ -691,6 +693,10 @@ namespace VulkanTest
 		// Clear resource type name mapping
 		ResourceType::ResourceNameMapping.clear();
 #endif
+
+		onLoadedResources.release();
+		loadingResources.release();
+		resources.free();
 
 		initialized = false;
 	}

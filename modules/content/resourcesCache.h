@@ -31,6 +31,7 @@ namespace VulkanTest
 		~ResourcesCache();
 
 		void Initialize();
+		void Uninitialize();
 		bool Save();
 		bool Find(const Path& path, ResourceInfo& resInfo);
 		bool Find(const Guid& id, ResourceInfo& resInfo);

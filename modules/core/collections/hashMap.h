@@ -84,7 +84,7 @@ namespace VulkanTest
 	struct HashMap
 	{
 	private:
-		struct Slot 
+		struct Slot
 		{
 			alignas(K) U8 keyMem[sizeof(K)];
 			bool valid;
@@ -97,31 +97,31 @@ namespace VulkanTest
 
 	private:
 		template <typename HM, typename KK, typename VV>
-		struct IteratorBase 
+		struct IteratorBase
 		{
 			HM* hm;
 			U32 idx;
 
 			template <typename HM2, typename K2, typename V2>
-			bool operator !=(const IteratorBase<HM2, K2, V2>& rhs) const 
+			bool operator !=(const IteratorBase<HM2, K2, V2>& rhs) const
 			{
 				ASSERT(hm == rhs.hm);
 				return idx != rhs.idx;
 			}
 
 			template <typename HM2, typename K2, typename V2>
-			bool operator ==(const IteratorBase<HM2, K2, V2>& rhs) const 
+			bool operator ==(const IteratorBase<HM2, K2, V2>& rhs) const
 			{
 				ASSERT(hm == rhs.hm);
 				return idx == rhs.idx;
 			}
 
-			void operator++() 
+			void operator++()
 			{
 				const Slot* keys = hm->keys;
-				for (U32 i = idx + 1, c = hm->capacity; i < c; ++i) 
+				for (U32 i = idx + 1, c = hm->capacity; i < c; ++i)
 				{
-					if (keys[i].valid) 
+					if (keys[i].valid)
 					{
 						idx = i;
 						return;
@@ -130,25 +130,25 @@ namespace VulkanTest
 				idx = hm->capacity;
 			}
 
-			KK& key() 
+			KK& key()
 			{
 				ASSERT(hm->keys[idx].valid);
 				return *((K*)hm->keys[idx].keyMem);
 			}
 
-			const VV& value() const 
+			const VV& value() const
 			{
 				ASSERT(hm->keys[idx].valid);
 				return hm->values[idx];
 			}
 
-			VV& value() 
+			VV& value()
 			{
 				ASSERT(hm->keys[idx].valid);
 				return hm->values[idx];
 			}
 
-			VV& operator*() 
+			VV& operator*()
 			{
 				ASSERT(hm->keys[idx].valid);
 				return hm->values[idx];
@@ -185,17 +185,7 @@ namespace VulkanTest
 
 		~HashMap()
 		{
-			for (U32 i = 0; i < capacity; i++)
-			{
-				if (keys[i].valid)
-				{
-					((K*)keys[i].keyMem)->~K();
-					values[i].~V();
-					keys[i].valid = false;
-				}
-			}
-			CJING_FREE(keys);
-			CJING_FREE(values);
+			free();
 		}
 
 		HashMap&& move() {
@@ -204,20 +194,26 @@ namespace VulkanTest
 
 		void operator =(HashMap&& rhs) = delete;
 
-		void clear() 
+		void clear()
 		{
-			for (U32 i = 0, c = capacity; i < c; ++i) 
+			free();
+			init(8);
+		}
+
+		void free()
+		{
+			for (U32 i = 0, c = capacity; i < c; ++i)
 			{
-				if (keys[i].valid) 
+				if (keys[i].valid)
 				{
 					((K*)keys[i].keyMem)->~K();
 					values[i].~V();
 					keys[i].valid = false;
 				}
 			}
-			CJING_FREE(keys);
-			CJING_FREE(values);
-			init(8);
+			CJING_SAFE_FREE(keys);
+			CJING_SAFE_FREE(values);
+			capacity = 0;
 		}
 
 		Iterator find(const K& key) 
@@ -404,6 +400,13 @@ namespace VulkanTest
 		ConstIterator end() const { return ConstIterator{ this, capacity }; }
 
 	private:
+		template <typename T>
+		void swap(T& a, T& b) {
+			T tmp = static_cast<T&&>(a);
+			a = static_cast<T&&>(b);
+			b = static_cast<T&&>(tmp);
+		}
+
 		void init(U32 capacity_)
 		{
 			const bool isPow2 = capacity_ && !(capacity_ & (capacity_ - 1));
@@ -457,11 +460,11 @@ namespace VulkanTest
 					tmp.insert(iter.key(), static_cast<V&&>(iter.value()));
 			}
 
-			std::swap(capacity, tmp.capacity);
-			std::swap(size, tmp.size);
-			std::swap(mask, tmp.mask);
-			std::swap(keys, tmp.keys);
-			std::swap(values, tmp.values);
+			swap(capacity, tmp.capacity);
+			swap(size, tmp.size);
+			swap(mask, tmp.mask);
+			swap(keys, tmp.keys);
+			swap(values, tmp.values);
 		}
 
 		U32 findEmptySlot(const K& key, U32 endPos) const 

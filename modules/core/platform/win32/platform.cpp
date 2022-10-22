@@ -248,6 +248,11 @@ namespace Platform {
 		return GetDeviceCaps(hdc, LOGPIXELSX);
 	}
 
+	I32 GetDefaultDPI()
+	{
+		return 96;
+	}
+
 	void CopyToClipBoard(const char* txt)
 	{
 		if (!::OpenClipboard(NULL)) {
@@ -516,10 +521,26 @@ namespace Platform {
 		}();
 
 		// Create window
-		DWORD style = args.flags & WindowInitArgs::NO_DECORATION ? WS_POPUP : WS_OVERLAPPEDWINDOW;
-		DWORD extStyle = args.flags & WindowInitArgs::NO_TASKBAR_ICON ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW;
-		LONG width = CW_USEDEFAULT; 
-		LONG height = CW_USEDEFAULT; 
+		DWORD style = 0;
+		DWORD extStyle = 0;
+		if (args.flags & WindowInitArgs::NO_DECORATION)
+			style = WS_POPUP;
+		else
+			style = WS_OVERLAPPEDWINDOW;
+
+		if (args.flags & WindowInitArgs::NO_TASKBAR_ICON)
+			extStyle = WS_EX_TOOLWINDOW;
+		else
+			extStyle = WS_EX_APPWINDOW;
+
+		if (!args.hasBorder)
+		{
+			style |= WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
+			extStyle |= WS_EX_WINDOWEDGE;
+		}
+
+		LONG width = CW_USEDEFAULT;
+		LONG height = CW_USEDEFAULT;
 		if (args.width > 0 && args.height > 0)
 		{
 			RECT rectangle = {
@@ -534,14 +555,16 @@ namespace Platform {
 			height = rectangle.bottom - rectangle.top;
 		}
 
+		I32 posX = args.posX > 0 ? args.posX : CW_USEDEFAULT;
+		I32 posY = args.posY > 0 ? args.posY : CW_USEDEFAULT;
 		WCharString<MAX_PATH_LENGTH> wname(args.name);
 		const HWND hwnd = CreateWindowEx(
 			extStyle,
 			className,
 			wname,
 			style,
-			CW_USEDEFAULT,
-			CW_USEDEFAULT,
+			posX,
+			posY,
 			width,
 			height,
 			(HWND)args.parent,
@@ -550,8 +573,11 @@ namespace Platform {
 			NULL);
 		ASSERT(hwnd);
 
-		::ShowWindow(hwnd, SW_SHOW);
-		::UpdateWindow(hwnd);
+		if (args.showWindow)
+		{
+			::ShowWindow(hwnd, SW_SHOW);
+			::UpdateWindow(hwnd);
+		}
 
 		if (!impl.raw_input_registered) 
 		{
@@ -566,6 +592,12 @@ namespace Platform {
 		}
 
 		return hwnd;
+	}
+
+	void ShowCustomWindow(WindowType window)
+	{
+		::ShowWindow(window, SW_SHOW);
+		::UpdateWindow(window);
 	}
 
 	void DestroyCustomWindow(WindowType window)
@@ -680,6 +712,14 @@ namespace Platform {
 		WCHAR tmp[2048];
 		CharToWChar(tmp, msg);
 		MessageBox(NULL, tmp, L"Message", MB_OK);
+	}
+
+	U32x2 GetDesktopSize()
+	{
+		return U32x2(
+			static_cast<U32>(GetSystemMetrics(SM_CXSCREEN)),
+			static_cast<U32>(GetSystemMetrics(SM_CYSCREEN))
+		);
 	}
 
 	bool GetWindowEvent(WindowEvent& event)

@@ -1,6 +1,7 @@
 #include "editor.h"
 #include "editorUtils.h"
 #include "projectInfo.h"
+#include "splashScreen.h"
 #include "core\commandLine.h"
 #include "core\platform\platform.h"
 #include "core\scene\reflection.h"
@@ -73,6 +74,7 @@ namespace Editor
 
         ~EditorAppImpl()
         {
+            CloseSplashScreen();
         }
 
         virtual U32 GetDefaultWidth() {
@@ -85,6 +87,12 @@ namespace Editor
 
         virtual const char* GetWindowTitle() {
             return Globals::ProductName;
+        }
+
+        void CloseSplashScreen()
+        {
+            CJING_SAFE_DELETE(splashScreen);
+            splashScreen = nullptr;
         }
 
         bool InitializeProject()
@@ -215,7 +223,7 @@ namespace Editor
                 return;
 
             // Init platform
-            bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle());
+            bool ret = platform->Init(GetDefaultWidth(), GetDefaultHeight(), GetWindowTitle(), false);
             ASSERT(ret);
 
             // Add main window
@@ -225,6 +233,11 @@ namespace Editor
             // Create game engine
             engine = CreateEngine(*this);
             Engine::Instance = engine.Get();
+
+            // Show splash screen
+            splashScreen = nullptr;
+            splashScreen = CJING_NEW(SplashScreen);
+            splashScreen->Show(GetWSI());
 
             // Init asset importer first
             assetImporter = AssetImporter::Create(*this);
@@ -601,34 +614,23 @@ namespace Editor
 
             F32 beforeDrawTime = timer.GetTimeSinceTick();
             auto& wsi = GetWSI();
-#if 1
-            for (auto widget : widgets)
-                widget->Render();
 
-            // Draw debug gizmo for selected components
-            ShowComponentGizmo();
-
-            ImGuiRenderer::Render();
-#else
-  
-            auto device = wsi.GetDevice();
-            wsi.BeginFrame();
-            wsi.PresentBegin();
+            // Show splash screen
+            if (splashScreen)
             {
-                GPU::RenderPassInfo rp = device->GetSwapchianRenderPassInfo(&wsi.GetSwapchain(), GPU::SwapchainRenderPassType::ColorOnly);
-                GPU::CommandListPtr cmd = device->RequestCommandList(GPU::QUEUE_TYPE_GRAPHICS);
-                cmd->BeginRenderPass(rp);
-
-                ImageUtil::Params params = {};
-                params.EnableFullScreen();
-                ImageUtil::Draw(TextureHelper::GetColor(Color4::Blue())->GetImage(), params, *cmd);
-
-                cmd->EndRenderPass();
-                device->Submit(cmd);
+                splashScreen->Render();
             }
-            wsi.PresentEnd();
-            wsi.EndFrame();
-#endif
+            else
+            {
+                for (auto widget : widgets)
+                    widget->Render();
+
+                // Draw debug gizmo for selected components
+                ShowComponentGizmo();
+
+                ImGuiRenderer::Render();
+            }
+     
             drawTime = timer.GetTimeSinceTick() - beforeDrawTime;
             wsi.GetDevice()->MoveReadWriteCachesToReadOnly();
 
@@ -657,6 +659,11 @@ namespace Editor
             // Init all widgets
             for (auto widget : widgets)
                 widget->InitFinished();
+
+            CloseSplashScreen();
+            mainWindow = platform->GetWindow();
+            ASSERT(mainWindow);
+            Platform::ShowCustomWindow(mainWindow);
 
             // Loading scene if necessary
             // TODO
@@ -1361,6 +1368,7 @@ namespace Editor
         Settings settings;
         Gizmo::Config gizmoConfig;
         EditorStateMachine stateMachine;
+        SplashScreen* splashScreen;
 
         // Windows
         Platform::WindowType mainWindow;

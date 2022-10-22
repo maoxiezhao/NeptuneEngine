@@ -85,9 +85,9 @@ namespace Platform {
 	bool ShellExecuteOpenAndWait(const char* path, const char* args);
 	void CallSystem(const char* cmd);
 	I32  GetDPI();
+	I32  GetDefaultDPI();
 	void CopyToClipBoard(const char* txt);
 	bool OpenExplorer(const char* path);
-	I32  GetCPUsCount();
 	void Exit();
 
 	std::string  WStringToString(const std::wstring& wstr);
@@ -98,6 +98,7 @@ namespace Platform {
 	ThreadID GetCurrentThreadID();
 	I32 GetNumPhysicalCores();
 	U64 GetPhysicalCoreAffinityMask(I32 core);
+	I32 GetCPUsCount();
 	void YieldCPU();
 	void Sleep(F32 seconds);
 	void Barrier();
@@ -337,12 +338,17 @@ namespace Platform {
 		};
 		U32 width = 0;
 		U32 height = 0;
+		U32 posX = 0;
+		U32 posY = 0;
 		const char* name = "";
 		bool fullscreen = false;
 		U32  flags = 0;
 		void* parent = nullptr;
+		bool hasBorder = true;
+		bool showWindow = true;
 	};
 	WindowType CreateCustomWindow(const WindowInitArgs& args);
+	void ShowCustomWindow(WindowType window);
 	void DestroyCustomWindow(WindowType window);
 	void SetWindowScreenRect(WindowType win, const WindowRect& rect);
 	WindowRect GetWindowScreenRect(WindowType window);
@@ -350,6 +356,7 @@ namespace Platform {
 	U32 GetMonitors(Span<Monitor> monitors);
 	WindowType GetFocusedWindow();
 	void ShowMessageBox(const char* msg);
+	U32x2 GetDesktopSize();
 
 	bool GetWindowEvent(WindowEvent& event);
 	bool IsKeyDown(Keycode key);
