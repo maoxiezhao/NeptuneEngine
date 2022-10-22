@@ -1,9 +1,10 @@
 #pragma once
 
 #include "core\common.h"
+#include "core\scene\world.h"
 #include "core\serialization\iSerializable.h"
 #include "sceneResource.h"
-#include "core\scene\world.h"
+#include "entityFolder.h"
 
 namespace VulkanTest
 {
@@ -40,6 +41,10 @@ namespace VulkanTest
 
 #ifdef CJING3D_EDITOR
 		Path GetPath()const;
+
+		EntityFolder& GetFolders()const {
+			return *folders;
+		}
 #endif
 	public:
 		ECS::Entity CreateEntity(const char* name);
@@ -48,5 +53,9 @@ namespace VulkanTest
 		World* world;
 		String name;
 		bool isPlaying = false;
+
+#ifdef CJING3D_EDITOR
+		EntityFolder* folders;
+#endif
 	};
 }

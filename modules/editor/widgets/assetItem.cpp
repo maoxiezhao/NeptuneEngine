@@ -33,7 +33,7 @@ namespace Editor
 
 	AssetItem::AssetItem(const Path& path_, AssetItemType type_) :
 		filepath(path_),
-		type(type_)
+        itemType(type_)
 	{
 		char filename_[MAX_PATH_LENGTH];
 		CopyString(filename_, Path::GetBaseName(path_.c_str()));
@@ -83,6 +83,17 @@ namespace Editor
             return ThumbnailsModule::FontIcon;
         else
             return nullptr;
+    }
+
+    SceneItem::SceneItem(const Path& path, const Guid& id_) :
+        ResourceItem(path, id_, SceneResource::ResType)
+    {
+        itemType = AssetItemType::Scene;
+    }
+
+    GPU::Image* SceneItem::DefaultThumbnail()const
+    {
+        return ThumbnailsModule::SceneIcon;
     }
 }
 }

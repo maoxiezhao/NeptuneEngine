@@ -13,7 +13,6 @@ namespace Editor
 		~RendererModule();
 
 		virtual bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) = 0;
-		virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) = 0;
 
 		static RendererModule* Create(EditorApp& app);
 	};

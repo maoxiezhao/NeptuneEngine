@@ -25,7 +25,6 @@ namespace Editor
         virtual void Initialize() = 0;
         virtual const char* GetName()const = 0;
         virtual bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) { return false; }
-        virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) {};
     };
 
     struct EditorWidget
@@ -39,8 +38,9 @@ namespace Editor
         virtual void OnGUI() = 0;
         virtual void Render() {};
         virtual bool HasFocus() { return false; }
-        virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) {}
         virtual const char* GetName() = 0;
+
+        virtual void OnSceneEditing(Scene* scene) {}
 
         bool IsOpen()const {
             return isOpen;

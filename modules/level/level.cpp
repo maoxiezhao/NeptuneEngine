@@ -144,6 +144,14 @@ namespace VulkanTest
 					}
 				}
 
+				// Scene folder
+				auto folderDataIt = data->FindMember("EntityFolders");
+				if (folderDataIt != data->MemberEnd())
+				{
+					auto& folderData = folderDataIt->value;
+					scene->GetFolders().Deserialize(folderData);
+				}
+
 				// Other serializable datas
 				Level::sceneDeserializing.Invoke(data, scene);
 			}
@@ -233,6 +241,11 @@ namespace VulkanTest
 						}
 					}
 					writer.EndObject();
+
+					// scene folder
+					auto& folders = scene->GetFolders();
+					writer.JKEY("EntityFolders");
+					folders.Serialize(writer, nullptr);
 
 					// Other serializable datas
 					Level::SceneSerializing.Invoke(writer, scene);

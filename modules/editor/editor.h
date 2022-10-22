@@ -20,7 +20,7 @@ namespace Editor
     struct IAddComponentPlugin
     {
         virtual ~IAddComponentPlugin() {}
-        virtual void OnGUI(bool createEntity, bool fromFilter, class WorldEditor& editor) = 0;
+        virtual void OnGUI(bool createEntity, bool fromFilter, class EditorApp& editor) = 0;
         virtual const char* GetLabel() const = 0;
     };
 
@@ -57,7 +57,7 @@ namespace Editor
         virtual void SaveSettings() = 0;
         virtual void SetRenderInterace(RenderInterface* renderInterface_) = 0;
         virtual void RegisterComponent(const char* icon, ComponentType compType, IAddComponentPlugin* plugin) = 0;
-        virtual void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) = 0;
+        virtual void OnSceneEditing(Scene* scene) = 0;
 
         virtual EditorPlugin* GetPlugin(const char* name) = 0;
         virtual Utils::Action* GetAction(const char* name) = 0;
@@ -66,7 +66,6 @@ namespace Editor
         virtual class AssetBrowser& GetAssetBrowser() = 0;
         virtual class AssetImporter& GetAssetImporter() = 0;
         virtual class EntityListWidget& GetEntityList() = 0;
-        virtual class WorldEditor& GetWorldEditor() = 0;
         virtual class EditorStateMachine& GetStateMachine() = 0;
         virtual Gizmo::Config& GetGizmoConfig() = 0;
         virtual ImFont* GetBigIconFont() = 0;

@@ -25,7 +25,7 @@ namespace Editor
             virtual void Update() {}
             virtual ResourceType GetResourceType() const = 0;
             virtual AssetItem* ConstructItem(const Path& path, const ResourceType& type, const Guid& guid);
-            virtual void DoubleClick(const Path& path) {}
+            virtual void Open(const AssetItem& item) {}
 
             virtual bool CreateResource(const Path& path, const char* name) {
                 return false;

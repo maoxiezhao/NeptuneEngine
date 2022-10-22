@@ -597,6 +597,13 @@ namespace Editor
 
         void OpenResourceItem(AssetItem& tile)
         {
+            ResourceItem* resItem = dynamic_cast<ResourceItem*>(&tile);
+            if (resItem == nullptr)
+                return;
+
+            auto plugin = GetPlugin(resItem->type);
+            if (plugin)
+                plugin->Open(tile);
         }
 
         void SelectResourceItem(AssetItem& tile, bool modified)
@@ -614,7 +621,7 @@ namespace Editor
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s", tile.filepath.c_str());
 
-            if (tile.type == AssetItemType::Directory)
+            if (tile.itemType == AssetItemType::Directory)
             {
                 if (ImGui::IsItemHovered())
                 {
@@ -638,7 +645,7 @@ namespace Editor
                     }
                 }
             }
-            else if (tile.type == AssetItemType::Resource)
+            else if (tile.itemType == AssetItemType::Resource || tile.itemType == AssetItemType::Scene)
             {
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
                 {

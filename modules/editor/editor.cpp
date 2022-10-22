@@ -22,7 +22,6 @@
 
 #include "widgets\assetBrowser.h"
 #include "widgets\assetImporter.h"
-#include "widgets\worldEditor.h"
 #include "widgets\log.h"
 #include "widgets\property.h"
 #include "widgets\entityList.h"
@@ -234,7 +233,6 @@ namespace Editor
             engine->LoadPlugins();
 
             // Init widgets
-            worldEditor = WorldEditor::Create(*this);
             assetBrowser = AssetBrowser::Create(*this);
             renderGraphWidget = RenderGraphWidget::Create(*this);
             entityListWidget = CJING_MAKE_UNIQUE<EntityListWidget>(*this);
@@ -330,7 +328,6 @@ namespace Editor
             // Remove system widgets
             assetBrowser.Reset();
             assetImporter.Reset();
-            worldEditor.Reset();
             entityListWidget.Reset();
             profilerWidget.Reset();
             renderGraphWidget.Reset();
@@ -475,11 +472,6 @@ namespace Editor
             return *entityListWidget;
         }
 
-        WorldEditor& GetWorldEditor() override
-        {
-            return *worldEditor;
-        }
-
         EditorStateMachine& GetStateMachine() override
         {
             return stateMachine;
@@ -563,9 +555,9 @@ namespace Editor
             ImGui::PushFont(font);
 
             assetImporter->Update(deltaTime);
-            worldEditor->Update(deltaTime);
+            Gizmo::Update();
 
-            engine->Update(worldEditor->GetWorld(), deltaTime);
+            engine->Update(levelModule->GetEditingWorld(), deltaTime);
 
             // Update editor modules
             for (auto editorModule : editorModules)
@@ -591,9 +583,11 @@ namespace Editor
 
         void FrameEnd() override
         {
-            // Widgets frame end
-            worldEditor->EndFrame();
+            // Modules frame end
+            for (auto module : editorModules)
+                module->EndFrame();
 
+            // Widgets frame end
             for (auto widget : widgets)
                 widget->EndFrame();
 
@@ -926,13 +920,19 @@ namespace Editor
 
         void OnEntityMenu()
         {
-            if (worldEditor->GetWorld() == nullptr)
-                return;
+            bool enable = levelModule->GetEditingScene() != nullptr;
+            if (!enable)
+                ImGui::BeginDisabled();
 
-            if (!ImGui::BeginMenu("Entity")) return;
-            auto folderID = worldEditor->GetEntityFolder()->GetSelectedFolder();
-            entityListWidget->ShowCreateEntityGUI(folderID);
-            ImGui::EndMenu();
+            if (ImGui::BeginMenu("Entity"))
+            {
+                auto& folders = levelModule->GetEditingScene()->GetFolders();
+                entityListWidget->ShowCreateEntityGUI(folders.GetSelectedFolder());
+                ImGui::EndMenu();
+            }
+
+            if (!enable)
+                ImGui::EndDisabled();
         }
 
         void OnViewMenu()
@@ -1135,7 +1135,7 @@ namespace Editor
             // Create and add AddcomponentPlugin
             struct Plugin final : IAddComponentPlugin
             {
-                virtual void OnGUI(bool createEntity, bool fromFilter, WorldEditor& editor) override
+                virtual void OnGUI(bool createEntity, bool fromFilter, EditorApp& editor) override
                 {
                     ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
 
@@ -1145,18 +1145,19 @@ namespace Editor
                         name = label + slashPos + 1;
                     name = fromFilter ? label : name;
 
+                    auto& level = editor.GetLevelModule();
                     if (ImGui::MenuItem(name))
                     {
                         if (createEntity)
                         {
-                            ECS::Entity entity = editor.AddEmptyEntity();
-                            editor.SelectEntities(Span(&entity, 1), false);
+                            ECS::Entity entity = level.AddEmptyEntity();
+                            level.SelectEntities(Span(&entity, 1), false);
                         }
-                        const auto& selectedEntities = editor.GetSelectedEntities();
+                        const auto& selectedEntities = level.GetSelectedEntities();
                         if (selectedEntities.empty())
                             return;
 
-                        editor.AddComponent(selectedEntities[0], compType);
+                        level.AddComponent(selectedEntities[0], compType);
                     }
                 }
 
@@ -1184,6 +1185,12 @@ namespace Editor
             InsertAddComponentTreeNode(addCompTreeNodeRoot, node);
         }
 
+        void OnSceneEditing(Scene* scene) override
+        {
+            for (auto widget : widgets)
+                widget->OnSceneEditing(scene);
+        }
+
         void ClearWorld()
         {
             // Clear addComponentTree nodes
@@ -1193,12 +1200,6 @@ namespace Editor
             for (IAddComponentPlugin* plugin : addCompPlugins)
                 CJING_SAFE_DELETE(plugin);
             addCompPlugins.clear();
-        }
-
-        void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) override
-        {
-            for (auto plugin : plugins)
-                plugin->OnEditingSceneChanged(newScene, prevScene);
         }
 
         void InitReflection()
@@ -1267,13 +1268,13 @@ namespace Editor
         void ShowComponentGizmo()
         {
             // Debug draw for selected entities
-            const auto& selected = worldEditor->GetSelectedEntities();
+            const auto& selected = levelModule->GetSelectedEntities();
             if (!selected.empty())
             {
                 auto entity = selected[0];
                 entity.Each([&](ECS::EntityID compID) {
-                    for (auto plugin : plugins)
-                        plugin->ShowComponentGizmo(worldEditor->GetView(), entity, compID);
+                    for (auto plugin : plugins);
+                        // plugin->ShowComponentGizmo(worldEditor->GetView(), entity, compID);
                 });
             }
         }
@@ -1325,12 +1326,12 @@ namespace Editor
 
         void SaveEditingSecne()
         {
-            worldEditor->SaveEditingScene();
+            levelModule->SaveEditingScene();
         }
 
         void SaveAllSecnes()
         {
-            worldEditor->SaveAllScenes();
+            levelModule->SaveAllScenes();
         }
 
         void ToggleGameMode()
@@ -1386,7 +1387,6 @@ namespace Editor
         // Builtin widgets
         UniquePtr<AssetImporter> assetImporter;
         UniquePtr<AssetBrowser> assetBrowser;
-        UniquePtr<WorldEditor> worldEditor;
         UniquePtr<LogWidget> logWidget;
         UniquePtr<PropertyWidget> propertyWidget;
         UniquePtr<EntityListWidget> entityListWidget;

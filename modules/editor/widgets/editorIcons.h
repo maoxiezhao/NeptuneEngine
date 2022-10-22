@@ -10,7 +10,6 @@ namespace VulkanTest
 namespace Editor
 {
 	class EditorApp;
-	class WorldEditor;
 
 	struct EditorIcons
 	{
@@ -46,7 +45,7 @@ namespace Editor
 		void OnEditingSceneChanged(Scene* newScene, Scene* prevScene);
 
 	private:
-		WorldEditor& worldEditor;
+		EditorApp& editor;
 		ResPtr<FontResource> iconFontRes;
 		Font* iconFont = nullptr;
 		HashMap<ECS::Entity, Icon> icons;

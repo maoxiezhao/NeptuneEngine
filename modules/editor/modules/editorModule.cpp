@@ -26,6 +26,10 @@ namespace Editor
 	{
 	}
 
+	void EditorModule::EndFrame()
+	{
+	}
+
 	void EditorModule::Unintialize()
 	{
 	}

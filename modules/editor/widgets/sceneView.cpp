@@ -138,7 +138,7 @@ namespace Editor
 			cmd.SetViewport(viewport);
 
 			// Show selection outline
-			const auto& selected = editor.GetWorldEditor().GetSelectedEntities();
+			const auto& selected = editor.GetLevelModule().GetSelectedEntities();
 			if (!selected.empty())
 			{
 				auto& texOutline = renderGraph.GetPhysicalTexture(renderGraph.GetOrCreateTexture("rtOutline"));
@@ -176,7 +176,6 @@ namespace Editor
 
 		SceneView& sceneView;
 		EditorApp& editor;
-		WorldEditor& worldEditor;
 		CameraComponent camera;
 		Transform transform;
 		EditorIcons editorIcons;
@@ -191,7 +190,6 @@ namespace Editor
 		WorldViewImpl(SceneView& view_, EditorApp& editor_) :
 			sceneView(view_),
 			editor(editor_),
-			worldEditor(editor_.GetWorldEditor()),
 			editorIcons(editor_)
 		{
 			camera.up = F32x3(0.0f, 1.0f, 0.0f);
@@ -254,7 +252,8 @@ namespace Editor
 		{
 			isMouseDown[(int)button] = false;
 			
-			if (worldEditor.GetWorld() == nullptr)
+			auto& level = editor.GetLevelModule();
+			if (level.GetEditingWorld() == nullptr)
 			{
 				mouseMode = MouseMode::NONE;
 				return;
@@ -262,21 +261,21 @@ namespace Editor
 			
 			if (mouseMode == MouseMode::SELECT)
 			{
-				RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+				RenderScene* scene = dynamic_cast<RenderScene*>(level.GetEditingWorld()->GetScene("Renderer"));
 				if (scene)
 				{
 					Ray ray = Renderer::GetPickRay(mousePos, camera);
 					auto iconHit = editorIcons.CastRayPick(ray);
 					if (iconHit.entity != ECS::INVALID_ENTITY)
 					{
-						worldEditor.SelectEntities(Span(&iconHit.entity, 1), false);
+						level.SelectEntities(Span(&iconHit.entity, 1), false);
 					}
 					else
 					{
 						PickResult pickResult = scene->CastRayPick(ray);
 						if (pickResult.isHit && pickResult.entity != ECS::INVALID_ENTITY)
 						{
-							worldEditor.SelectEntities(Span(&pickResult.entity, 1), false);
+							level.SelectEntities(Span(&pickResult.entity, 1), false);
 						}
 					}
 				}
@@ -301,17 +300,19 @@ namespace Editor
 
 		void Update(F32 delta)
 		{
+			auto& level = editor.GetLevelModule();
+
 			deltaTime = delta;
 			transform.UpdateTransform();
 			camera.UpdateTransform(transform);
 			editorIcons.Update(delta);
 
 			// Clear highlight state
-			RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+			RenderScene* scene = dynamic_cast<RenderScene*>(level.GetEditingWorld()->GetScene("Renderer"));
 			scene->ForEachObjects([&](ECS::EntityID entity, ObjectComponent& obj) {
 				obj.stencilRef = 0;
 			});
-			const auto& selected = worldEditor.GetSelectedEntities();
+			const auto& selected = level.GetSelectedEntities();
 			for (auto entity : selected)
 			{
 				if (entity.Has<ObjectComponent>())
@@ -345,13 +346,12 @@ namespace Editor
 
 		World* GetWorld()const override
 		{
-			return worldEditor.GetWorld();
+			return editor.GetLevelModule().GetEditingWorld();
 		}
 	};
 
 	SceneView::SceneView(EditorApp& app_) :
 		app(app_),
-		worldEditor(app_.GetWorldEditor()),
 		screenPos(I32x2(0)),
 		screenSize(I32x2(0))
 	{
@@ -380,7 +380,7 @@ namespace Editor
 	void SceneView::Init()
 	{
 		worldView = CJING_NEW(WorldViewImpl)(*this, app);
-		worldEditor.SetView(*worldView);
+		app.GetLevelModule().SetView(*worldView);
 
 		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>(app, *this);
 		editorRenderer->SetWSI(&app.GetEngine().GetWSI());
@@ -390,7 +390,7 @@ namespace Editor
 	void SceneView::Update(F32 dt)
 	{
 		PROFILE_FUNCTION();
-		if (worldEditor.GetWorld() == nullptr)
+		if (app.GetLevelModule().GetEditingScene() == nullptr)
 			return;
 
 		worldView->Update(dt);
@@ -422,8 +422,9 @@ namespace Editor
 		{
 			if (ImGui::BeginTabBar("Scenes"))
 			{
-				auto& scenes = worldEditor.GetScenes();
-				auto editingScene = worldEditor.GetEditingScene();
+				auto& levelModule = app.GetLevelModule();
+				auto& scenes = levelModule.GetLoadedScenes();
+				auto editingScene = levelModule.GetEditingScene();
 				if (scenes.empty())
 				{
 					if (ImGui::BeginTabItem("Null"))
@@ -436,9 +437,10 @@ namespace Editor
 				{
 					for (auto scene : scenes)
 					{
+						const String sceneName = Path::GetBaseName(scene->GetPath());
 						ImGuiTabItemFlags flags = 0;
 						bool isOpen = true;
-						if (ImGui::BeginTabItem(scene->GetPath().c_str(), &isOpen, flags))
+						if (ImGui::BeginTabItem(sceneName.c_str(), &isOpen, flags))
 						{
 							if (scene != editingScene)
 								editingScene = scene;
@@ -452,8 +454,8 @@ namespace Editor
 							app.GetLevelModule().CloseScene(scene);
 					}
 
-					if (editingScene != worldEditor.GetEditingScene())
-						worldEditor.SetEditingScene(editingScene);
+					if (editingScene != levelModule.GetEditingScene())
+						levelModule.EditScene(editingScene);
 				}
 
 				ImGui::EndTabBar();
@@ -484,18 +486,6 @@ namespace Editor
 	{
 		if (shouldRender)
 			editorRenderer->Render();
-	}
-
-	void SceneView::OnEditingSceneChanged(Scene* newScene, Scene* prevScene)
-	{
-		editorRenderer->SetScene(nullptr);
-
-		if (newScene)
-		{
-			auto world = newScene->GetWorld();
-			RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
-			editorRenderer->SetScene(scene);
-		}
 	}
 
 	const char* SceneView::GetName()
@@ -535,7 +525,8 @@ namespace Editor
 			editorRenderer->ResizeBuffers();
 		}
 
-		if (worldEditor.GetWorld() != nullptr)
+		auto world = app.GetLevelModule().GetEditingWorld();
+		if (world != nullptr)
 		{
 			editorRenderer->SetCamera(&worldView->camera);
 
@@ -688,18 +679,15 @@ namespace Editor
 
 	void SceneView::HandleDrop(const char* path, float x, float y)
 	{
-		RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+		auto world = app.GetLevelModule().GetEditingWorld();
+		if (world == nullptr)
+			return;
+
+		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
 		if (scene == nullptr)
 			return;
 
-		char tmp[20];
-		CopyString(Span(tmp), Path::GetExtension(Span(path, StringLength(path))));
-		if (EqualIStrings(tmp, "obj"))
-		{
-			char name[64];
-			CopyString(Span(name), Path::GetBaseName(path));
-			scene->LoadModel(name, Path(path));
-		}
+		// TODO
 	}
 
 	void SceneView::Manipulate()
@@ -708,7 +696,8 @@ namespace Editor
 		Gizmo::Config& cfg = app.GetGizmoConfig();
 		if (!cfg.enable) return;
 
-		const auto& selected = worldEditor.GetSelectedEntities();
+		auto& level = app.GetLevelModule();
+		const auto& selected = level.GetSelectedEntities();
 		if (selected.empty()) return;
 		for (const auto& e : selected)
 		{
@@ -740,6 +729,18 @@ namespace Editor
 		}
 		default:
 			break;
+		}
+	}
+
+	void SceneView::OnSceneEditing(Scene* newScene)
+	{
+		editorRenderer->SetScene(nullptr);
+
+		if (newScene)
+		{
+			auto world = newScene->GetWorld();
+			RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
+			editorRenderer->SetScene(scene);
 		}
 	}
 }

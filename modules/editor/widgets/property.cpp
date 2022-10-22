@@ -1,7 +1,7 @@
 #include "property.h"
 #include "core\scene\reflection.h"
 #include "editor\editor.h"
-#include "editor\widgets\worldEditor.h"
+#include "editor\modules\level.h"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -94,8 +94,7 @@ namespace Editor
 	};
 
 	PropertyWidget::PropertyWidget(EditorApp& editor_) :
-		editor(editor_),
-		worldEditor(editor_.GetWorldEditor())
+		editor(editor_)
 	{
 		componentFilter[0] = '\0';
 	}
@@ -112,7 +111,7 @@ namespace Editor
 	{
 		if (!isOpen) return;
 
-		auto& entities = worldEditor.GetSelectedEntities();
+		auto& entities = editor.GetLevelModule().GetSelectedEntities();
 		if (entities.empty())
 		{
 			if (ImGui::Begin("Inspector##inspector", &isOpen))
@@ -242,7 +241,11 @@ namespace Editor
 
 	void PropertyWidget::ShowComponentProperties(ECS::Entity entity, ECS::EntityID compID)
 	{
-		auto compType = ConvertToCompType(editor.GetWorldEditor().GetWorld(), compID);
+		auto world = editor.GetLevelModule().GetEditingWorld();
+		if (world == nullptr)
+			return;
+
+		auto compType = ConvertToCompType(world, compID);
 		if (compType == INVALID_COMPONENT_TYPE)
 			return;
 
@@ -278,7 +281,7 @@ namespace Editor
 		if (!isOpen)
 			return;
 
-		RenderScene* scene = dynamic_cast<RenderScene*>(worldEditor.GetWorld()->GetScene("Renderer"));
+		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
 		if (!scene)
 			return;
 	

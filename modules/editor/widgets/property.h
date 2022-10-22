@@ -8,7 +8,6 @@ namespace VulkanTest
 namespace Editor
 {
     class EditorApp;
-    class WorldEditor;
 
     class VULKAN_EDITOR_API PropertyWidget : public EditorWidget
     {
@@ -32,7 +31,6 @@ namespace Editor
         void ShowComponentProperties(ECS::Entity entity, ECS::EntityID compID);
 
         EditorApp& editor;
-        WorldEditor& worldEditor;
 
         char componentFilter[32];
     };

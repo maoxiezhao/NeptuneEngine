@@ -13,11 +13,19 @@ namespace VulkanTest
 		ScriptingObject(params)
 	{
 		world = &Engine::Instance->CreateWorld();
+
+#ifdef CJING3D_EDITOR
+		folders = CJING_NEW(EntityFolder)(*world);
+#endif
 	}
 
 	Scene::~Scene()
 	{
 		Engine::Instance->DestroyWorld(world);
+
+#ifdef CJING3D_EDITOR
+		CJING_SAFE_DELETE(folders);
+#endif
 	}
 
 	void Scene::Start()

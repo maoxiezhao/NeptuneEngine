@@ -17,13 +17,9 @@ namespace Editor
 		~ScenePlugin();
 
 		void OnGui(Span<class Resource*> resource) override;
-		void OnSceneLoaded(Scene* scene, const Guid& sceneID);
-		void OnSceneUnloaded(Scene* scene, const Guid& sceneID);
-		bool CreateResource(const Path& path, const char* name);
-		void DoubleClick(const Path& path);
-		void OpenScene(const Path& path);
-		void SaveScene(Scene* scene);
-		void CloseScene(Scene* scene);
+		bool CreateResource(const Path& path, const char* name) override;
+		void Open(const AssetItem& item) override;
+		AssetItem* ConstructItem(const Path& path, const ResourceType& type, const Guid& guid) override;
 
 		bool CreateResourceEnable()const {
 			return true;

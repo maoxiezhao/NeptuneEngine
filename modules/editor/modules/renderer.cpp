@@ -3,6 +3,7 @@
 #include "editor\widgets\assetBrowser.h"
 #include "editor\widgets\assetImporter.h"
 #include "editor\widgets\sceneView.h"
+#include "editor\modules\level.h"
 #include "content\resources\model.h"
 #include "renderer\render2D\fontResource.h"
 #include "core\scene\reflection.h"
@@ -80,21 +81,22 @@ namespace Editor
 			editor(editor_)
 		{}
 
-		virtual void OnGUI(bool createEntity, bool fromFilter, WorldEditor& editor) override
+		virtual void OnGUI(bool createEntity, bool fromFilter, EditorApp& editor) override
 		{
 			ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
+			auto& levelModule = editor.GetLevelModule();
 			auto CreateLight = [&]()->LightComponent* {
 				if (createEntity)
 				{
-					ECS::Entity entity = editor.AddEmptyEntity();
-					editor.SelectEntities(Span(&entity, 1), false);
+					ECS::Entity entity = levelModule.AddEmptyEntity();
+					levelModule.SelectEntities(Span(&entity, 1), false);
 				}
-				const auto& selectedEntities = editor.GetSelectedEntities();
+				const auto& selectedEntities = levelModule.GetSelectedEntities();
 				if (selectedEntities.empty())
 					return nullptr;
 
 				auto compType = Reflection::GetComponentType("Light");
-				editor.AddComponent(selectedEntities[0], compType);
+				levelModule.AddComponent(selectedEntities[0], compType);
 				return selectedEntities[0].GetMut<LightComponent>();
 			};
 
@@ -174,6 +176,7 @@ namespace Editor
 			assetBrowser.AddPlugin(texturePlugin);
 			assetBrowser.AddPlugin(shaderPlugin);
 			assetBrowser.AddPlugin(materialPlugin);
+			assetBrowser.AddPlugin(modelPlugin);
 
 			// Add widget for editor
 			app.AddWidget(sceneView);
@@ -187,6 +190,7 @@ namespace Editor
 			assetBrowser.RemovePlugin(texturePlugin);
 			assetBrowser.RemovePlugin(materialPlugin);
 			assetBrowser.RemovePlugin(fontPlugin);
+			assetBrowser.RemovePlugin(modelPlugin);
 
 			app.RemoveWidget(sceneView);
 			app.SetRenderInterace(nullptr);
@@ -194,7 +198,7 @@ namespace Editor
 
 		bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) override
 		{
-			auto world = worldView.GetWorld();
+			auto world = editor.GetLevelModule().GetEditingWorld();
 			if (compID == world->GetComponentID<LightComponent>())
 			{
 				const LightComponent* light = entity.Get<LightComponent>();
@@ -250,17 +254,17 @@ namespace Editor
 			return true;
 		}
 
-		void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) override
-		{
-			if (newScene != nullptr)
-			{
-				AddLightComponentPlugin* addLightsPlugin = CJING_NEW(AddLightComponentPlugin)(app);
-				auto compType = Reflection::GetComponentType("Light");
-				app.RegisterComponent(ICON_FA_LIGHTBULB, compType, addLightsPlugin);
-			}
+		//void OnEditingSceneChanged(Scene* newScene, Scene* prevScene) override
+		//{
+		//	if (newScene != nullptr)
+		//	{
+		//		AddLightComponentPlugin* addLightsPlugin = CJING_NEW(AddLightComponentPlugin)(app);
+		//		auto compType = Reflection::GetComponentType("Light");
+		//		app.RegisterComponent(ICON_FA_LIGHTBULB, compType, addLightsPlugin);
+		//	}
 
-			sceneView.OnEditingSceneChanged(newScene, prevScene);
-		}
+		//	sceneView.OnEditingSceneChanged(newScene, prevScene);
+		//}
 	};
 
 	RendererModule::RendererModule(EditorApp& app) :

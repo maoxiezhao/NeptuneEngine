@@ -17,6 +17,7 @@ namespace Editor
 		virtual void Initialize();
 		virtual void InitFinished();
 		virtual void Update();
+		virtual void EndFrame();
 		virtual void Unintialize();
 
 	protected:

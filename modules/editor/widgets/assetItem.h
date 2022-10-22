@@ -20,7 +20,7 @@ namespace Editor
     struct AssetItem
     {
     public:
-        AssetItemType type;
+        AssetItemType itemType;
         Path filepath;
         MaxPathString filename;
         MaxPathString shortName;
@@ -56,6 +56,14 @@ namespace Editor
 
     public:
         ResourceItem(const Path& path, const Guid& id_, const ResourceType& type_);
+
+        GPU::Image* DefaultThumbnail()const override;
+    };
+
+    struct SceneItem : public ResourceItem
+    {
+    public:
+        SceneItem(const Path& path, const Guid& id_);
 
         GPU::Image* DefaultThumbnail()const override;
     };

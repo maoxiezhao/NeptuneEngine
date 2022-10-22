@@ -1,6 +1,6 @@
 #include "editorIcons.h"
-#include "worldEditor.h"
 #include "editor\editor.h"
+#include "editor\modules\level.h"
 #include "renderer\render2D\render2D.h"
 #include "imgui-docking\imgui.h"
 
@@ -9,7 +9,7 @@ namespace VulkanTest
 namespace Editor
 {
 	EditorIcons::EditorIcons(EditorApp& editor_) :
-		worldEditor(editor_.GetWorldEditor())
+		editor(editor_)
 	{
 		iconFontRes = ResourceManager::LoadResourceInternal<FontResource>(Path("editor/fonts/fa-solid-900"));
 	}
@@ -79,7 +79,7 @@ namespace Editor
 	{
 		cmd.BeginEvent("RenderIcons");
 
-		const auto& selectedEntities = worldEditor.GetSelectedEntities();
+		const auto& selectedEntities = editor.GetLevelModule().GetSelectedEntities();
 
 		camera.UpdateCamera();
 		auto vp = camera.GetViewProjection();

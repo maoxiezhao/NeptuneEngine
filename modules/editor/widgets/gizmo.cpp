@@ -1,7 +1,7 @@
 #include "gizmo.h"
-#include "worldEditor.h"
 #include "math\math.hpp"
 #include "math\vMath_impl.hpp"
+#include "sceneView.h"
 
 namespace VulkanTest
 {
