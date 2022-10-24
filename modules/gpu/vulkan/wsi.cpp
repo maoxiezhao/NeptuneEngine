@@ -4,14 +4,6 @@
 namespace VulkanTest
 {
 
-WSI::WSI()
-{
-}
-
-WSI::~WSI()
-{
-}
-
 bool WSI::Initialize(U32 numThread)
 {
     if (platform == nullptr)
@@ -157,7 +149,7 @@ void WSI::PresentBegin()
         result = vkAcquireNextImageKHR(
             deviceVulkan->device,
             swapchain.swapchain,
-            0xFFFFFFFFFFFFFFFF,
+            UINT64_MAX,
             acquire->GetSemaphore(),
             VK_NULL_HANDLE,
             &swapchain.swapchainImageIndex
@@ -204,11 +196,10 @@ void WSI::PresentEnd()
 
     // release在EndFrameContext中设置,确保image已经释放
     GPU::SemaphorePtr release = deviceVulkan->GetAndConsumeReleaseSemaphore();
-    assert(release);
-    assert(release->IsSignalled());
-
+    ASSERT(release);
+    ASSERT(release->IsSignalled());
     VkSemaphore releaseSemaphore = release->GetSemaphore();
-    assert(releaseSemaphore != VK_NULL_HANDLE);
+    ASSERT(releaseSemaphore != VK_NULL_HANDLE);
 
     // present 
     VkResult result = VK_SUCCESS;
@@ -224,6 +215,12 @@ void WSI::PresentEnd()
     if (overall == VK_SUBOPTIMAL_KHR || result == VK_SUBOPTIMAL_KHR)
     {
         isSwapchinSuboptimal = true;
+    }
+
+    if (overall == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT ||
+        result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+    {
+        Logger::Error("Lost exclusive fullscreen ...");
     }
 
     if (overall < 0 || result < 0)

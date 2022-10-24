@@ -1,18 +1,24 @@
 -- [Engine moduler] Core
-add_module_lib(PROJECT_ECS_NAME) 
+if registering then
+    register_module(PROJECT_ECS_NAME)
+end
 
--- Includedirs
-includedirs { "" }
+if building then
+    add_module_lib(PROJECT_ECS_NAME) 
 
--- Files
-files 
-{
-    "**.c",
-    "**.cpp",
-    "**.hpp",
-    "**.h",
-    "**.inl",
-}
+    -- Includedirs
+    includedirs { "" }
 
--- ignore
-removefiles { "ecs/test.cpp" }
+    -- Files
+    files 
+    {
+        "**.c",
+        "**.cpp",
+        "**.hpp",
+        "**.h",
+        "**.inl",
+    }
+
+    -- ignore
+    removefiles { "ecs/test.cpp" }
+end

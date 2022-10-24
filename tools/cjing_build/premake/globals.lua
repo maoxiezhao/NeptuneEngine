@@ -6,6 +6,7 @@ require('vstudio')
 dofile("class.lua")
 dofile("modules.lua")
 dofile("platform.lua")
+dofile("generator.lua")
 
 premake.api.register {
     name = "conformanceMode",

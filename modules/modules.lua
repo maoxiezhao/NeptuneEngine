@@ -1,11 +1,3 @@
--- config
-local module_env = "../../"
-set_module_location( module_env .. "modules")
-set_build_location(module_env .. app_dir .. "/build/" ..  platform_dir .. "/modules")
-set_lib_location(module_env .. app_dir .. "/bin/" ..  platform_dir .. "/libs")
-set_third_party_location(module_env .. "3rdparty")
-set_asset_location(module_env .. "assets")
-
 ----------------------------------------------------------------------------------------------------------
 -- definitions
 PROJECT_MATH_NAME       = "math"
@@ -20,35 +12,35 @@ PROJECT_EDITOR_NAME     = "editor"
 PROJECT_SHADERS_COMPILATION_NAME = "shaderCompilation"
 PROJECT_CONTENT_IMPORTERS_NAME = "contentImporters"
 
-----------------------------------------------------------------------------------------------------------
--- registers
-
-register_module(PROJECT_MATH_NAME)
-register_module(PROJECT_ECS_NAME)
-register_module(PROJECT_CORE_NAME,     { PROJECT_MATH_NAME, PROJECT_ECS_NAME })
-register_module(PROJECT_GPU_NAME,      { PROJECT_CORE_NAME })
-
-if with_shader_compiler then 
-    register_module(PROJECT_SHADERS_COMPILATION_NAME,  { PROJECT_GPU_NAME })
-    register_module(PROJECT_CONTENT_NAME,  { PROJECT_GPU_NAME, PROJECT_SHADERS_COMPILATION_NAME })
-else
-    register_module(PROJECT_CONTENT_NAME,  { PROJECT_GPU_NAME })
-end 
-register_module(PROJECT_CONTENT_IMPORTERS_NAME, { PROJECT_CONTENT_NAME })
-register_module(PROJECT_RENDERER_NAME, { PROJECT_GPU_NAME, PROJECT_CONTENT_NAME })
-register_module(PROJECT_LEVEL_NAME,    { PROJECT_RENDERER_NAME })
-register_module(PROJECT_CLIENT_NAME,   { PROJECT_RENDERER_NAME })
-register_module(PROJECT_EDITOR_NAME,   { PROJECT_CONTENT_IMPORTERS_NAME, PROJECT_CLIENT_NAME, PROJECT_LEVEL_NAME })
-
-----------------------------------------------------------------------------------------------------------
+-- config
+local module_env = "../../"
+set_module_location( module_env .. "modules")
+set_build_location(module_env .. app_dir .. "/build/" ..  platform_dir .. "/modules")
+set_lib_location(module_env .. app_dir .. "/bin/" ..  platform_dir .. "/libs")
+set_third_party_location(module_env .. "3rdparty")
+set_asset_location(module_env .. "assets")
 
 print("---------------------------------------------------")
 print("Create modules")
 group "modules"
+
+local modules = {}
 local project_file_name = "**/project.lua"
 local matches = os.matchfiles(project_file_name)
+
+-- register modules
+registering = true
+building = false
 for _, v in ipairs(matches) do 
     dofile(v)
 end 
+
+-- build modules
+registering = false
+building = true
+for _, v in ipairs(matches) do 
+    dofile(v)
+end 
+
 print("---------------------------------------------------")
 group ""

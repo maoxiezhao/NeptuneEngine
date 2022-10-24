@@ -55,9 +55,6 @@ protected:
 class VULKAN_TEST_API WSI
 {
 public:
-	WSI();
-	~WSI();
-
 	bool Initialize(U32 numThread);
 	bool InitializeExternal(VkSurfaceKHR surface_, GPU::DeviceVulkan& device_, GPU::VulkanContext& context_, I32 width, I32 height);
 	void Uninitialize();

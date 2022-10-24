@@ -1,6 +1,7 @@
 #pragma once
 
 #include "version.h"
+#include "config.h"
 #include "platform\defines.h"
 #include "utils\log.h"
 #include "types\pair.h"

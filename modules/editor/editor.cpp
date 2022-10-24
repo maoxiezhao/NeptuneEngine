@@ -1,7 +1,6 @@
 #include "editor.h"
 #include "editorUtils.h"
 #include "projectInfo.h"
-#include "splashScreen.h"
 #include "core\commandLine.h"
 #include "core\platform\platform.h"
 #include "core\scene\reflection.h"
@@ -21,6 +20,7 @@
 #include "modules\level.h"
 #include "modules\renderer.h"
 
+#include "widgets\splashScreen.h"
 #include "widgets\assetBrowser.h"
 #include "widgets\assetImporter.h"
 #include "widgets\log.h"

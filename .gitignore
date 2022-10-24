@@ -25,3 +25,7 @@ assets/content
 .vscode
 app/config_user.jsc
 app/config_user.jsc
+
+# tools
+tools/generator/bin
+tools/generator/build

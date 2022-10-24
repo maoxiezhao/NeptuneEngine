@@ -1,20 +1,26 @@
 -- [Engine moduler] Core
-add_module_lib(PROJECT_LEVEL_NAME) 
+if registering then
+    register_module(PROJECT_LEVEL_NAME,    { PROJECT_RENDERER_NAME })
+end
 
--- Includedirs
-includedirs { "" }
+if building then
+    add_module_lib(PROJECT_LEVEL_NAME) 
 
--- Files
-files 
-{
-    "**.c",
-    "**.cpp",
-    "**.hpp",
-    "**.h",
-    "**.inl",
-}
+    -- Includedirs
+    includedirs { "" }
 
-if renderer == "vulkan" then 
-    -- vulkan header
-    includedirs { third_party_location .. "/vulkan/include" }
+    -- Files
+    files 
+    {
+        "**.c",
+        "**.cpp",
+        "**.hpp",
+        "**.h",
+        "**.inl",
+    }
+
+    if renderer == "vulkan" then 
+        -- vulkan header
+        includedirs { third_party_location .. "/vulkan/include" }
+    end
 end

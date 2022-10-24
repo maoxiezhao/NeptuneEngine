@@ -1,15 +1,21 @@
 -- [Engine moduler] Core
-add_module_lib(PROJECT_MATH_NAME) 
+if registering then
+    register_module(PROJECT_MATH_NAME)
+end
 
--- Includedirs
-includedirs { "" }
+if building then
+    add_module_lib(PROJECT_MATH_NAME) 
 
--- Files
-files 
-{
-    "**.c",
-    "**.cpp",
-    "**.hpp",
-    "**.h",
-    "**.inl",
-}
+    -- Includedirs
+    includedirs { "" }
+
+    -- Files
+    files 
+    {
+        "**.c",
+        "**.cpp",
+        "**.hpp",
+        "**.h",
+        "**.inl",
+    }
+end
