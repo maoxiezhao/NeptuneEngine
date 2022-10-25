@@ -4,6 +4,7 @@
 #include "editor\widgets\assetImporter.h"
 #include "editor\widgets\sceneView.h"
 #include "editor\modules\level.h"
+#include "editor\modules\sceneEditing.h"
 #include "content\resources\model.h"
 #include "renderer\render2D\fontResource.h"
 #include "core\scene\reflection.h"
@@ -84,19 +85,19 @@ namespace Editor
 		virtual void OnGUI(bool createEntity, bool fromFilter, EditorApp& editor) override
 		{
 			ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
-			auto& levelModule = editor.GetLevelModule();
+			auto& sceneEditing = editor.GetSceneEditingModule();
 			auto CreateLight = [&]()->LightComponent* {
 				if (createEntity)
 				{
-					ECS::Entity entity = levelModule.AddEmptyEntity();
-					levelModule.SelectEntities(Span(&entity, 1), false);
+					ECS::Entity entity = sceneEditing.AddEmptyEntity();
+					sceneEditing.SelectEntities(Span(&entity, 1), false);
 				}
-				const auto& selectedEntities = levelModule.GetSelectedEntities();
+				const auto& selectedEntities = sceneEditing.GetSelectedEntities();
 				if (selectedEntities.empty())
 					return nullptr;
 
 				auto compType = Reflection::GetComponentType("Light");
-				levelModule.AddComponent(selectedEntities[0], compType);
+				sceneEditing.AddComponent(selectedEntities[0], compType);
 				return selectedEntities[0].GetMut<LightComponent>();
 			};
 
@@ -198,7 +199,7 @@ namespace Editor
 
 		bool ShowComponentGizmo(WorldView& worldView, ECS::Entity entity, ECS::EntityID compID) override
 		{
-			auto world = editor.GetLevelModule().GetEditingWorld();
+			auto world = editor.GetSceneEditingModule().GetEditingWorld();
 			if (compID == world->GetComponentID<LightComponent>())
 			{
 				const LightComponent* light = entity.Get<LightComponent>();

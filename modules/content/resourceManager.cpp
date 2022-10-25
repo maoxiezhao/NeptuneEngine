@@ -696,6 +696,7 @@ namespace VulkanTest
 
 		onLoadedResources.release();
 		loadingResources.release();
+		toRemoved.release();
 		resources.free();
 
 		initialized = false;

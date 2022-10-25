@@ -79,6 +79,7 @@ namespace Editor
         virtual class ThumbnailsModule& GetThumbnailsModule() = 0;
         virtual class RendererModule& GetRendererModule() = 0;
         virtual class LevelModule& GetLevelModule() = 0;
+        virtual class SceneEditingModule& GetSceneEditingModule() = 0;
 
         virtual const char* GetComponentIcon(ComponentType compType) const = 0;
         virtual const char* GetComponentTypeName(ComponentType compType) const = 0;

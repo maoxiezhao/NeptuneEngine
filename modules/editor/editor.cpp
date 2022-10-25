@@ -19,6 +19,7 @@
 #include "modules\thumbnails.h"
 #include "modules\level.h"
 #include "modules\renderer.h"
+#include "modules\sceneEditing.h"
 
 #include "widgets\splashScreen.h"
 #include "widgets\assetBrowser.h"
@@ -258,6 +259,7 @@ namespace Editor
             RegisterModule(thumbnails = ThumbnailsModule::Create(*this));
             RegisterModule(rendererModule = RendererModule::Create(*this));
             RegisterModule(levelModule = LevelModule::Create(*this));
+            RegisterModule(sceneEditingModule = SceneEditingModule::Create(*this));
 
             for (auto editorModule : editorModules)
                 editorModule->Initialize();
@@ -545,6 +547,11 @@ namespace Editor
             return *levelModule;
         }
 
+        SceneEditingModule& GetSceneEditingModule() override
+        {
+            return *sceneEditingModule;
+        }
+
         const char* GetComponentIcon(ComponentType compType) const override
         {
             auto it = componentIcons.find(compType.index);
@@ -570,7 +577,7 @@ namespace Editor
             assetImporter->Update(deltaTime);
             Gizmo::Update();
 
-            engine->Update(levelModule->GetEditingWorld(), deltaTime);
+            engine->Update(sceneEditingModule->GetEditingWorld(), deltaTime);
 
             // Update editor modules
             for (auto editorModule : editorModules)
@@ -927,13 +934,13 @@ namespace Editor
 
         void OnEntityMenu()
         {
-            bool enable = levelModule->GetEditingScene() != nullptr;
+            bool enable = sceneEditingModule->GetEditingScene() != nullptr;
             if (!enable)
                 ImGui::BeginDisabled();
 
             if (ImGui::BeginMenu("Entity"))
             {
-                auto& folders = levelModule->GetEditingScene()->GetFolders();
+                auto& folders = sceneEditingModule->GetEditingScene()->GetFolders();
                 entityListWidget->ShowCreateEntityGUI(folders.GetSelectedFolder());
                 ImGui::EndMenu();
             }
@@ -1152,19 +1159,19 @@ namespace Editor
                         name = label + slashPos + 1;
                     name = fromFilter ? label : name;
 
-                    auto& level = editor.GetLevelModule();
+                    auto& sceneEditing = editor.GetSceneEditingModule();
                     if (ImGui::MenuItem(name))
                     {
                         if (createEntity)
                         {
-                            ECS::Entity entity = level.AddEmptyEntity();
-                            level.SelectEntities(Span(&entity, 1), false);
+                            ECS::Entity entity = sceneEditing.AddEmptyEntity();
+                            sceneEditing.SelectEntities(Span(&entity, 1), false);
                         }
-                        const auto& selectedEntities = level.GetSelectedEntities();
+                        const auto& selectedEntities = sceneEditing.GetSelectedEntities();
                         if (selectedEntities.empty())
                             return;
 
-                        level.AddComponent(selectedEntities[0], compType);
+                        sceneEditing.AddComponent(selectedEntities[0], compType);
                     }
                 }
 
@@ -1275,7 +1282,7 @@ namespace Editor
         void ShowComponentGizmo()
         {
             // Debug draw for selected entities
-            const auto& selected = levelModule->GetSelectedEntities();
+            const auto& selected = sceneEditingModule->GetSelectedEntities();
             if (!selected.empty())
             {
                 auto entity = selected[0];
@@ -1333,7 +1340,7 @@ namespace Editor
 
         void SaveEditingSecne()
         {
-            levelModule->SaveEditingScene();
+            sceneEditingModule->SaveEditingScene();
         }
 
         void SaveAllSecnes()
@@ -1391,6 +1398,7 @@ namespace Editor
         ThumbnailsModule* thumbnails;
         RendererModule* rendererModule;
         LevelModule* levelModule;
+        SceneEditingModule* sceneEditingModule;
 
         // Builtin widgets
         UniquePtr<AssetImporter> assetImporter;

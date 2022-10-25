@@ -2,6 +2,7 @@
 #include "core\scene\reflection.h"
 #include "editor\editor.h"
 #include "editor\modules\level.h"
+#include "editor\modules\sceneEditing.h"
 #include "imgui-docking\imgui.h"
 
 namespace VulkanTest
@@ -111,7 +112,7 @@ namespace Editor
 	{
 		if (!isOpen) return;
 
-		auto& entities = editor.GetLevelModule().GetSelectedEntities();
+		auto& entities = editor.GetSceneEditingModule().GetSelectedEntities();
 		if (entities.empty())
 		{
 			if (ImGui::Begin("Inspector##inspector", &isOpen))
@@ -241,7 +242,7 @@ namespace Editor
 
 	void PropertyWidget::ShowComponentProperties(ECS::Entity entity, ECS::EntityID compID)
 	{
-		auto world = editor.GetLevelModule().GetEditingWorld();
+		auto world = editor.GetSceneEditingModule().GetEditingWorld();
 		if (world == nullptr)
 			return;
 

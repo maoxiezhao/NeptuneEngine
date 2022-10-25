@@ -1,6 +1,7 @@
 #include "entityList.h"
 #include "editor\editor.h"
 #include "editor\modules\level.h"
+#include "editor\modules\sceneEditing.h"
 #include "imgui-docking\imgui.h"
 #include "imgui-docking\imgui_internal.h"
 
@@ -37,7 +38,7 @@ namespace Editor
 		static char filter[64] = "";
 		if (ImGui::Begin(ICON_FA_STREAM "Hierarchy##hierarchy", &isOpen))
 		{
-			World* world = editor.GetLevelModule().GetEditingWorld();
+			World* world = editor.GetSceneEditingModule().GetEditingWorld();
 			if (world == nullptr)
 			{
 				ImGui::Text("No scene");
@@ -61,7 +62,7 @@ namespace Editor
 
 				if (filter[0] == '\0')
 				{
-					EntityFolder& folders = editor.GetLevelModule().GetEditingScene()->GetFolders();
+					EntityFolder& folders = editor.GetSceneEditingModule().GetEditingScene()->GetFolders();
 					OnFolderUI(folders, folders.GetRoot(), -1, true);
 				}
 			}
@@ -137,9 +138,9 @@ namespace Editor
 			return;
 		}
 		
-		auto& level = editor.GetLevelModule();
+		auto& sceneEditing = editor.GetSceneEditingModule();
 		auto ShowEntityMenu = [&]() {
-			auto& selectedEntities = level.GetSelectedEntities();
+			auto& selectedEntities = sceneEditing.GetSelectedEntities();
 			bool entitySelected = !selectedEntities.empty();
 
 			if (ImGui::BeginMenu(ICON_FA_PLUS_SQUARE "CreateEntity"))
@@ -150,8 +151,8 @@ namespace Editor
 
 			if (ImGui::Selectable(ICON_FA_MINUS_SQUARE "DeleteEntity", false, entitySelected ? 0 : ImGuiSelectableFlags_Disabled))
 			{
-				level.DeleteEntity(selectedEntities[0]);
-				level.ClearSelectEntities();
+				sceneEditing.DeleteEntity(selectedEntities[0]);
+				sceneEditing.ClearSelectEntities();
 			}	
 		};
 
@@ -210,7 +211,7 @@ namespace Editor
 		while (child != ECS::INVALID_ENTITY)
 		{
 			if (child.GetParent() == ECS::INVALID_ENTITY)
-				ShowHierarchy(child, editor.GetLevelModule().GetSelectedEntities());
+				ShowHierarchy(child, editor.GetSceneEditingModule().GetSelectedEntities());
 			child = folders.GetNextEntity(child);
 		}
 
@@ -220,10 +221,10 @@ namespace Editor
 
 	void EntityListWidget::ShowHierarchy(ECS::Entity entity, const Array<ECS::Entity>& selectedEntities)
 	{
-		auto& level = editor.GetLevelModule();
+		auto& sceneEditing = editor.GetSceneEditingModule();
 
 		Array<ECS::Entity> children;
-		World* world = level.GetEditingWorld();
+		World* world = sceneEditing.GetEditingWorld();
 		world->EachChildren(entity, [&children](ECS::Entity child) {
 			children.push_back(child);
 		});
@@ -271,7 +272,7 @@ namespace Editor
 					ECS::Entity droppedEntity = *(ECS::Entity*)payload->Data;
 					if (droppedEntity != entity)
 					{
-						level.MakeParent(entity, droppedEntity);
+						sceneEditing.MakeParent(entity, droppedEntity);
 						ImGui::EndDragDropTarget();
 						if (nodeOpen)
 							ImGui::TreePop();
@@ -291,7 +292,7 @@ namespace Editor
 			else
 			{
 				if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-					level.SelectEntities(Span(&entity, 1), ImGui::GetIO().KeyCtrl);
+					sceneEditing.SelectEntities(Span(&entity, 1), ImGui::GetIO().KeyCtrl);
 			}
 		}
 
@@ -363,17 +364,17 @@ namespace Editor
 
 	void EntityListWidget::ShowCreateEntityGUI(EntityFolder::FolderID folderID)
 	{
-		auto& level = editor.GetLevelModule();
-		if (level.GetEditingWorld() == nullptr)
+		auto& sceneEditing = editor.GetSceneEditingModule();
+		if (sceneEditing.GetEditingWorld() == nullptr)
 			return;
 
 		if (ImGui::MenuItem("CreateEmpty"))
 		{
-			auto& folders = level.GetEditingScene()->GetFolders();
+			auto& folders = sceneEditing.GetEditingScene()->GetFolders();
 			folders.SelectFolder(folderID);
 
-			ECS::Entity entity = level.AddEmptyEntity();
-			level.SelectEntities(Span(&entity, 1), false);
+			ECS::Entity entity = sceneEditing.AddEmptyEntity();
+			sceneEditing.SelectEntities(Span(&entity, 1), false);
 		}
 
 		ImGui::Separator();
@@ -395,21 +396,21 @@ namespace Editor
 
 	EntityFolder::FolderID EntityListWidget::CreateFolder(EntityFolder::FolderID folderID)
 	{
-		auto& level = editor.GetLevelModule();
-		if (level.GetEditingScene() == nullptr)
+		auto& sceneEditing = editor.GetSceneEditingModule();
+		if (sceneEditing.GetEditingScene() == nullptr)
 			return EntityFolder::INVALID_FOLDER;
 
-		EntityFolder& folders = level.GetEditingScene()->GetFolders();
+		EntityFolder& folders = sceneEditing.GetEditingScene()->GetFolders();
 		return folders.EmplaceFolder(folderID);
 	}
 
 	void EntityListWidget::RenameEntityFolder(EntityFolder::FolderID folderID, const char* name)
 	{
-		auto& level = editor.GetLevelModule();
-		if (level.GetEditingScene() == nullptr)
+		auto& sceneEditing = editor.GetSceneEditingModule();
+		if (sceneEditing.GetEditingScene() == nullptr)
 			return;
 
-		EntityFolder& folders = level.GetEditingScene()->GetFolders();
+		EntityFolder& folders = sceneEditing.GetEditingScene()->GetFolders();
 		EntityFolder::Folder& folder = folders.GetFolder(folderID);
 		CopyString(folder.name, name);
 	}

@@ -1,6 +1,7 @@
 #include "editorIcons.h"
 #include "editor\editor.h"
 #include "editor\modules\level.h"
+#include "editor\modules\sceneEditing.h"
 #include "renderer\render2D\render2D.h"
 #include "imgui-docking\imgui.h"
 
@@ -79,7 +80,7 @@ namespace Editor
 	{
 		cmd.BeginEvent("RenderIcons");
 
-		const auto& selectedEntities = editor.GetLevelModule().GetSelectedEntities();
+		const auto& selectedEntities = editor.GetSceneEditingModule().GetSelectedEntities();
 
 		camera.UpdateCamera();
 		auto vp = camera.GetViewProjection();

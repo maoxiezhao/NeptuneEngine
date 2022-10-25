@@ -2,6 +2,7 @@
 #include "editor\editor.h"
 #include "editor\widgets\gizmo.h"
 #include "modules\level.h"
+#include "modules\sceneEditing.h"
 #include "renderer\renderScene.h"
 #include "renderer\imageUtil.h"
 #include "renderer\textureHelper.h"
@@ -138,7 +139,7 @@ namespace Editor
 			cmd.SetViewport(viewport);
 
 			// Show selection outline
-			const auto& selected = editor.GetLevelModule().GetSelectedEntities();
+			const auto& selected = editor.GetSceneEditingModule().GetSelectedEntities();
 			if (!selected.empty())
 			{
 				auto& texOutline = renderGraph.GetPhysicalTexture(renderGraph.GetOrCreateTexture("rtOutline"));
@@ -252,8 +253,8 @@ namespace Editor
 		{
 			isMouseDown[(int)button] = false;
 			
-			auto& level = editor.GetLevelModule();
-			if (level.GetEditingWorld() == nullptr)
+			auto& sceneEditing = editor.GetSceneEditingModule();
+			if (sceneEditing.GetEditingWorld() == nullptr)
 			{
 				mouseMode = MouseMode::NONE;
 				return;
@@ -261,21 +262,21 @@ namespace Editor
 			
 			if (mouseMode == MouseMode::SELECT)
 			{
-				RenderScene* scene = dynamic_cast<RenderScene*>(level.GetEditingWorld()->GetScene("Renderer"));
+				RenderScene* scene = dynamic_cast<RenderScene*>(sceneEditing.GetEditingWorld()->GetScene("Renderer"));
 				if (scene)
 				{
 					Ray ray = Renderer::GetPickRay(mousePos, camera);
 					auto iconHit = editorIcons.CastRayPick(ray);
 					if (iconHit.entity != ECS::INVALID_ENTITY)
 					{
-						level.SelectEntities(Span(&iconHit.entity, 1), false);
+						sceneEditing.SelectEntities(Span(&iconHit.entity, 1), false);
 					}
 					else
 					{
 						PickResult pickResult = scene->CastRayPick(ray);
 						if (pickResult.isHit && pickResult.entity != ECS::INVALID_ENTITY)
 						{
-							level.SelectEntities(Span(&pickResult.entity, 1), false);
+							sceneEditing.SelectEntities(Span(&pickResult.entity, 1), false);
 						}
 					}
 				}
@@ -300,7 +301,7 @@ namespace Editor
 
 		void Update(F32 delta)
 		{
-			auto& level = editor.GetLevelModule();
+			auto& sceneEditing = editor.GetSceneEditingModule();
 
 			deltaTime = delta;
 			transform.UpdateTransform();
@@ -308,11 +309,11 @@ namespace Editor
 			editorIcons.Update(delta);
 
 			// Clear highlight state
-			RenderScene* scene = dynamic_cast<RenderScene*>(level.GetEditingWorld()->GetScene("Renderer"));
+			RenderScene* scene = dynamic_cast<RenderScene*>(sceneEditing.GetEditingWorld()->GetScene("Renderer"));
 			scene->ForEachObjects([&](ECS::EntityID entity, ObjectComponent& obj) {
 				obj.stencilRef = 0;
 			});
-			const auto& selected = level.GetSelectedEntities();
+			const auto& selected = sceneEditing.GetSelectedEntities();
 			for (auto entity : selected)
 			{
 				if (entity.Has<ObjectComponent>())
@@ -346,7 +347,7 @@ namespace Editor
 
 		World* GetWorld()const override
 		{
-			return editor.GetLevelModule().GetEditingWorld();
+			return editor.GetSceneEditingModule().GetEditingWorld();
 		}
 	};
 
@@ -380,7 +381,7 @@ namespace Editor
 	void SceneView::Init()
 	{
 		worldView = CJING_NEW(WorldViewImpl)(*this, app);
-		app.GetLevelModule().SetView(*worldView);
+		app.GetSceneEditingModule().SetView(*worldView);
 
 		editorRenderer = CJING_MAKE_UNIQUE<EditorRenderer>(app, *this);
 		editorRenderer->SetWSI(&app.GetEngine().GetWSI());
@@ -390,7 +391,7 @@ namespace Editor
 	void SceneView::Update(F32 dt)
 	{
 		PROFILE_FUNCTION();
-		if (app.GetLevelModule().GetEditingScene() == nullptr)
+		if (app.GetSceneEditingModule().GetEditingScene() == nullptr)
 			return;
 
 		worldView->Update(dt);
@@ -422,9 +423,8 @@ namespace Editor
 		{
 			if (ImGui::BeginTabBar("Scenes"))
 			{
-				auto& levelModule = app.GetLevelModule();
-				auto& scenes = levelModule.GetLoadedScenes();
-				auto editingScene = levelModule.GetEditingScene();
+				auto& scenes = app.GetLevelModule().GetLoadedScenes();
+				auto editingScene = app.GetSceneEditingModule().GetEditingScene();
 				if (scenes.empty())
 				{
 					if (ImGui::BeginTabItem("Null"))
@@ -454,8 +454,8 @@ namespace Editor
 							app.GetLevelModule().CloseScene(scene);
 					}
 
-					if (editingScene != levelModule.GetEditingScene())
-						levelModule.EditScene(editingScene);
+					if (editingScene != app.GetSceneEditingModule().GetEditingScene())
+						app.GetSceneEditingModule().EditScene(editingScene);
 				}
 
 				ImGui::EndTabBar();
@@ -525,7 +525,7 @@ namespace Editor
 			editorRenderer->ResizeBuffers();
 		}
 
-		auto world = app.GetLevelModule().GetEditingWorld();
+		auto world = app.GetSceneEditingModule().GetEditingWorld();
 		if (world != nullptr)
 		{
 			editorRenderer->SetCamera(&worldView->camera);
@@ -679,7 +679,7 @@ namespace Editor
 
 	void SceneView::HandleDrop(const char* path, float x, float y)
 	{
-		auto world = app.GetLevelModule().GetEditingWorld();
+		auto world = app.GetSceneEditingModule().GetEditingWorld();
 		if (world == nullptr)
 			return;
 
@@ -696,8 +696,7 @@ namespace Editor
 		Gizmo::Config& cfg = app.GetGizmoConfig();
 		if (!cfg.enable) return;
 
-		auto& level = app.GetLevelModule();
-		const auto& selected = level.GetSelectedEntities();
+		const auto& selected = app.GetSceneEditingModule().GetSelectedEntities();
 		if (selected.empty()) return;
 		for (const auto& e : selected)
 		{
