@@ -4,6 +4,7 @@
 #include "editor\editorUtils.h"
 #include "editor\editorPlugin.h"
 #include "editor\widgets\editorIcons.h"
+#include "editor\widgets\assetItem.h"
 #include "renderer\renderer.h"
 #include "renderer\renderGraph.h"
 #include "renderer\renderPath3D.h"
@@ -86,7 +87,7 @@ namespace Editor
         void HandleEvents();
         void CaptureMouse(bool capture);
         I32x2 GetLocalMousePoint()const;
-        void HandleDrop(const char* path, float x, float y);
+        void HandleDrop(const AssetItem* item, float x, float y);
         void Manipulate();
         void OnSceneEditing(Scene* newScene) override;
 

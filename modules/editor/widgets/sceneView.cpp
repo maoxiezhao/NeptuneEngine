@@ -546,13 +546,13 @@ namespace Editor
 		// process drop target
 		if (ImGui::BeginDragDropTarget())
 		{
-			if (auto* payload = ImGui::AcceptDragDropPayload("ResPath"))
+			if (auto* payload = ImGui::AcceptDragDropPayload("ResItem"))
 			{
 				const ImVec2 mousePos = ImGui::GetMousePos();
 				const ImVec2 dropPos = ImVec2(
 					(mousePos.x - mouseScreenPos.x) / size.x,
 					(mousePos.y - mouseScreenPos.y) / size.y);
-				HandleDrop((const char*)payload->Data, dropPos.x, dropPos.y);
+				HandleDrop(*(const AssetItem**)payload->Data, dropPos.x, dropPos.y);
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -677,17 +677,21 @@ namespace Editor
 		return I32x2(cp.x - screenPos.x, cp.y - screenPos.y);
 	}
 
-	void SceneView::HandleDrop(const char* path, float x, float y)
+	void SceneView::HandleDrop(const AssetItem* item, float x, float y)
 	{
-		auto world = app.GetSceneEditingModule().GetEditingWorld();
-		if (world == nullptr)
-			return;
+		if (item->itemType == AssetItemType::Scene)
+		{
+			auto sceneItem = (const SceneItem*)item;
+			app.GetLevelModule().OpenScene(sceneItem->id);
+		}
+		else if (item->itemType == AssetItemType::Resource)
+		{
+			auto& sceneEditing = app.GetSceneEditingModule();
+			if (sceneEditing.GetEditingScene() == nullptr)
+				return;
 
-		RenderScene* scene = dynamic_cast<RenderScene*>(world->GetScene("Renderer"));
-		if (scene == nullptr)
-			return;
 
-		// TODO
+		}
 	}
 
 	void SceneView::Manipulate()

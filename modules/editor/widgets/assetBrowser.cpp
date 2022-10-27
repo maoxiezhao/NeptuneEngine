@@ -650,7 +650,9 @@ namespace Editor
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
                 {
                     ImGui::Text("%s", (const char*)tile.filepath);
-                    ImGui::SetDragDropPayload("ResPath", tile.filepath, StringLength(tile.filepath) + 1, ImGuiCond_Once);
+
+                    AssetItem* tilePtr = &tile;
+                    ImGui::SetDragDropPayload("ResItem", &tilePtr, sizeof(void*), ImGuiCond_Once);
                     ImGui::EndDragDropSource();
                 }
                 else if (ImGui::IsItemHovered())
