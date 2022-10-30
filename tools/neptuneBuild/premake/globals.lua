@@ -60,6 +60,7 @@ all_plugins = {}
 target_architecture = ""
 test_mode = true
 with_shader_compiler = true
+header_tools_dir = ""
 
 function setup_project_env_win32()
     platforms "x64"
@@ -180,9 +181,14 @@ function setup_env_from_options()
     if _OPTIONS["build_tests"] then 
         build_tests = true
     end 
+    if _OPTIONS["header_tools_dir"] then 
+        header_tools_dir = _OPTIONS["header_tools_dir"]
+    end   
 end
 
 function setup_env_from_action()
+    print("Target project version " .. _ACTION)
+
     if _ACTION == "vs2019" or _ACTION == "vs2022" then
         current_platform = "win32"
     end
@@ -199,6 +205,8 @@ function setup_env_from_action()
     else
         print("[premake]:dynamic plugins")
     end 
+
+    print("[premake]:header tools dir:", header_tools_dir)
 end 
 
 setup_env_from_options()

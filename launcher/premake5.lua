@@ -1,7 +1,7 @@
-dofile("../tools/cjing_build/premake/options.lua")
-dofile("../tools/cjing_build/premake/globals.lua")
-dofile("../tools/cjing_build/premake/plugins.lua")
-dofile("../tools/cjing_build/premake/example_app.lua")
+dofile("../tools/neptuneBuild/premake/options.lua")
+dofile("../tools/neptuneBuild/premake/globals.lua")
+dofile("../tools/neptuneBuild/premake/plugins.lua")
+dofile("../tools/neptuneBuild/premake/example_app.lua")
 
 app_name = "studio"
 app_dir = "editor"

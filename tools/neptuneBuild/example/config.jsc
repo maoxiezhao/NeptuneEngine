@@ -3,7 +3,7 @@
     // common definitions
     jcs_def :
     {
-        cjing_build_dir : "../tools/cjing_build",
+        build_tools_dir : "../tools/neptuneBuild",
     },
 
     ///////////////////////////////////////////////////////////////////
@@ -11,8 +11,8 @@
     tools<Windows>: 
     {
         type : tools,
-        jsc: "py -3 ${cjing_build_dir}/scripts/jsc.py",
-        premake: "${cjing_build_dir}/premake/premake5.exe",
+        jsc: "py -3 ${build_tools_dir}/scripts/jsc.py",
+        premake: "${build_tools_dir}/premake/premake5.exe",
     },
 
     ///////////////////////////////////////////////////////////////////
@@ -23,7 +23,7 @@
 
         // build config
         build_config : {
-            build_cmd: "${cjing_build_dir}/cjing_build",
+            build_cmd: "${build_tools_dir}/build",
         },
     },
 

@@ -3,8 +3,8 @@ require('vstudio')
 -----------------------------------------------------------------------------------
 -- DEFINITIONS
 -----------------------------------------------------------------------------------
-SOLUTION_NAME       = "generator"
-PARSER_NAME         = "generator"
+SOLUTION_NAME       = "headerTools"
+PARSER_NAME         = "headerTools"
 DEBUG_FORMAT        = "c7"
 TARGET_OBJ_DIR      = "/Temp"
 TARGET_DIR_DEBUG    = "../bin/x64/Debug"
@@ -89,9 +89,6 @@ project (PARSER_NAME)
     -- Includes
     includedirs { PARSER_DIR_SRC }
     includedirs { ANTLR_DIR_SRC }
-
-    -- 3rd party
-    includedirs { "../3rdparty/json" }
 
     -- Debug config
     filter {"configurations:Debug"}

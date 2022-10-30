@@ -4,7 +4,7 @@
     // common definitions
     jcs_def :
     {
-        cjing_build_dir : "../tools/cjing_build",
+        build_tools_dir : "../tools/neptuneBuild",
     },
 
     // custom visual studio dir
@@ -15,8 +15,8 @@
     tools<Windows>: 
     {
         type : tools,
-        jsc: "py -3 ${cjing_build_dir}/scripts/jsc.py",
-        premake: "${cjing_build_dir}/bin/win32/premake5.exe",
+        jsc: "py -3 ${build_tools_dir}/scripts/jsc.py",
+        premake: "${build_tools_dir}/bin/win32/premake5.exe",
     },
 
     ///////////////////////////////////////////////////////////////////

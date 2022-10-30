@@ -3,17 +3,18 @@ import os.path
 import json
 import time
 import shutil
-import collections
 import subprocess
 import importlib
-import platform
 import utils
 import jsc
+import build
+import config
+import getopt
 
 # major version
 major_version = 0
 # features [0-100]
-minor_version = 3
+minor_version = 4
 # patch update; bug fixes [0-1000]
 match_version = 0
 
@@ -124,29 +125,6 @@ def taks_run_shell(config, task_name, files):
         if e:
             print("error: faild to run command:" + command)
             exit(1)
-    
-def get_build_cmd(config, file_name, args):
-    make_config = config["build"]
-    buildtool = make_config["buildtool"]
-
-    extra_args = ""
-    for arg in args:
-        if arg == "all":
-            continue
-        extra_args += arg + " "
-
-    build_cmd = ""
-
-    # msbuild
-    if buildtool == "msbuild":
-        msbuild = utils.locate_msbuild()
-        if not msbuild:
-            msbuild = "msbuild"
-        else:
-            msbuild = "\"" + msbuild + "\""
-        build_cmd = msbuild + " " + file_name + " " + extra_args
-
-    return build_cmd
 
 def task_run_build(config, task_name, files, args):
     if len(files) <= 0:
@@ -157,36 +135,7 @@ def task_run_build(config, task_name, files, args):
         print("error: config.jsc miss the build config")
         exit(1)
 
-    buildtool = config["build"]["buildtool"]
-    # msbuild 需要预先设置环境
-    if buildtool == "msbuild":
-        set_env_cmd =  "pushd \ && cd /d \"" + config["user_vars"]["vcvarsall_dir"] + "\" && vcvarsall.bat x86_amd64 && popd"
-        subprocess.call(set_env_cmd, shell=True)
-
-    build_files = []
-    for file in files:
-        filename = os.path.splitext(os.path.basename(file[0]))[0]
-        if args[0] == "all":
-            pass
-        elif args[0] != filename:
-            continue
-        build_files.append(file)
-
-    if len(build_files) <= 0:
-        print("error: no target to build")
-        exit(1)
-
-    cwd = os.getcwd()
-    for build_file in build_files:
-        file_path = build_file[0]
-        os.chdir(os.path.dirname(file_path))
-
-        cmd = get_build_cmd(config, os.path.basename(file_path), args)
-        p = subprocess.Popen(cmd, shell=True)
-        e = p.wait()
-        if e != 0:
-            exit(1)
-        os.chdir(cwd)
+    build.build_targets(config, files, args)
 
 def task_run_clean(config, task_name):
     if "clean" not in config.keys():
@@ -532,6 +481,10 @@ def main():
         profile_cfg = all_cfg[profile_name]
     else:
         profile_cfg = all_cfg
+
+    # configuration
+    configuration = config.Configuration()
+    configuration.parse(sys.argv[3:], profile_name)
         
     # only display help
     if "-help" in user_args and len(sys.argv) == 1:
@@ -540,7 +493,7 @@ def main():
 
     # print title header
     print("-----------------------------------------------------------------------")
-    print("Cjing build " + get_version())
+    print("Neptun.Build " + get_version())
     print("-----------------------------------------------------------------------")
 
     # set user config

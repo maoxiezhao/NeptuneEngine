@@ -4,8 +4,8 @@
     tools<Windows>: 
     {
         type : tools,
-        jsc: "py -3 ${cjing_build_dir}/scripts/jsc.py",
-        premake: "${cjing_build_dir}/bin/win32/premake5.exe",
+        jsc: "py -3 ${build_tools_dir}/scripts/jsc.py",
+        generate: "${build_tools_dir}/bin/win32/premake5.exe",
         pre_parser : "py -3 ../tools/pre_parser/pre_parser.py",
         shader_compiler : "py -3 ../tools/shader_compiler/shader_compiler.py",
         ispc : "../tools/ispc/ispc.exe"

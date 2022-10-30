@@ -51,4 +51,6 @@ if building then
             "**.inl",
         }
     }
+
+    setup_header_tools(PROJECT_RENDERER_NAME)
 end

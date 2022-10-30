@@ -88,3 +88,10 @@ newoption
    value       = "dir",
    description = "specify location of project work"
 }
+
+newoption 
+{
+   trigger     = "header_tools_dir",
+   value       = "dir",
+   description = "specify location of header tools"
+}

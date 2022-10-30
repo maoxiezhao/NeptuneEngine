@@ -1,14 +1,15 @@
-import "../tools/cjing_build/config_base.jsc"
+import "../tools/neptuneBuild/config_base.jsc"
 {
     ///////////////////////////////////////////////////////////////////
     // common definitions
     jcs_def :
     {
         sln_name : "VulkanTest",
-        cjing_build_dir : "../tools/cjing_build",
+        build_tools_dir : "../tools/neptuneBuild",
         assets_dir : "../assets",
         assets_export_dir : ".export",
         project_dir : "../workspace",
+        header_tools_dir : "../tools/headerTools",
     },
 
     ///////////////////////////////////////////////////////////////////
@@ -42,8 +43,8 @@ import "../tools/cjing_build/config_base.jsc"
             ]
         },  
 
-        // premake
-        premake : {
+        // generate - use premake
+        generate : {
             args : [
                 "%{vs_version}",   // To genenrate vs sln, the first param must is "vs_version"
                 "--sln_name=${sln_name}",
@@ -53,6 +54,7 @@ import "../tools/cjing_build/config_base.jsc"
                 "--renderer=vulkan",
                 "--platform_dir=win32",
                 "--sdk_version=%{windows_sdk_version}",
+                "--header_tools_dir=${header_tools_dir}",
             ]
         },
 

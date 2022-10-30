@@ -14,7 +14,7 @@ workspace
 3rdparty/glfw/build
 3rdparty/glfw/lib
 app/config_user.jsc
-tools/cjing_build/scripts/__pycache__
+tools/neptuneBuild/scripts/__pycache__
 
 # assets
 assets/.export
@@ -27,5 +27,5 @@ app/config_user.jsc
 app/config_user.jsc
 
 # tools
-tools/generator/bin
-tools/generator/build
+tools/headerTools/bin
+tools/headerTools/build

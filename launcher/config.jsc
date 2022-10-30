@@ -1,11 +1,11 @@
-import "../tools/cjing_build/config_base.jsc"
+import "../tools/neptuneBuild/config_base.jsc"
 {
     ///////////////////////////////////////////////////////////////////
     // common definitions
     jcs_def :
     {
         sln_name : "VulkanTest",
-        cjing_build_dir : "../tools/cjing_build",
+        build_tools_dir : "../tools/neptuneBuild",
         assets_dir : "../assets",
         assets_export_dir : ".export",
     },

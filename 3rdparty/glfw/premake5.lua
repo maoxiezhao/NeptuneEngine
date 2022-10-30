@@ -1,5 +1,5 @@
-dofile("../../tools/cjing_build/premake/options.lua")
-dofile("../../tools/cjing_build/premake/globals.lua")
+dofile("../../tools/neptuneBuild/premake/options.lua")
+dofile("../../tools/neptuneBuild/premake/globals.lua")
 dofile("options.lua")
 
 local build_shader_libs = false;
