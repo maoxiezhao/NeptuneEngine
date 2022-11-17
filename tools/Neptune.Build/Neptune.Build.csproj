@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{3915873B-80F5-4BF0-8576-E9AD4FCBD71F}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Neptune.Build</RootNamespace>
+    <AssemblyName>Neptune.Build</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json.Bson, Version=1.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.Bson.1.0.2\lib\net45\Newtonsoft.Json.Bson.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Build\BuildOptions.cs" />
+    <Compile Include="Build\Builder.Module.cs" />
+    <Compile Include="Build\ToolChain.cs" />
+    <Compile Include="Build\Platform.cs" />
+    <Compile Include="Build\GameModule.cs" />
+    <Compile Include="Build\EngineModule.cs" />
+    <Compile Include="Projects\ProjectGenerator.cs" />
+    <Compile Include="Projects\Project.cs" />
+    <Compile Include="Projects\VisualStudio\VSProjectGenerator.cs" />
+    <Compile Include="Target\TargetPlatform.cs" />
+    <Compile Include="Target\EngineTarget.cs" />
+    <Compile Include="Projects\ProjectFormat.cs" />
+    <Compile Include="Utils\Assembler.cs" />
+    <Compile Include="Build\Builder.cs" />
+    <Compile Include="Projects\Builder.Projects.cs" />
+    <Compile Include="Build\Module.cs" />
+    <Compile Include="Build\Rules.cs" />
+    <Compile Include="CommandLine.cs" />
+    <Compile Include="CommandLineAttribute.cs" />
+    <Compile Include="Configuration.cs" />
+    <Compile Include="Globals.cs" />
+    <Compile Include="Log.cs" />
+    <Compile Include="Platforms\Windows\WindowsPlatform.cs" />
+    <Compile Include="Platforms\Windows\WindowsToolchain.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="ProjectInfo.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Target\Target.cs" />
+    <Compile Include="Utils\Profiler.cs" />
+    <Compile Include="Utils\TaskGraph.cs" />
+    <Compile Include="Utils\Utils.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

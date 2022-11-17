@@ -27,5 +27,12 @@ app/config_user.jsc
 app/config_user.jsc
 
 # tools
-tools/headerTools/bin
-tools/headerTools/build
+tools/Neptune.Build/bin
+tools/Neptune.Build/obj
+tools/Neptune.Build/packages
+tools/Neptune.Build/Neptune.Build.sln
+tools/Neptune.Build/Neptune.Build.csproj.user
+tools/Neptune.Build/packages.config
+tools/neptune.build/bin
+tools/neptune.build/.vs
+tools/neptune.build/obj
