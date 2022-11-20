@@ -24,8 +24,18 @@ namespace Neptune.Build
         {
         }
 
+        /// <summary>
+        /// Setups the module build options
+        /// </summary>
         public virtual void Setup(BuildOptions options)
         {
+        }
+
+        /// <summary>
+        /// Setups the module building environment. Allows to modify compiler and linker options.
+        /// </summary>
+        public virtual void SetupEnvironment(BuildOptions options)
+        { 
         }
     }
 }

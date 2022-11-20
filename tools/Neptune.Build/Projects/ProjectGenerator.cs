@@ -9,6 +9,7 @@ namespace Neptune.Build
     public abstract class ProjectGenerator
     {
         public abstract string ProjectFileExtension { get; }
+        public abstract string SolutionFileExtension { get; }
 
         public static ProjectGenerator Create(ProjectFormat format)
         {
@@ -28,5 +29,12 @@ namespace Neptune.Build
                 Generator = this,
             };
         }
+
+        public virtual Solution CreateSolution()
+        {
+            return new Solution();
+        }
+
+        public abstract void GenerateSolution(Solution solution);
     }
 }

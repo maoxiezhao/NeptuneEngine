@@ -15,6 +15,9 @@ namespace Neptune.Build
         {
             project.Configurations.Clear();
 
+            // Generate a set of configurations to build all targets for all platforms/configurations/architectures
+            var rules = GenerateRulesAssembly();
+
             foreach (var target in project.Targets)
             {
                 string targetName = target.Name;
@@ -40,6 +43,19 @@ namespace Neptune.Build
                             if (!platform.HasRequiredSDKsInstalled)
                                 continue;
 
+                            // Get toolchain
+                            var toolchain = platform.TryGetToolChain(architecture);
+                            // Get build options
+                            var buildOptions = GetBuildOptions(target, platform, toolchain, architecture, configuration, project.WorkspaceRootPath);
+                            
+                            // Collect modules
+                            var modules = CollectModules(rules, platform, target, buildOptions, toolchain, architecture, configuration);
+                            foreach (var module in modules)
+                            {
+                                module.Key.Setup(buildOptions);
+                                module.Key.SetupEnvironment(buildOptions);
+                            }
+
                             // Add a new configuration
                             string configurationText = targetName + '.' + platformName + '.' + configurationName;
                             var newConfig = new Project.ConfigurationData();
@@ -49,6 +65,9 @@ namespace Neptune.Build
                             newConfig.PlatformName = platformName;
                             newConfig.Configuration = configuration;
                             newConfig.Target = target;
+                            newConfig.Modules = modules;
+                            newConfig.TargetBuildOptions = buildOptions;
+
                             project.Configurations.Add(newConfig);
                         }
                     }
@@ -64,10 +83,12 @@ namespace Neptune.Build
 
             var projectFiles = rootProject.GetAllProjects();
             var rules = GenerateRulesAssembly();
-
             var workspaceRoot = rootProject.ProjectFolderPath;
             var projectsRoot = Path.Combine(workspaceRoot, "Cache", "Projects");
+            var projects = new List<Project>();
+            Project mainSolutionProject = null;
 
+            // Get projects from targets
             var targetGroups = rules.Targets.GroupBy(x => x.ProjectName);
             foreach (var e in targetGroups)
             {
@@ -88,14 +109,86 @@ namespace Neptune.Build
                     project.WorkspaceRootPath = projectInfo.ProjectFolderPath;
                     project.Path = Path.Combine(projectsRoot, project.Name + '.' + generator.ProjectFileExtension);
                     project.SourceDirectories = new List<string> { Path.GetDirectoryName(targets[0].FilePath) };
-                    
+
                     // Setup configurations
                     SetupConfigurations(project, projectInfo);
 
+                    var binaryModuleSet = new Dictionary<string, HashSet<Module>>();
+                    var modulesBuildOptions = new Dictionary<Module, BuildOptions>();
+
                     foreach (var configurationData in project.Configurations)
-                    { 
+                    {
+                        var binaryModules = GetBinaryModules(projectInfo, configurationData.Target, configurationData.Modules);
+                        foreach (var configurationBinaryModule in binaryModules)
+                        {
+                            // Skip if none of the included binary modules is inside the project workspace (eg. merged external binary modules from engine to game project)
+                            if (!configurationBinaryModule.Any(y => y.FolderPath.StartsWith(project.WorkspaceRootPath)))
+                                continue;
+
+                            if (!binaryModuleSet.TryGetValue(configurationBinaryModule.Key, out var modules))
+                                binaryModuleSet[configurationBinaryModule.Key] = modules = new HashSet<Module>();
+
+                            // Collect module build options
+                            foreach (var module in configurationBinaryModule)
+                            {
+                                modules.Add(module);
+
+                                if (!modulesBuildOptions.ContainsKey(module))
+                                    modulesBuildOptions.Add(module, configurationData.Modules[module]);
+                            }
+
+                            foreach (var reference in projectInfo.References)
+                            {
+                                var referenceTargets = GetProjectTargets(reference.Project);
+                                foreach (var referenceTarget in referenceTargets)
+                                {
+                                    var refBuildOptions = GetBuildOptions(referenceTarget, configurationData.TargetBuildOptions.Platform, configurationData.TargetBuildOptions.Toolchain, configurationData.Architecture, configurationData.Configuration, reference.Project.ProjectFolderPath);
+                                    var refModules = CollectModules(rules, refBuildOptions.Platform, referenceTarget, refBuildOptions, refBuildOptions.Toolchain, refBuildOptions.Architecture, refBuildOptions.Configuration);
+                                    var refBinaryModules = GetBinaryModules(projectInfo, referenceTarget, refModules);
+                                    foreach (var binaryModule in refBinaryModules)
+                                    {
+                                        project.Defines.Add(binaryModule.Key.ToUpperInvariant() + "_API=");
+                                    }
+                                }
+                            }
+                        }
                     }
+
+                    foreach (var binaryModule in binaryModuleSet)
+                    {
+                        project.Defines.Add(binaryModule.Key.ToUpperInvariant() + "_API=");
+                    }
+
+                    // Set main project
+                    projects.Add(project);
+                    if (mainSolutionProject == null && projectInfo == rootProject)
+                        mainSolutionProject = project;
                 }
+            }
+
+            // Generate projects
+            using (new ProfileEventScope("GenerateProjects"))
+            {
+                foreach (var project in projects)
+                {
+                    Log.Info("Project " + project.Path);
+                    project.Generate();
+                }
+            }
+
+            // Generate solution
+            using (new ProfileEventScope("Solution"))
+            {
+                var generator = ProjectGenerator.Create(projectFormat);
+                Solution solution = generator.CreateSolution();
+                solution.Name = rootProject.Name;
+                solution.WorkspaceRootPath = workspaceRoot;
+                solution.Path = Path.Combine(workspaceRoot, solution.Name + '.' + generator.SolutionFileExtension);
+                solution.Projects = projects.ToArray();
+                solution.StartupProject = mainSolutionProject;
+
+                Log.Info("Solution -> " + solution.Path);
+                generator.GenerateSolution(solution);
             }
         }
 

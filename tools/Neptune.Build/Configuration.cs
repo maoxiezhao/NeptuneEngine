@@ -15,6 +15,12 @@ namespace Neptune.Build
         public static string IntermediateFolder = "Cache/Intermediate";
 
         /// <summary>
+        /// The output binaries folder path relative to the working directory.
+        /// </summary>
+        [CommandLine("binaries", "<path>", "The output binaries folder path relative to the working directory.")]
+        public static string BinariesFolder = "Bin";
+
+        /// <summary>
         /// Cleans all the targets and whole build cache data.
         /// </summary>
         [CommandLine("clean", "Cleans the build system cache.")]

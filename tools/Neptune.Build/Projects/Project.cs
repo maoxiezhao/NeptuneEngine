@@ -15,6 +15,12 @@ namespace Neptune.Build
         public string Name;
         public Target[] Targets;
         public string WorkspaceRootPath;
+
+        /// <summary>
+        /// The source code build defines.
+        /// </summary>
+        public HashSet<string> Defines = new HashSet<string>();
+
         public virtual string Path
         {
             get => _path;
@@ -34,7 +40,14 @@ namespace Neptune.Build
             public TargetArchitecture Architecture;
             public TargetConfiguration Configuration;
             public Target Target;
+            public Dictionary<Module, BuildOptions> Modules;
+            public BuildOptions TargetBuildOptions;
         }
         public List<ConfigurationData> Configurations = new List<ConfigurationData>();
+
+        public virtual void Generate()
+        {
+            
+        }
     }
 }

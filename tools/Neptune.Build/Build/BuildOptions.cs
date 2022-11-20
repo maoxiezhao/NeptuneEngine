@@ -10,6 +10,9 @@ namespace Neptune.Build
     {
         public Target Target;
         public Platform Platform;
+        public TargetArchitecture Architecture;
+        public TargetConfiguration Configuration;
+        public ToolChain Toolchain;
         public HashSet<string> Definitions = new HashSet<string>();
         public List<string> SourceFiles = new List<string>();
         public string IntermediateFolder;
@@ -25,5 +28,10 @@ namespace Neptune.Build
         /// The collection of the modules that are required by this module (for linking).
         /// </summary>
         public List<string> PrivateDependencies = new List<string>();
+
+        /// <summary>
+        /// The build commands working folder directory.
+        /// </summary>
+        public string WorkingDirectory;
     }
 }

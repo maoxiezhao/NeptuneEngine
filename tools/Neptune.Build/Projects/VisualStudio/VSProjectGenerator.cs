@@ -15,8 +15,13 @@ namespace Neptune.Build
     public class VSProjectGenerator : ProjectGenerator
     {
         public override string ProjectFileExtension => "vcxproj";
+        public override string SolutionFileExtension => "sln";
 
         public VSProjectGenerator(VisualStudioVersion version)
+        { 
+        }
+
+        public override void GenerateSolution(Solution solution)
         { 
         }
     }

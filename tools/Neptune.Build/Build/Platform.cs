@@ -53,10 +53,39 @@ namespace Neptune.Build
         {
             if (targetPlatform == TargetPlatform.Windows)
             {
-                return targetArchitecture == TargetArchitecture.x64 || 
+                return targetArchitecture == TargetArchitecture.x64 ||
                        targetArchitecture == TargetArchitecture.x86;
             }
             return false;
         }
+
+        /// <summary>
+        /// Tries to create the build toolchain for a given architecture. Returns null if platform is not supported.
+        /// </summary>
+        public ToolChain TryGetToolChain(TargetArchitecture targetArchitecture)
+        {
+            return HasRequiredSDKsInstalled ? GetToolchain(targetArchitecture) : null;
+        }
+
+        private Dictionary<TargetArchitecture, ToolChain> _toolchains;
+        public ToolChain GetToolchain(TargetArchitecture targetArchitecture)
+        {
+            if (_toolchains == null)
+                _toolchains = new Dictionary<TargetArchitecture, ToolChain>();
+
+            // Get caching toolchain
+            ToolChain toolchain;
+            if (_toolchains.TryGetValue(targetArchitecture, out toolchain))
+            {
+                return toolchain;
+            }
+
+            // Create new toolchain
+            toolchain = CreateToolchain(targetArchitecture);
+            _toolchains.Add(targetArchitecture, toolchain);
+            return toolchain;
+        }
+
+        protected abstract ToolChain CreateToolchain(TargetArchitecture architecture);
     }
 }
