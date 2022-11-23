@@ -28,5 +28,12 @@ namespace Neptune.Build
                 _modulesLookup.Add(module.Name, module);
             }
         }
+
+        public Module GetModule(string name)
+        {
+            if (!_modulesLookup.TryGetValue(name, out var module))
+                module = Modules.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+            return module;
+        }
     }
 }

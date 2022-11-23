@@ -11,7 +11,17 @@ namespace Neptune.Build
     {
         public sealed class BuildData
         {
+            public ProjectInfo Project;
+            public TaskGraph Graph;
+            public RulesAssembly Rules;
+            public Target Target;
+            public BuildOptions TargetOptions;
+            public Platform Platform;
+            public ToolChain Toolchain;
+            public TargetArchitecture Architecture;
+            public TargetConfiguration Configuration;
             public Dictionary<Module, BuildOptions> Modules = new Dictionary<Module, BuildOptions>(256);
+            public List<Module> ModulesOrderList = new List<Module>();
         }
 
         /// <summary>
@@ -47,14 +57,70 @@ namespace Neptune.Build
             TargetConfiguration configuration,
             IEnumerable<string> moduleNames)
         {
-            var buildData = new BuildData();
+            var buildData = new BuildData
+            {
+                Rules = rules,
+                Target = target,
+                TargetOptions = targetBuildOptions,
+                Platform = platform,
+                Toolchain = toolchain,
+                Architecture = architecture,
+                Configuration = configuration,
+            };
 
             // Collect all modules
             foreach (var moduleName in moduleNames)
             {
+                var module = rules.GetModule(moduleName);
+                if (module == null)
+                {
+                    Log.Warning(string.Format("Missing module {0} (or invalid name specified)", moduleName));
+                    continue;
+                }
+
+                CollectModules(buildData, module);
             }
 
             return buildData.Modules;
+        }
+
+        private static BuildOptions CollectModules(BuildData buildData, Module module)
+        {
+            if (buildData.Modules.TryGetValue(module, out var moduleOptions))
+            {
+                return moduleOptions;
+            }
+
+            var outputPath = Path.Combine(buildData.TargetOptions.IntermediateFolder, module.Name);
+            moduleOptions = new BuildOptions
+            {
+                Target = buildData.Target,
+                Platform = buildData.Platform,
+                Toolchain = buildData.Toolchain,
+                Architecture = buildData.Architecture,
+                Configuration = buildData.Configuration,
+                IntermediateFolder = outputPath,
+                OutputFolder = outputPath,
+                WorkingDirectory = buildData.TargetOptions.WorkingDirectory,
+            };
+            moduleOptions.SourcePaths.Add(module.FolderPath);
+            module.Setup(moduleOptions);
+            moduleOptions.FillSourceFilesFromSourcePaths();
+
+            // Collect dependent modules (private)
+            foreach (var moduleName in moduleOptions.PrivateDependencies)
+            {
+            }
+
+            // Collect dependent modules (public)
+            foreach (var moduleName in moduleOptions.PublicDependencies)
+            {
+            }
+
+            buildData.Modules.Add(module, moduleOptions);
+            buildData.ModulesOrderList.Add(module);
+
+            return moduleOptions;
         }
 
         public static BuildOptions GetBuildOptions(
