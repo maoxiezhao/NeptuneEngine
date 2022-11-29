@@ -14,12 +14,21 @@ namespace Neptune.Build
         public TargetArchitecture Architecture;
         public TargetConfiguration Configuration;
         public ToolChain Toolchain;
-        public HashSet<string> Definitions = new HashSet<string>();
         public List<string> SourcePaths = new List<string>();
         public List<string> SourceFiles = new List<string>();
         public string IntermediateFolder;
         public string OutputFolder;
         public HashSet<string> Libraries = new HashSet<string>();
+
+        /// <summary>
+        /// The collection of defines with preprocessing symbol for a source files of this module. Inherited by the modules that include it.
+        /// </summary>
+        public readonly HashSet<string> PublicDefinitions = new HashSet<string>();
+
+        /// <summary>
+        /// The collection of defines with preprocessing symbol for a source files of this module.
+        /// </summary>
+        public readonly HashSet<string> PrivateDefinitions = new HashSet<string>();
 
         /// <summary>
         /// The collection of the modules that are required by this module (for linking). Inherited by the modules that include it.

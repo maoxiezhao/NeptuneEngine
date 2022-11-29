@@ -109,5 +109,21 @@ namespace Neptune.Build
         public virtual void SetupTargetEnvironment(BuildOptions options)
         { 
         }
+
+        public virtual string GetOutputFilePath(BuildOptions options, TargetOutputType? outputType = null)
+        {
+            LinkerOutput linkerOutput;
+            switch (outputType ?? OutputType)
+            {
+                case TargetOutputType.Executable:
+                    linkerOutput = LinkerOutput.Executable;
+                    break;
+                case TargetOutputType.Library:
+                    linkerOutput = LinkerOutput.SharedLibrary;
+                    break;
+                default: throw new ArgumentOutOfRangeException();
+            }
+            return Path.Combine(options.OutputFolder, options.Platform.GetLinkOutputFileName(OutputName, linkerOutput));
+        }
     }
 }

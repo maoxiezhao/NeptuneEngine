@@ -9,9 +9,6 @@ namespace Neptune.Build
 {
     public static class Utils
     {
-        /// <summary>
-        /// Normalizes the path to the standard Flax format (all separators are '/' except for drive 'C:\').
-        /// </summary>
         public static string NormalizePath(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -32,6 +29,78 @@ namespace Neptune.Build
             return new string(chars);
         }
 
+        public static string MakePathRelativeTo(string path, string directory)
+        {
+            int sharedDirectoryLength = -1;
+            for (int i = 0; ; i++)
+            {
+                if (i == path.Length)
+                {
+                    // Paths are the same
+                    if (i == directory.Length)
+                    {
+                        return string.Empty;
+                    }
+
+                    // Finished on a complete directory
+                    if (directory[i] == Path.DirectorySeparatorChar)
+                    {
+                        sharedDirectoryLength = i;
+                    }
+
+                    break;
+                }
+
+                if (i == directory.Length)
+                {
+                    // End of the directory name starts with a boundary for the current name
+                    if (path[i] == Path.DirectorySeparatorChar)
+                    {
+                        sharedDirectoryLength = i;
+                    }
+
+                    break;
+                }
+
+                if (string.Compare(path, i, directory, i, 1, StringComparison.OrdinalIgnoreCase) != 0)
+                {
+                    break;
+                }
+
+                if (path[i] == Path.DirectorySeparatorChar)
+                {
+                    sharedDirectoryLength = i;
+                }
+            }
+
+            // No shared path found
+            if (sharedDirectoryLength == -1)
+            {
+                return path;
+            }
+
+            // Add all the '..' separators to get back to the shared directory,
+            StringBuilder result = new StringBuilder();
+            for (int i = sharedDirectoryLength + 1; i < directory.Length; i++)
+            {
+                // Move up a directory
+                result.Append("..");
+                result.Append(Path.DirectorySeparatorChar);
+
+                // Scan to the next directory separator
+                while (i < directory.Length && directory[i] != Path.DirectorySeparatorChar)
+                {
+                    i++;
+                }
+            }
+
+            if (sharedDirectoryLength + 1 < path.Length)
+            {
+                result.Append(path, sharedDirectoryLength + 1, path.Length - sharedDirectoryLength - 1);
+            }
+
+            return result.ToString();
+        }
 
         public static string RemovePathRelativeParts(string path)
         {
@@ -74,6 +143,40 @@ namespace Neptune.Build
             if (isRooted && result[0] != '/')
                 result = result.Insert(0, "/");
             return result;
+        }
+
+        public static bool WriteFileIfChanged(string path, string contents)
+        {
+            if (File.Exists(path))
+            {
+                string oldContents = null;
+                try
+                {
+                    oldContents = File.ReadAllText(path);
+                }
+                catch (Exception)
+                {
+                    Log.Warning(string.Format("Failed to read file contents while trying to save it.", path));
+                }
+
+                // No files changed 
+                if (string.Equals(contents, oldContents, StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, contents, new UTF8Encoding());
+                Log.Info(string.Format("Saved file to {0}", path));
+            }
+            catch
+            {
+                Log.Error(string.Format("Failed to save file {0}", path));
+                throw;
+            }
+
+            return true;
         }
     }
 }

@@ -27,6 +27,12 @@ namespace Neptune.Build
             set => _path = value;
         }
         public List<string> SourceDirectories;
+        public List<string> SourceFiles;
+
+        /// <summary>
+        /// The project output type. Overrides the output type of the target.
+        /// </summary>
+        public TargetOutputType? OutputType;
 
         /// <summary>
         /// The configuration data. eg. Windows.Debug | Windows.Release
@@ -47,7 +53,7 @@ namespace Neptune.Build
 
         public virtual void Generate()
         {
-            
+            Generator.GenerateProject(this);
         }
     }
 }

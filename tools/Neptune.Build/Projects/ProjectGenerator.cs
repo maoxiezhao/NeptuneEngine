@@ -29,12 +29,12 @@ namespace Neptune.Build
                 Generator = this,
             };
         }
+        public abstract void GenerateProject(Project project);
 
         public virtual Solution CreateSolution()
         {
             return new Solution();
         }
-
         public abstract void GenerateSolution(Solution solution);
     }
 }

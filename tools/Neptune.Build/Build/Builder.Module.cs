@@ -77,7 +77,6 @@ namespace Neptune.Build
                     Log.Warning(string.Format("Missing module {0} (or invalid name specified)", moduleName));
                     continue;
                 }
-
                 CollectModules(buildData, module);
             }
 
@@ -110,11 +109,31 @@ namespace Neptune.Build
             // Collect dependent modules (private)
             foreach (var moduleName in moduleOptions.PrivateDependencies)
             {
+                var dependencyModule = buildData.Rules.GetModule(moduleName);
+                if (dependencyModule == null)
+                {
+                    Log.Warning(string.Format("Missing module {0} referenced by module {1} (or invalid name specified)", moduleName, module.Name));
+                    continue;
+                }
+
+                var options = CollectModules(buildData, dependencyModule);
+                foreach (var e in options.PublicDefinitions)
+                    moduleOptions.PrivateDefinitions.Add(e);
             }
 
             // Collect dependent modules (public)
             foreach (var moduleName in moduleOptions.PublicDependencies)
             {
+                var dependencyModule = buildData.Rules.GetModule(moduleName);
+                if (dependencyModule == null)
+                {
+                    Log.Warning(string.Format("Missing module {0} referenced by module {1} (or invalid name specified)", moduleName, module.Name));
+                    continue;
+                }
+
+                var options = CollectModules(buildData, dependencyModule);
+                foreach (var e in options.PublicDefinitions)
+                    moduleOptions.PublicDefinitions.Add(e);
             }
 
             buildData.Modules.Add(module, moduleOptions);

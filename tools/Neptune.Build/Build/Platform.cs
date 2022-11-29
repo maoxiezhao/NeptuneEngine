@@ -33,6 +33,21 @@ namespace Neptune.Build
         /// </summary>
         public abstract bool HasRequiredSDKsInstalled { get; }
 
+        /// <summary>
+        /// Gets the executable file extension (including leading dot).
+        /// </summary>
+        public abstract string ExecutableFileExtension { get; }
+
+        /// <summary>
+        /// Gets the shared library file extension (including leading dot).
+        /// </summary>
+        public abstract string SharedLibraryFileExtension { get; }
+
+        /// <summary>
+        /// Gets the static library file extension (including leading dot).
+        /// </summary>
+        public abstract string StaticLibraryFileExtension { get; }
+
         public static Platform GetPlatform(TargetPlatform targetPlatform)
         {
             if (_platforms == null)
@@ -87,5 +102,19 @@ namespace Neptune.Build
         }
 
         protected abstract ToolChain CreateToolchain(TargetArchitecture architecture);
+
+        public string GetLinkOutputFileName(string name, LinkerOutput output)
+        {
+            switch (output)
+            {
+                case LinkerOutput.Executable: 
+                    return name + ExecutableFileExtension;
+                case LinkerOutput.SharedLibrary: 
+                    return name + SharedLibraryFileExtension;
+                case LinkerOutput.StaticLibrary:
+                    return name + StaticLibraryFileExtension;
+                default: throw new ArgumentOutOfRangeException(nameof(output), output, null);
+            }
+        }
     }
 }

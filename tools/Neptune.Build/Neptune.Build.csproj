@@ -52,6 +52,7 @@
     <Compile Include="Build\BuildOptions.cs" />
     <Compile Include="Build\Builder.Module.cs" />
     <Compile Include="Build\Builder.Cpp.cs" />
+    <Compile Include="Build\LinkEnv.cs" />
     <Compile Include="Build\ToolChain.cs" />
     <Compile Include="Build\Platform.cs" />
     <Compile Include="Build\GameModule.cs" />
@@ -59,6 +60,7 @@
     <Compile Include="Projects\Solution.cs" />
     <Compile Include="Projects\ProjectGenerator.cs" />
     <Compile Include="Projects\Project.cs" />
+    <Compile Include="Projects\VisualStudio\VSProject.cs" />
     <Compile Include="Projects\VisualStudio\VSProjectGenerator.cs" />
     <Compile Include="Target\TargetPlatform.cs" />
     <Compile Include="Target\EngineTarget.cs" />
