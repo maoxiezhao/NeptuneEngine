@@ -12,6 +12,8 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -33,6 +35,10 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.VisualStudio.Setup.Configuration.Interop, Version=1.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\lib\net35\Microsoft.VisualStudio.Setup.Configuration.Interop.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -49,10 +55,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Build\BuildOptions.cs" />
+    <Compile Include="Build\Cpp\BuildOptions.cs" />
     <Compile Include="Build\Builder.Module.cs" />
-    <Compile Include="Build\Builder.Cpp.cs" />
-    <Compile Include="Build\LinkEnv.cs" />
+    <Compile Include="Build\Cpp\Builder.Cpp.cs" />
+    <Compile Include="Build\Cpp\LinkEnv.cs" />
+    <Compile Include="Build\Cpp\CompileEnv.cs" />
     <Compile Include="Build\ToolChain.cs" />
     <Compile Include="Build\Platform.cs" />
     <Compile Include="Build\GameModule.cs" />
@@ -60,13 +67,14 @@
     <Compile Include="Projects\Solution.cs" />
     <Compile Include="Projects\ProjectGenerator.cs" />
     <Compile Include="Projects\Project.cs" />
+    <Compile Include="Projects\VisualStudio\VSInstance.cs" />
     <Compile Include="Projects\VisualStudio\VSProject.cs" />
     <Compile Include="Projects\VisualStudio\VSProjectGenerator.cs" />
     <Compile Include="Target\TargetPlatform.cs" />
     <Compile Include="Target\EngineTarget.cs" />
     <Compile Include="Projects\ProjectFormat.cs" />
     <Compile Include="Utils\Assembler.cs" />
-    <Compile Include="Build\Builder.cs" />
+    <Compile Include="Build\Builder.Rules.cs" />
     <Compile Include="Projects\Builder.Projects.cs" />
     <Compile Include="Build\Module.cs" />
     <Compile Include="Build\Rules.cs" />
@@ -91,4 +99,11 @@
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\build\Microsoft.VisualStudio.Setup.Configuration.Interop.targets" Condition="Exists('packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\build\Microsoft.VisualStudio.Setup.Configuration.Interop.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>这台计算机上缺少此项目引用的 NuGet 程序包。使用“NuGet 程序包还原”可下载这些程序包。有关更多信息，请参见 http://go.microsoft.com/fwlink/?LinkID=322105。缺少的文件是 {0}。</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\build\Microsoft.VisualStudio.Setup.Configuration.Interop.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\build\Microsoft.VisualStudio.Setup.Configuration.Interop.targets'))" />
+  </Target>
 </Project>

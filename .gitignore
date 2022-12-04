@@ -36,3 +36,4 @@ tools/Neptune.Build/packages.config
 tools/neptune.build/bin
 tools/neptune.build/.vs
 tools/neptune.build/obj
+tools/neptune.build/test/Cache

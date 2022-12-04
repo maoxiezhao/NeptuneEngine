@@ -101,6 +101,8 @@ namespace Neptune.Build
                 IntermediateFolder = outputPath,
                 OutputFolder = outputPath,
                 WorkingDirectory = buildData.TargetOptions.WorkingDirectory,
+                CompileEnv = (CompileEnv)buildData.TargetOptions.CompileEnv.Clone(),
+                LinkEnv = (LinkEnv)buildData.TargetOptions.LinkEnv.Clone(),
             };
             moduleOptions.SourcePaths.Add(module.FolderPath);
             module.Setup(moduleOptions);
@@ -163,7 +165,10 @@ namespace Neptune.Build
                 IntermediateFolder = Path.Combine(workingDirectory, Configuration.IntermediateFolder, target.Name, platformName, architectureName, configurationName),
                 OutputFolder = Path.Combine(workingDirectory, Configuration.BinariesFolder, target.Name, platformName, architectureName, configurationName),
                 WorkingDirectory = workingDirectory,
+                CompileEnv = new CompileEnv(),
+                LinkEnv = new LinkEnv(),
             };
+            toolchain?.SetupEnvironment(options);
             return options;
         }
     }

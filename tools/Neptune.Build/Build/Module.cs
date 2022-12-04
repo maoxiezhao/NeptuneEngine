@@ -35,7 +35,12 @@ namespace Neptune.Build
         /// Setups the module building environment. Allows to modify compiler and linker options.
         /// </summary>
         public virtual void SetupEnvironment(BuildOptions options)
-        { 
+        {
+            options.CompileEnv.PreprocessorDefinitions.AddRange(options.PublicDefinitions);
+            options.CompileEnv.PreprocessorDefinitions.AddRange(options.PrivateDefinitions);
+
+            options.CompileEnv.IncludePaths.AddRange(options.PublicIncludePaths);
+            options.CompileEnv.IncludePaths.AddRange(options.PrivateIncludePaths);
         }
     }
 }

@@ -30,6 +30,8 @@ namespace Neptune.Build
             base.Init();
 
             LinkType = TargetLinkType.Static;
+
+            Modules.Add("Engine");
         }
     }
 }

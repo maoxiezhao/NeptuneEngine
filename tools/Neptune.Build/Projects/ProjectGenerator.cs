@@ -25,7 +25,7 @@ namespace Neptune.Build
 
         public virtual Project CreateProject()
         {
-            return new Project {
+            return new VisualStudioProject {
                 Generator = this,
             };
         }

@@ -125,30 +125,30 @@ namespace Neptune.Build
                             if (!configurationBinaryModule.Any(y => y.FolderPath.StartsWith(project.WorkspaceRootPath)))
                                 continue;
 
-                            if (!binaryModuleSet.TryGetValue(configurationBinaryModule.Key, out var modules))
-                                binaryModuleSet[configurationBinaryModule.Key] = modules = new HashSet<Module>();
+                            if (!binaryModuleSet.TryGetValue(configurationBinaryModule.Key, out var modulesSet))
+                                binaryModuleSet[configurationBinaryModule.Key] = modulesSet = new HashSet<Module>();
 
                             // Collect module build options
                             foreach (var module in configurationBinaryModule)
                             {
-                                modules.Add(module);
+                                modulesSet.Add(module);
 
                                 if (!modulesBuildOptions.ContainsKey(module))
                                     modulesBuildOptions.Add(module, configurationData.Modules[module]);
                             }
+                        }
 
-                            foreach (var reference in projectInfo.References)
+                        foreach (var reference in projectInfo.References)
+                        {
+                            var referenceTargets = GetProjectTargets(reference.Project);
+                            foreach (var referenceTarget in referenceTargets)
                             {
-                                var referenceTargets = GetProjectTargets(reference.Project);
-                                foreach (var referenceTarget in referenceTargets)
+                                var refBuildOptions = GetBuildOptions(referenceTarget, configurationData.TargetBuildOptions.Platform, configurationData.TargetBuildOptions.Toolchain, configurationData.Architecture, configurationData.Configuration, reference.Project.ProjectFolderPath);
+                                var refModules = CollectModules(rules, refBuildOptions.Platform, referenceTarget, refBuildOptions, refBuildOptions.Toolchain, refBuildOptions.Architecture, refBuildOptions.Configuration);
+                                var refBinaryModules = GetBinaryModules(projectInfo, referenceTarget, refModules);
+                                foreach (var binaryModule in refBinaryModules)
                                 {
-                                    var refBuildOptions = GetBuildOptions(referenceTarget, configurationData.TargetBuildOptions.Platform, configurationData.TargetBuildOptions.Toolchain, configurationData.Architecture, configurationData.Configuration, reference.Project.ProjectFolderPath);
-                                    var refModules = CollectModules(rules, refBuildOptions.Platform, referenceTarget, refBuildOptions, refBuildOptions.Toolchain, refBuildOptions.Architecture, refBuildOptions.Configuration);
-                                    var refBinaryModules = GetBinaryModules(projectInfo, referenceTarget, refModules);
-                                    foreach (var binaryModule in refBinaryModules)
-                                    {
-                                        project.Defines.Add(binaryModule.Key.ToUpperInvariant() + "_API=");
-                                    }
+                                    project.Defines.Add(binaryModule.Key.ToUpperInvariant() + "_API=");
                                 }
                             }
                         }

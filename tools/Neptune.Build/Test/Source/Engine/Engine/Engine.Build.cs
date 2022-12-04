@@ -1,13 +1,13 @@
 
 using Neptune.Build;
 
-public class Core : EngineModule
+public class Engine : EngineModule
 {
     /// <inheritdoc />
     public override void Setup(BuildOptions options)
     {
         base.Setup(options);
 
-        options.PublicDependencies.Add("Math");
+        options.PublicDependencies.Add("Core");
     }
 }

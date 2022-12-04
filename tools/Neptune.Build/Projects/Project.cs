@@ -29,6 +29,8 @@ namespace Neptune.Build
         public List<string> SourceDirectories;
         public List<string> SourceFiles;
 
+        public string SourceFolderPath => SourceDirectories != null && SourceDirectories.Count > 0 ? SourceDirectories[0] : WorkspaceRootPath;
+
         /// <summary>
         /// The project output type. Overrides the output type of the target.
         /// </summary>

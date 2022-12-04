@@ -3,32 +3,19 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace Neptune.Build.Platforms
-{
-    public enum WindowsPlatformToolset
-    {
-        /// <summary>
-        /// Use the latest toolset.
-        /// </summary>
-        Latest = 0,
-
-        /// <summary>
-        /// Visual Studio 2019
-        /// </summary>
-        v142 = 142,
-
-        /// <summary>
-        /// Visual Studio 2022
-        /// </summary>
-        v143 = 143,
-    }
-
+namespace Neptune.Build
+{ 
     public enum WindowsPlatformSDK
     {
         /// <summary>
         /// Use the latest SDK.
         /// </summary>
         Latest,
+
+        /// <summary>
+        /// Windows 10 SDK (10.0.19041.0)
+        /// </summary>
+        v10_0_19041_0,
 
         /// <summary>
         /// Windows 11 SDK (10.0.22621.0) 22H2
@@ -46,16 +33,6 @@ namespace Neptune.Build.Platforms
 
         public WindowsPlatformToolset Toolset { get; }
         public WindowsPlatformSDK SDK { get; }
-
-        /// <summary>
-        /// The default system include paths (for native C++ compilation).
-        /// </summary>
-        public readonly List<string> SystemIncludePaths = new List<string>();
-
-        /// <summary>
-        /// The default system library paths (for native C++ linking).
-        /// </summary>
-        public readonly List<string> SystemLibraryPaths = new List<string>();
 
         public WindowsToolchain(WindowsPlatform platform, TargetArchitecture architecture) :
             base(platform, architecture)
@@ -118,6 +95,7 @@ namespace Neptune.Build.Platforms
             var windowsSdkDir = sdks[SDK];
             switch (SDK)
             {
+            case WindowsPlatformSDK.v10_0_19041_0:
             case WindowsPlatformSDK.v10_0_22621_0:
             {
                 var sdkVersionName = WindowsPlatform.GetSDKVersion(SDK).ToString();

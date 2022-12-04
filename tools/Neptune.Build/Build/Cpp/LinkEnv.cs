@@ -23,4 +23,22 @@ namespace Neptune.Build
         /// </summary>
         StaticLibrary,
     }
+
+    public class LinkEnv : ICloneable
+    {
+        /// <summary>
+        /// The collection of dependent static or import libraries paths.
+        /// </summary>
+        public readonly List<string> LibraryPaths = new List<string>();
+
+        public object Clone()
+        {
+            var clone = new LinkEnv
+            {
+            };
+
+            clone.LibraryPaths.AddRange(LibraryPaths);
+            return clone;
+        }
+    }
 }

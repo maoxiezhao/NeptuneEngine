@@ -31,6 +31,16 @@ namespace Neptune.Build
         public readonly HashSet<string> PrivateDefinitions = new HashSet<string>();
 
         /// <summary>
+        /// The collection of additional include paths for a source files of this module. Inherited by the modules that include it.
+        /// </summary>
+        public readonly HashSet<string> PublicIncludePaths = new HashSet<string>();
+
+        /// <summary>
+        /// The collection of additional include paths for a source files of this module.
+        /// </summary>
+        public readonly HashSet<string> PrivateIncludePaths = new HashSet<string>();
+
+        /// <summary>
         /// The collection of the modules that are required by this module (for linking). Inherited by the modules that include it.
         /// </summary>
         public List<string> PublicDependencies = new List<string>();
@@ -44,6 +54,16 @@ namespace Neptune.Build
         /// The build commands working folder directory.
         /// </summary>
         public string WorkingDirectory;
+
+        /// <summary>
+        /// The module compilation environment.
+        /// </summary>
+        public CompileEnv CompileEnv;
+
+        /// <summary>
+        /// The module linking environment.
+        /// </summary>
+        public LinkEnv LinkEnv;
 
         internal void FillSourceFilesFromSourcePaths()
         {
