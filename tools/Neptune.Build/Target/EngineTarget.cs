@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Neptune.Build
 {
-    public class EngineTarget : Target
+    public class EngineTarget : ProjectTarget
     {
         private static Version _engineVersion;
         public static ProjectInfo EngineProject => ProjectInfo.Load(Path.Combine(Globals.EngineRoot, "Neptune.nproj"));

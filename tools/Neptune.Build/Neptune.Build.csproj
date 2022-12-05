@@ -70,6 +70,7 @@
     <Compile Include="Projects\VisualStudio\VSInstance.cs" />
     <Compile Include="Projects\VisualStudio\VSProject.cs" />
     <Compile Include="Projects\VisualStudio\VSProjectGenerator.cs" />
+    <Compile Include="Target\ProjectTarget.cs" />
     <Compile Include="Target\TargetPlatform.cs" />
     <Compile Include="Target\EngineTarget.cs" />
     <Compile Include="Projects\ProjectFormat.cs" />

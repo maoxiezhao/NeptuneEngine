@@ -26,6 +26,8 @@ namespace Neptune.Build
 
     public class LinkEnv : ICloneable
     {
+        public LinkerOutput Output;
+
         /// <summary>
         /// The collection of dependent static or import libraries paths.
         /// </summary>
@@ -35,6 +37,7 @@ namespace Neptune.Build
         {
             var clone = new LinkEnv
             {
+                Output = Output,
             };
 
             clone.LibraryPaths.AddRange(LibraryPaths);

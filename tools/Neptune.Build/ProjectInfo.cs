@@ -20,16 +20,6 @@ namespace Neptune.Build
         public string Name;
         public Version Version;
 
-        /// <summary>
-        /// The name of the build target to use for the game building (final, cooked game code).
-        /// </summary>
-        public string GameTarget;
-
-        /// <summary>
-        /// The name of the build target to use for the game in editor building (editor game code).
-        /// </summary>
-        public string EditorTarget;
-
 
         public class Reference
         {

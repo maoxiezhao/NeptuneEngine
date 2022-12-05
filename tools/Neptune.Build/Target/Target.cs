@@ -107,7 +107,20 @@ namespace Neptune.Build
         }
 
         public virtual void SetupTargetEnvironment(BuildOptions options)
-        { 
+        {
+            // Add preprocessor definitions
+            options.CompileEnv.PreprocessorDefinitions.AddRange(GlobalDefinitions);
+
+            // Record the output of link environment
+            options.LinkEnv.Output = OutputType == TargetOutputType.Executable ? LinkerOutput.Executable : LinkerOutput.SharedLibrary;
+
+            // Setup compile environment
+            options.SetupCompileEnvironment();
+
+            if (options.CompileEnv.UseDebugCRT)
+                options.CompileEnv.PreprocessorDefinitions.Add("_DEBUG");
+            else
+                options.CompileEnv.PreprocessorDefinitions.Add("NDEBUG");
         }
 
         public virtual string GetOutputFilePath(BuildOptions options, TargetOutputType? outputType = null)

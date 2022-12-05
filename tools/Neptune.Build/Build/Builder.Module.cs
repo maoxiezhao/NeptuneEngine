@@ -169,6 +169,7 @@ namespace Neptune.Build
                 LinkEnv = new LinkEnv(),
             };
             toolchain?.SetupEnvironment(options);
+            target.SetupTargetEnvironment(options);
             return options;
         }
     }

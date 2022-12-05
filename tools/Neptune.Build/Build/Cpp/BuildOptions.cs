@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Neptune.Build.CommandLine;
 
 namespace Neptune.Build
 {
@@ -105,6 +106,52 @@ namespace Neptune.Build
             }
 
             SourcePaths.Clear();
+        }
+
+        public virtual void SetupCompileEnvironment()
+        {
+            switch (Configuration)
+            {
+            case TargetConfiguration.Debug:
+                CompileEnv.PreprocessorDefinitions.Add("BUILD_DEBUG");
+                CompileEnv.FunctionLevelLinking = false;
+                CompileEnv.Optimization = false;
+                CompileEnv.OptimizationHit = OptimizationHit.Neither;
+                CompileEnv.DebugInformation = true;
+                CompileEnv.RuntimeChecks = true;
+                CompileEnv.StringPooling = false;
+                CompileEnv.IntrinsicFunctions = false;
+                CompileEnv.BufferSecurityCheck = true;
+                CompileEnv.Inlining = false;
+                CompileEnv.WholeProgramOptimization = false;
+                break;
+            case TargetConfiguration.Development:
+                CompileEnv.PreprocessorDefinitions.Add("BUILD_DEVELOPMENT");
+                CompileEnv.FunctionLevelLinking = true;
+                CompileEnv.Optimization = true;
+                CompileEnv.OptimizationHit = OptimizationHit.FastCode;
+                CompileEnv.DebugInformation = true;
+                CompileEnv.RuntimeChecks = false;
+                CompileEnv.StringPooling = true;
+                CompileEnv.IntrinsicFunctions = true;
+                CompileEnv.BufferSecurityCheck = true;
+                CompileEnv.Inlining = true;
+                CompileEnv.WholeProgramOptimization = false;
+                break;
+            case TargetConfiguration.Release:
+                CompileEnv.PreprocessorDefinitions.Add("BUILD_RELEASE");
+                CompileEnv.FunctionLevelLinking = true;
+                CompileEnv.Optimization = true;
+                CompileEnv.OptimizationHit = OptimizationHit.FastCode;
+                CompileEnv.DebugInformation = false;
+                CompileEnv.RuntimeChecks = false;
+                CompileEnv.StringPooling = true;
+                CompileEnv.IntrinsicFunctions = true;
+                CompileEnv.BufferSecurityCheck = false;
+                CompileEnv.Inlining = true;
+                CompileEnv.WholeProgramOptimization = true;
+                break;
+            }
         }
     }
 }

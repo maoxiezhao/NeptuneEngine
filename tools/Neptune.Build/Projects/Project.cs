@@ -21,6 +21,11 @@ namespace Neptune.Build
         /// </summary>
         public HashSet<string> Defines = new HashSet<string>();
 
+        /// <summary>
+        /// The additional included source files path.
+        /// </summary>
+        public string[] SearchPaths;
+
         public virtual string Path
         {
             get => _path;

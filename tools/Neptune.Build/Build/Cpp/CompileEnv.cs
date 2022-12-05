@@ -46,6 +46,51 @@ namespace Neptune.Build
         public bool Optimization = false;
 
         /// <summary>
+        /// Enables functions level linking support.
+        /// </summary>
+        public bool FunctionLevelLinking = false;
+
+        /// <summary>
+        /// Enables debug information generation.
+        /// </summary>
+        public bool DebugInformation = false;
+
+        /// <summary>
+        /// Enables runtime checks.
+        /// </summary>
+        public bool RuntimeChecks = false;
+
+        /// <summary>
+        /// Enables string pooling.
+        /// </summary>
+        public bool StringPooling = false;
+
+        /// <summary>
+        /// Enables the compiler intrinsic functions.
+        /// </summary>
+        public bool IntrinsicFunctions = false;
+
+        /// <summary>
+        /// Enables buffer security checks.
+        /// </summary>
+        public bool BufferSecurityCheck = true;
+
+        /// <summary>
+        /// Enables functions inlining support.
+        /// </summary>
+        public bool Inlining = false;
+
+        /// <summary>
+        /// Enables the whole program optimization.
+        /// </summary>
+        public bool WholeProgramOptimization = false;
+
+        /// <summary>
+        /// Hints to use Debug version of the standard library.
+        /// </summary>
+        public bool UseDebugCRT = false;
+
+        /// <summary>
         /// The collection of defines with preprocessing symbol for a source files.
         /// </summary>
         public readonly List<string> PreprocessorDefinitions = new List<string>();
@@ -61,6 +106,14 @@ namespace Neptune.Build
             {
                 CppVersion = CppVersion,
                 Optimization = Optimization,
+                UseDebugCRT = UseDebugCRT,
+                FunctionLevelLinking = FunctionLevelLinking,
+                DebugInformation = DebugInformation,
+                RuntimeChecks = RuntimeChecks,
+                StringPooling = StringPooling,
+                IntrinsicFunctions = IntrinsicFunctions,
+                BufferSecurityCheck = BufferSecurityCheck,
+                Inlining = Inlining,
             };
             clone.PreprocessorDefinitions.AddRange(PreprocessorDefinitions);
             clone.IncludePaths.AddRange(IncludePaths);
