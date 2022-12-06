@@ -13,8 +13,10 @@ namespace Neptune.Build
 
         public ProjectGenerator Generator;
         public string Name;
+        public string GroupName = string.Empty;
         public Target[] Targets;
         public string WorkspaceRootPath;
+        public Guid FolderGuid;
 
         /// <summary>
         /// The source code build defines.
@@ -25,6 +27,11 @@ namespace Neptune.Build
         /// The additional included source files path.
         /// </summary>
         public string[] SearchPaths;
+
+        /// <summary>
+        /// The project dependencies.
+        /// </summary>
+        public HashSet<Project> Dependencies = new HashSet<Project>();
 
         public virtual string Path
         {

@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Threading.Tasks;
 using static System.Net.WebRequestMethods;
+using System.Xml.Linq;
 
 namespace Neptune.Build
 {
@@ -14,6 +15,27 @@ namespace Neptune.Build
     {
         VS2019,
         VS2022,
+    }
+
+    /// <summary>
+    /// The Visual Studio solution project file types GUIDs. Based on http://www.codeproject.com/Reference/720512/List-of-Visual-Studio-Project-Type-GUIDs.
+    /// </summary>
+    public static class ProjectTypeGuids
+    {
+        /// <summary>
+        /// The solution folder.
+        /// </summary>
+        public static Guid SolutionFolder = new Guid("{2150E333-8FDC-42A3-9474-1A3956D46DE8}");
+
+        /// <summary>
+        /// The Windows Visual C++.
+        /// </summary>
+        public static Guid WindowsVisualCpp = new Guid("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}");
+
+        public static string ToOption(Guid projectType)
+        {
+            return projectType.ToString("B").ToUpperInvariant();
+        }
     }
 
     public class VSProjectGenerator : ProjectGenerator
@@ -358,8 +380,262 @@ namespace Neptune.Build
             Utils.WriteFileIfChanged(project.Path + ".user", vcUserFileContent.ToString());
         }
 
+
+        private struct SolutionConfiguration : IEquatable<SolutionConfiguration>, IComparable
+        {
+            public string Name;
+            public string OriginalName;
+            public string Configuration;
+            public string Platform;
+
+            public SolutionConfiguration(Project.ConfigurationData configuration)
+            {
+                OriginalName = configuration.Name.Replace("AnyCPU", "Any CPU");
+                var name = OriginalName.Remove(OriginalName.IndexOf('|'));
+                var parts = name.Split('.');
+                if (parts.Length == 3)
+                    Configuration = parts[0] + '.' + parts[2];
+                else if (parts.Length == 1)
+                    Configuration = parts[0];
+                else
+                    throw new Exception($"Unknown project configuration {configuration.Name}.");
+
+                Platform = configuration.PlatformName + "_" + configuration.Architecture.ToString();
+                Name = Configuration + '|' + Platform;
+            }
+
+            public int CompareTo(object obj)
+            {
+                if (obj is SolutionConfiguration other)
+                    return Name.CompareTo(other.Name);
+                return 1;
+            }
+
+            /// <inheritdoc />
+            public bool Equals(SolutionConfiguration other)
+            {
+                return Name == other.Name;
+            }
+        };
+
         public override void GenerateSolution(Solution solution)
         {
+            // Try to extract info from the existing solution file to make random IDs stable
+            var solutionId = Guid.NewGuid();
+            var folderIds = new Dictionary<string, Guid>();
+            if (System.IO.File.Exists(solution.Path))
+            {
+                var contents = System.IO.File.ReadAllText(solution.Path);
+                var solutionIdMatch = Regex.Match(contents, "SolutionGuid = \\{(.*?)\\}");
+                if (solutionIdMatch.Success)
+                {
+                    var value = solutionIdMatch.Value;
+                    solutionId = Guid.ParseExact(value.Substring(15), "B");
+                }
+
+                var folderIdsMatch = Regex.Match(contents, "Project\\(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\"\\) = \"(.*?)\", \"(.*?)\", \"{(.*?)}\"");
+                if (folderIdsMatch.Success)
+                {
+                    foreach (Capture capture in folderIdsMatch.Captures)
+                    {
+                        var value = capture.Value.Substring("Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"".Length);
+                        var folder = value.Substring(0, value.IndexOf('\"'));
+                        var folderId = Guid.ParseExact(value.Substring(folder.Length * 2 + "\", \"".Length + "\", \"".Length, 38), "B");
+                        folderIds["Source\\" + folder] = folderId;
+                    }
+                }
+            }
+
+            var solutionDirectory = Path.GetDirectoryName(solution.Path);
+            var projects = solution.Projects.Cast<VisualStudioProject>().ToArray();
+
+            StringBuilder vcSolutionFileContent = new StringBuilder();
+            {
+                // Header
+                if (Version == VisualStudioVersion.VS2022)
+                {
+                    vcSolutionFileContent.AppendLine("Microsoft Visual Studio Solution File, Format Version 12.00");
+                    vcSolutionFileContent.AppendLine("# Visual Studio Version 17");
+                    vcSolutionFileContent.AppendLine("VisualStudioVersion = 17.0.31314.256");
+                    vcSolutionFileContent.AppendLine("MinimumVisualStudioVersion = 10.0.40219.1");
+                }
+                else
+                {
+                    throw new Exception("Unsupported solution file format.");
+                }
+
+                // Solution folders
+                var folderNames = new HashSet<string>();
+                foreach (var project in projects)
+                {
+                    var folder = project.GroupName;
+                    if (project.SourceDirectories != null && project.SourceDirectories.Count == 1)
+                    {
+                        var subFolder = Utils.MakePathRelativeTo(Path.GetDirectoryName(project.SourceDirectories[0]), project.WorkspaceRootPath);
+                        if (subFolder.StartsWith("Source\\"))
+                            subFolder = subFolder.Substring(7);
+                        if (subFolder.Length != 0)
+                        {
+                            if (folder.Length != 0)
+                                folder += '\\';
+                            folder += subFolder;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(folder))
+                        continue;
+
+                    var folderParents = folder.Split('\\');
+                    for (int i = 0; i < folderParents.Length; i++)
+                    {
+                        var folderPath = folderParents[0];
+                        for (int j = 1; j <= i; j++)
+                            folderPath += '\\' + folderParents[j];
+
+                        if (folderNames.Contains(folderPath))
+                        {
+                            project.FolderGuid = folderIds[folderPath];
+                        }
+                        else
+                        {
+                            if (!folderIds.TryGetValue(folderPath, out project.FolderGuid))
+                            {
+                                project.FolderGuid = Guid.NewGuid();
+                                folderIds.Add(folderPath, project.FolderGuid);
+                            }
+                            folderNames.Add(folderPath);
+                        }
+                    }
+                }
+
+                foreach (var folder in folderNames)
+                {
+                    var folderGuid = folderIds[folder].ToString("B").ToUpperInvariant();
+                    var typeGuid = ProjectTypeGuids.ToOption(ProjectTypeGuids.SolutionFolder);
+                    var lastSplit = folder.LastIndexOf('\\');
+                    var name = lastSplit != -1 ? folder.Substring(lastSplit + 1) : folder;
+
+                    vcSolutionFileContent.AppendLine(string.Format("Project(\"{0}\") = \"{1}\", \"{2}\", \"{3}\"", typeGuid, name, name, folderGuid));
+                    vcSolutionFileContent.AppendLine("EndProject");
+                }
+
+                // Solution projects
+                foreach (var project in projects)
+                {
+                    var projectId = project.ProjectGuid.ToString("B").ToUpperInvariant();
+                    var typeGuid = ProjectTypeGuids.ToOption(ProjectTypeGuids.WindowsVisualCpp);
+
+                    vcSolutionFileContent.AppendLine(string.Format("Project(\"{0}\") = \"{1}\", \"{2}\", \"{3}\"", typeGuid, project.Name, Utils.MakePathRelativeTo(project.Path, solutionDirectory), projectId));
+                    if (project.Dependencies.Count > 0)
+                    {
+                        vcSolutionFileContent.AppendLine("\tProjectSection(ProjectDependencies) = postProject");
+                        var depProjects = project.Dependencies.Cast<VisualStudioProject>();
+                        foreach (var dependency in depProjects)
+                        {
+                            string dependencyId = dependency.ProjectGuid.ToString("B").ToUpperInvariant();
+                            vcSolutionFileContent.AppendLine("\t\t" + dependencyId + " = " + dependencyId);
+                        }
+                        vcSolutionFileContent.AppendLine("\tEndProjectSection");
+                    }
+                    vcSolutionFileContent.AppendLine("EndProject");
+                }
+
+                // Global configuration
+                vcSolutionFileContent.AppendLine("Global");
+                {
+                    // Collect all unique configurations
+                    var configurations = new HashSet<SolutionConfiguration>();
+                    foreach (var project in projects)
+                    {
+                        if (project.Configurations == null || project.Configurations.Count == 0)
+                            throw new Exception("Missing configurations for project " + project.Name);
+
+                        foreach (var configuration in project.Configurations)
+                        {
+                            configurations.Add(new SolutionConfiguration(configuration));
+                        }
+                    }
+
+                    // Sort configurations
+                    var configurationsSorted = new List<SolutionConfiguration>(configurations);
+                    configurationsSorted.Sort();
+
+                    vcSolutionFileContent.AppendLine("	GlobalSection(SolutionConfigurationPlatforms) = preSolution");
+                    foreach (var configuration in configurationsSorted)
+                    {
+                        vcSolutionFileContent.AppendLine("		" + configuration.Name + " = " + configuration.Name);
+                    }
+                    vcSolutionFileContent.AppendLine("	EndGlobalSection");
+
+                    // Per-project configurations mapping
+                    vcSolutionFileContent.AppendLine("	GlobalSection(ProjectConfigurationPlatforms) = postSolution");
+                    foreach (var project in projects)
+                    {
+                        string projectId = project.ProjectGuid.ToString("B").ToUpperInvariant();
+                        foreach (var configuration in configurationsSorted)
+                        {
+                            bool build = false;
+                            int firstFullMatch = -1, firstPlatformMatch = -1;
+                            for (int i = 0; i < project.Configurations.Count; i++)
+                            {
+                                var e = new SolutionConfiguration(project.Configurations[i]);
+                                if (e.Name == configuration.Name)
+                                {
+                                    firstFullMatch = i;
+                                    break;
+                                }
+                                if (firstPlatformMatch == -1 && e.Platform == configuration.Platform)
+                                {
+                                    firstPlatformMatch = i;
+                                }
+                            }
+
+                            SolutionConfiguration projectConfiguration;
+                            if (firstFullMatch != -1)
+                            {
+                                projectConfiguration = configuration;
+                                build = solution.StartupProject == project || (solution.StartupProject == null && project.Name == solution.Name);
+                            }
+                            else if (firstPlatformMatch != -1)
+                            {
+                                projectConfiguration = new SolutionConfiguration(project.Configurations[firstPlatformMatch]);
+                            }
+                            else
+                            {
+                                projectConfiguration = new SolutionConfiguration(project.Configurations[0]);
+                            }
+
+                            vcSolutionFileContent.AppendLine(string.Format("		{0}.{1}.ActiveCfg = {2}", projectId, configuration.Name, projectConfiguration.OriginalName));
+                            if (build)
+                                vcSolutionFileContent.AppendLine(string.Format("		{0}.{1}.Build.0 = {2}", projectId, configuration.Name, projectConfiguration.OriginalName));
+                        }
+                    }
+                    vcSolutionFileContent.AppendLine("	EndGlobalSection");
+
+                    // Always show solution root node
+                    {
+                        vcSolutionFileContent.AppendLine("	GlobalSection(SolutionProperties) = preSolution");
+                        vcSolutionFileContent.AppendLine("		HideSolutionNode = FALSE");
+                        vcSolutionFileContent.AppendLine("	EndGlobalSection");
+                    }
+
+                    // Solution directory hierarchy
+                    vcSolutionFileContent.AppendLine("	GlobalSection(NestedProjects) = preSolution");
+                    {
+                        
+                    }
+                    vcSolutionFileContent.AppendLine("	EndGlobalSection");
+
+                    // Solution identifier
+                    {
+                        vcSolutionFileContent.AppendLine("	GlobalSection(ExtensibilityGlobals) = postSolution");
+                        vcSolutionFileContent.AppendLine(string.Format("		SolutionGuid = {0}", solutionId.ToString("B").ToUpperInvariant()));
+                        vcSolutionFileContent.AppendLine("	EndGlobalSection");
+                    }
+                }
+                vcSolutionFileContent.AppendLine("EndGlobal");
+            }
+            Utils.WriteFileIfChanged(solution.Path, vcSolutionFileContent.ToString());
         }
 
 

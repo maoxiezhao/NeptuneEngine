@@ -109,6 +109,10 @@ namespace Neptune.Build
                     project.WorkspaceRootPath = projectInfo.ProjectFolderPath;
                     project.Path = Path.Combine(projectsRoot, project.Name + '.' + generator.ProjectFileExtension);
                     project.SourceDirectories = new List<string> { Path.GetDirectoryName(targets[0].FilePath) };
+                    if (project.WorkspaceRootPath.StartsWith(rootProject.ProjectFolderPath))
+                        project.GroupName = Utils.MakePathRelativeTo(project.WorkspaceRootPath, rootProject.ProjectFolderPath);
+                    else if (projectInfo != Globals.Project)
+                        project.GroupName = projectInfo.Name;
 
                     // Setup configurations
                     SetupConfigurations(project, projectInfo);
@@ -177,7 +181,7 @@ namespace Neptune.Build
             }
 
             // Generate solution
-            using (new ProfileEventScope("Solution"))
+            using (new ProfileEventScope("GenerateSolution"))
             {
                 var generator = ProjectGenerator.Create(projectFormat);
                 Solution solution = generator.CreateSolution();
