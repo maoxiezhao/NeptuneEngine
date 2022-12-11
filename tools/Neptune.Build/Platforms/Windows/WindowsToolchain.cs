@@ -34,6 +34,9 @@ namespace Neptune.Build
         public WindowsPlatformToolset Toolset { get; }
         public WindowsPlatformSDK SDK { get; }
 
+        public override string DllExport => "__declspec(dllexport)";
+        public override string DllImport => "__declspec(dllimport)";
+
         public WindowsToolchain(WindowsPlatform platform, TargetArchitecture architecture) :
             base(platform, architecture)
         {
@@ -122,6 +125,13 @@ namespace Neptune.Build
             }
             default: throw new ArgumentOutOfRangeException(nameof(SDK));
             }
+        }
+
+        public override CompileOutput CompileCppFiles(TaskGraph graph, BuildOptions options, List<string> sourceFiles, string outputPath)
+        {
+            var output = new CompileOutput();
+
+            return output;
         }
     }
 }

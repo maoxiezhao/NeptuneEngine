@@ -113,42 +113,5 @@ namespace Neptune.Build
             var sourcePath = Path.Combine(project.ProjectFolderPath, "Source");
             return rules.Targets.Where(target => target.FolderPath.StartsWith(sourcePath)).ToArray();
         }
-
-        public static void Clean()
-        { 
-        }
-
-        public static bool BuildTargets()
-        {
-            var project = Globals.Project;
-            if (project == null)
-            {
-                Log.Warning("Missing projects");
-                return false;
-            }
-
-            bool ret = true;
-            var taskGraph = new TaskGraph("");
-
-            // Prepare tasks
-            taskGraph.Setup();
-
-            taskGraph.LoadCache();
-
-            // Execute tasks
-            int executedTaskCount;
-            if (!taskGraph.Execute(out executedTaskCount))
-                return false;
-
-            // Save cache
-            if (executedTaskCount > 0)
-            {
-                taskGraph.SaveCache();
-            }
-
-            // Post build
-
-            return ret;
-        }
     }
 }

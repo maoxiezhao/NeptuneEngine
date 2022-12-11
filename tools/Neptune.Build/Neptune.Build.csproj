@@ -14,6 +14,21 @@
     <Deterministic>true</Deterministic>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -55,13 +70,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Build\Builder.Rules.cs" />
     <Compile Include="Build\Cpp\BuildOptions.cs" />
     <Compile Include="Build\Builder.Module.cs" />
     <Compile Include="Build\Cpp\Builder.Cpp.cs" />
+    <Compile Include="Build\Cpp\CompileOut.cs" />
     <Compile Include="Build\Cpp\LinkEnv.cs" />
     <Compile Include="Build\Cpp\CompileEnv.cs" />
-    <Compile Include="Build\ToolChain.cs" />
-    <Compile Include="Build\Platform.cs" />
+    <Compile Include="Generator\Generator.cs" />
+    <Compile Include="Platforms\ToolChain.cs" />
+    <Compile Include="Platforms\Platform.cs" />
     <Compile Include="Build\GameModule.cs" />
     <Compile Include="Build\EngineModule.cs" />
     <Compile Include="Projects\Solution.cs" />
@@ -75,8 +93,8 @@
     <Compile Include="Target\EngineTarget.cs" />
     <Compile Include="Projects\ProjectFormat.cs" />
     <Compile Include="Utils\Assembler.cs" />
-    <Compile Include="Build\Builder.Rules.cs" />
-    <Compile Include="Projects\Builder.Projects.cs" />
+    <Compile Include="Build\Builder.cs" />
+    <Compile Include="Build\Builder.Projects.cs" />
     <Compile Include="Build\Module.cs" />
     <Compile Include="Build\Rules.cs" />
     <Compile Include="CommandLine.cs" />
@@ -98,7 +116,18 @@
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.8">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4.8 %28x86 和 x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\build\Microsoft.VisualStudio.Setup.Configuration.Interop.targets" Condition="Exists('packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\build\Microsoft.VisualStudio.Setup.Configuration.Interop.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

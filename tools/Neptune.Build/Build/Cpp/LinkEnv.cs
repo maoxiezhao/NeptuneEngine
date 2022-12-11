@@ -29,6 +29,11 @@ namespace Neptune.Build
         public LinkerOutput Output;
 
         /// <summary>
+        /// The collection of the object files to be linked.
+        /// </summary>
+        public readonly HashSet<string> InputFiles = new HashSet<string>();
+
+        /// <summary>
         /// The collection of dependent static or import libraries paths.
         /// </summary>
         public readonly List<string> LibraryPaths = new List<string>();

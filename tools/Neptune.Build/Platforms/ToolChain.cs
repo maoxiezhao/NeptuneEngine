@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Neptune.Build
 {
-    public class ToolChain
+    public abstract class ToolChain
     {
         public Platform Platform { get; private set; }
         public TargetArchitecture Architecture { get; private set; }
@@ -22,6 +22,9 @@ namespace Neptune.Build
         /// </summary>
         public readonly List<string> SystemLibraryPaths = new List<string>();
 
+        public abstract string DllExport { get; }
+        public abstract string DllImport { get; }
+
         protected ToolChain(Platform platform, TargetArchitecture architecture)
         {
             Platform = platform;
@@ -33,5 +36,8 @@ namespace Neptune.Build
             options.CompileEnv.IncludePaths.AddRange(SystemIncludePaths);
             options.LinkEnv.LibraryPaths.AddRange(SystemLibraryPaths);
         }
+
+        public abstract CompileOutput CompileCppFiles(TaskGraph graph, BuildOptions options, List<string> sourceFiles, string outputPath);
+
     }
 }

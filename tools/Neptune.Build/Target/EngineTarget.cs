@@ -29,7 +29,7 @@ namespace Neptune.Build
         {
             base.Init();
 
-            LinkType = TargetLinkType.Static;
+            LinkType = TargetLinkType.Monolithic;
 
             Modules.Add("Engine");
         }

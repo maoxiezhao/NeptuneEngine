@@ -9,8 +9,8 @@ namespace Neptune.Build
 {
     public enum TargetLinkType
     {
-        Dynamic,
-        Static
+        Monolithic,
+        Modular
     }
 
     public enum TargetOutputType
@@ -49,7 +49,7 @@ namespace Neptune.Build
         /// <summary>
         /// The target link type.
         /// </summary>
-        public TargetLinkType LinkType = TargetLinkType.Dynamic;
+        public TargetLinkType LinkType = TargetLinkType.Modular;
 
         /// <summary>
         /// Output type

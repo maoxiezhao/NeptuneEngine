@@ -9,6 +9,14 @@ namespace Neptune.Build
 {
     public static class Utils
     {
+        public static void AddRange<T>(this HashSet<T> source, IEnumerable<T> items)
+        {
+            foreach (T item in items)
+            {
+                source.Add(item);
+            }
+        }
+
         public static string NormalizePath(string path)
         {
             if (string.IsNullOrEmpty(path))

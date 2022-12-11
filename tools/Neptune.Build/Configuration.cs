@@ -38,6 +38,33 @@ namespace Neptune.Build
         [CommandLine("build", "Builds the targets.")]
         public static bool Build = false;
 
+        [CommandLine("Rebuild", "Rebuilds the targets.")]
+        public static bool Rebuild = false;
+
+        /// <summary>
+        /// The set of targets to build.
+        /// </summary>
+        [CommandLine("buildtargets", "<target1>,<target2>,<target3>...", "The set of targets to build.")]
+        public static string[] BuildTargets;
+
+        /// <summary>
+        /// The target configuration to build. If not specified builds all supported configurations.
+        /// </summary>
+        [CommandLine("configuration", "Debug", "The target configuration to build. If not specified builds all supported configurations.")]
+        public static TargetConfiguration[] BuildConfigurations;
+
+        /// <summary>
+        /// The target platform to build. If not specified builds all supported platforms.
+        /// </summary>
+        [CommandLine("platform", "Windows", "The target platform to build. If not specified builds all supported platforms.")]
+        public static TargetPlatform[] BuildPlatforms;
+
+        /// <summary>
+        /// The target platform architecture to build. If not specified builds all valid architectures.
+        /// </summary>
+        [CommandLine("arch", "<x64/x86/arm/arm64>", "The target platform architecture to build. If not specified builds all valid architectures.")]
+        public static TargetArchitecture[] BuildArchitectures;
+
         /// <summary>
         /// Generates Visual Studio 2022 project format files. Valid only with -genproject option.
         /// </summary>

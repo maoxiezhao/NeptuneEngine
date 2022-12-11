@@ -622,7 +622,28 @@ namespace Neptune.Build
                     // Solution directory hierarchy
                     vcSolutionFileContent.AppendLine("	GlobalSection(NestedProjects) = preSolution");
                     {
-                        
+                        foreach (var folder in folderNames)
+                        {
+                            var lastSplit = folder.LastIndexOf('\\');
+                            if (lastSplit != -1)
+                            {
+                                var folderGuid = folderIds[folder].ToString("B").ToUpperInvariant();
+                                var parentFolder = folder.Substring(0, lastSplit);
+                                var parentFolderGuid = folderIds[parentFolder].ToString("B").ToUpperInvariant();
+                                vcSolutionFileContent.AppendLine(string.Format("		{0} = {1}", folderGuid, parentFolderGuid));
+                            }
+                        }
+
+                        // Write mapping for projectId - folderId
+                        foreach (var project in projects)
+                        {
+                            if (project.FolderGuid != Guid.Empty)
+                            {
+                                var projectGuidString = project.ProjectGuid.ToString("B").ToUpperInvariant();
+                                var folderGuidString = project.FolderGuid.ToString("B").ToUpperInvariant();
+                                vcSolutionFileContent.AppendLine(string.Format("		{0} = {1}", projectGuidString, folderGuidString));
+                            }
+                        }
                     }
                     vcSolutionFileContent.AppendLine("	EndGlobalSection");
 

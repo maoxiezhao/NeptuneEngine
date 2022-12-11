@@ -56,7 +56,7 @@ namespace Neptune.Build
                 }
 
                 // Build targets
-                if (Configuration.Build)
+                if (Configuration.Build || Configuration.Rebuild)
                 {
                     Log.Info("Building targets...");
                     ret |= Builder.BuildTargets();

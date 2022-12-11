@@ -9,21 +9,6 @@ namespace Neptune.Build
 {
     partial class Builder
     {
-        public sealed class BuildData
-        {
-            public ProjectInfo Project;
-            public TaskGraph Graph;
-            public RulesAssembly Rules;
-            public Target Target;
-            public BuildOptions TargetOptions;
-            public Platform Platform;
-            public ToolChain Toolchain;
-            public TargetArchitecture Architecture;
-            public TargetConfiguration Configuration;
-            public Dictionary<Module, BuildOptions> Modules = new Dictionary<Module, BuildOptions>(256);
-            public List<Module> ModulesOrderList = new List<Module>();
-        }
-
         /// <summary>
         /// Collects the modules required by the given target to build (includes dependencies).
         /// </summary>

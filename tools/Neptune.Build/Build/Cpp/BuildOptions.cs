@@ -66,6 +66,17 @@ namespace Neptune.Build
         /// </summary>
         public LinkEnv LinkEnv;
 
+        /// <summary>
+        /// The dependency files to include with output (additional debug files, dynamic libraries, etc.).
+        /// </summary>
+        public HashSet<string> DependencyFiles = new HashSet<string>();
+
+        /// <summary>
+        /// The build output files (binaries, object files and static or dynamic libraries).
+        /// </summary>
+        public List<string> OutputFiles = new List<string>();
+
+
         internal void FillSourceFilesFromSourcePaths()
         {
             if (SourcePaths.Count == 0)
