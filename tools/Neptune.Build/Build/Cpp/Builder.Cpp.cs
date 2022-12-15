@@ -32,20 +32,20 @@ namespace Neptune.Build
             var modules = new List<Module>();
             switch (target.LinkType)
             {
-            case TargetLinkType.Monolithic:
-                modules.AddRange(buildModules.Keys);
-                break;
-            case TargetLinkType.Modular:
-            {
-                var sourcePath = Path.Combine(project.ProjectFolderPath, "Source");
-                foreach (var module in buildModules.Keys)
-                {
-                    if (module.FolderPath.StartsWith(sourcePath))
-                        modules.Add(module);
-                }
-                break;
-            }
-            default: throw new ArgumentOutOfRangeException();
+                case TargetLinkType.Monolithic:
+                    modules.AddRange(buildModules.Keys);
+                    break;
+                case TargetLinkType.Modular:
+                    {
+                        var sourcePath = Path.Combine(project.ProjectFolderPath, "Source");
+                        foreach (var module in buildModules.Keys)
+                        {
+                            if (module.FolderPath.StartsWith(sourcePath))
+                                modules.Add(module);
+                        }
+                        break;
+                    }
+                default: throw new ArgumentOutOfRangeException();
             }
             modules.RemoveAll(x => x == null || string.IsNullOrEmpty(x.BinaryModuleName));
             return modules.GroupBy(x => x.BinaryModuleName).ToArray();
@@ -53,7 +53,7 @@ namespace Neptune.Build
 
         private static void BuildTargetReferenceNativeCpp(Dictionary<Target, BuildData> buildContext, BuildData buildData, ProjectInfo.Reference reference)
         {
-            
+
         }
 
         public static BuildData BuildTargetNativeCpp(Dictionary<Target, BuildData> buildContext, ProjectInfo project, RulesAssembly rules, TaskGraph graph, Target target, ToolChain toolchain, TargetConfiguration configuration)
@@ -122,7 +122,7 @@ namespace Neptune.Build
                     continue;
                 }
 
-                CollectModules(buildData, module);   
+                CollectModules(buildData, module);
             }
 
             // Setup binary modules
@@ -170,7 +170,7 @@ namespace Neptune.Build
                                 moduleOptions.CompileEnv.PreprocessorDefinitions.Add(dependencyModule.BinaryModuleName.ToUpperInvariant() + "_API=" + toolchain.DllImport);
                             }
                         }
-                        else 
+                        else
                         {
                             // Export symbols from all binary modules in the build
                             foreach (var q in buildData.BinaryModules)
@@ -269,6 +269,48 @@ namespace Neptune.Build
             var compilationOutput = buildData.Toolchain.CompileCppFiles(buildData.Graph, moduleOptions, cppFiles, moduleOptions.OutputFolder);
             foreach (var e in compilationOutput.ObjectFiles)
                 moduleOptions.LinkEnv.InputFiles.Add(e);
+
+            if (buildData.Target.LinkType != TargetLinkType.Monolithic)
+            {
+                // Use the library includes required by this module
+                moduleOptions.LinkEnv.InputLibraries.AddRange(moduleOptions.Libraries);
+
+                // Link all object files into module library
+                var outputLib = buildData.Platform.GetLinkOutputFileName(module.Name, moduleOptions.LinkEnv.Output);
+                outputLib = Path.Combine(buildData.TargetOptions.OutputFolder, outputLib);
+                LinkNativeBinary(buildData, moduleOptions, outputLib);
+
+                if (moduleOptions.LinkEnv.Output == LinkerOutput.Executable || 
+                    moduleOptions.LinkEnv.Output == LinkerOutput.SharedLibrary)
+                {
+                    moduleOptions.OutputFiles.Add(Path.ChangeExtension(outputLib, buildData.Platform.StaticLibraryFileExtension));
+                }
+            }
+            else
+            {
+                // Use direct linking of the module object files into the target
+                moduleOptions.OutputFiles.AddRange(compilationOutput.ObjectFiles);
+
+                // Forward the library includes required by this module
+                moduleOptions.OutputFiles.AddRange(moduleOptions.LinkEnv.InputFiles);
+            }
+        }
+
+        private static void LinkNativeBinary(BuildData buildData, BuildOptions buildOptions, string outputPath)
+        {
+            using (new ProfileEventScope("LinkNativeBinary"))
+            {
+                buildData.Toolchain.LinkFiles(buildData.Graph, buildOptions, outputPath);
+
+                // Produce additional import library if will use binary module references
+                var linkerOutput = buildOptions.LinkEnv.Output;
+                if (linkerOutput == LinkerOutput.Executable || linkerOutput == LinkerOutput.SharedLibrary)
+                {
+                    buildOptions.LinkEnv.Output = LinkerOutput.ImportLibrary;
+                    buildData.Toolchain.LinkFiles(buildData.Graph, buildOptions, Path.ChangeExtension(outputPath, buildData.Toolchain.Platform.StaticLibraryFileExtension));
+                    buildOptions.LinkEnv.Output = linkerOutput;
+                }
+            }
         }
     }
 }

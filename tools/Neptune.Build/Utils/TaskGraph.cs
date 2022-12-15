@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Neptune.Build
 {
@@ -9,6 +10,8 @@ namespace Neptune.Build
     {
         public readonly string Workspace;
         public readonly string CachePath;
+
+        public readonly List<CmdTask> Tasks = new List<CmdTask>();
 
         public TaskGraph(string workspace)
         {
@@ -32,6 +35,13 @@ namespace Neptune.Build
 
         public void SaveCache()
         { 
+        }
+
+        public T Add<T>() where T : CmdTask, new()
+        {
+            var task = new T();
+            Tasks.Add(task);
+            return task;
         }
     }
 }

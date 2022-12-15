@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Neptune.Build
 { 
@@ -129,9 +130,198 @@ namespace Neptune.Build
 
         public override CompileOutput CompileCppFiles(TaskGraph graph, BuildOptions options, List<string> sourceFiles, string outputPath)
         {
+            var compileEnvironment = options.CompileEnv;
             var output = new CompileOutput();
 
+            // Setup common arguments
+            var commonArgs = new List<string>();
+            {
+                commonArgs.Add("/nologo");
+
+                // Compile Without Linking
+                commonArgs.Add("/c");
+
+                // C++ version
+                switch (compileEnvironment.CppVersion)
+                {
+                case CppVersion.Cpp17:
+                    commonArgs.Add("/std:c++17");
+                    break;
+                case CppVersion.Cpp20:
+                    commonArgs.Add("/std:c++20");
+                    break;
+                case CppVersion.Latest:
+                    commonArgs.Add("/std:c++latest");
+                    break;
+                }
+
+                // Generate Intrinsic Functions
+                if (compileEnvironment.IntrinsicFunctions)
+                    commonArgs.Add("/Oi");
+
+                // Enable Function-Level Linking
+                if (compileEnvironment.FunctionLevelLinking)
+                    commonArgs.Add("/Gy");
+                else
+                    commonArgs.Add("/Gy-");
+
+                // Code Analysis
+                commonArgs.Add("/analyze-");
+
+                // Remove unreferenced COMDAT
+                commonArgs.Add("/Zc:inline");
+
+                if (compileEnvironment.OptimizationHit == OptimizationHit.FastCode)
+                    commonArgs.Add("/Ot");
+                else if (compileEnvironment.OptimizationHit == OptimizationHit.SmallCode)
+                    commonArgs.Add("/Os");
+
+                // Run-Time Error Checks
+                if (compileEnvironment.RuntimeChecks)
+                    commonArgs.Add("/RTC1");
+
+                // Inline Function Expansion
+                if (compileEnvironment.Inlining)
+                    commonArgs.Add("/Ob2");
+
+                if (compileEnvironment.DebugInformation)
+                {
+                    // Debug Information Format
+                    commonArgs.Add("/Zi");
+
+                    // Enhance Optimized Debugging
+                    commonArgs.Add("/Zo");
+                }
+
+                if (compileEnvironment.Optimization)
+                {
+                    // Enable Most Speed Optimizations
+                    commonArgs.Add("/Ox");
+
+                    // Generate Intrinsic Functions
+                    commonArgs.Add("/Oi");
+
+                    // Frame-Pointer Omission
+                    commonArgs.Add("/Oy");
+
+                    if (compileEnvironment.WholeProgramOptimization)
+                    {
+                        // Whole Program Optimization
+                        commonArgs.Add("/GL");
+                    }
+                }
+                else
+                {
+                    // Disable compiler optimizations (Debug)
+                    commonArgs.Add("/Od");
+
+                    // Frame-Pointer Omission
+                    commonArgs.Add("/Oy-");
+                }
+
+                // Full Path of Source Code File in Diagnostics
+                commonArgs.Add("/FC");
+
+                // Report Internal Compiler Errors
+                commonArgs.Add("/errorReport:prompt");
+
+                // Disable Exceptions
+                commonArgs.Add("/D_HAS_EXCEPTIONS=0");
+
+                // Eliminate Duplicate Strings
+                if (compileEnvironment.StringPooling)
+                    commonArgs.Add("/GF");
+                else
+                    commonArgs.Add("/GF-");
+
+                if (compileEnvironment.UseDebugCRT)
+                    commonArgs.Add("/MDd");
+                else
+                    commonArgs.Add("/MD");
+
+                // Specify floating-point behavior
+                commonArgs.Add("/fp:fast");
+                commonArgs.Add("/fp:except-");
+
+                // Buffer Security Check
+                if (compileEnvironment.BufferSecurityCheck)
+                    commonArgs.Add("/GS");
+                else
+                    commonArgs.Add("/GS-");
+
+                // Enable Run-Time Type Information
+                commonArgs.Add("/GR");
+
+                // Dont treat all compiler warnings as errors
+                commonArgs.Add("/WX-");
+
+                // Show warnings
+                commonArgs.Add("/W3");
+                commonArgs.Add("/wd\"4005\"");
+
+                // wchar_t is Native Type
+                commonArgs.Add("/Zc:wchar_t");
+            }
+
+            // Add preprocessor definitions
+            foreach (var definition in compileEnvironment.PreprocessorDefinitions)
+            {
+                commonArgs.Add(string.Format("/D \"{0}\"", definition));
+            }
+
+            // Add include paths
+            foreach (var includePath in compileEnvironment.IncludePaths)
+            {
+                if (includePath.Contains(' '))
+                    commonArgs.Add(string.Format("/I\"{0}\"", includePath));
+                else
+                    commonArgs.Add(string.Format("/I{0}", includePath));
+            }
+
+            var args = new List<string>();
+            foreach (var sourceFile in sourceFiles)
+            {
+                var sourceFilename = Path.GetFileNameWithoutExtension(sourceFile);
+                var task = graph.Add<CmdTask>();
+
+                args.Clear();
+                args.AddRange(commonArgs);
+
+                if (compileEnvironment.DebugInformation)
+                {
+                    var pdbFile = Path.Combine(outputPath, sourceFilename + ".pdb");
+                    args.Add(string.Format("/Fd\"{0}\"", pdbFile));
+                    output.DebugDataFiles.Add(pdbFile);
+                }
+
+                // Obj File Name
+                var objFile = Path.Combine(outputPath, sourceFilename + ".obj");
+                args.Add(string.Format("/Fo\"{0}\"", objFile));
+                output.ObjectFiles.Add(objFile);
+
+                // Source File Name
+                args.Add("\"" + sourceFile + "\"");
+
+                // Request included files
+                var includes = IncludesCache.FindAllIncludedFiles(sourceFile);
+                task.PrerequisiteFiles.AddRange(includes);
+
+                // Setup compiling task
+                task.WorkingDirectory = options.WorkingDirectory;
+                task.CommandPath = _compilerPath;
+                task.CommandArguments = string.Join(" ", args);
+                task.PrerequisiteFiles.Add(sourceFile);
+                task.Cost = task.PrerequisiteFiles.Count;
+            }
+
             return output;
+        }
+
+        /// <summary>
+        /// Links the compiled object files.
+        /// </summary>
+        public override void LinkFiles(TaskGraph graph, BuildOptions options, string outputFilePath)
+        { 
         }
     }
 }
