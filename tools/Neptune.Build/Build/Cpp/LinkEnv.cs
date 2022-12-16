@@ -48,6 +48,21 @@ namespace Neptune.Build
         /// </summary>
         public readonly List<string> InputLibraries = new List<string>();
 
+        /// <summary>
+        /// Enables the code optimization.
+        /// </summary>
+        public bool Optimization = false;
+
+        /// <summary>
+        /// Hints to use incremental linking.
+        /// </summary>
+        public bool UseIncrementalLinking = false;
+
+        /// <summary>
+        /// Enables debug information generation.
+        /// </summary>
+        public bool DebugInformation = false;
+
         public object Clone()
         {
             var clone = new LinkEnv

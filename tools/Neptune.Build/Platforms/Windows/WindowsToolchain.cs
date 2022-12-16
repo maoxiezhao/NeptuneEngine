@@ -321,7 +321,240 @@ namespace Neptune.Build
         /// Links the compiled object files.
         /// </summary>
         public override void LinkFiles(TaskGraph graph, BuildOptions options, string outputFilePath)
-        { 
+        {
+            // https://learn.microsoft.com/zh-cn/cpp/build/reference/linking?view=msvc-170
+
+            var linkEnvironment = options.LinkEnv;
+            var task = graph.Add<CmdTask>();
+            var args = new List<string>();
+            {
+                // Suppress startup banner
+                args.Add("/NOLOGO");
+
+                // Report internal compiler errors
+                args.Add("/ERRORREPORT:PROMPT");
+
+                // Output File Name
+                args.Add(string.Format("/OUT:\"{0}\"", outputFilePath));
+
+                // Specify target platform
+                switch (Architecture)
+                {
+                    case TargetArchitecture.x86:
+                        args.Add("/MACHINE:x86");
+                        break;
+                    case TargetArchitecture.x64:
+                        args.Add("/MACHINE:x64");
+                        break;
+                    default: throw new Exception();
+                }
+
+                // Windows system
+                args.Add("/SUBSYSTEM:WINDOWS");
+
+                // Don't create Side-by-Side Assembly Manifest
+                args.Add("/MANIFEST:NO");
+
+                // Fixed Base Address
+                args.Add("/FIXED:NO");
+
+                if (Architecture == TargetArchitecture.x86)
+                {
+                    // Handle Large Addresses
+                    args.Add("/LARGEADDRESSAWARE");
+                }
+
+                // Compatible with Data Execution Prevention
+                args.Add("/NXCOMPAT");
+
+                // Allow delay-loaded DLLs to be explicitly unloaded
+                args.Add("/DELAY:UNLOAD");
+
+                if (linkEnvironment.Output == LinkerOutput.SharedLibrary)
+                {
+                    // Build a DLL
+                    args.Add("/DLL");
+                }
+
+                // Redirect imports LIB file auto-generated for EXE/DLL
+                var libFile = Path.ChangeExtension(outputFilePath, Platform.StaticLibraryFileExtension);
+                args.Add("/IMPLIB:\"" + libFile + "\"");
+                task.ProducedFiles.Add(libFile);
+
+                // Don't embed the full PDB path
+                args.Add("/PDBALTPATH:%_PDB%");
+
+                // Optimize
+                if (linkEnvironment.Optimization && !linkEnvironment.UseIncrementalLinking)
+                {
+                    // Generate an EXE checksum
+                    args.Add("/RELEASE");
+
+                    // Eliminate unreferenced symbols
+                    args.Add("/OPT:REF");
+
+                    // Remove redundant COMDATs
+                    args.Add("/OPT:ICF");
+                }
+                else
+                {
+                    // Keep symbols that are unreferenced
+                    args.Add("/OPT:NOREF");
+
+                    // Disable identical COMDAT folding
+                    args.Add("/OPT:NOICF");
+                }
+
+                // Link Incrementally
+                if (linkEnvironment.UseIncrementalLinking)
+                {
+                    args.Add("/INCREMENTAL");
+                }
+                else
+                {
+                    args.Add("/INCREMENTAL:NO");
+                }
+
+                if (linkEnvironment.DebugInformation)
+                {
+                    args.Add("/DEBUG");
+
+                    // Use Program Database
+                    var pdbFile = Path.ChangeExtension(outputFilePath, Platform.ProgramDatabaseFileExtension);
+                    args.Add(string.Format("/PDB:\"{0}\"", pdbFile));
+                    task.ProducedFiles.Add(pdbFile);
+                }
+            }
+
+            // Delay-load DLLs
+            if (linkEnvironment.Output == LinkerOutput.Executable || linkEnvironment.Output == LinkerOutput.SharedLibrary)
+            {
+                foreach (var dll in options.DelayLoadLibraries)
+                {
+                    args.Add(string.Format("/DELAYLOAD:\"{0}\"", dll));
+                }
+            }
+
+            // Additional lib paths
+            foreach (var libpath in linkEnvironment.LibraryPaths)
+            {
+                args.Add(string.Format("/LIBPATH:\"{0}\"", libpath));
+            }
+
+            // Input libraries
+            task.PrerequisiteFiles.AddRange(linkEnvironment.InputLibraries);
+            foreach (var library in linkEnvironment.InputLibraries)
+            {
+                args.Add(string.Format("\"{0}\"", library));
+            }
+
+            // Input files
+            task.PrerequisiteFiles.AddRange(linkEnvironment.InputFiles);
+            foreach (var file in linkEnvironment.InputFiles)
+            {
+                args.Add(string.Format("\"{0}\"", file));
+            }
+
+            // Response file
+            var responseFile = Path.Combine(options.IntermediateFolder, Path.GetFileName(outputFilePath) + ".response");
+            task.PrerequisiteFiles.Add(responseFile);
+            Utils.WriteFileIfChanged(responseFile, string.Join(Environment.NewLine, args));
+
+            // Setup task
+            task.WorkingDirectory = options.WorkingDirectory;
+            task.CommandPath = _linkerPath;
+            task.CommandArguments = string.Format("@\"{0}\"", responseFile);
+            task.InfoMessage = "Linking " + outputFilePath;
+            task.Cost = task.PrerequisiteFiles.Count;
+        }
+
+        public override void CreateImportLib(TaskGraph graph, BuildOptions options, string outputFilePath)
+        {
+            // https://learn.microsoft.com/zh-cn/cpp/build/reference/overview-of-lib?view=msvc-170
+            var linkEnvironment = options.LinkEnv;
+            if (linkEnvironment.Output != LinkerOutput.ImportLibrary)
+                return;
+
+            var task = graph.Add<CmdTask>();
+            var args = new List<string>();
+            {
+                // Suppress startup banner
+                args.Add("/NOLOGO");
+
+                // Report internal compiler errors
+                args.Add("/ERRORREPORT:PROMPT");
+
+                // Output File Name
+                args.Add(string.Format("/OUT:\"{0}\"", outputFilePath));
+
+                // Specify target platform
+                switch (Architecture)
+                {
+                    case TargetArchitecture.x86:
+                        args.Add("/MACHINE:x86");
+                        break;
+                    case TargetArchitecture.x64:
+                        args.Add("/MACHINE:x64");
+                        break;
+                    default: throw new Exception();
+                }
+
+                // Windows system
+                args.Add("/SUBSYSTEM:WINDOWS");
+
+                // Create an import library
+                args.Add("/DEF");
+
+                // Ignore libraries
+                args.Add("/NODEFAULTLIB");
+
+                // Specify the name
+                args.Add(string.Format("/NAME:\"{0}\"", Path.GetFileNameWithoutExtension(outputFilePath)));
+
+                // Ignore warnings about files with no public symbols
+                args.Add("/IGNORE:4221");
+            }
+
+            // Delay-load DLLs
+            if (linkEnvironment.Output == LinkerOutput.Executable || linkEnvironment.Output == LinkerOutput.SharedLibrary)
+            {
+                foreach (var dll in options.DelayLoadLibraries)
+                {
+                    args.Add(string.Format("/DELAYLOAD:\"{0}\"", dll));
+                }
+            }
+
+            // Additional lib paths
+            foreach (var libpath in linkEnvironment.LibraryPaths)
+            {
+                args.Add(string.Format("/LIBPATH:\"{0}\"", libpath));
+            }
+
+            // Input libraries
+            task.PrerequisiteFiles.AddRange(linkEnvironment.InputLibraries);
+            foreach (var library in linkEnvironment.InputLibraries)
+            {
+                args.Add(string.Format("\"{0}\"", library));
+            }
+
+            // Input files
+            task.PrerequisiteFiles.AddRange(linkEnvironment.InputFiles);
+            foreach (var file in linkEnvironment.InputFiles)
+            {
+                args.Add(string.Format("\"{0}\"", file));
+            }
+
+            // Response file
+            var responseFile = Path.Combine(options.IntermediateFolder, Path.GetFileName(outputFilePath) + ".response");
+            task.PrerequisiteFiles.Add(responseFile);
+            Utils.WriteFileIfChanged(responseFile, string.Join(Environment.NewLine, args));
+
+            // Setup task
+            task.WorkingDirectory = options.WorkingDirectory;
+            task.CommandPath = _libToolPath;
+            task.CommandArguments = string.Format("@\"{0}\"", responseFile);
+            task.InfoMessage = "Building import library " + outputFilePath;
+            task.Cost = task.PrerequisiteFiles.Count;
         }
     }
 }

@@ -40,6 +40,7 @@ namespace Neptune.Build
         public override string ExecutableFileExtension => ".exe";
         public override string SharedLibraryFileExtension => ".dll";
         public override string StaticLibraryFileExtension => ".lib";
+        public override string ProgramDatabaseFileExtension => ".pdb";
 
         protected override ToolChain CreateToolchain(TargetArchitecture architecture)
         {

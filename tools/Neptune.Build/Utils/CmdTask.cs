@@ -14,5 +14,7 @@ namespace Neptune.Build
         public string CommandPath = string.Empty;
         public string CommandArguments = string.Empty;
         public int Cost = 0;
+        public string InfoMessage;
+        public List<string> ProducedFiles = new List<string>();
     }
 }

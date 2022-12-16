@@ -38,7 +38,7 @@ namespace Neptune.Build
         }
 
         public abstract CompileOutput CompileCppFiles(TaskGraph graph, BuildOptions options, List<string> sourceFiles, string outputPath);
-
         public abstract void LinkFiles(TaskGraph graph, BuildOptions options, string outputFilePath);
+        public abstract void CreateImportLib(TaskGraph graph, BuildOptions options, string outputFilePath);
     }
 }

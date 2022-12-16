@@ -48,6 +48,11 @@ namespace Neptune.Build
         /// </summary>
         public abstract string StaticLibraryFileExtension { get; }
 
+        /// <summary>
+        /// Gets the program database file extension (including leading dot).
+        /// </summary>
+        public abstract string ProgramDatabaseFileExtension { get; }
+
         public static Platform GetPlatform(TargetPlatform targetPlatform)
         {
             if (_platforms == null)

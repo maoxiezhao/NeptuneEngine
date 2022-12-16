@@ -76,6 +76,11 @@ namespace Neptune.Build
         /// </summary>
         public List<string> OutputFiles = new List<string>();
 
+        /// <summary>
+        /// The list of libraries to link for delay-load (typically external and third-party plugins).
+        /// </summary>
+        public HashSet<string> DelayLoadLibraries = new HashSet<string>();
+
 
         internal void FillSourceFilesFromSourcePaths()
         {

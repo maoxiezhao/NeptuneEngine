@@ -307,7 +307,7 @@ namespace Neptune.Build
                 if (linkerOutput == LinkerOutput.Executable || linkerOutput == LinkerOutput.SharedLibrary)
                 {
                     buildOptions.LinkEnv.Output = LinkerOutput.ImportLibrary;
-                    buildData.Toolchain.LinkFiles(buildData.Graph, buildOptions, Path.ChangeExtension(outputPath, buildData.Toolchain.Platform.StaticLibraryFileExtension));
+                    buildData.Toolchain.CreateImportLib(buildData.Graph, buildOptions, Path.ChangeExtension(outputPath, buildData.Toolchain.Platform.StaticLibraryFileExtension));
                     buildOptions.LinkEnv.Output = linkerOutput;
                 }
             }
