@@ -10,6 +10,122 @@ namespace Neptune.Build
     {
         public static void Clean()
         { 
+            using (new ProfileEventScope("Clean"))
+            {
+                var project = Globals.Project;
+                if (project == null)
+                {
+                    Log.Warning("Missing projects");
+                    return;
+                }         
+
+                // Clean task graph cache
+                var taskGraph = new TaskGraph(project.ProjectFolderPath);
+                taskGraph.CleanCache();
+
+                // Clear targets
+                var configBuildTargets = Configuration.BuildTargets;
+                var projectTargets = GetProjectTargets(project);
+                var targets = configBuildTargets == null ? projectTargets : projectTargets.Where(target => configBuildTargets.Contains(target.Name)).ToArray();
+                foreach (var target in targets)
+                {
+                    // Get target configurations
+                    TargetConfiguration[] configurations = Configuration.BuildConfigurations;
+                    if (configurations != null)
+                    {
+                        foreach (var configuration in configurations)
+                        {
+                            if (!target.Configurations.Contains(configuration))
+                                throw new Exception(string.Format("Target {0} does not support {1} configuration.", target.Name, configuration));
+                        }
+                    }
+                    else
+                    {
+                        configurations = target.Configurations;
+                    }
+
+                    // Pick platforms to build
+                    TargetPlatform[] platforms = Configuration.BuildPlatforms;
+                    if (platforms != null)
+                    {
+                        foreach (var platform in platforms)
+                        {
+                            if (!target.Platforms.Contains(platform))
+                                throw new Exception(string.Format("Target {0} does not support {1} platform.", target.Name, platform));
+                        }
+                    }
+                    else
+                    {
+                        platforms = target.Platforms;
+                    }
+
+                    // Pick architectures to build
+                    TargetArchitecture[] architectures = Configuration.BuildArchitectures;
+                    if (architectures != null)
+                    {
+                        foreach (var e in architectures)
+                        {
+                            if (!target.Architectures.Contains(e))
+                                throw new Exception(string.Format("Target {0} does not support {1} architecture.", target.Name, e));
+                        }
+                    }
+                    else
+                    {
+                        architectures = target.Architectures;
+                    }
+
+                    foreach (var configuration in configurations)
+                    {
+                        foreach (var targetPlatform in platforms)
+                        {
+                            foreach (var architecture in architectures)
+                            {
+                                if (!Platform.IsPlatformSupported(targetPlatform, architecture))
+                                    continue;
+
+                                var platform = Platform.GetPlatform(targetPlatform);
+                                var toolchain = platform.GetToolchain(architecture);
+                                var buildOptions = GetBuildOptions(target, toolchain.Platform, toolchain, toolchain.Architecture, configuration, project.ProjectFolderPath);
+                                if (buildOptions != null)
+                                    continue;
+
+                                // Delete all intermediate files
+                                var intermediateFolder = new DirectoryInfo(buildOptions.IntermediateFolder);
+                                if (intermediateFolder.Exists)
+                                {
+                                    Log.Info("Removing: " + buildOptions.IntermediateFolder);
+                                    CleanDirectory(intermediateFolder);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void CleanDirectory(DirectoryInfo dir)
+        {
+            var subdirs = dir.GetDirectories();
+            foreach (var subdir in subdirs)
+            {
+                CleanDirectory(subdir);
+            }
+
+            var files = dir.GetFiles();
+            foreach(var file in files)
+            {
+                try
+                {
+                    file.Delete();
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    File.SetAttributes(file.FullName, FileAttributes.Normal);
+                    file.Delete();
+                } 
+            }
+
+            dir.Delete();
         }
 
         public static bool BuildTargets()

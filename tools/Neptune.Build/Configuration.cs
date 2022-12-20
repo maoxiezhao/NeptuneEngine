@@ -29,6 +29,12 @@ namespace Neptune.Build
         /// <summary>
         /// Cleans all the targets and whole build cache data.
         /// </summary>
+        [CommandLine("buildLibs", "Build 3rd party libraries.")]
+        public static bool BuildLibs = false;
+
+        /// <summary>
+        /// Cleans all the targets and whole build cache data.
+        /// </summary>
         [CommandLine("clean", "Cleans the build system cache.")]
         public static bool Clean = false;
 

@@ -41,8 +41,14 @@ namespace Neptune.Build
                 // Collect all targets and modules from the workspace
                 Builder.GenerateRulesAssembly();
 
+                // Build 3rd party libs
+                if (Configuration.BuildLibs)
+                {
+                    Log.Info("Building 3rd party libs...");
+                }
+
                 // Clean
-                if (Configuration.Clean)
+                if (Configuration.Clean || Configuration.Rebuild)
                 {
                     Log.Info("Cleaning build workspace...");
                     Builder.Clean();
