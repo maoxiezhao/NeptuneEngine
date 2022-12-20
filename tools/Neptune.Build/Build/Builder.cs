@@ -106,14 +106,19 @@ namespace Neptune.Build
                 }
 
                 // Prepare tasks
-                taskGraph.Setup();
-
-                taskGraph.LoadCache();
+                using (new ProfileEventScope("PrepareTasks"))
+                {
+                    taskGraph.Setup();
+                    taskGraph.SortTasks();
+                    taskGraph.LoadCache();
+                }
 
                 // Execute tasks
                 int executedTaskCount;
                 if (!taskGraph.Execute(out executedTaskCount))
+                {
                     return false;
+                }
 
                 // Save cache
                 if (executedTaskCount > 0)
@@ -122,7 +127,10 @@ namespace Neptune.Build
                 }
 
                 // Post build
-
+                foreach (var target in targets)
+                {
+                    target.PostBuild();
+                }
             }
 
             return ret;

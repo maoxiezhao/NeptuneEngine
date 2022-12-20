@@ -12,17 +12,25 @@ namespace Neptune.Build
 
         public static string Indent = string.Empty;
 
-        public static void Write(string message, ConsoleColor color)
+        public static void Write(string message, ConsoleColor color, bool consoleLog = true)
         {
-            lock (_consoleLocker)
+            if (consoleLog)
             {
-                Console.ForegroundColor = color;
-                Console.WriteLine(Indent + message);
-                Console.ResetColor();
+                lock (_consoleLocker)
+                {
+                    Console.ForegroundColor = color;
+                    Console.WriteLine(Indent + message);
+                    Console.ResetColor();
 
-                if (System.Diagnostics.Debugger.IsAttached)
-                    System.Diagnostics.Debug.WriteLine(Indent + message);
+                    if (System.Diagnostics.Debugger.IsAttached)
+                        System.Diagnostics.Debug.WriteLine(Indent + message);
+                }
             }
+        }
+
+        public static void Verbose(string message)
+        {
+            Write(message, Console.ForegroundColor, Configuration.Verbose);
         }
 
         public static void Info(string message)

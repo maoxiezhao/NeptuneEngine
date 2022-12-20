@@ -81,7 +81,6 @@ namespace Neptune.Build
         /// </summary>
         public HashSet<string> DelayLoadLibraries = new HashSet<string>();
 
-
         internal void FillSourceFilesFromSourcePaths()
         {
             if (SourcePaths.Count == 0)
@@ -140,6 +139,11 @@ namespace Neptune.Build
                 CompileEnv.BufferSecurityCheck = true;
                 CompileEnv.Inlining = false;
                 CompileEnv.WholeProgramOptimization = false;
+
+                LinkEnv.DebugInformation = true;
+                LinkEnv.LinkTimeCodeGeneration = false;
+                LinkEnv.UseIncrementalLinking = true;
+                LinkEnv.Optimization = false;
                 break;
             case TargetConfiguration.Development:
                 CompileEnv.PreprocessorDefinitions.Add("BUILD_DEVELOPMENT");
@@ -153,6 +157,11 @@ namespace Neptune.Build
                 CompileEnv.BufferSecurityCheck = true;
                 CompileEnv.Inlining = true;
                 CompileEnv.WholeProgramOptimization = false;
+
+                LinkEnv.DebugInformation = true;
+                LinkEnv.LinkTimeCodeGeneration = false;
+                LinkEnv.UseIncrementalLinking = true;
+                LinkEnv.Optimization = true;
                 break;
             case TargetConfiguration.Release:
                 CompileEnv.PreprocessorDefinitions.Add("BUILD_RELEASE");
@@ -166,6 +175,11 @@ namespace Neptune.Build
                 CompileEnv.BufferSecurityCheck = false;
                 CompileEnv.Inlining = true;
                 CompileEnv.WholeProgramOptimization = true;
+
+                LinkEnv.DebugInformation = false;
+                LinkEnv.LinkTimeCodeGeneration = true;
+                LinkEnv.UseIncrementalLinking = false;
+                LinkEnv.Optimization = true;
                 break;
             }
         }

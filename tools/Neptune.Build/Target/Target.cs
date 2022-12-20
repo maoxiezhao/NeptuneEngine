@@ -9,7 +9,14 @@ namespace Neptune.Build
 {
     public enum TargetLinkType
     {
+        /// <summary>
+        /// Link all modules (included into a build) into a single binary.
+        /// </summary>
         Monolithic,
+
+        /// <summary>
+        /// Link all modules into individual dynamic libraries.
+        /// </summary>
         Modular
     }
 

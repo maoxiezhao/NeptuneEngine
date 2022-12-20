@@ -16,5 +16,18 @@ namespace Neptune.Build
         public int Cost = 0;
         public string InfoMessage;
         public List<string> ProducedFiles = new List<string>();
+
+        public HashSet<CmdTask> DependentTasks;
+
+        public int Result;
+        public bool Failed => Result != 0;
+
+        /// <summary>
+        /// Gets a value indicating whether task results from the previous execution are still valid. Can be used to skip task execution.
+        /// </summary>
+        public bool HasValidCachedResults;
+
+        public DateTime StartTime = DateTime.MinValue;
+        public DateTime EndTime = DateTime.MinValue;
     }
 }

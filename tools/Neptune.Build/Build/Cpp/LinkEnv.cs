@@ -63,13 +63,26 @@ namespace Neptune.Build
         /// </summary>
         public bool DebugInformation = false;
 
+        /// <summary>
+        /// Enables the link time code generation (LTCG).
+        /// </summary>
+        public bool LinkTimeCodeGeneration = false;
+
         public object Clone()
         {
             var clone = new LinkEnv
             {
                 Output = Output,
+                Optimization = Optimization,
+                DebugInformation = DebugInformation,
+                LinkTimeCodeGeneration = LinkTimeCodeGeneration,
+                UseIncrementalLinking = UseIncrementalLinking,
             };
 
+            foreach (var e in InputFiles)
+                clone.InputFiles.Add(e);
+
+            clone.InputLibraries.AddRange(InputLibraries);
             clone.LibraryPaths.AddRange(LibraryPaths);
             return clone;
         }

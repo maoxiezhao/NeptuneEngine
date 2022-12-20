@@ -6,11 +6,38 @@ using System.Text;
 using System.Threading.Tasks;
 using static Neptune.Build.Builder;
 using System.CodeDom.Compiler;
+using Newtonsoft.Json;
 
 namespace Neptune.Build
 {
     partial class Builder
     {
+        public class BuildTargetBinaryModuleInfo
+        {
+            public string Name;
+
+            [NonSerialized]
+            public string NativePath;
+
+            [JsonProperty("NativePath")]
+            public string NativePathProcessed;
+
+            [NonSerialized]
+            public string ManagedPath;
+
+            [JsonProperty("ManagedPath")]
+            public string ManagedPathProcessed;
+        }
+
+        public class BuildTargetInfo
+        {
+            public string Name;
+            public string Platform;
+            public string Architecture;
+            public string Configuration;
+            public BuildTargetBinaryModuleInfo[] BinaryModules;
+        }
+
         public sealed class BuildData
         {
             public ProjectInfo Project;
@@ -25,6 +52,7 @@ namespace Neptune.Build
             public Dictionary<Module, BuildOptions> Modules = new Dictionary<Module, BuildOptions>(256);
             public List<Module> ModulesOrderList = new List<Module>();
             public IGrouping<string, Module>[] BinaryModules;
+            public BuildTargetInfo BuildInfo;
         }
 
         private static IGrouping<string, Module>[] GetBinaryModules(ProjectInfo project, Target target, Dictionary<Module, BuildOptions> buildModules)
@@ -209,7 +237,68 @@ namespace Neptune.Build
                     buildData.TargetOptions.LinkEnv.InputFiles.AddRange(moduleOptions.OutputFiles);
                     buildData.TargetOptions.DependencyFiles.AddRange(moduleOptions.DependencyFiles);
                     buildData.TargetOptions.Libraries.AddRange(moduleOptions.Libraries);
+                    buildData.TargetOptions.DelayLoadLibraries.AddRange(moduleOptions.DelayLoadLibraries);
                 }
+            }
+
+            // Link modules into a target
+            var outputTargetFilePath = target.GetOutputFilePath(buildOptions);
+            var outputPath = Path.GetDirectoryName(outputTargetFilePath);
+            switch (target.LinkType)
+            {
+                case TargetLinkType.Monolithic:
+                {
+                    LinkNativeBinary(buildData, buildOptions, outputTargetFilePath);
+                    break;
+                }
+            }
+
+            // Generate target build output info
+            using (new ProfileEventScope("GenerateBuildInfo"))
+            {
+                buildData.BuildInfo = new BuildTargetInfo
+                {
+                    Name = target.Name,
+                    Platform = toolchain.Platform.Target.ToString(),
+                    Architecture = toolchain.Architecture.ToString(),
+                    Configuration = configuration.ToString(),
+                    BinaryModules = new BuildTargetBinaryModuleInfo[buildData.BinaryModules.Length],
+                };
+
+                for (int i = 0; i < buildData.BinaryModules.Length; i++)
+                {
+                    var binaryModule = buildData.BinaryModules[i];
+                    var binaryModuleInfo = new BuildTargetBinaryModuleInfo
+                    {
+                        Name = binaryModule.Key,
+                        ManagedPath = string.Empty,
+                    };
+                    switch (target.LinkType)
+                    {
+                    case TargetLinkType.Monolithic:
+                    {
+                        binaryModuleInfo.NativePath = outputTargetFilePath;
+                        break;
+                    }
+                    case TargetLinkType.Modular:
+                    {
+                        // Every module produces own set of binaries
+                        if (binaryModule.Count() != 1)
+                            throw new Exception("Cannot output binary if it uses multiple modules.");
+
+                        var module = binaryModule.First();
+                        var moduleOptions = buildData.Modules[module];
+                        var outputLib = Path.Combine(buildData.TargetOptions.OutputFolder, buildData.Platform.GetLinkOutputFileName(module.Name, moduleOptions.LinkEnv.Output));
+                        binaryModuleInfo.NativePath = outputLib;
+                        break;
+                    }
+                    default: throw new ArgumentOutOfRangeException();
+                    }
+
+                    buildData.BuildInfo.BinaryModules[i] = binaryModuleInfo;
+                }
+
+                Utils.WriteFileIfChanged(Path.Combine(outputPath, target.Name + ".Build.json"), JsonConvert.SerializeObject(buildData.BuildInfo, Formatting.Indented));
             }
 
             // Post build
@@ -233,6 +322,7 @@ namespace Neptune.Build
                     moduleOptions.DependencyFiles.AddRange(dependencyOptions.DependencyFiles);
                     moduleOptions.PrivateIncludePaths.AddRange(dependencyOptions.PublicIncludePaths);
                     moduleOptions.Libraries.AddRange(dependencyOptions.Libraries);
+                    moduleOptions.DelayLoadLibraries.AddRange(dependencyOptions.DelayLoadLibraries);
                 }
             }
             foreach (var moduleName in moduleOptions.PublicDependencies)
@@ -244,6 +334,7 @@ namespace Neptune.Build
                     moduleOptions.DependencyFiles.AddRange(dependencyOptions.DependencyFiles);
                     moduleOptions.PrivateIncludePaths.AddRange(dependencyOptions.PublicIncludePaths);
                     moduleOptions.Libraries.AddRange(dependencyOptions.Libraries);
+                    moduleOptions.DelayLoadLibraries.AddRange(dependencyOptions.DelayLoadLibraries);
                 }
             }
 

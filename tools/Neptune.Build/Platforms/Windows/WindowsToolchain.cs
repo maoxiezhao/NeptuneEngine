@@ -352,6 +352,12 @@ namespace Neptune.Build
                 // Windows system
                 args.Add("/SUBSYSTEM:WINDOWS");
 
+                // Link-time code generation
+                if (linkEnvironment.LinkTimeCodeGeneration)
+                {
+                    args.Add("/LTCG");
+                }
+
                 // Don't create Side-by-Side Assembly Manifest
                 args.Add("/MANIFEST:NO");
 
@@ -501,6 +507,12 @@ namespace Neptune.Build
 
                 // Windows system
                 args.Add("/SUBSYSTEM:WINDOWS");
+
+                // Link-time code generation
+                if (linkEnvironment.LinkTimeCodeGeneration)
+                {
+                    args.Add("/LTCG");
+                }
 
                 // Create an import library
                 args.Add("/DEF");

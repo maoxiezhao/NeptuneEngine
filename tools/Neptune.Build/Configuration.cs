@@ -9,6 +9,12 @@ namespace Neptune.Build
     public static partial class Configuration
     {
         /// <summary>
+        /// Enables verbose logging and detailed diagnostics.
+        /// </summary>
+        [CommandLine("verbose", "Enables verbose logging and detailed diagnostics.")]
+        public static bool Verbose = true;
+
+        /// <summary>
         /// The intermediate build files folder path relative to the working directory.
         /// </summary>
         [CommandLine("intermediate", "<path>")]
@@ -70,5 +76,11 @@ namespace Neptune.Build
         /// </summary>
         [CommandLine("vs2022", "Generates Visual Studio 2022 project.")]
         public static bool ProjectVS2022 = false;
+
+        /// <summary>
+        /// The maximum allowed concurrency for a build system (maximum active worker threads count).
+        /// </summary>
+        [CommandLine("maxConcurrency", "<threads>", "The maximum allowed concurrency for a build system (maximum active worker threads count).")]
+        public static int MaxConcurrency = 512;
     }
 }
