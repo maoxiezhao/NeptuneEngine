@@ -1,0 +1,13 @@
+{
+  "Name": "NeptuneGame",
+  "Platform": "Windows",
+  "Architecture": "x64",
+  "Configuration": "Debug",
+  "BinaryModules": [
+    {
+      "Name": "Engine",
+      "NativePath": null,
+      "ManagedPath": null
+    }
+  ]
+}

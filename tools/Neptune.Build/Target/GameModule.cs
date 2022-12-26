@@ -11,6 +11,8 @@ namespace Neptune.Build
         public override void Setup(BuildOptions options)
         {
             base.Setup(options);
+
+            options.PublicDependencies.Add("Engine");
         }
     }
 }

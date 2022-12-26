@@ -1,13 +1,13 @@
 using System.IO;
 using Neptune.Build;
 
-public class ClientTarget : EngineTarget
+public class NeptuneGame : EngineTarget
 {
     public override void Init()
     {
         base.Init();
 
-        OutputName = "Client";
+        OutputName = "NeptuneGame";
     }
 
     public override void SetupTargetEnvironment(BuildOptions options)

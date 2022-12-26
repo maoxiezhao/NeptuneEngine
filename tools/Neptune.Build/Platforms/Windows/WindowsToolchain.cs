@@ -298,6 +298,7 @@ namespace Neptune.Build
                 var objFile = Path.Combine(outputPath, sourceFilename + ".obj");
                 args.Add(string.Format("/Fo\"{0}\"", objFile));
                 output.ObjectFiles.Add(objFile);
+                task.ProducedFiles.Add(objFile);
 
                 // Source File Name
                 args.Add("\"" + sourceFile + "\"");
@@ -350,7 +351,14 @@ namespace Neptune.Build
                 }
 
                 // Windows system
-                args.Add("/SUBSYSTEM:WINDOWS");
+                if (linkEnvironment.LinkAsConsoleProgram)
+                {
+                    args.Add("/SUBSYSTEM:CONSOLE");
+                }
+                else
+                {
+                    args.Add("/SUBSYSTEM:WINDOWS");
+                }
 
                 // Link-time code generation
                 if (linkEnvironment.LinkTimeCodeGeneration)
@@ -472,6 +480,7 @@ namespace Neptune.Build
             task.CommandArguments = string.Format("@\"{0}\"", responseFile);
             task.InfoMessage = "Linking " + outputFilePath;
             task.Cost = task.PrerequisiteFiles.Count;
+            task.ProducedFiles.Add(outputFilePath);
         }
 
         public override void CreateImportLib(TaskGraph graph, BuildOptions options, string outputFilePath)
@@ -567,6 +576,7 @@ namespace Neptune.Build
             task.CommandArguments = string.Format("@\"{0}\"", responseFile);
             task.InfoMessage = "Building import library " + outputFilePath;
             task.Cost = task.PrerequisiteFiles.Count;
+            task.ProducedFiles.Add(outputFilePath);
         }
     }
 }

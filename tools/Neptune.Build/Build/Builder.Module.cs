@@ -76,6 +76,9 @@ namespace Neptune.Build
             }
 
             var outputPath = Path.Combine(buildData.TargetOptions.IntermediateFolder, module.Name);
+            if (!Directory.Exists(outputPath))
+                Directory.CreateDirectory(outputPath);
+
             moduleOptions = new BuildOptions
             {
                 Target = buildData.Target,

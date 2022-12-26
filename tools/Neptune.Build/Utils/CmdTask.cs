@@ -18,6 +18,7 @@ namespace Neptune.Build
         public List<string> ProducedFiles = new List<string>();
 
         public HashSet<CmdTask> DependentTasks;
+        public int DependentTasksCount => DependentTasks?.Count ?? 0;
 
         public int Result;
         public bool Failed => Result != 0;

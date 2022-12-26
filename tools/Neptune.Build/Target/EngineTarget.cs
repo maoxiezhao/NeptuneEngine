@@ -31,6 +31,7 @@ namespace Neptune.Build
 
             LinkType = TargetLinkType.Monolithic;
 
+            Modules.Add("Main");
             Modules.Add("Engine");
         }
     }

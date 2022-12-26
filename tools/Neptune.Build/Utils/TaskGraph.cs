@@ -36,7 +36,7 @@ namespace Neptune.Build
         public static int TaskCompare(CmdTask a, CmdTask b)
         {
             // Sort by total number of dependent files
-            var dependentTasksCountDiff = b.DependentTasks.Count - a.DependentTasks.Count;
+            var dependentTasksCountDiff = b.DependentTasksCount - a.DependentTasksCount;
             if (dependentTasksCountDiff != 0)
             {
                 return Math.Sign(dependentTasksCountDiff);
@@ -56,24 +56,28 @@ namespace Neptune.Build
         public void SortTasks()
         {
             var taskToDependentActionsMap = new Dictionary<CmdTask, HashSet<CmdTask>>();
-            foreach (var task in Tasks)
+            const int maximumSearchDepth = 6;
+            for (int depth = 0; depth < maximumSearchDepth; depth++)
             {
-                foreach (var prerequisiteFile in task.PrerequisiteFiles)
+                foreach (var task in Tasks)
                 {
-                    if (FileToProducingTaskMap.TryGetValue(prerequisiteFile, out var prerequisiteTask))
+                    foreach (var prerequisiteFile in task.PrerequisiteFiles)
                     {
-                        HashSet<CmdTask> dependentTasks;
-                        if (!taskToDependentActionsMap.TryGetValue(prerequisiteTask, out dependentTasks))
+                        if (FileToProducingTaskMap.TryGetValue(prerequisiteFile, out var prerequisiteTask))
                         {
-                            dependentTasks = new HashSet<CmdTask>();
-                            taskToDependentActionsMap[prerequisiteTask] = dependentTasks;
-                        }
+                            HashSet<CmdTask> dependentTasks;
+                            if (!taskToDependentActionsMap.TryGetValue(prerequisiteTask, out dependentTasks))
+                            {
+                                dependentTasks = new HashSet<CmdTask>();
+                                taskToDependentActionsMap[prerequisiteTask] = dependentTasks;
+                            }
 
-                        // Build dependencies list
-                        dependentTasks.Add(task);
-                        if (taskToDependentActionsMap.ContainsKey(task))
-                        {
-                            dependentTasks.UnionWith(taskToDependentActionsMap[task]);
+                            // Build dependencies list
+                            dependentTasks.Add(task);
+                            if (taskToDependentActionsMap.ContainsKey(task))
+                            {
+                                dependentTasks.UnionWith(taskToDependentActionsMap[task]);
+                            }
                         }
                     }
                 }
@@ -118,7 +122,7 @@ namespace Neptune.Build
             else
                 Log.Info("Done!");
 
-            return failedCount != 0;
+            return failedCount == 0;
         }
 
         public readonly int CacheVersion = 1;
@@ -243,7 +247,7 @@ namespace Neptune.Build
                 // Validate all cached results
                 foreach (var task in Tasks)
                 {
-                    if (task.HasValidCachedResults && task.DependentTasks.Count > 0)
+                    if (task.HasValidCachedResults && task.DependentTasksCount > 0)
                     {
                         // Allow task to use cached results only if all dependency tasks are also cached
                         if (!ValidateCachedResults(task))
@@ -351,7 +355,7 @@ namespace Neptune.Build
                 if (!dependentTask.HasValidCachedResults)
                     return false;
 
-                if (dependentTask.DependentTasks.Count > 0 && !ValidateCachedResults(dependentTask))
+                if (dependentTask.DependentTasksCount > 0 && !ValidateCachedResults(dependentTask))
                     return false;
             }
             return true;

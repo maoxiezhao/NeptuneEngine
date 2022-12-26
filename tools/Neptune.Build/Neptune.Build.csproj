@@ -71,18 +71,19 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Build\Builder.Rules.cs" />
-    <Compile Include="Build\Cpp\BuildOptions.cs" />
+    <Compile Include="Build\BuildOptions.cs" />
     <Compile Include="Build\Builder.Module.cs" />
-    <Compile Include="Build\Cpp\Builder.Cpp.cs" />
-    <Compile Include="Build\Cpp\IncludesCache.cs" />
-    <Compile Include="Build\Cpp\CompileOut.cs" />
-    <Compile Include="Build\Cpp\LinkEnv.cs" />
-    <Compile Include="Build\Cpp\CompileEnv.cs" />
+    <Compile Include="Build\Builder.Cpp.cs" />
+    <Compile Include="Build\IncludesCache.cs" />
+    <Compile Include="Build\CompileOut.cs" />
+    <Compile Include="Build\LinkEnv.cs" />
+    <Compile Include="Build\CompileEnv.cs" />
     <Compile Include="Generator\Generator.cs" />
     <Compile Include="Platforms\ToolChain.cs" />
     <Compile Include="Platforms\Platform.cs" />
-    <Compile Include="Build\GameModule.cs" />
-    <Compile Include="Build\EngineModule.cs" />
+    <Compile Include="Target\GameTarget.cs" />
+    <Compile Include="Target\GameModule.cs" />
+    <Compile Include="Target\EngineModule.cs" />
     <Compile Include="Projects\Solution.cs" />
     <Compile Include="Projects\ProjectGenerator.cs" />
     <Compile Include="Projects\Project.cs" />
@@ -96,7 +97,7 @@
     <Compile Include="Utils\Assembler.cs" />
     <Compile Include="Build\Builder.cs" />
     <Compile Include="Build\Builder.Projects.cs" />
-    <Compile Include="Build\Module.cs" />
+    <Compile Include="Target\Module.cs" />
     <Compile Include="Build\Rules.cs" />
     <Compile Include="CommandLine.cs" />
     <Compile Include="CommandLineAttribute.cs" />

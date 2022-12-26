@@ -68,6 +68,11 @@ namespace Neptune.Build
         /// </summary>
         public bool LinkTimeCodeGeneration = false;
 
+        /// <summary>
+        /// Use CONSOLE subsystem on Windows instead of the WINDOWS one.
+        /// </summary>
+        public bool LinkAsConsoleProgram = false;
+
         public object Clone()
         {
             var clone = new LinkEnv
@@ -77,6 +82,7 @@ namespace Neptune.Build
                 DebugInformation = DebugInformation,
                 LinkTimeCodeGeneration = LinkTimeCodeGeneration,
                 UseIncrementalLinking = UseIncrementalLinking,
+                LinkAsConsoleProgram = LinkAsConsoleProgram
             };
 
             foreach (var e in InputFiles)
