@@ -8,6 +8,9 @@ namespace Neptune.Build
 {
     public static partial class Configuration
     {
+        [CommandLine("workspace", "<path>", "The custom working directory.")]
+        public static string CurrentDirectory = null;
+
         /// <summary>
         /// Enables verbose logging and detailed diagnostics.
         /// </summary>

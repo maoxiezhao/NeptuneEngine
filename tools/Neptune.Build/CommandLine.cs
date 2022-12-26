@@ -18,7 +18,6 @@ namespace Neptune.Build
         private static int _cacheHash;
         private static readonly object _cacheLock = new object();
 
-
         public static string Get()
         {
             string[] args = Environment.GetCommandLineArgs();

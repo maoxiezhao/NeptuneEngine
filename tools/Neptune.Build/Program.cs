@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Reflection;
+using System.Text;
 
 namespace Neptune.Build
 {
@@ -22,6 +23,9 @@ namespace Neptune.Build
                 Log.Info(string.Format("Neptune.Build {0}", versionString));
 
                 CommandLine.Configure(typeof(Configuration), CommandLine.Get());
+                if (Configuration.CurrentDirectory != null)
+                    Environment.CurrentDirectory = Configuration.CurrentDirectory;
+
                 Globals.Root = Directory.GetCurrentDirectory();
                 Globals.EngineRoot = Utils.RemovePathRelativeParts(Path.Combine(Path.GetDirectoryName(executingAssembly.Location), "..", "..", "Test"));
 
