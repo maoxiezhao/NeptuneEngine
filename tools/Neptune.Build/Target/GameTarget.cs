@@ -12,8 +12,8 @@ namespace Neptune.Build
         {
             base.Init();
 
+            LinkType = TargetLinkType.Modular;
             OutputType = TargetOutputType.Library;
-            Modules.Add("Engine");
         }
     }
 }

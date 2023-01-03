@@ -11,6 +11,9 @@ namespace Neptune.Build
         [CommandLine("workspace", "<path>", "The custom working directory.")]
         public static string CurrentDirectory = null;
 
+        [CommandLine("mutex", "Enables using guard mutex to prevent running multiple instances of the tool.")]
+        public static bool Mutex = false;
+
         /// <summary>
         /// Enables verbose logging and detailed diagnostics.
         /// </summary>

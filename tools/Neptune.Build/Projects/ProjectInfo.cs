@@ -1,10 +1,8 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
-using System.IO;
 
 namespace Neptune.Build
 {
@@ -106,6 +104,17 @@ namespace Neptune.Build
                 Log.Error("Failed to load project \"" + path + "\".");
                 throw;
             }
+        }
+
+        public override int GetHashCode()
+        {
+            var hashCode = -833167044;
+            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Name);
+            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(ProjectPath);
+            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(ProjectFolderPath);
+            hashCode = hashCode * -1521134295 + EqualityComparer<Version>.Default.GetHashCode(Version);
+            hashCode = hashCode * -1521134295 + EqualityComparer<Reference[]>.Default.GetHashCode(References);
+            return hashCode;
         }
     }
 }

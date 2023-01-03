@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using static Neptune.Build.Builder;
 using System.CodeDom.Compiler;
 using Newtonsoft.Json;
+using System.Data;
 
 namespace Neptune.Build
 {
@@ -53,6 +54,7 @@ namespace Neptune.Build
             public List<Module> ModulesOrderList = new List<Module>();
             public IGrouping<string, Module>[] BinaryModules;
             public BuildTargetInfo BuildInfo;
+            public Dictionary<ProjectInfo, BuildData> ReferenceBuilds = new Dictionary<ProjectInfo, BuildData>();
         }
 
         private static IGrouping<string, Module>[] GetBinaryModules(ProjectInfo project, Target target, Dictionary<Module, BuildOptions> buildModules)
@@ -64,15 +66,15 @@ namespace Neptune.Build
                     modules.AddRange(buildModules.Keys);
                     break;
                 case TargetLinkType.Modular:
+                {
+                    var sourcePath = Path.Combine(project.ProjectFolderPath, "Source");
+                    foreach (var module in buildModules.Keys)
                     {
-                        var sourcePath = Path.Combine(project.ProjectFolderPath, "Source");
-                        foreach (var module in buildModules.Keys)
-                        {
-                            if (module.FolderPath.StartsWith(sourcePath))
-                                modules.Add(module);
-                        }
-                        break;
+                        if (module.FolderPath.StartsWith(sourcePath))
+                            modules.Add(module);
                     }
+                    break;
+                }
                 default: throw new ArgumentOutOfRangeException();
             }
             modules.RemoveAll(x => x == null || string.IsNullOrEmpty(x.BinaryModuleName));
@@ -80,8 +82,62 @@ namespace Neptune.Build
         }
 
         private static void BuildTargetReferenceNativeCpp(Dictionary<Target, BuildData> buildContext, BuildData buildData, ProjectInfo.Reference reference)
-        {
+        {        
+            var projectTargets = GetProjectTargets(reference.Project);
+            Target target = projectTargets.Length > 0 ? projectTargets[0] : null;
+            if (target == null)
+            {
+                Log.Verbose("No target selected for build");
+                return;
+            }
 
+            if (!target.Platforms.Contains(buildData.Platform.Target) || 
+                !target.Architectures.Contains(buildData.Architecture))
+            {
+                Log.Verbose($"Referenced target {reference.Project.Name} doesn't support {buildData.Platform.Target} {buildData.Architecture}");
+                return;
+            }
+
+            // Get or create referenced build data
+            if (!buildContext.TryGetValue(target, out var referencedBuildData))
+            {
+                Log.Info($"Building referenced target {reference.Project.Name}");
+
+                // Create task graph for building
+                var taskGraph = new TaskGraph(reference.Project.ProjectFolderPath);
+
+                // Prebuild
+                target.PreBuild();
+
+                // Build target
+                referencedBuildData = BuildTargetNativeCpp(buildContext, reference.Project, buildData.Rules, taskGraph, target, buildData.Toolchain, buildData.Configuration);
+
+                // Prepare tasks
+                using (new ProfileEventScope("PrepareTasks"))
+                {
+                    taskGraph.Setup();
+                    taskGraph.SortTasks();
+                    taskGraph.LoadCache();
+                }
+
+                // Execute tasks
+                int executedTaskCount;
+                bool failed = !taskGraph.Execute(out executedTaskCount);
+
+                // Save cache
+                if (executedTaskCount > 0)
+                {
+                    taskGraph.SaveCache();
+                }
+
+                if (failed)
+                    throw new Exception($"Failed to build target {target.Name}. See log.");
+
+                // PostBuild
+                target.PostBuild();
+            }
+
+            buildData.ReferenceBuilds.Add(reference.Project, referencedBuildData);
         }
 
         public static BuildData BuildTargetNativeCpp(Dictionary<Target, BuildData> buildContext, ProjectInfo project, RulesAssembly rules, TaskGraph graph, Target target, ToolChain toolchain, TargetConfiguration configuration)
@@ -176,7 +232,7 @@ namespace Neptune.Build
                             foreach (var moduleName in moduleOptions.PrivateDependencies)
                             {
                                 var dependencyModule = buildData.Rules.GetModule(moduleName);
-                                if (dependencyModule == null || string.IsNullOrEmpty(dependencyModule.BinaryModuleName) || dependencyModule.BinaryModuleName != binaryModule.Key)
+                                if (dependencyModule == null || string.IsNullOrEmpty(dependencyModule.BinaryModuleName) || dependencyModule.BinaryModuleName == binaryModule.Key)
                                     continue;
 
                                 if (!buildData.Modules.TryGetValue(dependencyModule, out var dependencyOptions))
@@ -188,7 +244,7 @@ namespace Neptune.Build
                             foreach (var moduleName in moduleOptions.PublicDependencies)
                             {
                                 var dependencyModule = buildData.Rules.GetModule(moduleName);
-                                if (dependencyModule == null || string.IsNullOrEmpty(dependencyModule.BinaryModuleName) || dependencyModule.BinaryModuleName != binaryModule.Key)
+                                if (dependencyModule == null || string.IsNullOrEmpty(dependencyModule.BinaryModuleName) || dependencyModule.BinaryModuleName == binaryModule.Key)
                                     continue;
 
                                 if (!buildData.Modules.TryGetValue(dependencyModule, out var dependencyOptions))
@@ -206,6 +262,27 @@ namespace Neptune.Build
                                 moduleOptions.CompileEnv.PreprocessorDefinitions.Add(q.Key.ToUpperInvariant() + "_API=" + toolchain.DllExport);
                             }
                         }
+
+                        // Export symbols from reference builds
+                        foreach (var e in buildData.ReferenceBuilds)
+                        {
+                            foreach (var q in e.Value.BuildInfo.BinaryModules)
+                            {
+                                if (string.IsNullOrEmpty(q.NativePath))
+                                    continue;
+
+                                if (buildData.Target.LinkType == TargetLinkType.Modular)
+                                {
+                                    moduleOptions.CompileEnv.PreprocessorDefinitions.Add(q.Name.ToUpperInvariant() + "_API=" + toolchain.DllImport);
+                                    moduleOptions.LinkEnv.InputLibraries.Add(Path.ChangeExtension(q.NativePath, toolchain.Platform.StaticLibraryFileExtension));
+                                }
+                                else
+                                {
+                                    moduleOptions.CompileEnv.PreprocessorDefinitions.Add(q.Name.ToUpperInvariant() + "_API=" + toolchain.DllExport);
+                                }
+                            }
+                        }
+
                     }
                 }
             }
@@ -332,7 +409,7 @@ namespace Neptune.Build
                 {
                     moduleOptions.LinkEnv.InputFiles.AddRange(dependencyOptions.OutputFiles);
                     moduleOptions.DependencyFiles.AddRange(dependencyOptions.DependencyFiles);
-                    moduleOptions.PrivateIncludePaths.AddRange(dependencyOptions.PublicIncludePaths);
+                    moduleOptions.PublicIncludePaths.AddRange(dependencyOptions.PublicIncludePaths);
                     moduleOptions.Libraries.AddRange(dependencyOptions.Libraries);
                     moduleOptions.DelayLoadLibraries.AddRange(dependencyOptions.DelayLoadLibraries);
                 }

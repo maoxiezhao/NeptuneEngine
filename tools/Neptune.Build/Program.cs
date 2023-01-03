@@ -14,6 +14,7 @@ namespace Neptune.Build
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             bool ret = true;
+            Mutex singleInstanceMutex = null;
             try
             {
                 // Print assembly version
@@ -26,8 +27,32 @@ namespace Neptune.Build
                 if (Configuration.CurrentDirectory != null)
                     Environment.CurrentDirectory = Configuration.CurrentDirectory;
 
+                if (Configuration.Mutex)
+                {
+                    singleInstanceMutex = new Mutex(true, "Neptune.Build", out var oneInstanceMutexCreated);
+                    if (!oneInstanceMutexCreated)
+                    {
+                        try
+                        {
+                            if (!singleInstanceMutex.WaitOne(0))
+                            {
+                                Log.Warning("Wait for another instance(s) of Neptune.Build to end...");
+                                singleInstanceMutex.WaitOne();
+                            }
+                        }
+                        catch (AbandonedMutexException)
+                        {
+                            // Can occur if another Neptune.Build is killed in the debugger
+                        }
+                        finally
+                        {
+                            Log.Info("Waiting done.");
+                        }
+                    }
+                }
+                    
                 Globals.Root = Directory.GetCurrentDirectory();
-                Globals.EngineRoot = Utils.RemovePathRelativeParts(Path.Combine(Path.GetDirectoryName(executingAssembly.Location), "..", "..", "Test"));
+                Globals.EngineRoot = Utils.RemovePathRelativeParts(Path.Combine(Path.GetDirectoryName(executingAssembly.Location), "..", "..", "Test", "Engine"));
 
                 Log.Info("Arguments: " + CommandLine.Get());
                 Log.Info("Workspace: " + Globals.Root);
@@ -80,6 +105,11 @@ namespace Neptune.Build
             }
             finally
             {
+                if (singleInstanceMutex != null)
+                {
+                    singleInstanceMutex.Dispose();
+                    singleInstanceMutex = null;
+                }
                 stopwatch.Stop();
                 Log.Info(string.Format("Total time: {0}", stopwatch.Elapsed));
             }
