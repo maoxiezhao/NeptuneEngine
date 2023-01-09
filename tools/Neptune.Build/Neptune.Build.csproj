@@ -81,7 +81,7 @@
     <Compile Include="Build\CompileOut.cs" />
     <Compile Include="Build\LinkEnv.cs" />
     <Compile Include="Build\CompileEnv.cs" />
-    <Compile Include="Generator.cs" />
+    <Compile Include="Generator\Generator.cs" />
     <Compile Include="Platforms\ToolChain.cs" />
     <Compile Include="Platforms\Platform.cs" />
     <Compile Include="Target\GameTarget.cs" />
@@ -98,7 +98,7 @@
     <Compile Include="Target\EngineTarget.cs" />
     <Compile Include="Projects\ProjectFormat.cs" />
     <Compile Include="Utils\Assembler.cs" />
-    <Compile Include="Build\Builder.cs" />
+    <Compile Include="Build\Builder.Main.cs" />
     <Compile Include="Build\Builder.Projects.cs" />
     <Compile Include="Target\Module.cs" />
     <Compile Include="Build\Rules.cs" />
