@@ -17,14 +17,5 @@ namespace Neptune.Gen
             executedTasksCount = 0;
             return true;
         }
-
-        public void LoadCache()
-        {
-
-        }
-
-        public void SaveCache()
-        {
-        }
     }
 }

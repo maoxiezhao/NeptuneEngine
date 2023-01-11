@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,34 +25,92 @@ namespace Neptune.Gen
             return _settings;
         }
 
-        public static string[] GetProcessedFiles()
+        public static List<string> GetProcessedFiles(List<string> SourcePaths)
         {
-            string[] processedFiles = new string[0];
+            List<string> processedFiles = new List<string>();
+            if (SourcePaths.Count == 0)
+                return processedFiles;
+
+            for (var i = 0; i < SourcePaths.Count; i++)
+            {
+                var path = SourcePaths[i];
+                if (!Directory.Exists(path))
+                    continue;
+
+                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories).
+                    Where(s => s.EndsWith(".h") || s.EndsWith(".hpp")).ToArray();
+                if (files.Length <= 0)
+                    continue;
+
+                var count = processedFiles.Count;
+                if (processedFiles.Count == 0)
+                {
+                    processedFiles.AddRange(files);
+                }
+                else
+                {
+                    for (int j = 0; j < files.Length; j++)
+                    {
+                        bool unique = true;
+                        for (int k = 0; k < count; k++)
+                        {
+                            if (processedFiles[k] == files[j])
+                            {
+                                unique = false;
+                                break;
+                            }
+                        }
+                        if (unique)
+                            processedFiles.Add(files[j]);
+                    }
+                }
+            }
 
             return processedFiles;
         }
 
+        private static ParsingSettings _parsingSettings = null;
+        public static ParsingSettings GetParsingSettings()
+        {
+            if (_parsingSettings != null)
+                return _parsingSettings;
+
+            _parsingSettings = new ParsingSettings();
+            return _parsingSettings;
+        }
+
         public static bool Generate()
         {
+            var parsingSettings = GetParsingSettings();
+            if (parsingSettings == null)
+            {
+                return false;
+            }
+
             bool ret = true;
             using (new ProfileEventScope("Generate"))
             {
-                var files = GetProcessedFiles();
-                if (files.Length < 0)
+                List<string> SourcePaths = new List<string>();
+                SourcePaths.Add(Globals.Root);
+
+                var files = GetProcessedFiles(SourcePaths);
+                if (files.Count <= 0)
                 {
                     return false;
                 }
 
                 GenerateMacrosFile();
 
+                FileParser fileParser = new FileParser();
+                fileParser.SetParsingSettings(parsingSettings);
+
                 var taskGraph = new TaskGraph();
-                ProcessFiles(taskGraph, files);
+                ProcessFiles(taskGraph, fileParser, files);
 
                 // Prepare tasks
                 using (new ProfileEventScope("PrepareTasks"))
                 {
                     taskGraph.Setup();
-                    taskGraph.LoadCache();
                 }
 
                 // Execute tasks
@@ -59,12 +118,6 @@ namespace Neptune.Gen
                 if (!taskGraph.Execute(out executedTaskCount))
                 {
                     return false;
-                }
-
-                // Save cache
-                if (executedTaskCount > 0)
-                {
-                    taskGraph.SaveCache();
                 }
             }
             return ret;
@@ -74,7 +127,7 @@ namespace Neptune.Gen
         {
         }
 
-        private static void ProcessFiles(TaskGraph taskGraph, string[] files)
+        private static void ProcessFiles(TaskGraph taskGraph, FileParser fileParser, List<string> files)
         {
             foreach (var file in files)
             {

@@ -11,6 +11,9 @@ namespace Neptune.Gen
         [CommandLine("workspace", "<path>", "The custom working directory.")]
         public static string CurrentDirectory = null;
 
+        [CommandLine("output", "<path>", "The custom output directory.")]
+        public static string OutputDirectory = null;
+
         [CommandLine("verbose", "Enables verbose logging and detailed diagnostics.")]
         public static bool Verbose = true;
 

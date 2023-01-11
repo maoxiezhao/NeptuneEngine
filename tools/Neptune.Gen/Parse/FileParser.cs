@@ -8,5 +8,11 @@ namespace Neptune.Gen
 {
     public class FileParser
     {
+        private ParsingSettings _parsingSettings = null;
+
+        public void SetParsingSettings(ParsingSettings parsingSettings)
+        {
+            _parsingSettings = parsingSettings;
+        }
     }
 }

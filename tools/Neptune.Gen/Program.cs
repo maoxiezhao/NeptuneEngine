@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using ClangSharp.Interop;
 using Fluid;
+using System.Reflection.PortableExecutable;
 
 namespace Neptune.Gen
 {
@@ -28,8 +29,14 @@ namespace Neptune.Gen
                     Environment.CurrentDirectory = Configuration.CurrentDirectory;
 
                 Globals.Root = Directory.GetCurrentDirectory();
+                Globals.Output = Configuration.OutputDirectory;
+                if (Configuration.OutputDirectory == null)
+                {
+                    Globals.Output = Globals.Root;
+                }
 
                 Log.Info("Workspace: " + Globals.Root);
+                Log.Info("Output: " + Configuration.OutputDirectory);
                 Log.Info("Arguments: " + CommandLine.Get());
 
                 // Generate codes
