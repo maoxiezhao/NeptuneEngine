@@ -15,6 +15,7 @@ namespace Neptune.Gen
     {
         static int Main()
         {
+            Mutex singleInstanceMutex = null;
             Stopwatch stopwatch = Stopwatch.StartNew();
             bool ret = true;
             try
@@ -35,9 +36,39 @@ namespace Neptune.Gen
                     Globals.Output = Globals.Root;
                 }
 
+                if (Configuration.Mutex)
+                {
+                    singleInstanceMutex = new Mutex(true, "Neptune.Build", out var oneInstanceMutexCreated);
+                    if (!oneInstanceMutexCreated)
+                    {
+                        try
+                        {
+                            if (!singleInstanceMutex.WaitOne(0))
+                            {
+                                Log.Warning("Wait for another instance(s) of Neptune.Build to end...");
+                                singleInstanceMutex.WaitOne();
+                            }
+                        }
+                        catch (AbandonedMutexException)
+                        {
+                            // Can occur if another Neptune.Build is killed in the debugger
+                        }
+                        finally
+                        {
+                            Log.Info("Waiting done.");
+                        }
+                    }
+                }
+
                 Log.Info("Workspace: " + Globals.Root);
                 Log.Info("Output: " + Configuration.OutputDirectory);
                 Log.Info("Arguments: " + CommandLine.Get());
+
+                // Clean codes
+                if (Configuration.Clean)
+                {
+                    CodeGenManager.Clean();
+                }
 
                 // Generate codes
                 if (Configuration.Generate)
@@ -53,6 +84,11 @@ namespace Neptune.Gen
             }
             finally
             {
+                if (singleInstanceMutex != null)
+                {
+                    singleInstanceMutex.Dispose();
+                    singleInstanceMutex = null;
+                }
                 stopwatch.Stop();
                 Log.Info(string.Format("Total time: {0}", stopwatch.Elapsed));
             }

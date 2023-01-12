@@ -79,6 +79,10 @@ namespace Neptune.Gen
             return _parsingSettings;
         }
 
+        public static void Clean()
+        { 
+        }
+
         public static bool Generate()
         {
             var parsingSettings = GetParsingSettings();
@@ -99,6 +103,7 @@ namespace Neptune.Gen
                     return false;
                 }
 
+                // Generate predefine macros file if necessary
                 GenerateMacrosFile();
 
                 FileParser fileParser = new FileParser();
@@ -108,17 +113,19 @@ namespace Neptune.Gen
                 ProcessFiles(taskGraph, fileParser, files);
 
                 // Prepare tasks
-                using (new ProfileEventScope("PrepareTasks"))
+                using (new ProfileEventScope("ExecuteTasks"))
                 {
-                    taskGraph.Setup();
+                    taskGraph.SortTasks();
+
+                    // Execute tasks
+                    int executedTaskCount;
+                    if (!taskGraph.Execute(out executedTaskCount))
+                    {
+                        return false;
+                    }
                 }
 
-                // Execute tasks
-                int executedTaskCount;
-                if (!taskGraph.Execute(out executedTaskCount))
-                {
-                    return false;
-                }
+
             }
             return ret;
         }

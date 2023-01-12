@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Neptune.Gen
 {
-    public class Task
+    public class FileParsingResult : ParsingResultBase
     {
     }
 }

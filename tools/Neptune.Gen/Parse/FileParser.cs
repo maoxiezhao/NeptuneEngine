@@ -14,5 +14,18 @@ namespace Neptune.Gen
         {
             _parsingSettings = parsingSettings;
         }
+
+        public void Parse(string filePath, FileParsingResult result)
+        { 
+        }
+
+        public object Clone()
+        {
+            var clone = new FileParser
+            {
+                _parsingSettings = _parsingSettings,
+            };
+            return clone;
+        }
     }
 }
