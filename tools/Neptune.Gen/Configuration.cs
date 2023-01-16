@@ -14,6 +14,12 @@ namespace Neptune.Gen
         [CommandLine("output", "<path>", "The custom output directory.")]
         public static string OutputDirectory = null;
 
+        [CommandLine("config", "<path>", "The custom config path.")]
+        public static string ConfigPath = null;
+
+        [CommandLine("includePath", "<path1>,<path2>,<path3>...", "Include paths.")]
+        public static string[] IncludePath;
+
         [CommandLine("verbose", "Enables verbose logging and detailed diagnostics.")]
         public static bool Verbose = true;
 

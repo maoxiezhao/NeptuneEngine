@@ -8,6 +8,8 @@ namespace Neptune.Gen
 {
     public class CodeGenUnit
     {
+        public CodeGenSettings Settings = new CodeGenSettings();
+
         public bool GenerateCode(FileParsingResult fileParsingResult)
         {
             return false;
@@ -19,6 +21,16 @@ namespace Neptune.Gen
             {
             };
             return clone;
+        }
+
+        public string GetGeneratedHeaderFilePath(string sourceFile)
+        {
+            return Path.Combine(Globals.Output, Settings.GetGeneratedHeaderFileName(sourceFile));
+        }
+
+        public string GetGeneratedSourceFilePath(string sourceFile)
+        {
+            return Path.Combine(Globals.Output, Settings.GetGeneratedSourceFileName(sourceFile));
         }
     }
 }

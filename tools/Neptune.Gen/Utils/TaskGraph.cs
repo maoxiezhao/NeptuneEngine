@@ -10,6 +10,11 @@ namespace Neptune.Gen
     {
         public readonly List<TaskBase> Tasks = new List<TaskBase>();
 
+        public void Add<T>(T task) where T : TaskBase
+        {
+            Tasks.Add(task);
+        }
+
         public static int TaskCompare(TaskBase a, TaskBase b)
         {
             // Sort by amount of input files

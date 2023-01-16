@@ -64,6 +64,11 @@ namespace Neptune.Gen
                 Log.Info("Output: " + Configuration.OutputDirectory);
                 Log.Info("Arguments: " + CommandLine.Get());
 
+                if (!Directory.Exists(Globals.Output))
+                { 
+                    Directory.CreateDirectory(Globals.Output);
+                }
+
                 // Clean codes
                 if (Configuration.Clean)
                 {

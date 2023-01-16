@@ -8,12 +8,7 @@ namespace Neptune.Gen
 {
     public class FileParser
     {
-        private ParsingSettings _parsingSettings = null;
-
-        public void SetParsingSettings(ParsingSettings parsingSettings)
-        {
-            _parsingSettings = parsingSettings;
-        }
+        public ParsingSettings Settings = new ParsingSettings();
 
         public void Parse(string filePath, FileParsingResult result)
         { 
@@ -23,7 +18,7 @@ namespace Neptune.Gen
         {
             var clone = new FileParser
             {
-                _parsingSettings = _parsingSettings,
+                Settings = Settings,
             };
             return clone;
         }

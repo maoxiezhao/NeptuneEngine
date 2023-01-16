@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Nett;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -10,19 +11,37 @@ namespace Neptune.Gen
 {
     public class CodeGenManager
     {
-        private static CodeGenSettings _settings;
-
-        public static CodeGenSettings LoadSettings()
+        public static bool LoadSettings(ParsingSettings parsingSettings, CodeGenSettings codeGenSettings)
         {
-            if (_settings != null)
-                return _settings;
-
-            using (new ProfileEventScope("LoadSettings"))
+            string configPath = null;
+            if (Configuration.ConfigPath != null)
             {
-                _settings = new CodeGenSettings();
+                configPath = Configuration.ConfigPath;
+            }
+            else
+            {
+                string currentPath = typeof(CodeGenManager).Assembly.Location;
+                var currentDirectory = Path.GetDirectoryName(currentPath);
+                if (currentDirectory != null)
+                    configPath = Path.Combine(currentDirectory, "Settings.toml");
             }
 
-            return _settings;
+            if (configPath == null || !File.Exists(configPath))
+                return false;
+
+            var toml = Toml.ReadFile(configPath);
+            if (toml == null)
+                return false;
+
+            // Load parsing settings
+            if (!parsingSettings.LoadFromTomlConfig(toml))
+                return false;
+
+            // Load generating settings
+            if (!codeGenSettings.LoadFromTomlConfig(toml))
+                return false;
+
+            return true;
         }
 
         public static List<string> GetProcessedFiles(List<string> SourcePaths)
@@ -69,25 +88,40 @@ namespace Neptune.Gen
             return processedFiles;
         }
 
-        private static ParsingSettings _parsingSettings = null;
-        public static ParsingSettings GetParsingSettings()
+        public static void Clean()
         {
-            if (_parsingSettings != null)
-                return _parsingSettings;
-
-            _parsingSettings = new ParsingSettings();
-            return _parsingSettings;
+            using (new ProfileEventScope("Clean"))
+            {
+            }
         }
 
-        public static void Clean()
-        { 
+        public static bool CheckHeaderFileHasAPI(ParsingSettings parsingSettings, string file)
+        {
+            if (!File.Exists(file))
+                return false;
+
+            bool hasApi = false;
+            var searchTags = parsingSettings.ApiTokens.GetSearchTags();
+            string headerFileContents = File.ReadAllText(file);
+            for (int j = 0; j < searchTags.Count; j++)
+            {
+                if (headerFileContents.Contains(searchTags[j]))
+                {
+                    hasApi = true;
+                    break;
+                }
+            }
+            return hasApi;
         }
 
         public static bool Generate()
         {
-            var parsingSettings = GetParsingSettings();
-            if (parsingSettings == null)
+            // Setup basic objects
+            FileParser fileParser = new FileParser();
+            CodeGenUnit codeGenUnit = new CodeGenUnit();
+            if (!LoadSettings(fileParser.Settings, codeGenUnit.Settings))
             {
+                Log.Error("Failed to load settings.");
                 return false;
             }
 
@@ -99,33 +133,71 @@ namespace Neptune.Gen
 
                 var files = GetProcessedFiles(SourcePaths);
                 if (files.Count <= 0)
-                {
                     return false;
+
+                // Parsing bindings
+                // TODO Multi-threaded
+                using (new ProfileEventScope("Parsing bindings"))
+                {
+                    List<string> availiableFiles = new List<string>();
+                    for (int i = 0; i < files.Count; i++)
+                    {
+                        if (CheckHeaderFileHasAPI(fileParser.Settings, files[i]))
+                        {
+                            availiableFiles.Add(files[i]);
+                        }
+                    }
+                    files = availiableFiles;
                 }
 
-                // Generate predefine macros file if necessary
-                GenerateMacrosFile();
-
-                FileParser fileParser = new FileParser();
-                fileParser.SetParsingSettings(parsingSettings);
-
-                var taskGraph = new TaskGraph();
-                ProcessFiles(taskGraph, fileParser, files);
-
-                // Prepare tasks
-                using (new ProfileEventScope("ExecuteTasks"))
+                using (new ProfileEventScope("LoadCache"))
                 {
-                    taskGraph.SortTasks();
+                    CodeGenCache.LoadCache();
 
-                    // Execute tasks
-                    int executedTaskCount;
-                    if (!taskGraph.Execute(out executedTaskCount))
+                    // Check cached files
+                    List<string> availiableFiles = new List<string>();
+                    foreach (var file in files)
                     {
-                        return false;
+                        if (CodeGenCache.CacheFileInfos.TryGetValue(file, out var info))
+                        {
+                            if (info.IsValid)
+                                availiableFiles.Add(file);
+                        }
+                    }
+                    files = availiableFiles;
+                }
+
+                if (files.Count > 0)
+                {
+                    // Generate predefine macros file if necessary
+                    GenerateMacrosFile();
+
+                    var taskGraph = new TaskGraph();
+                    ProcessFiles(taskGraph, fileParser, codeGenUnit, files);
+
+                    // Prepare tasks
+                    using (new ProfileEventScope("ExecuteTasks"))
+                    {
+                        taskGraph.SortTasks();
+
+                        // Execute tasks
+                        int executedTaskCount;
+                        if (!taskGraph.Execute(out executedTaskCount))
+                        {
+                            return false;
+                        }
+
+                        if (executedTaskCount > 0)
+                        {
+                            CodeGenCache.ValidCacheFileFromTasks(codeGenUnit, taskGraph.Tasks);
+                        }
                     }
                 }
 
-
+                using (new ProfileEventScope("SaveCache"))
+                {
+                    CodeGenCache.SaveCache();
+                }
             }
             return ret;
         }
@@ -134,13 +206,18 @@ namespace Neptune.Gen
         {
         }
 
-        private static void ProcessFiles(TaskGraph taskGraph, FileParser fileParser, List<string> files)
+        private static void ProcessFiles(TaskGraph taskGraph, FileParser fileParser, CodeGenUnit codeGenUnit, List<string> files)
         {
             foreach (var file in files)
             {
                 // Parsing task
+                var parsingTask = new ParsingTask(fileParser, file);
+                taskGraph.Add(parsingTask);
 
                 // Generating task
+                var generationTask = new CodeGenTask(codeGenUnit);
+                generationTask.DependentTasks.Add(parsingTask);
+                taskGraph.Add(generationTask);
             }
         }
     }

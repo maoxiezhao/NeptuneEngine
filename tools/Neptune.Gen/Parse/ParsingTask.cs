@@ -10,6 +10,7 @@ namespace Neptune.Gen
     {
         private FileParser _fileParser;
         private string _filePath;
+        public string FilePath { get { return _filePath; } }
         public FileParsingResult FileParsingResult { get; set; } = new FileParsingResult();
 
         public ParsingTask(FileParser fileParser, string filePath)
