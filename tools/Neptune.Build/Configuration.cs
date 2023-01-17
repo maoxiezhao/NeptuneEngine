@@ -59,6 +59,9 @@ namespace Neptune.Build
         [CommandLine("Rebuild", "Rebuilds the targets.")]
         public static bool Rebuild = false;
 
+        [CommandLine("forceGenerate", "Force to generate codes.")]
+        public static bool ForceGenerate = false;
+
         /// <summary>
         /// The set of targets to build.
         /// </summary>

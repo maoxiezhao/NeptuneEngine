@@ -37,6 +37,7 @@ tools/neptune.build/bin
 tools/neptune.build/.vs
 tools/neptune.build/obj
 tools/neptune.build/test
-tools/Neptune.Gen/bin
-tools/Neptune.Gen/obj
-tools/Neptune.Gen/packages
+tools/Neptune.Shared/Neptune.Gen/bin
+tools/Neptune.Shared/Neptune.Gen/obj
+tools/Neptune.Shared/Neptune.Gen/packages
+tools/Neptune.Shared/Neptune.Gen/.vs

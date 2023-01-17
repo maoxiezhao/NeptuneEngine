@@ -93,6 +93,8 @@ namespace Neptune.Build
         /// </summary>
         public List<string> Modules = new List<string>();
 
+        public bool IsPreBuilt = false;
+
         public Target()
         {
             var type = GetType();

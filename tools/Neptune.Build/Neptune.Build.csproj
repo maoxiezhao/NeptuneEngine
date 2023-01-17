@@ -57,6 +57,13 @@
       <HintPath>packages\Microsoft.VisualStudio.Setup.Configuration.Interop.3.4.2244\lib\net35\Microsoft.VisualStudio.Setup.Configuration.Interop.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
+    <Reference Include="Neptune.Gen, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\Neptune.Shared\Neptune.Gen\bin\Debug\Neptune.Gen.dll</HintPath>
+    </Reference>
+    <Reference Include="Nett, Version=0.15.0.0, Culture=neutral, PublicKeyToken=605dcfe7a1d3365b, processorArchitecture=MSIL">
+      <HintPath>packages\Nett.0.15.0\lib\net40\Nett.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -81,7 +88,11 @@
     <Compile Include="Build\CompileOut.cs" />
     <Compile Include="Build\LinkEnv.cs" />
     <Compile Include="Build\CompileEnv.cs" />
+    <Compile Include="Generator\Generator.Settings.cs" />
+    <Compile Include="Generator\Generator.Cache.cs" />
     <Compile Include="Generator\Generator.cs" />
+    <Compile Include="Generator\Generator.Execution.cs" />
+    <Compile Include="Generator\Generator.Module.cs" />
     <Compile Include="Platforms\ToolChain.cs" />
     <Compile Include="Platforms\Platform.cs" />
     <Compile Include="Target\GameTarget.cs" />

@@ -186,5 +186,10 @@ namespace Neptune.Build
 
             return true;
         }
+        public static T[] GetEmptyArray<T>()
+        {
+            return Enumerable.Empty<T>() as T[];
+        }
+
     }
 }

@@ -79,6 +79,10 @@ namespace Neptune.Build
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
 
+            var generatedPath = Path.Combine(buildData.TargetOptions.GeneratedFolder, module.Name);
+            if (!Directory.Exists(generatedPath))
+                Directory.CreateDirectory(generatedPath);
+
             moduleOptions = new BuildOptions
             {
                 Target = buildData.Target,
@@ -87,6 +91,7 @@ namespace Neptune.Build
                 Architecture = buildData.Architecture,
                 Configuration = buildData.Configuration,
                 IntermediateFolder = outputPath,
+                GeneratedFolder = generatedPath,
                 OutputFolder = outputPath,
                 WorkingDirectory = buildData.TargetOptions.WorkingDirectory,
                 CompileEnv = (CompileEnv)buildData.TargetOptions.CompileEnv.Clone(),
@@ -151,6 +156,7 @@ namespace Neptune.Build
                 Architecture = architecture,
                 Configuration = configuration,
                 IntermediateFolder = Path.Combine(workingDirectory, Configuration.IntermediateFolder, target.Name, platformName, architectureName, configurationName),
+                GeneratedFolder = Path.Combine(workingDirectory, Configuration.IntermediateFolder, target.Name, platformName, architectureName, "Generated"),
                 OutputFolder = Path.Combine(workingDirectory, Configuration.BinariesFolder, target.Name, platformName, architectureName, configurationName),
                 WorkingDirectory = workingDirectory,
                 CompileEnv = new CompileEnv(),

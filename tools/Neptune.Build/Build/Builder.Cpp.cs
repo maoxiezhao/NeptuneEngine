@@ -290,7 +290,8 @@ namespace Neptune.Build
             // Generate code for binary modules included in the target
             using (new ProfileEventScope("GenerateCodes"))
             {
-                Generator.CodeGenerator.Generate(buildData);
+                if (!target.IsPreBuilt)
+                    Generator.CodeGenerator.GenerateIfNecessary(buildData);
             }
 
             // Build all modules

@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Neptune.Gen": {
-      "commandName": "Project",
-      "commandLineArgs": "-workspace=C:\\Github\\Vulkan-Test\\tools\\Neptune.Build\\Test\\Client -generate"
-    }
-  }
-}

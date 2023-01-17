@@ -18,6 +18,7 @@ namespace Neptune.Build
         public List<string> SourcePaths = new List<string>();
         public List<string> SourceFiles = new List<string>();
         public string IntermediateFolder;
+        public string GeneratedFolder;
         public string OutputFolder;
         public HashSet<string> Libraries = new HashSet<string>();
 
