@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
 using static Neptune.Build.Generator.CodeGenerator;
@@ -97,11 +96,12 @@ namespace Neptune.Build.Generator
             if (!fileToCacheInfo.TryGetValue(headerFile, out fileCacheInfo) || 
                 File.GetLastWriteTime(headerFile).Ticks > fileCacheInfo.LastWriteTime)
             {
-                fileToCacheInfo[headerFile] = new FileCacheInfo
+                fileCacheInfo = new FileCacheInfo
                 {
                     LastWriteTime = File.GetLastWriteTime(headerFile).Ticks,
                     bContainsMarkup = ContainsReflectionMarkupInner(headerFile)
                 };
+                fileToCacheInfo[headerFile] = fileCacheInfo;
                 isDirty = true;
             }
             return fileCacheInfo.bContainsMarkup;

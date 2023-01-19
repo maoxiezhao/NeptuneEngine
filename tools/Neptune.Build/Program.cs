@@ -52,7 +52,10 @@ namespace Neptune.Build
                 }
                     
                 Globals.Root = Directory.GetCurrentDirectory();
-                Globals.EngineRoot = Utils.RemovePathRelativeParts(Path.Combine(Path.GetDirectoryName(executingAssembly.Location), "..", "..", "Test", "Engine"));
+                if (Configuration.EngineDirectory != null)
+                    Globals.EngineRoot = Configuration.EngineDirectory;
+                else
+                    Globals.EngineRoot = Utils.RemovePathRelativeParts(Path.Combine(Path.GetDirectoryName(executingAssembly.Location), "..", "..", "..", "..", "Test", "Engine"));
 
                 Log.Info("Arguments: " + CommandLine.Get());
                 Log.Info("Workspace: " + Globals.Root);

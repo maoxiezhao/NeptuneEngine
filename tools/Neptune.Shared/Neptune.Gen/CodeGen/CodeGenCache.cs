@@ -20,7 +20,8 @@ namespace Neptune.Gen
 
         private static string GetCachePath()
         {
-            return Path.Combine(Globals.Output, "CodeGen.cache");
+            // return Path.Combine(Globals.Output, "CodeGen.cache");
+            return string.Empty;
         }
 
         public static readonly int CacheVersion = 1;
@@ -97,7 +98,7 @@ namespace Neptune.Gen
                     if (parsingTask == null)
                         continue;
 
-                    string filePath = parsingTask.FilePath;
+                    string filePath = string.Empty; // .FilePath;
                     string generatedFilePath = codeGenUnit.GetGeneratedHeaderFilePath(filePath);
                     if (!File.Exists(generatedFilePath))
                         continue;

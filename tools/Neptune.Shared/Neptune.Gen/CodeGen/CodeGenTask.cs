@@ -9,10 +9,12 @@ namespace Neptune.Gen
     public class CodeGenTask : TaskBase
     {
         private CodeGenUnit _codeGenUnit;
+        private FileParsingResult _parsingResult;
 
-        public CodeGenTask(CodeGenUnit codeGenUnit)
+        public CodeGenTask(CodeGenUnit codeGenUnit, FileParsingResult parsingResult)
         {
             _codeGenUnit = (CodeGenUnit)codeGenUnit.Clone();
+            _parsingResult = parsingResult; 
         }
 
         public override int Run()
@@ -33,11 +35,10 @@ namespace Neptune.Gen
             if (parsingTask == null)
                 return -1;
 
-            FileParsingResult parsingResult = parsingTask.FileParsingResult;
-            if (parsingResult.Errors.Count > 0)
+            if (_parsingResult.Errors.Count > 0)
                 return -1;
 
-            if (!_codeGenUnit.GenerateCode(parsingResult))
+            if (!_codeGenUnit.GenerateCode(_parsingResult))
                 return -1;
 
             return 0 ;

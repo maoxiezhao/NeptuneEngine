@@ -8,5 +8,11 @@ namespace Neptune.Gen
 {
     public class ParsingError
     {
+        public string ErrorMsg { get; }
+
+        public ParsingError(string msg)
+        {
+            ErrorMsg = msg;
+        }
     }
 }

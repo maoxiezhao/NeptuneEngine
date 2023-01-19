@@ -39,5 +39,12 @@ namespace Neptune.Gen
 
         // Should parsing be aborted when an error is encountered or not.
         public bool ShouldAbortParsingOnFirstError = true;
+
+        public List<string> GetCompilationArguments()
+        {
+            List<string> args = new List<string>();
+
+            return args;
+        }
     }
 }

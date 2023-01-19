@@ -20,9 +20,9 @@ namespace Neptune.Build.Generator
         public string ModuleName;
         public string ModuleDirectory;
         public Module ModuleInst;
-        public List<string> SourcePaths;
-        public List<string> HeaderFiles;
-        public List<string> PublicDefines;
+        public List<string> SourcePaths = new List<string>();
+        public List<string> HeaderFiles = new List<string>();
+        public List<string> PublicDefines = new List<string>();
         public string GeneratedCodeDirectory;
         public bool isDirty = false;
     }
@@ -60,6 +60,20 @@ namespace Neptune.Build.Generator
                     headerFiles.Add(moduleOptions.SourceFiles[i]);
                 }
             }
+
+            // Special case for Core module to ignore API tags defines
+            if (module.Name == "Core")
+            {
+                for (int i = 0; i < headerFiles.Count; i++)
+                {
+                    if (headerFiles[i].EndsWith("config.h", StringComparison.Ordinal))
+                    {
+                        headerFiles.RemoveAt(i);
+                        break;
+                    }
+                }
+            }
+
             if (headerFiles.Count == 0)
                 return moduleInfo;
 
@@ -111,8 +125,6 @@ namespace Neptune.Build.Generator
                 var moduleInfo = ParseGeneratorModuleInfo(module, moduleOptions);
                 if (moduleInfo != null)
                 {
-                    moduleInfos.Add(moduleInfo);
-
                     // Remove any stale generated code directory
                     if (moduleInfo.HeaderFiles.Count <= 0)
                     {
@@ -120,6 +132,10 @@ namespace Neptune.Build.Generator
                         {
                             Directory.Delete(moduleInfo.GeneratedCodeDirectory, true);
                         }
+                    }
+                    else
+                    {
+                        moduleInfos.Add(moduleInfo);
                     }
                 }
             }

@@ -27,6 +27,7 @@ app/config_user.jsc
 app/config_user.jsc
 
 # tools
+tools/Test
 tools/Neptune.Build/bin
 tools/Neptune.Build/obj
 tools/Neptune.Build/packages

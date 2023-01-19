@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Neptune.Build": {
+      "commandName": "Project",
+      "commandLineArgs": "-genproject -vs2022",
+      "workingDirectory": "C:\\Github\\Vulkan-Test\\tools\\Test\\Client"
+    }
+  }
+}

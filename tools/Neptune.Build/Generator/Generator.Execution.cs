@@ -36,7 +36,7 @@ namespace Neptune.Build.Generator
         private static bool RunCodeGeneratorProcess(BuildData buildData, List<GeneratorModuleInfo> moduleInfos)
         {
             var manifest = CreateCodeGeneratorManifest(buildData, moduleInfos);
-            if (manifest != null)
+            if (manifest == null)
             {
                 Log.Error("Failed to create code generate manifest.");
                 return false;
@@ -49,12 +49,12 @@ namespace Neptune.Build.Generator
                 return false;
             }
 
-            Gen.Session session = new Gen.Session(
+            Gen.Process process = new Gen.Process(
                 manifest, 
                 parsingSettings, 
                 false);
-            session.LogInfoOutput = ProcessDebugOutput;
-            return session.Run();
+            process.LogInfoOutput = ProcessDebugOutput;
+            return process.Run();
         }
 
         private static void ProcessDebugOutput(string msg)

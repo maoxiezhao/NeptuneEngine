@@ -24,7 +24,7 @@ namespace Neptune.Gen
         public static bool Generate(ParsingSettings parsingSettings)
         {
             // Setup basic objects
-            FileParser fileParser = new FileParser();
+            FileParser fileParser = new FileParser(parsingSettings);
             CodeGenUnit codeGenUnit = new CodeGenUnit();
 
 
@@ -32,7 +32,7 @@ namespace Neptune.Gen
             using (new ProfileEventScope("Generate"))
             {
                 List<string> SourcePaths = new List<string>();
-                SourcePaths.Add(Globals.Root);
+                // SourcePaths.Add(Globals.Root);
 
                 var files = GetProcessedFiles(SourcePaths);
                 if (files.Count <= 0)
@@ -45,10 +45,12 @@ namespace Neptune.Gen
                     List<string> availiableFiles = new List<string>();
                     for (int i = 0; i < files.Count; i++)
                     {
+#if false
                         if (CheckHeaderFileHasAPI(fileParser.Settings, files[i]))
                         {
                             availiableFiles.Add(files[i]);
                         }
+#endif
                     }
                     files = availiableFiles;
                 }
@@ -113,14 +115,10 @@ namespace Neptune.Gen
         {
             foreach (var file in files)
             {
-                // Parsing task
-                var parsingTask = new ParsingTask(fileParser, file);
-                taskGraph.Add(parsingTask);
-
                 // Generating task
-                var generationTask = new CodeGenTask(codeGenUnit);
-                generationTask.DependentTasks.Add(parsingTask);
-                taskGraph.Add(generationTask);
+                // var generationTask = new CodeGenTask(codeGenUnit);
+                // generationTask.DependentTasks.Add(parsingTask);
+                // taskGraph.Add(generationTask);
             }
         }
     }

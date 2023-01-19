@@ -26,12 +26,14 @@ namespace Neptune.Gen
 
         public string GetGeneratedHeaderFilePath(string sourceFile)
         {
-            return Path.Combine(Globals.Output, Settings.GetGeneratedHeaderFileName(sourceFile));
+            // return Path.Combine(Globals.Output, Settings.GetGeneratedHeaderFileName(sourceFile));
+            return string.Empty;
         }
 
         public string GetGeneratedSourceFilePath(string sourceFile)
         {
-            return Path.Combine(Globals.Output, Settings.GetGeneratedSourceFileName(sourceFile));
+            // return Path.Combine(Globals.Output, Settings.GetGeneratedSourceFileName(sourceFile));
+            return string.Empty;
         }
     }
 }
