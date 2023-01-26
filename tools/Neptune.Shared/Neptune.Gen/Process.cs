@@ -13,8 +13,9 @@ namespace Neptune.Gen
 {
     public class Process
     {
-        public Log.LogEventHandler LogInfoOutput = null;
+        public Log.LogEventHandler? LogInfoOutput = null;
         public bool GoWide { get; set; } = false;
+        public List<HeaderFile> SortedHeaderFiles => _sortedHeaderFiles;
 
         private Manifest _manifest;
         private ParsingSettings _parsingSettings;
@@ -23,6 +24,7 @@ namespace Neptune.Gen
         private Dictionary<string, HeaderFile> _headerFileDictionary  = new Dictionary<string, HeaderFile>();
         private List<HeaderFile> _headerFiles = new List<HeaderFile>();
         private List<HeaderFile> _sortedHeaderFiles = new List<HeaderFile>();
+        private CodeGenTables _codeGenTables = new CodeGenTables();
 
         public IDGenerator HeaderFileIDGenerator { get; } = new IDGenerator();
 
@@ -38,6 +40,16 @@ namespace Neptune.Gen
             _manifest = manifest;
             _parsingSettings = parsingSettings;
             _mutex = mutex;
+            _fileParser = new FileParser(_parsingSettings);
+        }
+
+        public HeaderFile? FindHeaderFile(string name)
+        {
+            if (_headerFileDictionary.TryGetValue(name, out HeaderFile? headerFile))
+            {
+                return headerFile;
+            }
+            return null;
         }
 
         internal void PrepareHeaders()
@@ -60,7 +72,8 @@ namespace Neptune.Gen
                             }
                         }
 
-                        HeaderFile headerFile = new HeaderFile(this, headerFilePath);
+                        HeaderFile headerFile = new HeaderFile(this, headerFilePath, module);
+                        headerFile.IncludePaths.AddRange(module.IncludePaths);
                         _headerFiles.Add(headerFile);
                         _headerFileDictionary.Add(headerFileName, headerFile);
 
@@ -124,6 +137,15 @@ namespace Neptune.Gen
 
                 foreach (HeaderFile headerFile in _headerFiles)
                 {
+                    var includedHeaders = headerFile.FileParsingResult.IncludedHeaders;
+                    foreach (var includedHeader in includedHeaders)
+                    {
+                        headerFile.AddReferencedHeader(includedHeader, true);
+                    }
+                }
+
+                foreach (HeaderFile headerFile in _headerFiles)
+                {
                     if (states[headerFile.FileID] == TopologicalState.Unmarked)
                     {
                         HeaderFile recursion = TopologicalVisit(states, headerFile);
@@ -169,9 +191,27 @@ namespace Neptune.Gen
         }
 
 
-        internal void StepGenerateFromHeaders()
-        { 
+        internal void GenerateCodes()
+        {
             // Collect generators
+            _codeGenTables.CollectCodeGenUnits();
+
+            using (new ProfileEventScope("GenerateCodes"))
+            {
+                long writtenFiles = 0;
+                foreach (CodeGenExporter exporter in _codeGenTables)
+                {
+                    CodeGenFactory factory = new CodeGenFactory(this, exporter);
+                    factory.Run();
+                    foreach (var result in factory.GenResults)
+                    {
+                        if (result.Completed)
+                            writtenFiles++;
+                    }
+                }
+
+                Log.Info($"Total of {writtenFiles} written");
+            }
         }
 
         public bool Run()
@@ -217,7 +257,7 @@ namespace Neptune.Gen
                     PrepareHeaders();
                     ParseHeaders();
                     SortHeaders();
-                    StepGenerateFromHeaders();
+                    GenerateCodes();
                 }
             }
             catch (Exception ex)

@@ -24,6 +24,7 @@ namespace Neptune.Build.Generator
                     HeaderFiles = module.HeaderFiles,
                     PublicDefines = module.PublicDefines,
                     GeneratedCodeDirectory = module.GeneratedCodeDirectory,
+                    IncludePaths = module.IncludePaths,
                 });
             }
             return new Gen.Manifest

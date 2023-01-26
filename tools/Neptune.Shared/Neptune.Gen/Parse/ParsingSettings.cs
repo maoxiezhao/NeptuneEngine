@@ -40,9 +40,27 @@ namespace Neptune.Gen
         // Should parsing be aborted when an error is encountered or not.
         public bool ShouldAbortParsingOnFirstError = true;
 
+        private const string parsingMacro = "NEPTUNE_HEADER_PARSING";
         public List<string> GetCompilationArguments()
         {
             List<string> args = new List<string>();
+
+            // Setup cpp version
+            args.Add("-xc++");
+            args.Add("-std=c++" + ((int)ECppVersion).ToString());
+
+            // Setup property macros
+            args.Add("-D" + ApiTokens.Class + "(...)=__attribute__((annotate(\"CLASS:\"#__VA_ARGS__)))");
+            args.Add("-D" + ApiTokens.Struct + "(...)=__attribute__((annotate(\"STRUCT:\"#__VA_ARGS__)))");
+            args.Add("-D" + ApiTokens.Variable + "(...)=__attribute__((annotate(\"VARIABLE:\"#__VA_ARGS__)))");
+            args.Add("-D" + ApiTokens.Field + "(...)=__attribute__((annotate(\"FIELD:\"#__VA_ARGS__)))");
+            args.Add("-D" + ApiTokens.Function + "(...)=__attribute__((annotate(\"FUNCTION:\"#__VA_ARGS__)))");
+            args.Add("-D" + ApiTokens.Method + "(...)=__attribute__((annotate(\"METHOD:\"#__VA_ARGS__)))");
+            args.Add("-D" + ApiTokens.Enum + "(...)=__attribute__((annotate(\"ENUM:\"#__VA_ARGS__)))");
+            args.Add("-D" + ApiTokens.EnumValue + "(...)=__attribute__((annotate(\"ENUMVALUE:\"#__VA_ARGS__)))");
+
+            // Add parsing macro
+            args.Add("-D" + parsingMacro);
 
             return args;
         }

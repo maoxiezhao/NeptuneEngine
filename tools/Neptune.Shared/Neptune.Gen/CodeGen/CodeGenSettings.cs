@@ -18,14 +18,14 @@ namespace Neptune.Gen
         public string GetGeneratedHeaderFileName(string sourceFile)
         {
             string filename = GeneratedHeaderFileNamePattern;
-            filename.Replace(FilenameTag, Path.GetFileName(sourceFile));
+            filename = filename.Replace(FilenameTag, Path.GetFileNameWithoutExtension(sourceFile));
             return filename;
         }
 
         public string GetGeneratedSourceFileName(string sourceFile)
         {
             string filename = GeneratedSourceFileNamePattern;
-            filename.Replace(FilenameTag, Path.GetFileName(sourceFile));
+            filename = filename.Replace(FilenameTag, Path.GetFileNameWithoutExtension(sourceFile));
             return filename;
         }
     }

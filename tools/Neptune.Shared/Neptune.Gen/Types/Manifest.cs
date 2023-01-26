@@ -23,6 +23,7 @@ namespace Neptune.Gen
             public List<string> SourcePaths;
             public List<string> HeaderFiles;
             public List<string> PublicDefines;
+            public List<string> IncludePaths;
             public string GeneratedCodeDirectory;
         }
 

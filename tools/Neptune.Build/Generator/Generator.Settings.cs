@@ -14,8 +14,8 @@ namespace Neptune.Build.Generator
         private const string _tomlSectionName = "ParsingSettings";
         private static Gen.ParsingSettings _parsingSettings = null;
         private static string GetParsingSettingsPath()
-        {
-            string currentPath = typeof(CodeGenManager).Assembly.Location;
+        {       
+            string currentPath = typeof(CodeGenerator).Assembly.Location;
             var currentDirectory = Path.GetDirectoryName(currentPath);
             return Path.Combine(currentDirectory, "Settings.toml");
         }
@@ -27,15 +27,15 @@ namespace Neptune.Build.Generator
 
             var settingsPath = GetParsingSettingsPath();
             if (!File.Exists(settingsPath))
-                return null;
+                throw new Exception("Missing parsing settings");
 
             var toml = Toml.ReadFile(settingsPath);
             if (toml == null)
-                return null;
+                throw new Exception("Invalid parsing settings");
 
             var settings = new Gen.ParsingSettings();
             if (!LoadFromTomlConfig(settings, toml))
-                return null;
+                throw new Exception("Failed to load parsing settings");
 
             _parsingSettings = settings;
             return _parsingSettings;

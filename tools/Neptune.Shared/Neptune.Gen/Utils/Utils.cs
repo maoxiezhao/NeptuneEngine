@@ -154,38 +154,36 @@ namespace Neptune.Gen
             return result;
         }
 
-        public static bool WriteFileIfChanged(string path, string contents)
+        public static bool WriteFile(string path, string contents)
         {
-            if (File.Exists(path))
-            {
-                string oldContents = null;
-                try
-                {
-                    oldContents = File.ReadAllText(path);
-                }
-                catch (Exception)
-                {
-                    Log.Warning(string.Format("Failed to read file contents while trying to save it.", path));
-                }
-
-                // No files changed 
-                if (string.Equals(contents, oldContents, StringComparison.OrdinalIgnoreCase))
-                    return false;
-            }
-
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, contents, new UTF8Encoding());
-                Log.Info(string.Format("Saved file to {0}", path));
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+
+                using StreamWriter writer = new(path, false, new UTF8Encoding(false, true), 16 * 1024);
+                writer.Write(contents);
+                return true;
             }
             catch
             {
                 Log.Error(string.Format("Failed to save file {0}", path));
-                throw;
+                return false;
             }
+        }
 
-            return true;
+        public static bool RenameFile(string srcName, string dstName)
+        {
+            try
+            {
+                File.Move(srcName, dstName, true);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 }

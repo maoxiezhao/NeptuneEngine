@@ -7,33 +7,17 @@ using System.Threading.Tasks;
 
 namespace Neptune.Gen
 {
-    public class CodeGenUnit
+    public abstract class CodeGenUnit
     {
-        public CodeGenSettings Settings = new CodeGenSettings();
+        protected CodeGenSettings _settings;
+        protected CodeGenFactory _codeGenFactory;
 
-        public bool GenerateCode(FileParsingResult fileParsingResult)
+        public CodeGenUnit(CodeGenFactory factory, CodeGenSettings settings)
         {
-            return false;
+            _codeGenFactory = factory;
+            _settings = settings;
         }
 
-        public object Clone()
-        {
-            var clone = new CodeGenUnit
-            {
-            };
-            return clone;
-        }
-
-        public string GetGeneratedHeaderFilePath(string sourceFile)
-        {
-            // return Path.Combine(Globals.Output, Settings.GetGeneratedHeaderFileName(sourceFile));
-            return string.Empty;
-        }
-
-        public string GetGeneratedSourceFilePath(string sourceFile)
-        {
-            // return Path.Combine(Globals.Output, Settings.GetGeneratedSourceFileName(sourceFile));
-            return string.Empty;
-        }
+        public abstract void GenerateCode(HeaderFile headerFile);
     }
 }

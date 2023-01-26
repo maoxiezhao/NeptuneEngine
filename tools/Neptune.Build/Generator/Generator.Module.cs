@@ -23,6 +23,7 @@ namespace Neptune.Build.Generator
         public List<string> SourcePaths = new List<string>();
         public List<string> HeaderFiles = new List<string>();
         public List<string> PublicDefines = new List<string>();
+        public List<string> IncludePaths = new List<string>();
         public string GeneratedCodeDirectory;
         public bool isDirty = false;
     }
@@ -46,7 +47,7 @@ namespace Neptune.Build.Generator
                 ModuleDirectory = module.FolderPath,
                 ModuleInst = module,
                 SourcePaths = moduleOptions.SourcePaths,
-                GeneratedCodeDirectory = GetGeneratedCodeDirectory(module, moduleOptions)
+                GeneratedCodeDirectory = moduleOptions.GeneratedFolder
             };
             if (string.IsNullOrEmpty(moduleInfo.ModuleName))
                 throw new Exception("Module name cannot be empty.");
@@ -108,6 +109,7 @@ namespace Neptune.Build.Generator
             }
 
             moduleInfo.PublicDefines.AddRange(moduleOptions.PublicDefinitions.ToArray());
+            moduleInfo.IncludePaths.AddRange(moduleOptions.CompileEnv.IncludePaths);
             moduleInfo.isDirty = IsCurrentModuleDirty();
 
             return moduleInfo;
@@ -118,6 +120,9 @@ namespace Neptune.Build.Generator
             List<Module> modulesSorted = buildData.ModulesOrderList.ToList();
             foreach (var module in modulesSorted)
             {
+                if (!buildData.BinaryModules.Any(x => x.Contains(module)))
+                    continue;
+
                 BuildOptions moduleOptions = null;
                 if (!buildData.Modules.TryGetValue(module, out moduleOptions))
                     continue;
@@ -141,9 +146,18 @@ namespace Neptune.Build.Generator
             }
         }
 
-        private static string GetGeneratedCodeDirectory(Module module, BuildOptions moduleOptions) 
+        public static void SetupBuildEnvironment(BuildOptions buildOptions)
         {
-            return Path.Combine(moduleOptions.GeneratedFolder, module.Name);
+            string generatedFolder = buildOptions.GeneratedFolder;
+            if (string.IsNullOrEmpty(generatedFolder) || !Directory.Exists(generatedFolder))
+                return;
+
+            var directories = Directory.EnumerateDirectories(generatedFolder);
+            foreach (var dir in directories)
+            {
+                buildOptions.CompileEnv.IncludePaths.Add(dir);
+                buildOptions.SourcePaths.Add(dir);
+            }
         }
     }
 }

@@ -418,6 +418,8 @@ namespace Neptune.Build
 
             // Setup actual build environment
             module.SetupEnvironment(moduleOptions);
+            Generator.CodeGenerator.SetupBuildEnvironment(moduleOptions);
+
             moduleOptions.FillSourceFilesFromSourcePaths();
 
             // Collect all files to compile
@@ -428,11 +430,6 @@ namespace Neptune.Build
                     cppFiles.Add(moduleOptions.SourceFiles[i]);
             }
 
-            // Generate codes
-            using (new ProfileEventScope("GenerateBindings"))
-            {
-                // TODO
-            }
 
             // Compile all source files
             var compilationOutput = buildData.Toolchain.CompileCppFiles(buildData.Graph, moduleOptions, cppFiles, moduleOptions.OutputFolder);

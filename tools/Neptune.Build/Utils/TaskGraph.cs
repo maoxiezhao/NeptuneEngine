@@ -102,7 +102,6 @@ namespace Neptune.Build
 
         public bool Execute(out int executedTasksCount)
         {
-            Log.Verbose("");
             Log.Verbose(string.Format("Total {0} tasks", Tasks.Count));
 
             var executor = new TaskExecutor();
@@ -122,6 +121,7 @@ namespace Neptune.Build
             else
                 Log.Info("Done!");
 
+            Log.Info("");
             return failedCount == 0;
         }
 

@@ -94,7 +94,7 @@ namespace Neptune.Build.Generator
                     if (needsToRun)
                     {
                         // Write module infos for generator
-                        Log.Info("Running CodeGenerator...");
+                        Log.Info(string.Format("Running CodeGenerator for {0} ...", buildData.Target.Name));
                         Stopwatch stopwatch = new Stopwatch();
                         using (new ProfileEventScope("GenerateProcess"))
                         {

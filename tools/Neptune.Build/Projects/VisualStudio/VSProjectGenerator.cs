@@ -6,7 +6,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Threading.Tasks;
-using static System.Net.WebRequestMethods;
 using System.Xml.Linq;
 
 namespace Neptune.Build
@@ -196,7 +195,18 @@ namespace Neptune.Build
                 vcProjectFileContent.AppendLine("  <PropertyGroup Label=\"UserMacros\" />");
 
                 // Per configuration options
-                var buildToolPath = Utils.MakePathRelativeTo(typeof(Builder).Assembly.Location, projectDirectory);
+                var buildToolPath = typeof(Builder).Assembly.Location; //  
+                if (buildToolPath.EndsWith("dll"))
+                {
+                    buildToolPath = Path.ChangeExtension(buildToolPath, "exe");
+                }
+                if (!File.Exists(buildToolPath))
+                {
+                    Log.Error("Missing build tool.");
+                    return;
+                }
+
+                buildToolPath = Utils.MakePathRelativeTo(buildToolPath, projectDirectory);
 
                 var preprocessorDefinitions = new HashSet<string>();
                 var includePaths = new HashSet<string>();

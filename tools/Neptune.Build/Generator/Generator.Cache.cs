@@ -141,13 +141,13 @@ namespace Neptune.Build.Generator
                         reader.ReadInt32() != (int)moduleOptions.Configuration)
                         return false;
                     var publicDefinitions = Read(reader, Utils.GetEmptyArray<string>());
-                    if (publicDefinitions.Length != moduleOptions.PublicDefinitions.Count || publicDefinitions.Any(x => !moduleOptions.PublicDefinitions.Contains(x)))
+                    if (publicDefinitions == null || publicDefinitions.Length != moduleOptions.PublicDefinitions.Count || publicDefinitions.Any(x => !moduleOptions.PublicDefinitions.Contains(x)))
                         return false;
                     var privateDefinitions = Read(reader, Utils.GetEmptyArray<string>());
-                    if (privateDefinitions.Length != moduleOptions.PrivateDefinitions.Count || privateDefinitions.Any(x => !moduleOptions.PrivateDefinitions.Contains(x)))
+                    if (privateDefinitions == null || privateDefinitions.Length != moduleOptions.PrivateDefinitions.Count || privateDefinitions.Any(x => !moduleOptions.PrivateDefinitions.Contains(x)))
                         return false;
                     var preprocessorDefinitions = Read(reader, Utils.GetEmptyArray<string>());
-                    if (preprocessorDefinitions.Length != moduleOptions.CompileEnv.PreprocessorDefinitions.Count || preprocessorDefinitions.Any(x => !moduleOptions.CompileEnv.PreprocessorDefinitions.Contains(x)))
+                    if (preprocessorDefinitions == null || preprocessorDefinitions.Length != moduleOptions.CompileEnv.PreprocessorDefinitions.Count || preprocessorDefinitions.Any(x => !moduleOptions.CompileEnv.PreprocessorDefinitions.Contains(x)))
                         return false;
 
                     // Read cached header files

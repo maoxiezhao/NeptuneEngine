@@ -22,7 +22,7 @@ namespace Neptune.Gen
             if (_headerFile == null || _headerFile.FilePath.Length == 0)
                 return -1;
 
-            _fileParser.Parse(_headerFile.FilePath, _headerFile.FileParsingResult);
+            _fileParser.Parse(_headerFile, _headerFile.FileParsingResult);
             return _headerFile.FileParsingResult.Errors.Count > 0 ? -1 : 0;
         }
     }

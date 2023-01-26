@@ -26,13 +26,22 @@ namespace Neptune.Gen
             Tasks.Sort(TaskCompare);
         }
 
-        public bool Execute(out int executedTasksCount)
+        public bool Execute(out int executedTasksCount, bool noWide = false)
         {
-            Log.Verbose("");
-            Log.Verbose(string.Format("Total {0} tasks", Tasks.Count));
-
-            var executor = new TaskExecutor();
-            executedTasksCount = executor.Execute(Tasks);
+            if (noWide)
+            {
+                executedTasksCount = 0;
+                foreach (var task in Tasks)
+                {
+                    if (task.Run() == 0)
+                        executedTasksCount++;
+                }
+            }
+            else
+            {
+                var executor = new TaskExecutor();
+                executedTasksCount = executor.Execute(Tasks);
+            }
 
             var failedCount = 0;
             foreach (var task in Tasks)
@@ -45,8 +54,6 @@ namespace Neptune.Gen
                 Log.Error("1 task failed");
             else if (failedCount != 0)
                 Log.Error(string.Format("{0} tasks failed", failedCount));
-            else
-                Log.Verbose("Done!");
 
             return true;
         }
