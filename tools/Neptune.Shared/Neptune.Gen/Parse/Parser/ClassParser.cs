@@ -132,7 +132,7 @@ namespace Neptune.Gen
                     if (classResult.ParsedClass != null && result.ParsedMethod != null)
                     {
                         result.ParsedMethod.AccessSpecifier = GetContext.AccessSpecifier;
-                        classResult.ParsedClass.MethodInfos.Add(result.ParsedMethod);
+                        classResult.ParsedClass.Methods.Add(result.ParsedMethod);
                     }
                     classResult.AppendResult(result);
                 }

@@ -191,7 +191,19 @@ namespace Neptune.Gen
         }
 
         private void RefreshOuterEntity(FileParsingResult result)
-        { 
+        {
+            foreach (var info in result.Structs)
+            {
+                info.RefreshOuterEntity();
+            }
+            foreach (var info in result.Classes)
+            {
+                info.RefreshOuterEntity();
+            }
+            foreach (var info in result.Enums)
+            {
+                info.RefreshOuterEntity();
+            }
         }
 
         public object Clone()

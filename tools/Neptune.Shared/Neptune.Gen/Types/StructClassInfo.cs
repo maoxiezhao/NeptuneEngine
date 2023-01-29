@@ -68,7 +68,7 @@ namespace Neptune.Gen
         /// <summary>
         /// List of all methods contained in this class.
         /// </summary>
-        public List<MethodInfo> MethodInfos = new List<MethodInfo>();
+        public List<MethodInfo> Methods = new List<MethodInfo>();
 
         public bool IsForwardDecl { get; } = false;
 
@@ -80,6 +80,37 @@ namespace Neptune.Gen
             IsForwardDecl = isForwardDecl;
         }
 
+        public void RefreshOuterEntity()
+        {
+            foreach (var nestedClass in NestedClasses)
+            {
+                nestedClass.RefreshOuterEntity();
+                nestedClass.Outer = this;
+            }
+
+            foreach (var nestedClass in NestedStructs)
+            {
+                nestedClass.RefreshOuterEntity();
+                nestedClass.Outer = this;
+            }
+
+            foreach (var nestedClass in NestedEnums)
+            {
+                nestedClass.RefreshOuterEntity();
+                nestedClass.Outer = this;
+            }
+
+            foreach (var field in Fields)
+            {
+                field.Outer = this;
+            }
+
+            foreach (var method in Methods)
+            {
+                method.Outer = this;
+            }
+        }
+
         public void Clone(StructClassInfo otherClass)
         { 
             base.Clone(otherClass);
@@ -88,7 +119,7 @@ namespace Neptune.Gen
             otherClass.NestedClasses.AddRange(NestedClasses);
             otherClass.NestedStructs.AddRange(NestedStructs);
             otherClass.Fields.AddRange(Fields);
-            otherClass.MethodInfos.AddRange(MethodInfos);
+            otherClass.Methods.AddRange(Methods);
             
             if (TypeInfo != null)
                 otherClass.TypeInfo = TypeInfo.Clone();

@@ -31,5 +31,11 @@ namespace Neptune.Gen
             Type = new TypeInfo(cursor.Type);
             UnderlyingType = new TypeInfo(cursor.EnumDecl_IntegerType);
         }
+
+        public void RefreshOuterEntity()
+        {
+            foreach (var enumValueInfo in EnumValues)
+                enumValueInfo.Outer = this;
+        }
     }
 }
