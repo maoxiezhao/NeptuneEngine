@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -59,6 +60,37 @@ namespace Neptune.Gen
                 return string.Empty;
 
             return Path.Combine(module.GeneratedCodeDirectory, filename);
+        }
+
+        public void WriteFileIfChanged(string path, StringView contentView)
+        {
+            ReadOnlySpan<char> contentSpan = contentView.Span;
+            bool changed = true;
+            GenBuffer? original = Utils.ReadSourceToBuffer(path);
+            if (original != null)
+            {
+                ReadOnlySpan<char> originalSpan = original.Memory.Span;
+                if (originalSpan.CompareTo(contentSpan, StringComparison.Ordinal) == 0)
+                {
+                    changed = false;
+                }
+            }
+
+            string tempPath = path + ".tmp";
+            if (changed)
+            {
+                Utils.WriteSource(tempPath, contentSpan);
+            }
+
+            lock (GenResults)
+            {
+                GenResults.Add(new CodeGenResult
+                {
+                    FilePath = path,
+                    TempFilePath = tempPath,
+                    Completed = changed
+                });
+            }
         }
 
         public void WriteFileIfChanged(string path, string contents)

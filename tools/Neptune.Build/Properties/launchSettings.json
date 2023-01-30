@@ -2,7 +2,7 @@
   "profiles": {
     "Neptune.Build": {
       "commandName": "Project",
-      "commandLineArgs": "-genproject -vs2022",
+      "commandLineArgs": "-log -mutex -workspace=C:\\Github\\Vulkan-Test\\tools\\Test\\Client -arch=x64 -configuration=Debug -platform=Windows -buildTargets=ClientTarget -build",
       "workingDirectory": "C:\\Github\\Vulkan-Test\\tools\\Test\\Client"
     }
   }

@@ -185,5 +185,59 @@ namespace Neptune.Gen
                 return false;
             }
         }
+
+        public static GenBuffer? ReadSourceToBuffer(string path)
+        {
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            try
+            {
+                using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4 * 1024, FileOptions.SequentialScan);
+                using StreamReader sr = new(fs, Encoding.UTF8, true);
+                GenBuffer initialBuffer = GenBufferPool.Alloc((int)fs.Length);
+                int readLength = sr.Read(initialBuffer.Memory.Span);
+                if (sr.EndOfStream)
+                {
+                    initialBuffer.Reset(readLength);
+                    return initialBuffer;
+                }
+                else
+                {
+                    string remaining = sr.ReadToEnd();
+                    long totalSize = readLength + remaining.Length;
+                    GenBuffer combined = GenBufferPool.Alloc((int)totalSize);
+                    Buffer.BlockCopy(initialBuffer.Block, 0, combined.Block, 0, readLength * sizeof(char));
+                    Buffer.BlockCopy(remaining.ToArray(), 0, combined.Block, readLength * sizeof(char), remaining.Length * sizeof(char));
+                    GenBufferPool.Free(initialBuffer);
+                    return combined;
+                }
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        public static bool WriteSource(string path, ReadOnlySpan<char> contents)
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+
+                using StreamWriter writer = new(path, false, new UTF8Encoding(false, true), 16 * 1024);
+                writer.Write(contents);
+                return true;
+            }
+            catch
+            {
+                Log.Error(string.Format("Failed to save file {0}", path));
+                return false;
+            }
+        }
     }
 }

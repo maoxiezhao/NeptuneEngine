@@ -20,6 +20,11 @@ namespace Neptune.Gen
             return CodeGenFactory.GetGeneratedFilePath(HeaderFile, path);
         }
 
+        protected override ETraversalBehaviour GenerateCodeForEntity(EntityInfo entityInfo)
+        {
+            return ETraversalBehaviour.Recurse;
+        }
+
         public override void Generate(CodeGenFactory CodeGenFactory)
         {
             var parsingResult = HeaderFile.FileParsingResult;
@@ -31,8 +36,11 @@ namespace Neptune.Gen
 
 
             var filePath = GetGeneratedFilePath(CodeGenFactory);
-            var genString = builder.ToString();
-            CodeGenFactory.WriteFileIfChanged(filePath, genString);
+            {
+                GenBufferHandle bufferHandle = new GenBufferHandle(builder);
+                StringView contentView = new(bufferHandle.Buffer.Memory);
+                CodeGenFactory.WriteFileIfChanged(filePath, contentView);
+            }
         }
     }
 }
