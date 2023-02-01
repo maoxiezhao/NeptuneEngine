@@ -40,16 +40,40 @@ namespace Neptune.Gen
 
     public abstract class CppReflectGenerator
     {
+        public const string GeneratedBodyMacroSuffix = "GENERATED_BODY";
+
         protected HeaderFile HeaderFile { get; }
         protected CodeGenCppReflectSettings Settings { get; }
+        protected Manifest.ModuleInfo ModuleInfo => HeaderFile.ModuleInfo;
+        protected string ModuleAPI => $"{ModuleInfo.ModuleName.ToUpper()}_API ";
+
+        public struct HeaderInfo
+        {
+            public string IncludePath { get; set; }
+            public string FileID { get; set; }
+        }
+        public readonly HeaderInfo CurrentHeaderInfo;
+        public string HeaderFileID => CurrentHeaderInfo.FileID;
 
         public CppReflectGenerator(HeaderFile headerFile, CodeGenCppReflectSettings settings)
         {
             HeaderFile = headerFile;
             Settings = settings;
+
+            char[] outFilePath = new char[HeaderFile.FilePath.Length + 4];
+            outFilePath[0] = 'F';
+            outFilePath[1] = 'I';
+            outFilePath[2] = 'D';
+            outFilePath[3] = '_';
+            for (int index = 0; index < HeaderFile.FilePath.Length; ++index)
+            {
+                outFilePath[index + 4] = StringUtils.IsAlnum(HeaderFile.FilePath[index]) ? HeaderFile.FilePath[index] : '_';
+            }
+            CurrentHeaderInfo.FileID = new string(outFilePath);
+            CurrentHeaderInfo.IncludePath = HeaderFile.FilePath;
         }
 
-		public ETraversalBehaviour ForeachEntityPair()
+        public ETraversalBehaviour ForeachEntityPair(StringBuilder builder)
 		{
 			ETraversalBehaviour result = ETraversalBehaviour.Break;
 			var parsingResult = HeaderFile.FileParsingResult;
@@ -58,7 +82,7 @@ namespace Neptune.Gen
 
             foreach (var classInfo in parsingResult.Classes)
             {
-                result = EntityForeachVisitInStruct(classInfo);
+                result = EntityForeachVisitInStruct(builder, classInfo);
                 if (result == ETraversalBehaviour.Break)
                     break;
                 else if (result == ETraversalBehaviour.AbortWithSuccess || result == ETraversalBehaviour.AbortWithFailure)
@@ -67,7 +91,7 @@ namespace Neptune.Gen
 
             foreach (var structInfo in parsingResult.Structs)
             {
-                result = EntityForeachVisitInStruct(structInfo);
+                result = EntityForeachVisitInStruct(builder, structInfo);
                 if (result == ETraversalBehaviour.Break)
                     break;
                 else if (result == ETraversalBehaviour.AbortWithSuccess || result == ETraversalBehaviour.AbortWithFailure)
@@ -76,7 +100,7 @@ namespace Neptune.Gen
 
             foreach (var enumInfo in parsingResult.Enums)
 			{
-				result = EntityForeachVisitInEnum(enumInfo);
+				result = EntityForeachVisitInEnum(builder, enumInfo);
                 if (result == ETraversalBehaviour.Break)
 					break;
 				else if (result == ETraversalBehaviour.AbortWithSuccess || result == ETraversalBehaviour.AbortWithFailure)
@@ -85,15 +109,15 @@ namespace Neptune.Gen
 			return result;
 		}
 
-		protected ETraversalBehaviour EntityForeachVisitInEnum(EnumInfo enumInfo)
+		protected ETraversalBehaviour EntityForeachVisitInEnum(StringBuilder builder, EnumInfo enumInfo)
 		{
-            var ret = GenerateCodeForEntity(enumInfo);
+            var ret = GenerateCodeForEntity(builder, enumInfo);
 			if (ret != ETraversalBehaviour.Recurse)
 				return ret;
 
             foreach (var enumValueInfo in enumInfo.EnumValues)
             {
-                ret = GenerateCodeForEntity(enumValueInfo);
+                ret = GenerateCodeForEntity(builder, enumValueInfo);
 
 				if (ret == ETraversalBehaviour.Break)
 					break;
@@ -104,16 +128,16 @@ namespace Neptune.Gen
 			return ETraversalBehaviour.Recurse;
         }
 
-        protected ETraversalBehaviour EntityForeachVisitInStruct(StructClassInfo structClassInfo)
+        protected ETraversalBehaviour EntityForeachVisitInStruct(StringBuilder builder, StructClassInfo structClassInfo)
         {
-            var ret = GenerateCodeForEntity(structClassInfo);
+            var ret = GenerateCodeForEntity(builder, structClassInfo);
             if (ret != ETraversalBehaviour.Recurse)
                 return ret;
 
             return ETraversalBehaviour.Recurse;
         }
 
-        protected abstract ETraversalBehaviour GenerateCodeForEntity(EntityInfo entityInfo);
+        protected abstract ETraversalBehaviour GenerateCodeForEntity(StringBuilder builder, EntityInfo entityInfo);
 
         public abstract void Generate(CodeGenFactory CodeGenFactory);
     }

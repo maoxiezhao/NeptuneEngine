@@ -40,6 +40,8 @@ namespace Neptune.Gen
         /// </summary>
         public TypeInfo? TypeInfo { get; set; } = null;
 
+        public int DeclarationLineNumber { get; set; } = -1;
+
         /// <summary>
         /// List of all parent classes of this class.
         /// </summary>
@@ -78,6 +80,17 @@ namespace Neptune.Gen
         {
             TypeInfo = new TypeInfo(cursor);
             IsForwardDecl = isForwardDecl;
+            DeclarationLineNumber = GetDeclarationLineNumber(cursor);
+        }
+
+        private int GetDeclarationLineNumber(CXCursor cursor)
+        {
+            CXFile file;
+            uint line;
+            uint column;
+            uint offset;
+            cursor.Location.GetInstantiationLocation(out file, out line, out column, out offset);
+            return (int)line;
         }
 
         public void RefreshOuterEntity()

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using ClangSharp;
+using ClangSharp.Interop;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime;
@@ -11,28 +13,13 @@ namespace Neptune.Gen
     {
         private enum ECodeGenLocation
         {
-            /**
-            *	Code will be generated at the very top of the generated header file (without macro).
-            *	The code is then injected as soon as the generated header file is included in any other file.
-            */
-            HeaderFileHeader = 0,
-
-            /**
-            *	Code will be inserted in a macro generated for each tagged struct/class.
-            *	The generated macro name is customizable using the MacroCodeGenUnitSettings::setClassFooterMacroPattern method.
-            */
-            ClassFooter,
-
-            /**
-            *	Code will be inserted in a macro to add at the very bottom of parsed header files.
-            *	The generated macro name is customizable using the MacroCodeGenUnitSettings::setHeaderFileFooterMacroPattern method.
-            */
-            HeaderFileFooter,
+            HeaderFileHead,
+            HeaderFileBody,
+            HeaderFileFoot,
 
             Count
         }
         private ECodeGenLocation CurrentLocation;
-        private StringBuilder?[] LocationGenerated = new StringBuilder[(int)ECodeGenLocation.Count]; 
 
         public CppReflectGeneratorHeader(HeaderFile headerFile, CodeGenCppReflectSettings settings) :
             base(headerFile, settings)
@@ -45,82 +32,159 @@ namespace Neptune.Gen
             return CodeGenFactory.GetGeneratedFilePath(HeaderFile, path);
         }
 
-        protected override ETraversalBehaviour GenerateCodeForEntity(EntityInfo entityInfo)
+        private ETraversalBehaviour GenerateCodeForStructClass(StringBuilder builder, StructClassInfo? structClassInfo)
         {
-            using BorrowStringBuilder stringBuilderPool = new(StringBuilderCache.Big);
-            for (int i = 0; i < (int)ECodeGenLocation.Count; i++)
+            if (structClassInfo == null)
+                return ETraversalBehaviour.AbortWithFailure;
+
+            if (structClassInfo.IsForwardDecl)
+                return ETraversalBehaviour.Continue;
+
+            using (CodeGenMacroCreator macro = new CodeGenMacroCreator(builder, this, structClassInfo, GeneratedBodyMacroSuffix))
             {
-                CurrentLocation = (ECodeGenLocation)i;
+                builder.Append("public: \\\r\n");
 
-                if (CurrentLocation == ECodeGenLocation.ClassFooter)
-                {
-                    if (entityInfo.EntityType == EntityType.Class ||
-                        entityInfo.EntityType == EntityType.Struct)
-                    {
-                    }
-                }
-                else
-                {
-                    ETraversalBehaviour ret = ETraversalBehaviour.AbortWithFailure;
-                    switch (CurrentLocation)
-                    {
-                    case ECodeGenLocation.HeaderFileHeader:
 
-                        break;
-
-                    case ECodeGenLocation.HeaderFileFooter:
-           
-                        break;
-                    }
-                    return ret;
-                }
+                builder.Append(" \\\r\n");
             }
 
             return ETraversalBehaviour.Recurse;
         }
 
-        private ETraversalBehaviour GenerateHeaderFileFooterCodeForEntity(EntityInfo entityInfo)
+        protected ETraversalBehaviour GenerateHeaderFileBodyCodeForEntity(StringBuilder builder, EntityInfo entityInfo)
         {
-	        return ETraversalBehaviour.AbortWithSuccess;
+            var ret = ETraversalBehaviour.Recurse;
+            switch (entityInfo.EntityType)
+            {
+                case EntityType.Enum:
+                    ret = ETraversalBehaviour.Continue; // Go to next enum
+                    break;
+                case EntityType.Field:
+                case EntityType.Method:
+                    ret = ETraversalBehaviour.Break; //Don't need to iterate over those individual entities
+                    break;
+
+                case EntityType.Struct:
+                case EntityType.Class:
+                    ret = GenerateCodeForStructClass(builder, entityInfo as StructClassInfo);
+                    break;
+
+                default:
+                    Log.Error($"The entity {entityInfo.FullName} has an undefined type.Abort.");
+                    return ETraversalBehaviour.AbortWithFailure;
+            }
+            return ret;
         }
 
-    public override void Generate(CodeGenFactory CodeGenFactory)
+        protected ETraversalBehaviour GenerateHeaderFileFooterCodeForEntity(StringBuilder builder, EntityInfo entityInfo)
         {
+            var ret = ETraversalBehaviour.Recurse;
+            switch (entityInfo.EntityType)
+            {
+                case EntityType.Enum:
+                    DeclareEnumTemplateSpecialization(builder, entityInfo as EnumInfo);
+                    ret = ETraversalBehaviour.Continue;
+                    break;
+
+                case EntityType.Struct:
+                case EntityType.Class:
+                    var classInfo = entityInfo as StructClassInfo;
+                    if (classInfo != null && classInfo.TypeInfo != null && !classInfo.IsForwardDecl)
+                    {
+                        DeclareClassTemplateSpecialization(builder, classInfo);
+                        break;
+                    }
+
+                    ret = ETraversalBehaviour.Continue;
+                    break;
+
+                case EntityType.Field:
+                case EntityType.Method:
+                    //Don't need to iterate over those individual entities
+                    ret = ETraversalBehaviour.Break;
+                    break;
+
+                default:
+                    Log.Error($"The entity { entityInfo.FullName } has an undefined type.Abort.");
+                    return ETraversalBehaviour.AbortWithFailure;
+            }
+            return ret;
+        }
+
+        protected override ETraversalBehaviour GenerateCodeForEntity(StringBuilder builder, EntityInfo entityInfo)
+        {
+            if (CurrentLocation == ECodeGenLocation.HeaderFileBody)
+                return GenerateHeaderFileBodyCodeForEntity(builder, entityInfo);
+            else
+                return GenerateHeaderFileFooterCodeForEntity(builder, entityInfo);
+        }
+
+        public override void Generate(CodeGenFactory CodeGenFactory)
+        {
+            if (HeaderFile.ModuleInfo == null)
+                return;
+
             var parsingResult = HeaderFile.FileParsingResult;
             if (parsingResult.Errors.Count > 0)
                 return;
 
+            using BorrowStringBuilder borrower = new(StringBuilderCache.Big);
+            StringBuilder builder = borrower.StringBuilder;
+
+            // Include HeaderFile Headers
+            builder.Append("#include \"NObject/ObjectMacros.h\"\r\n");
+
+            string strippedName = Path.GetFileNameWithoutExtension(HeaderFile.FilePath);
+            string defineName = $"{HeaderFile.ModuleInfo.ModuleName.ToUpper()}_{strippedName.ToUpper()}_GENERATED_H";
+            builder.Append("#ifdef ").Append(defineName).Append("\r\n");
+            builder.Append("#error \"").Append(strippedName).Append(".generated.h already included, missing '#pragma once' in ").Append(strippedName).Append(".h\"\r\n");
+            builder.Append("#endif\r\n");
+            builder.Append("#define ").Append(defineName).Append("\r\n");
+            builder.Append("\r\n");
+
+            // Generate HeaderFile main content
             for (int i = 0; i < (int)ECodeGenLocation.Count; i++)
             {
-                LocationGenerated[i] = StringBuilderCache.Big.Borrow();
+                CurrentLocation = (ECodeGenLocation)i;
+                var ret = ForeachEntityPair(builder);
+                if (ret == ETraversalBehaviour.AbortWithFailure)
+                    return;
+
+                builder.Append("\r\n");
             }
 
-            var ret = ForeachEntityPair();
-            if (ret != ETraversalBehaviour.AbortWithFailure)
+            // Write generated file
+            var filePath = GetGeneratedFilePath(CodeGenFactory);
             {
-                using BorrowStringBuilder borrower = new(StringBuilderCache.Big);
-                StringBuilder builder = borrower.StringBuilder;
-
-                builder.Append("#pragma once\n");
-                builder.Append(LocationGenerated[(int)ECodeGenLocation.HeaderFileHeader]);
-
-
-                var filePath = GetGeneratedFilePath(CodeGenFactory);
-                {
-                    GenBufferHandle bufferHandle = new GenBufferHandle(builder);
-                    StringView contentView = new(bufferHandle.Buffer.Memory);
-                    CodeGenFactory.WriteFileIfChanged(filePath, contentView);
-                }
+                GenBufferHandle bufferHandle = new GenBufferHandle(builder);
+                StringView contentView = new(bufferHandle.Buffer.Memory);
+                CodeGenFactory.WriteFileIfChanged(filePath, contentView);
             }
+        }
 
-            for (int i = 0; i < (int)ECodeGenLocation.Count; i++)
+        private void DeclareClassTemplateSpecialization(StringBuilder builder, StructClassInfo? structClassInfo)
+        {
+            if (structClassInfo == null || structClassInfo.TypeInfo == null) return;
+            builder.Append("template<> ").Append(ModuleAPI).Append("Archetype const* StaticArchetype<class ").Append(structClassInfo.TypeInfo.GetName()).Append(">();\r\n");
+            builder.Append("\r\n");
+        }
+
+        private void DeclareEnumTemplateSpecialization(StringBuilder builder, EnumInfo? enumInfo)
+        {
+            if (enumInfo == null || enumInfo.Type == null) return;
+            builder.Append("\r\n");
+            builder.Append("enum class ").Append(enumInfo.Type.CanonicalName);
+#if FALSE
+            if (enumInfo.UnderlyingType != null)
             {
-                if (LocationGenerated[i] != null)
-                {
-                    StringBuilderCache.Big.Return(LocationGenerated[i]);
-                    LocationGenerated[i] = null;
-                }
+                builder.Append(" : ").Append(enumInfo.UnderlyingType.GetName());
             }
+#endif
+            builder.Append(";\r\n");
+
+            // Forward declare the StaticEnum<> specialization for enum classes
+            builder.Append("template<> ").Append(ModuleAPI).Append(" NEnum const* StaticEnum<").Append(enumInfo.Type.CanonicalName).Append(">() noexcept;\r\n");
+            builder.Append("\r\n");
         }
     }
 }

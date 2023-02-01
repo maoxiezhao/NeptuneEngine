@@ -20,7 +20,7 @@ namespace Neptune.Gen
             return CodeGenFactory.GetGeneratedFilePath(HeaderFile, path);
         }
 
-        protected override ETraversalBehaviour GenerateCodeForEntity(EntityInfo entityInfo)
+        protected override ETraversalBehaviour GenerateCodeForEntity(StringBuilder builder, EntityInfo entityInfo)
         {
             return ETraversalBehaviour.Recurse;
         }

@@ -120,4 +120,22 @@ namespace Neptune.Gen
             Cache.Return(StringBuilder);
         }
     }
+
+    public static class StringUtils
+    {
+        public static bool IsDigit(char c)
+        {
+            return c >= '0' && c <= '9';
+        }
+
+        public static bool IsAlpha(char c)
+        {
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+        }
+
+        public static bool IsAlnum(char c)
+        {
+            return IsDigit(c) || IsAlpha(c);
+        }
+    }
 }

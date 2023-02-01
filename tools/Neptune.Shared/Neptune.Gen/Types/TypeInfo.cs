@@ -218,6 +218,72 @@ namespace Neptune.Gen
             return name.Contains('<');
         }
 
+        public string GetName(bool removeQualifiers = false,
+                              bool shouldRemoveNamespacesAndNestedClasses = false,
+                              bool removeTemplateParameters = false)
+        {
+            string fullName = FullName;
+            if (removeQualifiers)
+            {
+                RemoveConstQualifier(ref fullName);
+                RemoveVolatileQualifier(ref fullName);
+                RemoveRestrictQualifier(ref fullName);
+            }
+
+            if (shouldRemoveNamespacesAndNestedClasses)
+            {
+                // TODO
+                throw new NotImplementedException();
+            }
+
+            if (removeTemplateParameters)
+            {
+                // TODO
+                throw new NotImplementedException();
+            }
+
+            return fullName;
+        }
+
+        private bool RemoveConstQualifier(ref string typeString)
+        {
+            if (TypeParts.Count == 0 || ((int)TypeParts.Last().Descriptor & (int)ETypeDescriptor.Const) == 0)
+                return false;
+
+            var idx = typeString.LastIndexOf("const");
+            if (idx == -1)
+                return false;
+
+            typeString = typeString.Remove(idx, 5);
+            return true;
+        }
+
+        private bool RemoveVolatileQualifier(ref string typeString)
+        {
+            if (TypeParts.Count == 0 || ((int)TypeParts.Last().Descriptor & (int)ETypeDescriptor.Volatile) == 0)
+                return false;
+
+            var idx = typeString.LastIndexOf("volatile");
+            if (idx == -1)
+                return false;
+
+            typeString = typeString.Remove(idx, 8);
+            return true;
+        }
+
+        private bool RemoveRestrictQualifier(ref string typeString)
+        {
+            if (TypeParts.Count == 0 || ((int)TypeParts.Last().Descriptor & (int)ETypeDescriptor.Volatile) == 0)
+                return false;
+
+            var idx = typeString.LastIndexOf("restrict");
+            if (idx == -1)
+                return false;
+
+            typeString = typeString.Remove(idx, 8);
+            return true;
+        }
+
         public TypeInfo Clone()
         {
             var newOne = new TypeInfo();
