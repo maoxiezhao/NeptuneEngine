@@ -24,12 +24,14 @@ namespace Neptune.Gen
     {
         private readonly StringBuilder _builder;
         private readonly int _startingLength;
+        public readonly string MacroSuffix;
 
         public CodeGenMacroCreator(StringBuilder builder, CppReflectGenerator generator, StructClassInfo structClassInfo, string macroSuffix)
         {
             builder.Append("#define ").AppendMacroName(generator, structClassInfo, macroSuffix).Append(" \\\r\n");
             _builder = builder;
             _startingLength = builder.Length;
+            MacroSuffix = macroSuffix;
         }
 
         public void Dispose()

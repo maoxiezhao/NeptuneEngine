@@ -55,8 +55,9 @@ namespace Neptune.Gen
         /// </summary>
         public string FullName => _fullName;
         public string CanonicalName => _canonicalName;
-
         public List<TypePart> TypeParts = new List<TypePart>();
+        public List<TemplateParamInfo> TemplateParamInfos = new List<TemplateParamInfo>();
+        public bool IsTemplateType => TemplateParamInfos.Count > 0;
 
         private string _fullName = string.Empty;
         private string _canonicalName = string.Empty;

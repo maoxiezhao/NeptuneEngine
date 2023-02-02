@@ -34,21 +34,116 @@ namespace Neptune.Gen
 
         private ETraversalBehaviour GenerateCodeForStructClass(StringBuilder builder, StructClassInfo? structClassInfo)
         {
-            if (structClassInfo == null)
+            if (structClassInfo == null || structClassInfo.TypeInfo == null)
                 return ETraversalBehaviour.AbortWithFailure;
 
+            //Do not generate code for forward declarations
             if (structClassInfo.IsForwardDecl)
                 return ETraversalBehaviour.Continue;
 
+            List<string> generatedMacors = new List<string>();
+            if (structClassInfo.TypeInfo.IsTemplateType)
+            {
+                // TODO Support template type
+                throw new NotImplementedException();
+            }
+            else
+            {
+                AppendRegisterChildClassMethod(builder, structClassInfo, generatedMacors);
+                AppendClassConstructors(builder, structClassInfo, generatedMacors);
+                AppendClassGeneratedBody(builder, structClassInfo, generatedMacors);
+            }
+
+            // Append generated body macro block
             using (CodeGenMacroCreator macro = new CodeGenMacroCreator(builder, this, structClassInfo, GeneratedBodyMacroSuffix))
             {
                 builder.Append("public: \\\r\n");
-
-
+                foreach (var macroName in generatedMacors)
+                    builder.Append('\t').AppendMacroName(this, structClassInfo, macroName).Append(" \\\r\n");
+                builder.Append("private: \\\r\n");
                 builder.Append(" \\\r\n");
             }
 
             return ETraversalBehaviour.Recurse;
+        }
+
+        private void AppendClassConstructors(StringBuilder builder, StructClassInfo classInfo, List<string> generatedMacors)
+        {
+            using (CodeGenMacroCreator macro = new CodeGenMacroCreator(builder, this, classInfo, "CONSTRUCTORS"))
+            {
+                // Default constructor
+
+                // Disable move and copy constructors
+                builder.Append("private: \\\r\n");
+                builder.Append("\t/** Private move- and copy-constructors, should never be used */ \\\r\n");
+                builder.Append('\t').Append(classInfo.Name).Append('(').Append(classInfo.Name).Append("&&); \\\r\n");
+                builder.Append('\t').Append(classInfo.Name).Append("(const ").Append(classInfo.Name).Append("&); \\\r\n");
+                builder.Append("public: \\\r\n");
+
+                generatedMacors.Add(macro.MacroSuffix);
+            }
+        }
+
+        private void AppendRegisterChildClassMethod(StringBuilder builder, StructClassInfo classInfo, List<string> generatedMacors)
+        {
+            using (CodeGenMacroCreator macro = new CodeGenMacroCreator(builder, this, classInfo, "REGISTER_CHILD"))
+            {
+                builder.Append("private: \\\r\n");
+
+                // Register the child to the subclasses list
+                builder.Append("template <typename ChildClass> static void _rfk_registerChildClass(NClass* childClass) noexcept { \\\r\n");
+                builder.Append("NClass* nClass = StaticGetArchetype(); \\\r\n");
+                builder.Append("if constexpr (!std::is_same_v<ChildClass, ").Append(classInfo.Name).Append(">) \\\r\n");
+                builder.Append("\tnClass->AddSubclass(childClass, CodeGenerationHelpers::ComputeClassPointerOffset<ChildClass, ").Append(classInfo.Name).Append(">()); \\\r\n");
+                builder.Append("else { \\\r\n");
+
+                // Reserve the correct amount of memory for fields and static fields
+                int fieldsCount = 0;
+                int staticFieldsCount = 0;
+                if (classInfo.Fields.Count > 0)
+                {
+                    // First loop to get the amount of fields
+                    foreach (var field in classInfo.Fields)
+                    {
+
+                    }
+
+                    builder.Append("childClass->SetFieldsCapacity(").Append(fieldsCount.ToString()).Append("u); \\\r\n");
+                    builder.Append("} \\\r\n");
+
+                    // Setup field infos. TODO Do it in generated source file
+                    foreach (var field in classInfo.Fields)
+                    {
+
+                    }
+                }
+                else
+                {
+                    builder.Append("} \\\r\n");
+                }
+
+                // Propagate the child class registration to parent classes too
+                if (classInfo.Parent.Count > 0)
+                {
+                    
+                }
+
+                builder.Append("public: \\\r\n");
+            }
+        }
+
+        private void AppendClassGeneratedBody(StringBuilder builder, StructClassInfo classInfo, List<string> generatedMacors)
+        {
+            using (CodeGenMacroCreator macro = new CodeGenMacroCreator(builder, this, classInfo, "INCLASS"))
+            {
+                builder.Append("private: \\\r\n");
+                builder.Append(ModuleAPI).Append(" static NClass* StaticGetPrivateArchetype();\\\r\n");
+                builder.Append("public: \\\r\n");
+                builder.Append("inline static NClass* StaticGetArchetype() \\\r\n");
+                builder.Append("{ \\\r\n");
+                builder.Append("return StaticGetPrivateArchetype(); \\\r\n");
+                builder.Append("} \\\r\n");
+            }
         }
 
         protected ETraversalBehaviour GenerateHeaderFileBodyCodeForEntity(StringBuilder builder, EntityInfo entityInfo)
@@ -165,7 +260,7 @@ namespace Neptune.Gen
         private void DeclareClassTemplateSpecialization(StringBuilder builder, StructClassInfo? structClassInfo)
         {
             if (structClassInfo == null || structClassInfo.TypeInfo == null) return;
-            builder.Append("template<> ").Append(ModuleAPI).Append("Archetype const* StaticArchetype<class ").Append(structClassInfo.TypeInfo.GetName()).Append(">();\r\n");
+            builder.Append("template<> ").Append(ModuleAPI).Append("NClass const* StaticArchetype<class ").Append(structClassInfo.TypeInfo.GetName()).Append(">();\r\n");
             builder.Append("\r\n");
         }
 
