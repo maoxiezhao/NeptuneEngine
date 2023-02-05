@@ -86,15 +86,18 @@ namespace Neptune.Gen
 
         private void AppendRegisterChildClassMethod(StringBuilder builder, StructClassInfo classInfo, List<string> generatedMacors)
         {
+            // Register child class infos. TODO Do it in generated source file
+
             using (CodeGenMacroCreator macro = new CodeGenMacroCreator(builder, this, classInfo, "REGISTER_CHILD"))
             {
                 builder.Append("private: \\\r\n");
 
                 // Register the child to the subclasses list
-                builder.Append("template <typename ChildClass> static void _rfk_registerChildClass(NClass* childClass) noexcept { \\\r\n");
-                builder.Append("NClass* nClass = StaticGetArchetype(); \\\r\n");
+                
+                builder.Append("template <typename ChildClass> static void RegisterChildClass(NClass* childClass) noexcept { \\\r\n");
+                builder.Append("NClass* thisClass = StaticGetArchetype(); \\\r\n");
                 builder.Append("if constexpr (!std::is_same_v<ChildClass, ").Append(classInfo.Name).Append(">) \\\r\n");
-                builder.Append("\tnClass->AddSubclass(childClass, CodeGenerationHelpers::ComputeClassPointerOffset<ChildClass, ").Append(classInfo.Name).Append(">()); \\\r\n");
+                builder.Append("\tthisClass->AddSubclass(childClass, CodeGenerationHelpers::ComputeClassPointerOffset<ChildClass, ").Append(classInfo.Name).Append(">()); \\\r\n");
                 builder.Append("else { \\\r\n");
 
                 // Reserve the correct amount of memory for fields and static fields
@@ -105,17 +108,19 @@ namespace Neptune.Gen
                     // First loop to get the amount of fields
                     foreach (var field in classInfo.Fields)
                     {
-
+                        if (field.IsStatic)
+                            staticFieldsCount++;
+                        else
+                            fieldsCount++;
                     }
-
                     builder.Append("childClass->SetFieldsCapacity(").Append(fieldsCount.ToString()).Append("u); \\\r\n");
+                    builder.Append("childClass->SetStaticFieldsCapacity(").Append(staticFieldsCount.ToString()).Append("u); \\\r\n");
                     builder.Append("} \\\r\n");
 
-                    // Setup field infos. TODO Do it in generated source file
+                    // Add field infos
+                    builder.Append("[[maybe_unused]] NField* field = nullptr; [[maybe_unused]] NStaticField* staticField = nullptr; \\\r\n");
                     foreach (var field in classInfo.Fields)
-                    {
-
-                    }
+                        AppendFieldProperties(builder, classInfo, field);
                 }
                 else
                 {
@@ -125,10 +130,35 @@ namespace Neptune.Gen
                 // Propagate the child class registration to parent classes too
                 if (classInfo.Parent.Count > 0)
                 {
-                    
+                    foreach (var parentInfo in classInfo.Parent)
+                    {
+                        builder.Append("CodeGenerationHelpers::registerChildClass<").Append(parentInfo.Type.GetName()).Append(", ChildClass>(childClass); \\\r\n");
+                    }
                 }
 
                 builder.Append("public: \\\r\n");
+            }
+        }
+
+        private void AppendFieldProperties(StringBuilder builder, StructClassInfo classInfo, FieldInfo fieldInfo)
+        {
+            if (fieldInfo.IsStatic)
+            {
+                builder.Append("field = childClass.AddStaticField(\"").Append(fieldInfo.Name).Append("\",")     // Field name
+                       .Append(ComputeClassNestedEntityID("ChildClass", fieldInfo)).Append(", ")                // Field ID
+                       .Append("GetType<").Append(fieldInfo.Type.GetName()).Append(">(), ")                     // Field type info
+                       .Append("static_cast<EFieldFlags>(").Append(ComputeFieldFlags(fieldInfo)).Append("), ")  // Field flags
+                       .Append("&").Append(classInfo.Name).Append("::").Append(fieldInfo.Name).Append(", ")     // Memory offset
+                       .Append("thisClass);\\\r\n");                                                            // Outer
+            }
+            else
+            {
+                builder.Append("field = childClass.AddField(\"").Append(fieldInfo.Name).Append("\",")           // Field name
+                       .Append(ComputeClassNestedEntityID("ChildClass", fieldInfo)).Append(", ")                // Field ID
+                       .Append("GetType<").Append(fieldInfo.Type.GetName()).Append(">(), ")                     // Field type info
+                       .Append("static_cast<EFieldFlags>(").Append(ComputeFieldFlags(fieldInfo)).Append("), ")  // Field flags
+                       .Append("offsetof(childClass,").Append(fieldInfo.Name).Append("), ")                     // Memory offset
+                       .Append("thisClass);\\\r\n");                                                            // Outer
             }
         }
 
@@ -138,11 +168,21 @@ namespace Neptune.Gen
             {
                 builder.Append("private: \\\r\n");
                 builder.Append(ModuleAPI).Append(" static NClass* StaticGetPrivateArchetype();\\\r\n");
+
                 builder.Append("public: \\\r\n");
                 builder.Append("inline static NClass* StaticGetArchetype() \\\r\n");
                 builder.Append("{ \\\r\n");
                 builder.Append("return StaticGetPrivateArchetype(); \\\r\n");
                 builder.Append("} \\\r\n");
+
+                builder.Append("typedef ").Append(classInfo.Name).Append(" ThisClass; \\\r\n");
+
+                if (classInfo.Parent.Count > 0)
+                {
+                    // Typedef Super for the first parent class
+                    // TODO: Prohibit multiple inheritance
+                    builder.Append("typedef ").Append(classInfo.Parent[0].Type.GetName()).Append(" Super; \\\r\n");
+                }
             }
         }
 
@@ -260,7 +300,7 @@ namespace Neptune.Gen
         private void DeclareClassTemplateSpecialization(StringBuilder builder, StructClassInfo? structClassInfo)
         {
             if (structClassInfo == null || structClassInfo.TypeInfo == null) return;
-            builder.Append("template<> ").Append(ModuleAPI).Append("NClass const* StaticArchetype<class ").Append(structClassInfo.TypeInfo.GetName()).Append(">();\r\n");
+            builder.Append("template<> ").Append(ModuleAPI).Append("NClass* StaticArchetype<class ").Append(structClassInfo.TypeInfo.GetName()).Append(">();\r\n");
             builder.Append("\r\n");
         }
 

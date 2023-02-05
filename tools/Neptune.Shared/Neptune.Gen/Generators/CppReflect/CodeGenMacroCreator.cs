@@ -18,6 +18,21 @@ namespace Neptune.Gen
         {
             return builder.AppendMacroName(generator.HeaderFileID, classObj.DeclarationLineNumber, macroSuffix);
         }
+
+        public static StringBuilder AppendArray(this StringBuilder builder, bool isEmpty, string staticsName, string arrayName)
+        {
+            if (isEmpty)
+            {
+                return builder.Append("nullptr, 0");
+            }
+            else
+            {
+                return builder.Append(staticsName).Append("::").Append(arrayName)
+                       .Append(", ARRAY_COUNT(")
+                       .Append(staticsName).Append("::").Append(arrayName)
+                       .Append(')');
+            }
+        }
     }
 
     public class CodeGenMacroCreator : IDisposable

@@ -137,6 +137,25 @@ namespace Neptune.Gen
             return ETraversalBehaviour.Recurse;
         }
 
+        protected string ComputeClassNestedEntityID(string className, FieldInfo field)
+        {
+            return string.Empty;
+        }
+
+        protected int ComputeFieldFlags(FieldInfo field)
+        {
+            return 0;
+        }
+
+        protected int ComputeEntityID(EntityInfo entityInfo)
+        {
+            return string.GetHashCode(entityInfo.ID.ToCharArray());
+        }
+
+        protected void FillEntityProperties(StringBuilder builder, EntityInfo entityInfo)
+        { 
+        }
+
         protected abstract ETraversalBehaviour GenerateCodeForEntity(StringBuilder builder, EntityInfo entityInfo);
 
         public abstract void Generate(CodeGenFactory CodeGenFactory);
