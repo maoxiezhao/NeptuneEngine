@@ -127,28 +127,108 @@ namespace Neptune.Gen
             builder.Append("\t\tthisClass->constructed = true;\r\n");
 
             FillEntityProperties(builder, classInfo);
-            FillClassParents(builder, classInfo);
-            FillClassFields(builder, classInfo);
-            FillClassMethods(builder, classInfo);
+            FillClassParents(builder, classInfo, "thisClass->");
+            FillClassFields(builder, classInfo, "thisClass->");
+            FillClassMethods(builder, classInfo, "thisClass->");
 
             builder.Append("\t}\r\n");
             builder.Append("\treturn thisClass;\r\n");
             builder.Append("}\r\n");
         }
 
-        protected void FillClassParents(StringBuilder builder, EntityInfo entityInfo)
+        protected void FillClassParents(StringBuilder builder, StructClassInfo classInfo, string typeValueName)
         {
+            if (classInfo.Parent.Count == 0)
+                return;
+
+            builder.Append(typeValueName).Append("SetDirectParentsCapacity(").Append(classInfo.Parent.Count).Append(");\r\n");
+            foreach (var parentInfo in classInfo.Parent)
+            {
+                builder
+                    .Append(typeValueName)
+                    .Append("AddDirectParent(")
+                    .Append("GetArchetype<").Append(parentInfo.Type.GetName()).Append("<(),")
+                    .Append("static_cast<rfk::EAccessSpecifier>(").Append((int)parentInfo.InheritanceAccess).Append("));\r\n");
+            }
         }
 
-        protected void FillClassFields(StringBuilder builder, EntityInfo entityInfo)
+        protected void FillClassFields(StringBuilder builder, StructClassInfo classInfo, string typeValueName)
         {
+            // Call RegisterChildClass
+            // TODO Declare RegisterChildClass in source file
+            builder
+                .Append(classInfo.Name)
+                .Append("::RegisterChildClass<").Append(classInfo.Name).Append("<(")
+                .Append(typeValueName).Append(");\r\n");
         }
 
-        protected void FillClassMethods(StringBuilder builder, EntityInfo entityInfo)
+        protected void FillClassMethods(StringBuilder builder, StructClassInfo classInfo, string typeValueName)
         {
+            if (classInfo.Methods.Count == 0)
+                return;
+
+            builder.Append("[[maybe_unused]] NMethod* method = nullptr;\r\n");
+            builder.Append("[[maybe_unused]] NStaticMethod* staticMethod = nullptr;\r\n");
+
+            int methodsCount = 0;
+            int staticMethodsCount = 0;
+            foreach (var methodInfo in classInfo.Methods)
+            {
+                if (methodInfo.IsStatic)
+                    staticMethodsCount++;
+                else
+                    methodsCount++;
+            }
+
+            builder.Append(typeValueName).Append("SetMethodsCapacity(").Append(methodsCount).Append("); \r\n");
+            builder.Append(typeValueName).Append("SetStaticMethodsCapacity(").Append(staticMethodsCount).Append("); \r\n");
+
+            string currentMethodVariable = String.Empty;
+            foreach (var methodInfo in classInfo.Methods)
+            {
+                if (methodInfo.IsStatic)
+                {
+                    builder.Append("staticMethod = ").Append(typeValueName)
+                        .Append("AddStaticMethod(\"").Append(methodInfo.Name).Append("\",")
+                        .Append(methodInfo.ID).Append(", ")
+                        .Append("GetType<").Append(methodInfo.ReturnType.GetName()).Append(">(), ")
+                        .Append("new NonMemberFunction<").Append(methodInfo.Prototype).Append(">(& ").Append(classInfo.Name).Append("::").Append(methodInfo.Name).Append("), ")
+                        .Append("static_cast<EMethodFlags>(").Append(ComputeMethodFlags(methodInfo)).Append("));\r\n");
+
+                    currentMethodVariable = "staticMethod";
+                }
+                else
+                {
+                    builder.Append("method = ").Append(typeValueName)
+                        .Append("AddMethod(\"").Append(methodInfo.Name).Append("\",")
+                        .Append(methodInfo.ID).Append(", ")
+                        .Append("GetType<").Append(methodInfo.ReturnType.GetName()).Append(">(), ")
+                        .Append("new MemberFunction<").Append(methodInfo.Prototype).Append(">(& ").Append(classInfo.Name).Append("::").Append(methodInfo.Name).Append("), ")
+                        .Append("static_cast<EMethodFlags>(").Append(ComputeMethodFlags(methodInfo)).Append("));\r\n");
+
+                    currentMethodVariable = "method";
+                }
+
+                if (methodInfo.Parameters.Count > 0)
+                {
+                    builder.Append(currentMethodVariable).Append("->SetParametersCapacity(").Append(methodInfo.Parameters.Count).Append(");\r\n");
+                    foreach (var parameter in methodInfo.Parameters)
+                    {
+                        builder.Append(currentMethodVariable).Append("->AddParameter(\"")
+                            .Append(parameter.Name).Append("\", ")
+                            .Append("0u, ").Append("GetType<").Append(parameter.Type.GetName()).Append(">());\r\n");
+                    }
+                }
+
+                // Add properties
+                if (methodInfo.Attributes.Count > 0)
+                {
+                    // TODO
+                }
+            }
         }
 
-        protected void FillClassNestedArchetypes(StringBuilder builder, EntityInfo entityInfo)
+        protected void FillClassNestedArchetypes(StringBuilder builder, StructClassInfo classInfo)
         {
             // TODO
             throw new NotImplementedException();

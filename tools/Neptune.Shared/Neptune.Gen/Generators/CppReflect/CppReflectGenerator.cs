@@ -147,6 +147,11 @@ namespace Neptune.Gen
             return 0;
         }
 
+        protected int ComputeMethodFlags(MethodInfo method)
+        {
+            return 0;
+        }
+
         protected int ComputeEntityID(EntityInfo entityInfo)
         {
             return string.GetHashCode(entityInfo.ID.ToCharArray());

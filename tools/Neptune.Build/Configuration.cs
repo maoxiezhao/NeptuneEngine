@@ -65,6 +65,9 @@ namespace Neptune.Build
         [CommandLine("forceGenerate", "Force to generate codes.")]
         public static bool ForceGenerate = false;
 
+        [CommandLine("disableGenerate", "Force to disable codes generating.")]
+        public static bool DisableGenerate = false;
+
         /// <summary>
         /// The set of targets to build.
         /// </summary>
