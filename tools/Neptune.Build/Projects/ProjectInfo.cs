@@ -17,7 +17,8 @@ namespace Neptune.Build
 
         public string Name;
         public Version Version;
-
+        public string Author = string.Empty;
+        public string Copyright = string.Empty;
 
         public class Reference
         {
