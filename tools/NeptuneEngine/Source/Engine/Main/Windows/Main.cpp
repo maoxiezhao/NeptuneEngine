@@ -18,8 +18,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_ LPWSTR    lpCmdLine,
 	_In_ int       nCmdShow)
 {
-	int a = EngineUtils::TestFunc(1, 4);
-	std::cout << a << std::endl;
 	return 0;
 }
 #else

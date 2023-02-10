@@ -150,7 +150,8 @@ namespace Neptune.Build
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.Default // Encoding.GetEncoding("gbk")
+                StandardOutputEncoding = Encoding.GetEncoding("GBK"),
+                StandardErrorEncoding = Encoding.GetEncoding("GBK")
             };
 
             if (task.InfoMessage != null)

@@ -11,7 +11,9 @@ namespace Neptune.Build
     class Program
     {
         static int Main()
-        {
+        {       
+           Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             Stopwatch stopwatch = Stopwatch.StartNew();
             bool ret = true;
             Mutex singleInstanceMutex = null;

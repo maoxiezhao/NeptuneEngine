@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Config.h"
+#include "Engine/Core/Config.h"
 
 #if PLATFORM_WINDOWS
 class WindowsPlatform;
