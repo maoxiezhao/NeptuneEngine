@@ -23,5 +23,19 @@ namespace Neptune.Build
                 }
             }
         }
+
+        public virtual Guid ProjectTypeGuid
+        {
+            get
+            {
+                switch (TargetType)
+                {
+                    case TargetType.Cpp: return ProjectTypeGuids.WindowsVisualCpp;
+                    case TargetType.DotNet: return ProjectTypeGuids.WindowsCSharp;
+                    default: throw new ArgumentOutOfRangeException();
+                }
+            }
+        }
+
     }
 }

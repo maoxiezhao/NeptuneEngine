@@ -21,7 +21,7 @@ namespace Neptune.Build
         {
             typeof(Enumerable).Assembly, // System.Linq.dll
             typeof(ISet<>).Assembly,     // System.dll
-            typeof(Builder).Assembly,    // Flax.Build.exe
+            typeof(Builder).Assembly,    // Neptune.Build.exe
         };
 
         /// <summary>

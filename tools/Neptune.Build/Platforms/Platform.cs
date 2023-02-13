@@ -9,7 +9,6 @@ namespace Neptune.Build
     public abstract class Platform
     {
         public abstract TargetPlatform Target { get; }
-
         private static Platform[] _platforms;
 
         private static Type[] _buildTypes;

@@ -11,15 +11,27 @@ namespace Neptune.Build
         public abstract string ProjectFileExtension { get; }
         public abstract string SolutionFileExtension { get; }
 
-        public static ProjectGenerator Create(ProjectFormat format)
+        public static ProjectGenerator CreateCPP(ProjectFormat format)
         {
             switch (format)
             {
-            case ProjectFormat.VisualStudio2022:
-            {
-                return new VSProjectGenerator(VisualStudioVersion.VS2022);
+                case ProjectFormat.VisualStudio2022:
+                {
+                    return new VSProjectGenerator(VisualStudioVersion.VS2022);
+                }
+                default: throw new ArgumentOutOfRangeException(nameof(format), "Unknown project format.");
             }
-            default: throw new ArgumentOutOfRangeException(nameof(format), "Unknown project format.");
+        }
+
+        public static ProjectGenerator CreateDotNet(ProjectFormat format)
+        {
+            switch (format)
+            {
+                case ProjectFormat.VisualStudio2022:
+                {
+                    return new CSProjectGenerator(VisualStudioVersion.VS2022);
+                }
+                default: throw new ArgumentOutOfRangeException(nameof(format), "Unknown project format.");
             }
         }
 

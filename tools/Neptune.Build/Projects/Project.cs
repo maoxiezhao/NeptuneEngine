@@ -33,6 +33,17 @@ namespace Neptune.Build
         /// </summary>
         public HashSet<Project> Dependencies = new HashSet<Project>();
 
+        public TargetType TargetType = TargetType.Cpp;
+
+        /// <summary>
+        /// The native C# project options.
+        /// </summary>
+        public CSharpProject CSharp = new CSharpProject
+        {
+            SystemReferences = new HashSet<string>(),
+            FileReferences = new HashSet<string>(),
+        };
+
         public virtual string Path
         {
             get => _path;

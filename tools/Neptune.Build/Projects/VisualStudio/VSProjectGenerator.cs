@@ -31,6 +31,11 @@ namespace Neptune.Build
         /// </summary>
         public static Guid WindowsVisualCpp = new Guid("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}");
 
+        /// <summary>
+        /// The Windows C#
+        /// </summary>
+        public static Guid WindowsCSharp = new Guid("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}");
+
         public static string ToOption(Guid projectType)
         {
             return projectType.ToString("B").ToUpperInvariant();
@@ -166,6 +171,8 @@ namespace Neptune.Build
                 vcProjectFileContent.AppendLine("    <TargetRuntime>Native</TargetRuntime>");
                 vcProjectFileContent.AppendLine("    <CharacterSet>Unicode</CharacterSet>");
                 vcProjectFileContent.AppendLine("    <Keyword>MakeFileProj</Keyword>");
+                if (Version >= VisualStudioVersion.VS2022)
+                    vcProjectFileContent.AppendLine("    <ResolveNuGetPackages>false</ResolveNuGetPackages>");
                 vcProjectFileContent.AppendLine("  </PropertyGroup>");
 
                 // Default properties
@@ -244,8 +251,7 @@ namespace Neptune.Build
                     vcProjectFileContent.AppendLine(string.Format("    <NMakeBuildCommandLine>{0} -build</NMakeBuildCommandLine>", cmdLine));
                     vcProjectFileContent.AppendLine(string.Format("    <NMakeReBuildCommandLine>{0} -rebuild</NMakeReBuildCommandLine>", cmdLine));
                     vcProjectFileContent.AppendLine(string.Format("    <NMakeCleanCommandLine>{0} -clean</NMakeCleanCommandLine>", cmdLine));
-                    var outputTargetFilePath = configuration.Target.GetOutputFilePath(targetBuildOptions, project.OutputType);
-                    vcProjectFileContent.AppendLine(string.Format("    <NMakeOutput>{0}</NMakeOutput>", outputTargetFilePath));
+                    vcProjectFileContent.AppendLine(string.Format("    <NMakeOutput>{0}</NMakeOutput>", configuration.Target.GetOutputFilePath(targetBuildOptions, project.OutputType)));
 
                     if (preprocessorDefinitions.Count != 0)
                         vcProjectFileContent.AppendLine(string.Format("    <NMakePreprocessorDefinitions>$(NMakePreprocessorDefinitions);{0}</NMakePreprocessorDefinitions>", string.Join(";", preprocessorDefinitions)));
@@ -275,7 +281,7 @@ namespace Neptune.Build
                 // IntelliSense information
                 vcProjectFileContent.AppendLine("  <PropertyGroup>");
                 vcProjectFileContent.AppendLine(string.Format("    <NMakePreprocessorDefinitions>$(NMakePreprocessorDefinitions){0}</NMakePreprocessorDefinitions>", (project.Defines.Count > 0 ? (";" + string.Join(";", project.Defines)) : "")));
-                vcProjectFileContent.AppendLine(string.Format("    <NMakeIncludeSearchPath>$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>"));
+                vcProjectFileContent.AppendLine(string.Format("    <NMakeIncludeSearchPath>$(NMakeIncludeSearchPath){0}</NMakeIncludeSearchPath>", (project.SearchPaths.Length > 0 ? (";" + string.Join(";", project.SearchPaths)) : "")));
                 vcProjectFileContent.AppendLine("    <NMakeForcedIncludes>$(NMakeForcedIncludes)</NMakeForcedIncludes>");
                 vcProjectFileContent.AppendLine("    <NMakeAssemblySearchPath>$(NMakeAssemblySearchPath)</NMakeAssemblySearchPath>");
                 vcProjectFileContent.AppendLine("    <NMakeForcedUsingAssemblies>$(NMakeForcedUsingAssemblies)</NMakeForcedUsingAssemblies>");
@@ -533,7 +539,7 @@ namespace Neptune.Build
                 foreach (var project in projects)
                 {
                     var projectId = project.ProjectGuid.ToString("B").ToUpperInvariant();
-                    var typeGuid = ProjectTypeGuids.ToOption(ProjectTypeGuids.WindowsVisualCpp);
+                    var typeGuid = ProjectTypeGuids.ToOption(project.ProjectTypeGuid);
 
                     vcSolutionFileContent.AppendLine(string.Format("Project(\"{0}\") = \"{1}\", \"{2}\", \"{3}\"", typeGuid, project.Name, Utils.MakePathRelativeTo(project.Path, solutionDirectory), projectId));
                     if (project.Dependencies.Count > 0)

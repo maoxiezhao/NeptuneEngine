@@ -102,10 +102,12 @@ namespace Neptune.Build
                     var projectInfo = projectFiles.First(x => targets[0].FolderPath.Contains(x.ProjectFolderPath));
 
                     // Create project
-                    var generator = ProjectGenerator.Create(projectFormat);
+                    var generator = ProjectGenerator.CreateCPP(projectFormat);
                     Project project = generator.CreateProject();
+                    project.TargetType = TargetType.Cpp;
                     project.Name = projectName;
                     project.Targets = targets;
+                    project.SearchPaths = new string[0];
                     project.WorkspaceRootPath = projectInfo.ProjectFolderPath;
                     project.Path = Path.Combine(projectsRoot, project.Name + '.' + generator.ProjectFileExtension);
                     project.SourceDirectories = new List<string> { Path.GetDirectoryName(targets[0].FilePath) };
@@ -180,10 +182,53 @@ namespace Neptune.Build
                 }
             }
 
+            // Generate C# project for build scripts files
+            using (new ProfileEventScope("BuildScripts"))
+            {
+                // Create dummy target
+                var target = new Target
+                {
+                    Name = "BuildScripts",
+                    ProjectName = "BuildScripts",
+                    FilePath = null,
+                    FolderPath = null,
+                    Type = TargetType.DotNet,
+                    OutputType = TargetOutputType.Library
+                };
+                var dotNetGenerator = ProjectGenerator.CreateDotNet(projectFormat);
+                Project project = dotNetGenerator.CreateProject();
+                project.TargetType = TargetType.DotNet;
+                project.Name = "BuildScripts";
+                project.Targets = new[] { target };
+                project.SearchPaths = new string[0];
+                project.WorkspaceRootPath = workspaceRoot;
+                project.Path = Path.Combine(projectsRoot, project.Name + '.' + dotNetGenerator.ProjectFileExtension);
+                project.SourceFiles = new List<string>();
+                foreach (var e in rules.Targets)
+                    project.SourceFiles.Add(e.FilePath);
+                foreach (var e in rules.Modules)
+                    project.SourceFiles.Add(e.FilePath);
+
+                // Setup configurations
+                SetupConfigurations(project, rootProject);
+                var c = project.Configurations[0];
+                c.Name = "Debug|AnyCPU";
+                c.Text = "Debug";
+                project.Configurations[0] = c;
+
+                // Add reference to Neptune.Build so rules can be validated in the IDE
+                project.CSharp.FileReferences.Add(Assembly.GetEntryAssembly().Location);
+
+                // Generate project
+                dotNetGenerator.GenerateProject(project);
+
+                projects.Add(project);
+            }
+
             // Generate solution
             using (new ProfileEventScope("GenerateSolution"))
             {
-                var generator = ProjectGenerator.Create(projectFormat);
+                var generator = ProjectGenerator.CreateCPP(projectFormat);
                 Solution solution = generator.CreateSolution();
                 solution.Name = rootProject.Name;
                 solution.WorkspaceRootPath = workspaceRoot;

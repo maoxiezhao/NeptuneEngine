@@ -7,6 +7,12 @@ using System.Threading;
 
 namespace Neptune.Build
 {
+    public enum TargetType
+    {
+        Cpp,
+        DotNet,
+    }
+
     public enum TargetLinkType
     {
         /// <summary>
@@ -62,6 +68,8 @@ namespace Neptune.Build
         /// Output type
         /// </summary>
         public TargetOutputType OutputType = TargetOutputType.Executable;
+
+        public TargetType Type = TargetType.Cpp;
 
         /// <summary>
         /// Global macro definitions
