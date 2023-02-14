@@ -128,6 +128,23 @@ namespace Neptune.Build
             }
         }
 
+        public override void SetupEnvironment(BuildOptions options)
+        {
+            base.SetupEnvironment(options);
+
+            options.CompileEnv.PreprocessorDefinitions.Add("PLATFORM_WINDOWS");
+
+            options.LinkEnv.InputLibraries.Add("dwmapi.lib");
+            options.LinkEnv.InputLibraries.Add("kernel32.lib");
+            options.LinkEnv.InputLibraries.Add("user32.lib");
+            options.LinkEnv.InputLibraries.Add("comdlg32.lib");
+            options.LinkEnv.InputLibraries.Add("advapi32.lib");
+            options.LinkEnv.InputLibraries.Add("shell32.lib");
+            options.LinkEnv.InputLibraries.Add("ole32.lib");
+            options.LinkEnv.InputLibraries.Add("oleaut32.lib");
+            options.LinkEnv.InputLibraries.Add("delayimp.lib");
+        }
+
         public override CompileOutput CompileCppFiles(TaskGraph graph, BuildOptions options, List<string> sourceFiles, string outputPath)
         {
             var compileEnvironment = options.CompileEnv;

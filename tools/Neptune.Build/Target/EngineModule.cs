@@ -12,7 +12,7 @@ namespace Neptune.Build
         {
             base.Setup(options);
 
-            BinaryModuleName = "Engine";
+            BinaryModuleName = "NeptuneEngine";
         }
     }
 }
