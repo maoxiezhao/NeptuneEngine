@@ -62,6 +62,7 @@ namespace Neptune.Build
                     if (_waitingTasks.Count == 0)
                         break;
 
+                    failedTasks.Clear();
                     foreach (var task in _waitingTasks)
                     {
                         bool hasCompletedDependencies = true;
@@ -73,10 +74,7 @@ namespace Neptune.Build
                                 if (_executedTasks.Contains(dependentTask))
                                 {
                                     if (dependentTask.Failed)
-                                    {
                                         hasAnyDependencyFailed = true;
-                                        break;
-                                    }
                                 }
                                 else if (!dependentTask.HasValidCachedResults)
                                 {
@@ -84,7 +82,6 @@ namespace Neptune.Build
                                     hasCompletedDependencies = false;
                                     break;
                                 }
-
                             }
                         }
 
@@ -159,7 +156,7 @@ namespace Neptune.Build
                 Log.Info(task.InfoMessage);
             }
 
-            Process process = null;
+            Process? process = null;
             try
             {
                 try
