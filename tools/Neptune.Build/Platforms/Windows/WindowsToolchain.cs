@@ -38,6 +38,8 @@ namespace Neptune.Build
         public override string DllExport => "__declspec(dllexport)";
         public override string DllImport => "__declspec(dllimport)";
 
+        public override bool GeneratesImportLibraryWhenLinking => true;
+
         public WindowsToolchain(WindowsPlatform platform, TargetArchitecture architecture) :
             base(platform, architecture)
         {

@@ -326,7 +326,8 @@ namespace Neptune.Build
             {
                 case TargetLinkType.Monolithic:
                 {
-                    LinkNativeBinary(buildData, buildOptions, outputTargetFilePath);
+                    if (!buildData.Target.IsPreBuilt)
+                        LinkNativeBinary(buildData, buildOptions, outputTargetFilePath);
                     break;
                 }
             }
@@ -469,8 +470,10 @@ namespace Neptune.Build
                 buildData.Toolchain.LinkFiles(buildData.Graph, buildOptions, outputPath);
 
                 // Produce additional import library if will use binary module references
+                // Skip it if toolset generates the import library file automatically.
                 var linkerOutput = buildOptions.LinkEnv.Output;
-                if (linkerOutput == LinkerOutput.Executable || linkerOutput == LinkerOutput.SharedLibrary)
+                if (!buildOptions.Toolchain.GeneratesImportLibraryWhenLinking && 
+                    (linkerOutput == LinkerOutput.Executable || linkerOutput == LinkerOutput.SharedLibrary))
                 {
                     buildOptions.LinkEnv.Output = LinkerOutput.ImportLibrary;
                     buildData.Toolchain.CreateImportLib(buildData.Graph, buildOptions, Path.ChangeExtension(outputPath, buildData.Toolchain.Platform.StaticLibraryFileExtension));

@@ -42,6 +42,8 @@ namespace Neptune.Build
         public override string StaticLibraryFileExtension => ".lib";
         public override string ProgramDatabaseFileExtension => ".pdb";
 
+        public override bool HasExecutableFileReferenceSupport => true;
+
         protected override ToolChain CreateToolchain(TargetArchitecture architecture)
         {
             return new WindowsToolchain(this, architecture);

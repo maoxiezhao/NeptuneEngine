@@ -22,6 +22,11 @@ namespace Neptune.Build
         /// </summary>
         public readonly List<string> SystemLibraryPaths = new List<string>();
 
+        /// <summary>
+        /// True it toolset generates the import library file automatically when linking the binary.
+        /// </summary>
+        public virtual bool GeneratesImportLibraryWhenLinking => false;
+
         public abstract string DllExport { get; }
         public abstract string DllImport { get; }
 

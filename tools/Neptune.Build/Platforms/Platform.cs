@@ -52,6 +52,11 @@ namespace Neptune.Build
         /// </summary>
         public abstract string ProgramDatabaseFileExtension { get; }
 
+        /// <summary>
+        /// Gets a value indicating whether that platform supports using executable file as a reference when linking shared library. Otherwise, platform enforces monolithic linking or separate shared libraries usage.
+        /// </summary>
+        public virtual bool HasExecutableFileReferenceSupport => false;
+
         public static Platform GetPlatform(TargetPlatform targetPlatform)
         {
             if (_platforms == null)

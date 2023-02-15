@@ -34,5 +34,21 @@ namespace Neptune.Build
             Modules.Add("Main");
             Modules.Add("Engine");
         }
+
+        public override void SetupTargetEnvironment(BuildOptions options)
+        {
+            base.SetupTargetEnvironment(options);
+
+            if (UseSeparateMainExecutable(options))
+            {
+                // TODO If building engine executable for platform doesn't support referencing it when linking game shared libraries
+                throw new NotImplementedException();
+            }
+        }
+
+        private bool UseSeparateMainExecutable(BuildOptions buildOptions)
+        {
+            return OutputType == TargetOutputType.Executable && !buildOptions.Platform.HasExecutableFileReferenceSupport;
+        }
     }
 }
