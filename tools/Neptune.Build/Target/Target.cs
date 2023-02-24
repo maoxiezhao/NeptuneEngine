@@ -113,6 +113,8 @@ namespace Neptune.Build
 
         public virtual void Init()
         {
+            GlobalDefinitions.Add("UNICODE");
+            GlobalDefinitions.Add("_UNICODE");
         }
 
         public virtual void PreBuild()
