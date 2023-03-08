@@ -12,6 +12,12 @@ namespace Neptune.Build
         {
             base.Setup(options);
 
+            if (Name != "Core")
+            {
+                // All Engine modules include Core module
+                options.PrivateDependencies.Add("Core");
+            }
+
             BinaryModuleName = "NeptuneEngine";
         }
     }
