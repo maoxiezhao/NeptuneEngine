@@ -120,6 +120,9 @@ namespace Neptune.Build.Generator
             List<Module> modulesSorted = buildData.ModulesOrderList.ToList();
             foreach (var module in modulesSorted)
             {
+                if (module.GenerateCodes == false)
+                    continue;
+
                 if (!buildData.BinaryModules.Any(x => x.Contains(module)))
                     continue;
 

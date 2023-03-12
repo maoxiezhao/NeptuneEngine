@@ -13,6 +13,7 @@ namespace Neptune.Build
         public string FilePath;
         public string FolderPath;
         public string BinaryModuleName;
+        public bool GenerateCodes = true;
 
         public Module()
         {

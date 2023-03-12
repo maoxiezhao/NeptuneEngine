@@ -138,6 +138,8 @@ namespace Neptune.Build
             options.CompileEnv.PreprocessorDefinitions.Add("WIN32");
             if (Architecture == TargetArchitecture.x64)
                 options.CompileEnv.PreprocessorDefinitions.Add("WIN64");
+            options.CompileEnv.PreprocessorDefinitions.Add("_CRT_SECURE_NO_DEPRECATE");
+            options.CompileEnv.PreprocessorDefinitions.Add("_CRT_SECURE_NO_WARNINGS");
 
             options.LinkEnv.InputLibraries.Add("dwmapi.lib");
             options.LinkEnv.InputLibraries.Add("kernel32.lib");
