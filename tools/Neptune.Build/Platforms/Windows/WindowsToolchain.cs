@@ -19,6 +19,11 @@ namespace Neptune.Build
         v10_0_19041_0,
 
         /// <summary>
+        /// Windows 11 SDK (10.0.22000.0) 22H2
+        /// </summary>
+        v10_0_22000_0,
+
+        /// <summary>
         /// Windows 11 SDK (10.0.22621.0) 22H2
         /// </summary>
         v10_0_22621_0,
@@ -102,6 +107,7 @@ namespace Neptune.Build
             switch (SDK)
             {
             case WindowsPlatformSDK.v10_0_19041_0:
+            case WindowsPlatformSDK.v10_0_22000_0:
             case WindowsPlatformSDK.v10_0_22621_0:
             {
                 var sdkVersionName = WindowsPlatform.GetSDKVersion(SDK).ToString();

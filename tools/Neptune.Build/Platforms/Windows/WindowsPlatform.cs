@@ -127,6 +127,7 @@ namespace Neptune.Build
         private static WindowsPlatformSDK[] win10Sdks = new[]
         {
             WindowsPlatformSDK.v10_0_19041_0,
+            WindowsPlatformSDK.v10_0_22000_0,
             WindowsPlatformSDK.v10_0_22621_0,
         };
 
@@ -177,7 +178,7 @@ namespace Neptune.Build
                             }
                         }
                         if (unknown)
-                            Log.Warning(string.Format("Unknown Windows 10 SDK version {0} at {1}", version, sdk10));
+                            Log.Error(string.Format("Unknown Windows SDK version {0} at {1}", version, sdk10));
                     }
                 }
             }
@@ -252,6 +253,7 @@ namespace Neptune.Build
             switch (sdk)
             {
             case WindowsPlatformSDK.v10_0_19041_0: return new Version(10, 0, 19041, 0);
+            case WindowsPlatformSDK.v10_0_22000_0: return new Version(10, 0, 22000, 0);
             case WindowsPlatformSDK.v10_0_22621_0: return new Version(10, 0, 22621, 0);
             default: throw new ArgumentOutOfRangeException(nameof(sdk), sdk, null);
             }
