@@ -116,13 +116,34 @@ namespace Neptune.Build
         {
             switch (output)
             {
-                case LinkerOutput.Executable: 
+                case LinkerOutput.Executable:
                     return name + ExecutableFileExtension;
-                case LinkerOutput.SharedLibrary: 
+                case LinkerOutput.SharedLibrary:
                     return name + SharedLibraryFileExtension;
                 case LinkerOutput.StaticLibrary:
                     return name + StaticLibraryFileExtension;
                 default: throw new ArgumentOutOfRangeException(nameof(output), output, null);
+            }
+        }
+
+        public static TargetPlatform BuildTargetPlatform
+        {
+            get
+            {
+                OperatingSystem os = Environment.OSVersion;
+                PlatformID platformId = os.Platform;
+                switch (platformId)
+                {
+                    case PlatformID.Win32NT:
+                    case PlatformID.Win32S:
+                    case PlatformID.Win32Windows:
+                    case PlatformID.WinCE:
+                        return TargetPlatform.Windows;
+                    case PlatformID.Unix:
+                        return TargetPlatform.Linux;
+
+                    default: throw new NotImplementedException(string.Format("Unsupported build platform {0}.", platformId));
+                }
             }
         }
     }

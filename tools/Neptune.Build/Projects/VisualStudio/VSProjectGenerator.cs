@@ -99,7 +99,7 @@ namespace Neptune.Build
             {
                 fileType = "ClInclude";
             }
-            else if (file.EndsWith(".cpp", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".cc", StringComparison.OrdinalIgnoreCase))
+            else if (file.EndsWith(".cpp", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".cc", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".c", StringComparison.OrdinalIgnoreCase))
             {
                 fileType = "ClCompile";
             }
