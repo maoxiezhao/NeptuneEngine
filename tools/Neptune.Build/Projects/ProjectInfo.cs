@@ -6,7 +6,14 @@ using Newtonsoft.Json;
 
 namespace Neptune.Build
 {
-    public class ProjectInfo
+    public class ProjectVersion
+    {
+        public int Major { get; set; }
+        public int Minor { get; set; }
+        public int Build { get; set; }
+    }
+
+    public sealed class ProjectInfo
     {
         private static List<ProjectInfo> _projectsCache;
 
@@ -16,6 +23,9 @@ namespace Neptune.Build
         public string ProjectFolderPath;
 
         public string Name;
+
+        public ProjectVersion ProjectVersion;
+        [NonSerialized]
         public Version Version;
         public string Author = string.Empty;
         public string Copyright = string.Empty;
@@ -68,6 +78,17 @@ namespace Neptune.Build
                 ProjectInfo projectInfo = JsonConvert.DeserializeObject<ProjectInfo>(contents);
                 projectInfo.ProjectPath = path;
                 projectInfo.ProjectFolderPath = Path.GetDirectoryName(path);
+
+                if (string.IsNullOrEmpty(projectInfo.Name))
+                    throw new Exception("Missing project name.");
+
+                if (projectInfo.ProjectVersion == null)
+                    projectInfo.Version = new Version(1, 0);
+                if (projectInfo.ProjectVersion.Build == 0 && projectInfo.Version.Revision == -1)
+                    projectInfo.Version = new Version(projectInfo.ProjectVersion.Major, projectInfo.ProjectVersion.Minor);
+                else
+                    projectInfo.Version = new Version(projectInfo.ProjectVersion.Major, projectInfo.ProjectVersion.Minor, projectInfo.ProjectVersion.Build);
+
 
                 foreach (var reference in projectInfo.References)
                 {
