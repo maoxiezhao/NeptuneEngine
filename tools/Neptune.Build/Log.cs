@@ -48,6 +48,14 @@ namespace Neptune.Build
             Write(message, ConsoleColor.Red);
         }
 
+        public static void LogOnce(string message, ref bool flag) 
+        {
+            if (flag)
+                return;
+            flag = true;
+            Write(message, Console.ForegroundColor);
+        }
+
         public static void Exception(Exception ex)
         {
             Write(string.Format("Exception: {0}", ex.Message), ConsoleColor.Red);
